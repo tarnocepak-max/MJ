@@ -113,70 +113,74 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
   };
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-lg lg:max-w-5xl mx-auto space-y-4">
       {/* Top Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white p-5 sm:p-6 shadow-md relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20">
-              <MessageSquare className="w-6 h-6 text-emerald-200" />
+      <div className="rounded-2xl bg-gradient-to-br from-[#15803D] via-[#16A36A] to-[#0D9488] text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20">
+              <MessageSquare className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold tracking-tight">
-                Pusat Komunikasi WhatsApp Teknisi
+              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight">
+                Pusat WhatsApp Pelanggan
               </h2>
-              <p className="text-xs text-emerald-100/90 mt-0.5">
-                Konfirmasi jadwal pelanggan, notifikasi teknisi menuju lokasi, dan template pesan resmi.
+              <p className="text-xs text-emerald-50/90 mt-0.5">
+                Konfirmasi jadwal, pesan template resmi, dan notifikasi teknisi menuju lokasi.
               </p>
             </div>
           </div>
-          <div className="px-3.5 py-1.5 rounded-xl bg-white/20 backdrop-blur-md text-xs font-bold text-white shrink-0 self-start sm:self-auto border border-white/25">
+          <div className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white shrink-0 self-start sm:self-auto border border-white/25 tabular-nums">
             {myTickets.length} Tiket Pelanggan
           </div>
         </div>
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 shadow-sm space-y-3">
+      <div className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-3.5 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Status Buttons */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
+              type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 min-h-[36px] rounded-xl text-xs font-bold transition-all cursor-pointer tabular-nums ${
                 statusFilter === 'all'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-purple-950/60 text-[#756B8D] dark:text-purple-300 hover:bg-slate-200'
+                  ? 'bg-[#431599] text-white shadow-xs'
+                  : 'bg-[#F7F6FA] dark:bg-purple-950/60 text-[#494453] dark:text-purple-300 hover:bg-[#EFE9FA]'
               }`}
             >
               Semua ({myTickets.length})
             </button>
             <button
+              type="button"
               onClick={() => setStatusFilter('unconfirmed')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 min-h-[36px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'unconfirmed'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-purple-950/60 text-[#756B8D] dark:text-purple-300 hover:bg-slate-200'
+                  ? 'bg-[#E59A27] text-white shadow-xs'
+                  : 'bg-[#F7F6FA] dark:bg-purple-950/60 text-[#494453] dark:text-purple-300 hover:bg-[#EFE9FA]'
               }`}
             >
               Perlu Konfirmasi
             </button>
             <button
+              type="button"
               onClick={() => setStatusFilter('confirmed')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 min-h-[36px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'confirmed'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-purple-950/60 text-[#756B8D] dark:text-purple-300 hover:bg-slate-200'
+                  ? 'bg-[#16A36A] text-white shadow-xs'
+                  : 'bg-[#F7F6FA] dark:bg-purple-950/60 text-[#494453] dark:text-purple-300 hover:bg-[#EFE9FA]'
               }`}
             >
               Terkonfirmasi
             </button>
             <button
+              type="button"
               onClick={() => setStatusFilter('reschedule')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 min-h-[36px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'reschedule'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-purple-950/60 text-[#756B8D] dark:text-purple-300 hover:bg-slate-200'
+                  ? 'bg-[#3977C9] text-white shadow-xs'
+                  : 'bg-[#F7F6FA] dark:bg-purple-950/60 text-[#494453] dark:text-purple-300 hover:bg-[#EFE9FA]'
               }`}
             >
               Reschedule
@@ -185,13 +189,13 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
 
           {/* Search */}
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-3" />
             <input
               type="text"
               placeholder="Cari nama, WO, atau telp..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-purple-900/50 bg-slate-50 dark:bg-[#160D29] text-[#21183A] dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-9 pr-3 py-2.5 min-h-[40px] text-xs rounded-xl border border-[#E9E5F0] dark:border-purple-900/50 bg-[#F7F6FA] dark:bg-[#160D29] text-[#211A2E] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#16A36A]"
             />
           </div>
         </div>
@@ -199,12 +203,12 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
 
       {/* Ticket List for WhatsApp */}
       {filteredTickets.length === 0 ? (
-        <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#1E1135] border border-[#D8CCF3] dark:border-[#3B1D78] space-y-2">
-          <MessageSquare className="w-10 h-10 text-slate-400 mx-auto" />
-          <h4 className="text-sm font-bold text-[#21183A] dark:text-white">
+        <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#1E1135] border border-[#E9E5F0] dark:border-[#3B1D78] space-y-2">
+          <MessageSquare className="w-10 h-10 text-[#8B8495] mx-auto" />
+          <h4 className="font-display text-sm font-bold text-[#211A2E] dark:text-white">
             Tidak Ada Work Order yang Cocok
           </h4>
-          <p className="text-xs text-[#756B8D] dark:text-slate-400">
+          <p className="text-xs text-[#766B83] dark:text-slate-400">
             Tidak ditemukan tiket pelanggan sesuai filter yang dipilih.
           </p>
         </div>
@@ -213,66 +217,70 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
           {filteredTickets.map(ticket => (
             <div
               key={ticket.id}
-              className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
+              className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-extrabold text-[#5B35B1] dark:text-purple-300">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-extrabold text-[#431599] dark:text-purple-300">
                       {ticket.woNumber || ticket.ticketNumber || 'WO-Unknown'}
                     </span>
                     <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
                   </div>
-                  <h3 className="font-bold text-sm text-[#21183A] dark:text-white mt-1">
+                  <h3 className="font-display font-bold text-sm text-[#211A2E] dark:text-white mt-1">
                     {ticket.customerName || 'Nama Pelanggan'}
                   </h3>
-                  <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  <div className="flex items-center gap-2 text-xs font-medium text-[#16A36A] dark:text-emerald-400 mt-0.5 tabular-nums">
                     <Phone className="w-3.5 h-3.5" />
                     <span>{ticket.customerPhone || 'Tidak ada nomor telepon'}</span>
                     {ticket.customerPhone && (
                       <button
+                        type="button"
                         onClick={(e) => handleCopyPhone(e, ticket.customerPhone, ticket.id)}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                        className="text-[#8B8495] hover:text-[#211A2E] dark:hover:text-slate-200 cursor-pointer p-1"
                         title="Salin nomor"
                       >
-                        {copiedId === ticket.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedId === ticket.id ? <Check className="w-3.5 h-3.5 text-[#16A36A]" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     )}
                   </div>
                 </div>
 
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F1FF] dark:bg-purple-950/70 text-[#431599] dark:text-purple-300 shrink-0 tabular-nums">
                   {ticket.slotTime || 'Hari ini'}
                 </span>
               </div>
 
-              <div className="text-xs text-[#756B8D] dark:text-slate-400 flex items-start gap-1.5 bg-slate-50 dark:bg-[#160D29] p-2.5 rounded-xl border border-slate-100 dark:border-purple-900/30">
-                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-[#494453] dark:text-slate-400 flex items-start gap-1.5 bg-[#F7F6FA] dark:bg-[#160D29] p-2.5 rounded-xl border border-[#E9E5F0] dark:border-purple-900/30">
+                <MapPin className="w-3.5 h-3.5 text-[#431599] shrink-0 mt-0.5" />
                 <span className="line-clamp-2">
                   {ticket.streetName || ticket.clusterName || ticket.area || 'Alamat tidak tersedia'}
                 </span>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-purple-900/30">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E9E5F0] dark:border-purple-900/30">
                 <button
+                  type="button"
                   onClick={() => onSelectTicket(ticket)}
-                  className="px-3 py-1.5 text-xs font-bold text-[#5B35B1] dark:text-purple-300 hover:underline cursor-pointer"
+                  className="px-2.5 py-2 min-h-[38px] text-xs font-bold text-[#431599] dark:text-purple-300 hover:underline cursor-pointer"
                 >
                   Lihat Detail WO
                 </button>
 
                 <div className="flex items-center gap-1.5">
                   <button
+                    type="button"
                     onClick={() => onOpenWhatsAppModal(ticket)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-purple-950/70 hover:bg-slate-200 dark:hover:bg-purple-900 text-xs font-bold text-[#21183A] dark:text-white transition-all cursor-pointer"
+                    className="px-3 py-2 min-h-[38px] rounded-xl bg-[#F5F1FF] dark:bg-purple-950/70 hover:bg-[#EFE9FA] text-xs font-bold text-[#431599] dark:text-white transition-all cursor-pointer"
                   >
                     Pilih Template
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => handleDirectWA(ticket)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded-xl bg-[#16A36A] hover:bg-[#15803D] text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Kirim WA</span>

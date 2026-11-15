@@ -1,0 +1,301 @@
+Periksa code html & lampiran foto untuk redesign aplikasi dan wajib tidak mengubah appflow morajaws.
+
+Pastikan fitur & tombol sesuai dengan foto dan validasi frontend & backend agar saling terintegrasi. 
+
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&amp;family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;min-height:100vh;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-error-container": "#93000a", "on-primary-fixed-variant": "#522aa7", "outline": "#7a7484", "text-primary": "#211A2E", "surface-variant": "#eaddfa", "inverse-on-surface": "#f7edff", "soft-lilac": "#E9D5FF", "on-error": "#ffffff", "surface-container-highest": "#eaddfa", "surface-container-lowest": "#ffffff", "secondary-fixed": "#e9ddff", "on-tertiary-container": "#cab8ff", "light-canvas": "#F7F6FA", "primary-fixed": "#e9ddff", "tertiary-fixed-dim": "#cebdff", "outline-variant": "#cbc3d5", "error-container": "#ffdad6", "light-canvas-tinted": "#F5F1FF", "background": "#fef7ff", "text-muted": "#8B8495", "on-tertiary-fixed": "#21005e", "status-warning": "#E59A27", "surface": "#fef7ff", "inverse-surface": "#342d42", "border-lilac": "#D8CCF3", "surface-container-low": "#f9f0ff", "status-info": "#3977C9", "tertiary-container": "#583ba6", "surface-tint": "#6a46c1", "primary": "#431599", "surface-white": "#FFFFFF", "surface-bright": "#fef7ff", "status-danger": "#DC4C5A", "lilac-glow": "#D8B4FE", "on-surface": "#1f182c", "lilac-accent": "#A78BFA", "border-subtle": "#E9E5F0", "primary-container": "#5b35b1", "on-primary": "#ffffff", "on-surface-variant": "#494453", "tertiary": "#40208d", "inverse-primary": "#d0bcff", "text-secondary": "#766B83", "secondary-container": "#e4d6ff", "on-primary-container": "#ccb7ff", "secondary-fixed-dim": "#cec0e8", "brand-gloss-purple": "#7135B5", "on-tertiary-fixed-variant": "#4f319c", "primary-fixed-dim": "#d0bcff", "brand-deep-purple": "#35105E", "on-secondary-fixed-variant": "#4b4162", "surface-container": "#f4eaff", "on-tertiary": "#ffffff", "on-primary-fixed": "#22005c", "on-secondary-fixed": "#1f1634", "brand-dark-purple": "#160D29", "on-secondary-container": "#665b7e", "status-success": "#16A36A", "tertiary-fixed": "#e8ddff", "on-secondary": "#ffffff", "on-background": "#1f182c", "surface-container-high": "#f0e3ff", "surface-dim": "#e1d5f1", "secondary": "#63597b", "error": "#ba1a1a" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "margin-desktop": "2rem", "space-lg": "1rem", "margin": "1rem", "space-sm": "0.5rem", "gutter-desktop": "1.5rem", "space-xs": "0.25rem", "gutter": "1rem", "space-xl": "1.5rem", "space-md": "0.75rem" }, fontFamily: { "body-base": ["Inter"], "display-brand": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "label-caps": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"], "body-compact": ["Inter"], "headline-lg": ["Plus Jakarta Sans"], "code-mono": ["Courier Prime"], "label-nav": ["Inter"], "kpi-metric-mobile": ["Plus Jakarta Sans"], "kpi-metric": ["Plus Jakarta Sans"] }, fontSize: { "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-brand": ["28px", { "lineHeight": "34px", "fontWeight": "800" }], "headline-md": ["18px", { "lineHeight": "26px", "fontWeight": "700" }], "label-caps": ["11px", { "lineHeight": "14px", "fontWeight": "700" }], "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "700" }], "body-compact": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }], "code-mono": ["12px", { "lineHeight": "16px", "fontWeight": "600" }], "label-nav": ["10px", { "lineHeight": "12px", "fontWeight": "600" }], "kpi-metric-mobile": ["20px", { "lineHeight": "26px", "fontWeight": "700" }], "kpi-metric": ["24px", { "lineHeight": "32px", "fontWeight": "700" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-light-canvas font-body-base text-body-base text-text-primary min-h-screen flex flex-col antialiased selection:bg-soft-lilac selection:text-brand-deep-purple"><header class="fixed top-0 w-full z-50 pt-safe bg-surface-white/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(27,18,48,0.06)]"><div class="h-20 px-space-md flex flex-col justify-center gap-space-xs"><div class="flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-container to-brand-gloss-purple flex items-center justify-center text-surface-white shadow-sm"><span class="material-symbols-outlined text-[18px]">cell_tower</span></div><div class="flex flex-col"><div class="flex items-center gap-space-xs"><span class="font-headline-md text-headline-md tracking-tight text-brand-dark-purple leading-none">MoraJaws</span><span class="px-1.5 py-0.5 rounded-full bg-soft-lilac/50 text-primary font-label-caps text-label-caps tracking-wider uppercase">FTTH</span></div><span class="font-body-compact text-body-compact text-text-secondary truncate max-w-[190px]">Andi Saputra · PT Mitra Jaringan Solusi</span></div></div><div class="flex items-center gap-space-xs"><span class="font-code-mono text-code-mono text-text-muted hidden min-[360px]:inline-block">15 Nov 2026</span><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><div class="flex items-center justify-between pt-0.5"><div class="flex items-center gap-space-xs"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-primary font-label-caps text-label-caps"><span class="w-1.5 h-1.5 rounded-full bg-status-success"></span>Cloud Live</span><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-text-secondary font-code-mono text-code-mono"><span class="material-symbols-outlined text-[12px] text-status-success">cloud_done</span>0 Pending</span></div><div class="flex items-center"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-low text-primary font-label-caps text-label-caps uppercase"><span class="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse"></span>Online</span></div></div></div></header><main class="flex flex-col relative w-full pt-20 pb-28 px-space-md bg-light-canvas flex-1"><div class="flex flex-col w-full gap-space-lg">
+<section class="bg-surface-white rounded-xl p-space-md shadow-sm flex flex-col gap-space-sm relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-28 h-28 bg-soft-lilac/30 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-status-success animate-ping"></span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-primary font-bold">Teknisi Lapangan FTTH</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-text-secondary font-code-mono text-code-mono">
+<span class="material-symbols-outlined text-[13px] text-status-success">verified</span>
+        Offline Siap (0 Antrean)
+      </span>
+</div>
+<div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-text-primary tracking-tight">Selamat Pagi, Andi Saputra</h2>
+<p class="font-body-compact text-body-compact text-text-secondary">Cluster Melati &amp; Cilandak · Korlap: Budi Santoso</p>
+</div>
+<div class="bg-light-canvas-tinted rounded-lg p-space-sm flex flex-col gap-1.5 mt-0.5">
+<div class="flex items-center justify-between font-body-compact text-body-compact">
+<span class="text-text-primary font-medium">Progres Kuota Harian</span>
+<span class="font-bold text-primary">5 / 6 WO (83%)</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-container to-brand-gloss-purple rounded-full w-[83%] transition-all duration-500"></div>
+</div>
+<div class="flex items-center justify-between text-text-secondary font-label-caps text-label-caps">
+<span>Sisa 1 slot WO hari ini</span>
+<span class="text-status-warning font-bold">1 Menunggu Approval</span>
+</div>
+</div>
+</section>
+<section class="grid grid-cols-2 gap-space-sm">
+<div class="bg-surface-white rounded-xl p-space-sm shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-text-secondary">
+<span class="font-label-caps text-label-caps uppercase">Belum Dimulai</span>
+<span class="material-symbols-outlined text-[18px] text-text-muted">pending_actions</span>
+</div>
+<div class="flex items-baseline gap-1.5 mt-2">
+<span class="font-kpi-metric-mobile text-kpi-metric-mobile text-text-primary">1</span>
+<span class="font-body-compact text-body-compact text-text-secondary">WO (Slot 3)</span>
+</div>
+</div>
+<div class="bg-surface-white rounded-xl p-space-sm shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-primary">
+<span class="font-label-caps text-label-caps uppercase font-bold">Aktif Pengerjaan</span>
+<span class="material-symbols-outlined text-[18px] text-primary animate-pulse">autorenew</span>
+</div>
+<div class="flex items-baseline gap-1.5 mt-2">
+<span class="font-kpi-metric-mobile text-kpi-metric-mobile text-primary">1</span>
+<span class="font-body-compact text-body-compact text-text-secondary">WO20267399330</span>
+</div>
+</div>
+<div class="bg-surface-white rounded-xl p-space-sm shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-status-success">
+<span class="font-label-caps text-label-caps uppercase">Selesai Lapangan</span>
+<span class="material-symbols-outlined text-[18px] text-status-success">task_alt</span>
+</div>
+<div class="flex items-baseline gap-1.5 mt-2">
+<span class="font-kpi-metric-mobile text-kpi-metric-mobile text-status-success">3</span>
+<span class="font-body-compact text-body-compact text-text-secondary">WO (Slot 1 &amp; 2)</span>
+</div>
+</div>
+<div class="bg-surface-white rounded-xl p-space-sm shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-status-warning">
+<span class="font-label-caps text-label-caps uppercase">Verifikasi Dispatch</span>
+<span class="material-symbols-outlined text-[18px] text-status-warning">hourglass_top</span>
+</div>
+<div class="flex items-baseline gap-1.5 mt-2">
+<span class="font-kpi-metric-mobile text-kpi-metric-mobile text-status-warning">1</span>
+<span class="font-body-compact text-body-compact text-text-secondary">Cek Redaman</span>
+</div>
+</div>
+</section>
+<section class="bg-surface-white rounded-xl shadow-md p-space-md flex flex-col gap-space-md relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-code-mono text-code-mono font-bold text-primary tracking-wide">WO20267399330</span>
+<span class="px-2 py-0.5 rounded-full bg-status-danger text-surface-white font-label-caps text-label-caps uppercase">Sameday Express</span>
+</div>
+<span class="font-body-compact text-body-compact text-text-muted mt-0.5">Slot 1 · Target 09:00 - 11:00 WIB</span>
+</div>
+<span class="flex h-3 w-3 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+</span>
+</div>
+<div class="bg-light-canvas rounded-lg p-space-sm flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-text-primary">Haji Sulaiman</h3>
+<span class="font-code-mono text-code-mono text-text-secondary">ID: 7399330</span>
+</div>
+<div class="flex items-start gap-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">location_on</span>
+<p class="font-body-compact text-body-compact text-text-secondary leading-snug">
+          Cluster Melati Residence Blok C4/12, Jl. Kemang Timur No. 44, Kemang, Mampang Prapatan, Jakarta Selatan
+        </p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-space-xs">
+<a class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-primary hover:bg-surface-container active:scale-95 transition-all text-center min-h-[48px]" data-location="Cluster Melati Residence Blok C4 No 12, Kemang Timur, Jakarta Selatan" href="#">
+<span class="material-symbols-outlined text-[20px]">directions</span>
+<span class="font-label-caps text-label-caps mt-1">Google Maps</span>
+</a>
+<a class="flex flex-col items-center justify-center p-2 rounded-lg bg-status-success text-surface-white hover:opacity-95 active:scale-95 transition-all text-center min-h-[48px]" href="#">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span class="font-label-caps text-label-caps mt-1">WhatsApp</span>
+</a>
+<a class="flex flex-col items-center justify-center p-2 rounded-lg bg-surface-container-low text-status-danger hover:bg-surface-container active:scale-95 transition-all text-center min-h-[48px]" href="#">
+<span class="material-symbols-outlined text-[20px]">sos</span>
+<span class="font-label-caps text-label-caps mt-1">Darurat</span>
+</a>
+</div>
+<div class="flex flex-col gap-1.5 pt-1">
+<span class="font-label-caps text-label-caps uppercase text-text-muted">4-Dimension Telemetry Badges</span>
+<div class="grid grid-cols-2 gap-1.5 font-label-caps text-label-caps">
+<div class="bg-surface-container rounded-md p-1.5 flex items-center justify-between">
+<span class="text-text-secondary">AGENT</span>
+<span class="text-status-info font-bold uppercase">Assigned</span>
+</div>
+<div class="bg-surface-container rounded-md p-1.5 flex items-center justify-between">
+<span class="text-text-secondary">TEKNISI</span>
+<span class="text-primary font-bold uppercase">In Progress</span>
+</div>
+<div class="bg-surface-container rounded-md p-1.5 flex items-center justify-between">
+<span class="text-text-secondary">WA STATUS</span>
+<span class="text-status-success font-bold uppercase">Confirmed</span>
+</div>
+<div class="bg-surface-container rounded-md p-1.5 flex items-center justify-between">
+<span class="text-text-secondary">APPROVAL</span>
+<span class="text-status-warning font-bold uppercase">Menunggu Laporan</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-1 text-text-secondary font-code-mono text-code-mono mt-1">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> Mulai: 09:14 WIB</span>
+<span class="text-primary font-bold">Durasi: 38 Menit</span>
+</div>
+</div>
+</section>
+<section class="bg-surface-white rounded-xl shadow-sm p-space-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="font-headline-md text-headline-md text-text-primary tracking-tight">SOP Check-in &amp; Pelaporan</h3>
+<p class="font-body-compact text-body-compact text-text-secondary">Kepatuhan alur teknisi lapangan MORAJAWS</p>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-soft-lilac text-primary font-label-caps text-label-caps">WAJIB</span>
+</div>
+<div class="flex flex-col gap-space-sm relative">
+<div class="flex items-start gap-space-sm">
+<div class="w-6 h-6 rounded-full bg-status-success text-surface-white flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
+          ✓
+        </div>
+<div class="flex flex-col">
+<span class="font-body-base text-body-base font-semibold text-text-primary leading-tight">Step 1: Mulai Kerjakan</span>
+<span class="font-body-compact text-body-compact text-status-success">Tervalidasi pukul 09:14 WIB melalui GPS radius 40m</span>
+</div>
+</div>
+<div class="flex items-start gap-space-sm">
+<div class="w-6 h-6 rounded-full bg-primary text-surface-white flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
+          2
+        </div>
+<div class="flex flex-col">
+<span class="font-body-base text-body-base font-semibold text-primary leading-tight">Step 2: Check-in LiveChat Tag 'PROGRESS'</span>
+<span class="font-body-compact text-body-compact text-text-secondary">Wajib kirim min. 1 update telemetry lapangan sebelum checkout</span>
+</div>
+</div>
+<div class="flex items-start gap-space-sm opacity-60">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest text-text-secondary flex items-center justify-center text-[12px] font-bold shrink-0 mt-0.5">
+          3
+        </div>
+<div class="flex flex-col">
+<span class="font-body-base text-body-base font-semibold text-text-secondary leading-tight">Step 3: Laporan 3-Tingkat Selesai</span>
+<span class="font-body-compact text-body-compact text-text-muted">Formulir siap dibuka setelah validasi check-in</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-space-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between text-status-success">
+<span class="inline-flex items-center gap-1 font-label-caps text-label-caps font-bold">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+          Check-in LiveChat Terverifikasi (09:18 WIB)
+        </span>
+<span class="font-code-mono text-code-mono text-text-secondary">FAT-MEL-02</span>
+</div>
+<div class="bg-surface-white rounded-lg p-space-sm flex flex-col gap-space-xs shadow-sm">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-container text-primary font-label-caps text-label-caps font-bold">
+            [PROGRESS]
+          </span>
+<span class="font-code-mono text-[10px] text-text-muted">09:18 WIB</span>
+</div>
+<p class="font-body-compact text-body-compact text-text-primary">
+          Otw ke tiang FAT-MEL-02, redaman awal terpantau normal. Foto OPM dilampirkan (-18.42 dBm).
+        </p>
+<div class="flex items-center gap-2 mt-1">
+<div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="Optical Power Meter device displaying clean signal measurement -18.42 dBm against outdoor telecommunication pole in daytime lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWuKdrFR3TBN8fc0dMbB3soEX1hI4myR3LQU48zbgf_JGhD-0lnx5s14ybwhaYaPayMktkjqsYoPHvK4MKnS1dI18IzNKZLzrLeqpIAB5cDUiJ5aMQ_k-VvGVDhI-VlM6vjij9s_AuBCecx3CNXwV3RIfLfZEl1VXtv3_A3P4ZUsQG514FDmEj3965p0tOl7amUalnSqSdKcE4r_kaIUsBGBXk8C2-DUwcSDG6GbA"/>
+</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps font-bold text-text-primary">FAT-MEL-02_OPM.jpg</span>
+<span class="font-code-mono text-[10px] text-text-muted">1.4 MB · Upload Berhasil</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 pt-1">
+<div class="flex items-center justify-between text-text-secondary">
+<span class="font-label-caps text-label-caps">Kirim Update Tambahan Cepat</span>
+<span class="font-code-mono text-[10px] text-primary">Kategori: PROGRESS</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button aria-label="Ambil Foto Meteran" class="w-10 h-10 rounded-lg bg-surface-white flex items-center justify-center text-primary shadow-sm active:scale-95 shrink-0" type="button">
+<span class="material-symbols-outlined text-[20px]">photo_camera</span>
+</button>
+<div class="flex-1 relative">
+<input class="w-full h-10 px-3 rounded-lg bg-surface-white text-body-compact text-text-primary placeholder:text-text-muted shadow-sm focus:outline-none focus:ring-1 focus:ring-lilac-accent" placeholder="Tulis catatan lapangan..." type="text"/>
+</div>
+<button aria-label="Kirim Chat Telemetri" class="w-10 h-10 rounded-lg bg-primary text-surface-white flex items-center justify-center shadow-sm active:scale-95 shrink-0" type="button">
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 pt-1">
+<button class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-primary-container to-brand-gloss-purple text-surface-white font-headline-md text-headline-md flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform" type="button">
+<span>Buka Form Laporan 3-Tingkat</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+<button class="w-full py-2.5 px-4 rounded-xl bg-surface-white text-text-primary font-body-base text-body-base font-semibold flex items-center justify-center gap-1.5 active:bg-surface-container transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px] text-text-secondary">contact_support</span>
+<span>Minta Bantuan Korlap / Reschedule</span>
+</button>
+</div>
+</section>
+<section class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between px-1">
+<h3 class="font-headline-md text-headline-md text-text-primary tracking-tight">Antrean WO Berikutnya</h3>
+<span class="font-code-mono text-code-mono text-text-muted">Hari Ini (15 Nov)</span>
+</div>
+<div class="bg-surface-white rounded-xl p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-code-mono font-bold text-text-primary">WO20267399342</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-text-secondary font-label-caps text-label-caps uppercase">Assigned</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-base text-body-base font-bold text-text-primary">Ibu Ratna Kusuma</span>
+<span class="font-body-compact text-body-compact text-text-secondary">Slot 2 (11:00 - 13:00 WIB) · Jl. Bangka Raya No. 18</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<span class="font-code-mono text-code-mono text-text-muted">Jarak Estimasi: 1.8 km</span>
+<button class="px-3 py-1.5 rounded-lg bg-primary text-surface-white font-label-caps text-label-caps uppercase font-bold active:scale-95 transition-transform shadow-sm" type="button">
+          Mulai Kerjakan
+        </button>
+</div>
+</div>
+<div class="bg-surface-white rounded-xl p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-code-mono font-bold text-text-primary">WO20267399350</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-text-secondary font-label-caps text-label-caps uppercase">Assigned</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-base text-body-base font-bold text-text-primary">Dr. Maya Indah</span>
+<span class="font-body-compact text-body-compact text-text-secondary">Slot 3 (13:00 - 15:00 WIB) · Kemang Asri Kav. 7B</span>
+</div>
+<div class="flex items-center justify-between pt-1">
+<span class="font-code-mono text-code-mono text-text-muted">Jarak Estimasi: 3.2 km</span>
+<span class="font-label-caps text-label-caps text-text-muted uppercase">Siaga Slot Siang</span>
+</div>
+</div>
+</section>
+</div>
+<script>
+  (function() {
+    const quickInput = document.querySelector('input[placeholder="Tulis catatan lapangan..."]');
+    const sendBtn = quickInput ? quickInput.parentElement.nextElementSibling : null;
+    if (sendBtn && quickInput) {
+      sendBtn.addEventListener('click', function() {
+        const val = quickInput.value.trim();
+        if (val) {
+          quickInput.value = '';
+          const originalText = sendBtn.innerHTML;
+          sendBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] text-status-success">check</span>';
+          setTimeout(() => {
+            sendBtn.innerHTML = originalText;
+          }, 1500);
+        }
+      });
+    }
+  })();
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface-white/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(27,18,48,0.06)]" data-active-classes="text-primary font-bold"><div class="flex justify-around items-center h-16 px-space-xs"><a aria-current="page" class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-0.5 transition-colors duration-150 text-primary font-bold" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[22px]">home</span><span class="font-label-nav text-label-nav">Dashboard</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-0.5 text-text-secondary transition-colors duration-150 relative" data-path="tugas-saya" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">assignment</span><span class="absolute -top-1 -right-2 px-1 min-w-[16px] h-4 rounded-full bg-status-warning text-surface-white font-label-caps text-[9px] flex items-center justify-center leading-none">3</span></div><span class="font-label-nav text-label-nav">Tugas Saya</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-0.5 text-text-secondary transition-colors duration-150 relative" data-path="whatsapp" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[22px] text-status-success">chat</span><span class="absolute -top-1 -right-2 px-1 min-w-[16px] h-4 rounded-full bg-status-success text-surface-white font-label-caps text-[9px] flex items-center justify-center leading-none">•</span></div><span class="font-label-nav text-label-nav">WhatsApp</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-0.5 text-text-secondary transition-colors duration-150 relative" data-path="live-chat" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">forum</span><span class="absolute -top-1 -right-2 px-1 min-w-[16px] h-4 rounded-full bg-status-danger text-surface-white font-label-caps text-[9px] flex items-center justify-center leading-none">1</span></div><span class="font-label-nav text-label-nav">Live Chat</span></a></div></nav></body></html>

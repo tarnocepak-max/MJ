@@ -119,6 +119,21 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Initial load from Supabase PostgreSQL and subscribe to real-time SSE updates
   useEffect(() => {
+    const hasSession = (() => {
+      try {
+        const raw = localStorage.getItem('morajaws_auth_session');
+        const parsed = raw ? JSON.parse(raw) : null;
+        return Boolean(parsed?.token);
+      } catch {
+        return false;
+      }
+    })();
+
+    if (!hasSession) {
+      setCloudSyncStatus('local_only');
+      return;
+    }
+
     let isMounted = true;
     let unsub: (() => void) | null = null;
 
@@ -132,10 +147,8 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           setLastSyncTime(normalized.updatedAt);
           setCloudSyncStatus('synced');
         } else if (isMounted) {
-          // If not yet in Supabase, seed the default configuration
-          await saveNavigationConfigToSupabase(DEFAULT_NAVIGATION_CONFIG, 'System Init');
-          setCloudSyncStatus('synced');
-          setLastSyncTime(new Date().toISOString());
+          // Do not overwrite/auto-seed on mount when cloud record does not exist yet
+          setCloudSyncStatus('local_only');
         }
 
         // Attach real-time listener
@@ -559,21 +572,27 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Reset to default config
   const resetToDefaultConfig = useCallback(async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string }> => {
+    setIsSaving(true);
+    setCloudSyncStatus('syncing');
     try {
-      setDraftConfig(DEFAULT_NAVIGATION_CONFIG);
-      setNavigationConfig(DEFAULT_NAVIGATION_CONFIG);
       const res = await saveNavigationConfigToSupabase(DEFAULT_NAVIGATION_CONFIG, operatorName + ' (Reset Default)');
       if (res.success) {
+        setDraftConfig(DEFAULT_NAVIGATION_CONFIG);
+        setNavigationConfig(DEFAULT_NAVIGATION_CONFIG);
         setLastSyncTime(res.updatedAt);
         setCloudSyncStatus('synced');
         toast.success('Konfigurasi navigasi berhasil dikembalikan ke standar bawaan MoraJaws.', 'Reset Berhasil');
         return { success: true };
       }
-      return { success: false, error: 'Gagal mereset ke Supabase PostgreSQL' };
+      setCloudSyncStatus('error');
+      return { success: false, error: res.error || 'Gagal mereset ke Supabase PostgreSQL' };
     } catch (err: any) {
       const errMsg = err?.message || 'Gagal mereset konfigurasi navigasi.';
+      setCloudSyncStatus('error');
       toast.error(errMsg, 'Reset Gagal');
       return { success: false, error: errMsg };
+    } finally {
+      setIsSaving(false);
     }
   }, [toast]);
 

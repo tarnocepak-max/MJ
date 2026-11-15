@@ -6,7 +6,13 @@ import {
   HierarchicalStatus,
   DroplistItem
 } from '../types';
-import { supabaseDb } from './supabaseDb';
+import { supabaseDb, formatSupabaseErrorMessage } from './supabaseDb';
+
+function extractAppSettingEvent(payload: any): { key?: string; value?: any } {
+  const key = payload?.record?.key ?? payload?.key ?? payload?.new?.setting_key;
+  const value = payload?.record?.value ?? payload?.value ?? payload?.new?.setting_value;
+  return { key, value };
+}
 
 // Canonical setting keys in Supabase PostgreSQL `public.app_settings`
 export const SETTING_KEYS = {
@@ -544,15 +550,15 @@ export async function saveUIConfigurationToSupabase(
     `UI configuration updated by ${payload.updatedBy || 'Super Admin'}`
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan konfigurasi UI ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan konfigurasi UI ke Supabase PostgreSQL.'));
   }
-  return { success: true, updatedAt };
+  return { success: true, updatedAt: res.updatedAt || updatedAt };
 }
 
 export async function loadUIConfigurationFromSupabase(): Promise<CloudUIConfigurationPayload | null> {
   const res = await supabaseDb.getAppSetting(SETTING_KEYS.UI_CONFIGURATION);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat konfigurasi UI dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat konfigurasi UI dari Supabase PostgreSQL.'));
   }
   if (!res.data) return null;
   return res.data as CloudUIConfigurationPayload;
@@ -566,8 +572,7 @@ export function subscribeToUIConfiguration(
     table: 'app_settings',
     onPayload: (payload) => {
       try {
-        const key = payload?.key || payload?.new?.setting_key;
-        const val = payload?.value ?? payload?.new?.setting_value;
+        const { key, value: val } = extractAppSettingEvent(payload);
         if (key === SETTING_KEYS.UI_CONFIGURATION && val) {
           onUpdate(val as CloudUIConfigurationPayload);
         }
@@ -589,15 +594,15 @@ export async function saveNavigationDocToSupabase(
     `Navigation doc updated by ${docData.updatedBy || 'Super Admin'}`
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.'));
   }
-  return { success: true, updatedAt };
+  return { success: true, updatedAt: res.updatedAt || updatedAt };
 }
 
 export async function loadNavigationDocFromSupabase(): Promise<NavigationConfigDoc | null> {
   const res = await supabaseDb.getAppSetting(SETTING_KEYS.NAVIGATION_DOC);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat konfigurasi navigasi dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat konfigurasi navigasi dari Supabase PostgreSQL.'));
   }
   if (!res.data) return null;
   return res.data as NavigationConfigDoc;
@@ -611,8 +616,7 @@ export function subscribeToNavigationDoc(
     table: 'app_settings',
     onPayload: (payload) => {
       try {
-        const key = payload?.key || payload?.new?.setting_key;
-        const val = payload?.value ?? payload?.new?.setting_value;
+        const { key, value: val } = extractAppSettingEvent(payload);
         if (key === SETTING_KEYS.NAVIGATION_DOC && val) {
           onUpdate(val as NavigationConfigDoc);
         }
@@ -630,7 +634,7 @@ export async function saveGlobalAppSettingsToSupabase(settings: Record<string, a
   const merged = { ...current, ...settings, updatedAt: new Date().toISOString() };
   const res = await supabaseDb.saveAppSetting(SETTING_KEYS.GLOBAL_APP_SETTINGS, merged, 'Global application settings');
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan pengaturan global ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan pengaturan global ke Supabase PostgreSQL.'));
   }
   return true;
 }
@@ -638,7 +642,7 @@ export async function saveGlobalAppSettingsToSupabase(settings: Record<string, a
 export async function loadGlobalAppSettingsFromSupabase(): Promise<Record<string, any> | null> {
   const res = await supabaseDb.getAppSetting(SETTING_KEYS.GLOBAL_APP_SETTINGS);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat pengaturan global dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat pengaturan global dari Supabase PostgreSQL.'));
   }
   return res.data || null;
 }
@@ -658,7 +662,7 @@ export async function saveHierarchicalDroplistsToSupabase(
     '3-Level Hierarchical WO Droplist Configuration'
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan hierarchical droplists ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan hierarchical droplists ke Supabase PostgreSQL.'));
   }
   return true;
 }
@@ -666,7 +670,7 @@ export async function saveHierarchicalDroplistsToSupabase(
 export async function loadHierarchicalDroplistsFromSupabase(): Promise<HierarchicalStatus[] | null> {
   const res = await supabaseDb.getAppSetting(SETTING_KEYS.HIERARCHICAL_DROPLISTS);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat hierarchical droplists dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat hierarchical droplists dari Supabase PostgreSQL.'));
   }
   if (!res.data) return null;
   if (Array.isArray(res.data)) return res.data as HierarchicalStatus[];
@@ -681,7 +685,7 @@ export async function saveGeneralDroplistsToSupabase(items: DroplistItem[]): Pro
     'General static droplist items'
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan droplist statis ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan droplist statis ke Supabase PostgreSQL.'));
   }
   return true;
 }
@@ -705,8 +709,7 @@ export function subscribeToGeneralDroplists(
     table: 'app_settings',
     onPayload: (payload) => {
       try {
-        const key = payload?.key || payload?.new?.setting_key;
-        const val = payload?.value ?? payload?.new?.setting_value;
+        const { key, value: val } = extractAppSettingEvent(payload);
         if (key === SETTING_KEYS.GENERAL_DROPLISTS && val) {
           const items = Array.isArray(val) ? val : val.items;
           if (Array.isArray(items)) onUpdate(items);
@@ -726,7 +729,7 @@ export async function saveChatCategoriesToSupabase(categories: ChatCategoryConfi
     'Contact Center chat categories'
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan kategori chat ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan kategori chat ke Supabase PostgreSQL.'));
   }
   return true;
 }
@@ -734,7 +737,7 @@ export async function saveChatCategoriesToSupabase(categories: ChatCategoryConfi
 export async function loadChatCategoriesFromSupabase(): Promise<ChatCategoryConfig[] | null> {
   const res = await supabaseDb.getAppSetting(SETTING_KEYS.CHAT_CATEGORIES);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat kategori chat dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat kategori chat dari Supabase PostgreSQL.'));
   }
   if (!res.data) return null;
   if (Array.isArray(res.data)) return res.data as ChatCategoryConfig[];
@@ -745,7 +748,7 @@ export async function loadChatCategoriesFromSupabase(): Promise<ChatCategoryConf
 export async function loadReportDropdownCategoriesFromSupabase(): Promise<ReportDropdownCategory[] | null> {
   const res = await supabaseDb.getAppSetting(SETTING_KEYS.REPORT_DROPDOWN_CATEGORIES);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat kategori dropdown report dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat kategori dropdown report dari Supabase PostgreSQL.'));
   }
   if (!res.data) return null;
   if (Array.isArray(res.data)) return res.data as ReportDropdownCategory[];
@@ -772,7 +775,7 @@ export async function saveReportDropdownCategoryToSupabase(
     'Report dropdown categories'
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan kategori dropdown ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan kategori dropdown ke Supabase PostgreSQL.'));
   }
   return true;
 }
@@ -792,7 +795,7 @@ export async function deleteReportDropdownCategoryFromSupabase(
     'Report dropdown categories'
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menghapus kategori dropdown di Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menghapus kategori dropdown di Supabase PostgreSQL.'));
   }
   return true;
 }
@@ -817,7 +820,7 @@ export async function softDeleteReportDropdownCategoryInSupabase(
     'Report dropdown categories'
   );
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal soft-delete kategori dropdown di Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal soft-delete kategori dropdown di Supabase PostgreSQL.'));
   }
   return true;
 }

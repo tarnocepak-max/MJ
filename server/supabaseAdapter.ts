@@ -18,16 +18,24 @@ export interface SupabaseOpError {
   code: string;
   message: string;
   details?: any;
+  hint?: string;
+  httpStatus?: number;
+  table?: string;
+  operation?: string;
   isConnectionError?: boolean;
   isSchemaError?: boolean;
   isDuplicate?: boolean;
   isNotFound?: boolean;
   isUnavailable?: boolean;
+  isPermissionError?: boolean;
+  isValidationError?: boolean;
 }
 
 export interface SupabaseOpResult<T = any> {
   success: boolean;
   data?: T;
+  record?: any;
+  updatedAt?: string;
   error?: SupabaseOpError;
 }
 
@@ -52,18 +60,40 @@ export interface DateValidationResult {
 
 /**
  * Classifies Supabase / PostgREST errors into structured, distinguishable categories.
- * Differentiates network connection, missing schema, duplicate conflicts, and not found.
+ * Differentiates network connection, missing schema, permission/RLS, validation, duplicate conflicts, and not found.
  */
-export function classifySupabaseError(error: any): SupabaseOpError {
+export function classifySupabaseError(
+  error: any,
+  context?: { table?: string; operation?: string }
+): SupabaseOpError {
   const code = String(error?.code || '').toUpperCase();
   const msg = String(error?.message || '').toLowerCase();
 
   const isSchemaError =
     code === 'PGRST205' ||
+    code === 'PGRST204' ||
     code === '42P01' ||
+    code === '42703' ||
     msg.includes('schema cache') ||
     msg.includes('does not exist') ||
     msg.includes('relation');
+
+  const isPermissionError =
+    code === '42501' ||
+    code === 'PGRST301' ||
+    msg.includes('permission denied') ||
+    msg.includes('row-level security') ||
+    msg.includes('insufficient privilege');
+
+  const isValidationError =
+    code === '22P02' ||
+    code === '23502' ||
+    code === '23514' ||
+    code === '22001' ||
+    code === 'PGRST102' ||
+    msg.includes('invalid input syntax') ||
+    msg.includes('violates not-null constraint') ||
+    msg.includes('violates check constraint');
 
   const isDuplicate =
     code === '23505' ||
@@ -87,15 +117,34 @@ export function classifySupabaseError(error: any): SupabaseOpError {
 
   const isUnavailable = isConnectionError || isSchemaError || code === 'NOT_CONFIGURED';
 
+  let httpStatus = 500;
+  if (isUnavailable) {
+    httpStatus = 503;
+  } else if (isPermissionError) {
+    httpStatus = 403;
+  } else if (isDuplicate) {
+    httpStatus = 409;
+  } else if (isValidationError) {
+    httpStatus = 400;
+  } else if (isNotFound) {
+    httpStatus = 404;
+  }
+
   return {
     code: error?.code || 'DB_ERROR',
     message: error?.message || 'Database operation failed',
     details: error?.details || undefined,
+    hint: error?.hint || undefined,
+    httpStatus,
+    table: context?.table,
+    operation: context?.operation,
     isConnectionError,
     isSchemaError,
     isDuplicate,
     isNotFound,
-    isUnavailable
+    isUnavailable,
+    isPermissionError,
+    isValidationError
   };
 }
 
@@ -2665,22 +2714,51 @@ export async function deleteWaTemplateInSupabase(id: string): Promise<SupabaseOp
 export async function getAppSettingFromSupabase(key: string): Promise<SupabaseOpResult<any>> {
   const client = getSupabaseBackendClient();
   if (!client) {
-    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+    return {
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Supabase client belum dikonfigurasi pada server.',
+        httpStatus: 503,
+        table: 'app_settings',
+        operation: 'SELECT',
+        isUnavailable: true
+      }
+    };
   }
 
   if (!key || typeof key !== 'string' || !key.trim()) {
-    return { success: false, error: { code: 'INVALID_KEY', message: 'Kunci setting wajib diisi.' } };
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_KEY',
+        message: 'Kunci setting wajib diisi.',
+        httpStatus: 400,
+        table: 'app_settings',
+        operation: 'SELECT',
+        isValidationError: true
+      }
+    };
   }
 
+  const cleanKey = key.trim();
   try {
     const { data, error } = await client
       .from('app_settings')
-      .select('*')
-      .eq('setting_key', key.trim())
+      .select('setting_key, setting_value, description, updated_by, created_at, updated_at')
+      .eq('setting_key', cleanKey)
       .maybeSingle();
 
     if (error) {
-      const classified = classifySupabaseError(error);
+      const classified = classifySupabaseError(error, { table: 'app_settings', operation: 'SELECT' });
+      console.error('[Supabase DAL] getAppSetting error:', {
+        table: 'app_settings',
+        operation: 'SELECT',
+        key: cleanKey,
+        code: classified.code,
+        httpStatus: classified.httpStatus,
+        message: classified.message
+      });
       return { success: false, error: classified };
     }
 
@@ -2688,15 +2766,20 @@ export async function getAppSettingFromSupabase(key: string): Promise<SupabaseOp
     if (val && typeof val === 'object' && 'value' in val && Object.keys(val).length === 1) {
       val = val.value;
     }
-    return { success: true, data: val };
+    return {
+      success: true,
+      data: val,
+      record: data || null,
+      updatedAt: data?.updated_at
+    };
   } catch (err: any) {
-    const classified = classifySupabaseError(err);
+    const classified = classifySupabaseError(err, { table: 'app_settings', operation: 'SELECT' });
     return { success: false, error: classified };
   }
 }
 
 /**
- * Upserts application setting in public.app_settings.
+ * Upserts application setting in public.app_settings with explicit PostgreSQL confirmation.
  */
 export async function saveAppSettingToSupabase(
   key: string,
@@ -2706,35 +2789,135 @@ export async function saveAppSettingToSupabase(
 ): Promise<SupabaseOpResult<boolean>> {
   const client = getSupabaseBackendClient();
   if (!client) {
-    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+    return {
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Supabase client belum dikonfigurasi pada server.',
+        httpStatus: 503,
+        table: 'app_settings',
+        operation: 'UPSERT',
+        isUnavailable: true
+      }
+    };
   }
 
   if (!key || typeof key !== 'string' || !key.trim()) {
-    return { success: false, error: { code: 'INVALID_KEY', message: 'Kunci setting wajib diisi.' } };
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_KEY',
+        message: 'Kunci setting wajib diisi.',
+        httpStatus: 400,
+        table: 'app_settings',
+        operation: 'UPSERT',
+        isValidationError: true
+      }
+    };
   }
+
+  if (value === undefined) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_PAYLOAD',
+        message: 'Nilai konfigurasi (value) tidak boleh kosong / undefined.',
+        httpStatus: 400,
+        table: 'app_settings',
+        operation: 'UPSERT',
+        isValidationError: true
+      }
+    };
+  }
+
+  let normalizedJsonValue: any;
+  try {
+    const wrapped = value !== null && typeof value === 'object' ? value : { value };
+    normalizedJsonValue = JSON.parse(JSON.stringify(wrapped));
+  } catch (serializeErr: any) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_JSON_PAYLOAD',
+        message: `Payload setting tidak valid untuk serialisasi JSONB: ${serializeErr?.message || 'Circular/invalid JSON'}`,
+        httpStatus: 400,
+        table: 'app_settings',
+        operation: 'UPSERT',
+        isValidationError: true
+      }
+    };
+  }
+
+  const cleanKey = key.trim();
+  const nowIso = new Date().toISOString();
 
   try {
     const payload = {
-      setting_key: key.trim(),
-      setting_value: value && typeof value === 'object' ? value : { value },
+      setting_key: cleanKey,
+      setting_value: normalizedJsonValue,
       description: description || null,
       updated_by: updatedBy || 'System',
-      updated_at: new Date().toISOString()
+      updated_at: nowIso
     };
 
-    const { error } = await client
+    const { data, error } = await client
       .from('app_settings')
-      .upsert(payload, { onConflict: 'setting_key' });
+      .upsert([payload], { onConflict: 'setting_key' })
+      .select('setting_key, setting_value, description, updated_by, created_at, updated_at')
+      .maybeSingle();
 
     if (error) {
-      const classified = classifySupabaseError(error);
-      console.error('[Supabase DAL] saveAppSetting error:', classified.message);
+      const classified = classifySupabaseError(error, { table: 'app_settings', operation: 'UPSERT' });
+      console.error('[Supabase DAL] saveAppSetting error:', {
+        table: 'app_settings',
+        operation: 'UPSERT',
+        key: cleanKey,
+        code: classified.code,
+        httpStatus: classified.httpStatus,
+        message: classified.message,
+        details: classified.details,
+        hint: classified.hint
+      });
       return { success: false, error: classified };
     }
 
-    return { success: true, data: true };
+    let confirmedRow = data;
+    if (!confirmedRow) {
+      // Fallback confirmation read if PostgREST returned empty representation
+      const { data: verifyRow, error: verifyErr } = await client
+        .from('app_settings')
+        .select('setting_key, setting_value, description, updated_by, created_at, updated_at')
+        .eq('setting_key', cleanKey)
+        .maybeSingle();
+
+      if (verifyErr) {
+        const classified = classifySupabaseError(verifyErr, { table: 'app_settings', operation: 'UPSERT_VERIFY' });
+        return { success: false, error: classified };
+      }
+
+      if (!verifyRow) {
+        return {
+          success: false,
+          error: {
+            code: 'UPSERT_NO_CONFIRMATION',
+            message: `Supabase tidak mengonfirmasi penyimpanan record "${cleanKey}" pada tabel app_settings (kemungkinan terblokir RLS atau constraint).`,
+            httpStatus: 500,
+            table: 'app_settings',
+            operation: 'UPSERT'
+          }
+        };
+      }
+      confirmedRow = verifyRow;
+    }
+
+    return {
+      success: true,
+      data: true,
+      record: confirmedRow,
+      updatedAt: confirmedRow?.updated_at || nowIso
+    };
   } catch (err: any) {
-    const classified = classifySupabaseError(err);
+    const classified = classifySupabaseError(err, { table: 'app_settings', operation: 'UPSERT' });
     return { success: false, error: classified };
   }
 }

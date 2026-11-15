@@ -114,8 +114,11 @@ export const NavigationConfigView: React.FC = () => {
     setAllowMultipleOpenGroups,
     saveNavigationConfig,
     resetNavigationConfig,
+    reloadNavigationFromSupabase,
     isCloudSyncing,
     lastCloudSyncTime,
+    lastCloudSyncError,
+    hasUnsavedNavChanges,
     cloudSyncStatus
   } = useUIConfig();
   const { toast } = useToast();
@@ -203,7 +206,7 @@ export const NavigationConfigView: React.FC = () => {
   // Handle Save to Supabase PostgreSQL
   const handleSaveToCloud = async () => {
     if (!isSuperadmin) {
-      toast.error('Hanya Super Admin yang dapat menyimpan konfigurasi navigasi.');
+      toast.error('Akses ditolak: hanya Super Admin yang diizinkan menyimpan konfigurasi navigasi.', 'Akses Ditolak');
       return;
     }
     setIsSaving(true);
@@ -211,20 +214,22 @@ export const NavigationConfigView: React.FC = () => {
       const result = await saveNavigationConfig(currentUser?.name || currentUser?.username || 'Super Admin');
       if (result.success) {
         toast.success(
-          'Konfigurasi navigasi MoraJaws berhasil disimpan secara permanen di Supabase PostgreSQL (app_settings/navigation).',
+          'Konfigurasi navigasi MoraJaws berhasil disimpan permanen ke Supabase PostgreSQL (app_settings / navigation_doc).',
           'Tersimpan Permanen'
         );
         addAuditLog(
           'update_navigation_config',
           'ui_config',
-          'navigation',
-          'Memperbarui konfigurasi sistem navigasi di Supabase PostgreSQL (app_settings/navigation)'
+          'navigation_doc',
+          'Memperbarui konfigurasi sistem navigasi di Supabase PostgreSQL (app_settings / navigation_doc)'
         );
       } else {
-        toast.error(`Gagal menyimpan ke Supabase PostgreSQL: ${result.error}`, 'Error Penyimpanan');
+        const detail = result.error || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.';
+        toast.error(detail, 'Error Penyimpanan');
       }
     } catch (err: any) {
-      toast.error(`Terjadi kesalahan: ${err.message || err}`, 'Gagal Simpan');
+      const detail = err?.message || String(err);
+      toast.error(detail, 'Gagal Simpan');
     } finally {
       setIsSaving(false);
     }
@@ -232,19 +237,33 @@ export const NavigationConfigView: React.FC = () => {
 
   // Handle Reset to Defaults
   const handleConfirmReset = async () => {
+    if (!isSuperadmin) {
+      toast.error('Akses ditolak: hanya Super Admin yang diizinkan mereset konfigurasi navigasi.', 'Akses Ditolak');
+      return;
+    }
     setIsSaving(true);
     try {
       const res = await resetNavigationConfig(currentUser?.name || currentUser?.username || 'Super Admin');
       if (res.success) {
-        toast.success('Konfigurasi navigasi telah dikembalikan ke default canonical MoraJaws.', 'Reset Berhasil');
+        toast.success('Konfigurasi navigasi telah dikembalikan ke default canonical MoraJaws dan tersimpan di Supabase PostgreSQL.', 'Reset Berhasil');
         setShowResetConfirm(false);
       } else {
-        toast.error(`Gagal reset: ${res.error}`, 'Error Reset');
+        toast.error(res.error || 'Gagal mereset konfigurasi navigasi di Supabase PostgreSQL.', 'Error Reset');
       }
     } catch (err: any) {
-      toast.error(`Kesalahan saat reset: ${err.message}`, 'Gagal Reset');
+      toast.error(err?.message || 'Kesalahan saat reset konfigurasi navigasi.', 'Gagal Reset');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Handle Reload from Supabase
+  const handleReloadFromCloud = async () => {
+    const res = await reloadNavigationFromSupabase();
+    if (res.success) {
+      toast.success('Konfigurasi navigasi terbaru berhasil dimuat dari Supabase PostgreSQL.', 'Sinkronisasi Berhasil');
+    } else {
+      toast.error(res.error || 'Gagal memuat konfigurasi dari Supabase PostgreSQL.', 'Gagal Muat Ulang');
     }
   };
 
@@ -372,23 +391,52 @@ export const NavigationConfigView: React.FC = () => {
       {/* ================================================================ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Supabase Status Card */}
-        <div className="bg-[#1C1133] border border-[#35105E] rounded-xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${cloudSyncStatus === 'synced' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-300'}`}>
+        <div className={`bg-[#1C1133] border rounded-xl p-4 flex items-center justify-between gap-2 ${
+          cloudSyncStatus === 'error' ? 'border-rose-500/60' : 'border-[#35105E]'
+        }`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2 rounded-lg shrink-0 ${
+              cloudSyncStatus === 'synced'
+                ? 'bg-emerald-500/20 text-emerald-400'
+                : cloudSyncStatus === 'error'
+                ? 'bg-rose-500/20 text-rose-400'
+                : cloudSyncStatus === 'syncing'
+                ? 'bg-amber-500/20 text-amber-300'
+                : 'bg-purple-500/20 text-purple-300'
+            }`}>
               <Cloud className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[11px] text-purple-300 font-medium">Supabase PostgreSQL</p>
-              <p className="text-xs font-bold text-white">
-                {cloudSyncStatus === 'synced' ? 'Tersinkronisasi Realtime' : 'Terkoneksi (app_settings/navigation)'}
+              <p className="text-xs font-bold text-white truncate">
+                {cloudSyncStatus === 'synced'
+                  ? hasUnsavedNavChanges
+                    ? 'Tersinkronisasi (Ada Perubahan Lokal)'
+                    : 'Tersinkronisasi Realtime'
+                  : cloudSyncStatus === 'syncing'
+                  ? 'Menyinkronkan ke Database...'
+                  : cloudSyncStatus === 'error'
+                  ? 'Gagal Sinkronisasi Database'
+                  : 'Mode Lokal (Belum Tersimpan di Cloud)'}
               </p>
             </div>
           </div>
-          {lastCloudSyncTime && (
-            <span className="text-[10px] text-purple-400">
-              {new Date(lastCloudSyncTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {lastCloudSyncTime && (
+              <span className="text-[10px] text-purple-400">
+                {new Date(lastCloudSyncTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleReloadFromCloud}
+              disabled={isCloudSyncing || isSaving}
+              className="p-1.5 rounded-lg bg-[#261547] hover:bg-[#35105E] text-purple-200 border border-[#7135B5]/40 transition-colors cursor-pointer disabled:opacity-50"
+              title="Muat ulang konfigurasi dari Supabase PostgreSQL"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Multi-Accordion Behavior Toggle */}
@@ -404,8 +452,11 @@ export const NavigationConfigView: React.FC = () => {
           </div>
           <button
             type="button"
+            disabled={!isSuperadmin}
             onClick={() => setAllowMultipleOpenGroups(!accordionSettings.allowMultipleOpenGroups)}
-            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+            className={`p-1.5 rounded-lg border transition-all ${
+              isSuperadmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+            } ${
               accordionSettings.allowMultipleOpenGroups
                 ? 'bg-purple-600/30 border-[#7135B5] text-[#D8B4FE]'
                 : 'bg-slate-800/50 border-slate-700 text-slate-400'
@@ -420,6 +471,31 @@ export const NavigationConfigView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Diagnostic Error Banner when Supabase Save/Load Fails */}
+      {cloudSyncStatus === 'error' && lastCloudSyncError && (
+        <div className="bg-rose-950/50 border border-rose-500/50 rounded-xl p-4 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-rose-200">
+                Detail Error Supabase PostgreSQL (app_settings / navigation_doc)
+              </p>
+              <p className="text-xs text-rose-300 mt-0.5 font-mono break-all">
+                {lastCloudSyncError}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only notice for non-Super Admin roles */}
+      {!isSuperadmin && (
+        <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3.5 flex items-center gap-2.5 text-xs text-amber-200">
+          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>Mode Hanya-Baca: Hanya role Super Admin yang memiliki izin untuk mengubah dan menyimpan konfigurasi navigasi ke Supabase PostgreSQL.</span>
+        </div>
+      )}
 
       {/* ================================================================ */}
       {/* NAVIGATION MANAGEMENT TABS                                       */}

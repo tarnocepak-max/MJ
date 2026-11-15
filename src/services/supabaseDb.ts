@@ -10,16 +10,88 @@ import { getAuthHeaders } from './authService';
 // - Backend enforces all RBAC, role scopes, and data sanitization.
 // ==============================================================================
 
+export interface SupabaseErrorPayload {
+  code: string;
+  message: string;
+  httpStatus?: number;
+  details?: any;
+  hint?: string;
+  table?: string;
+  operation?: string;
+  isSchemaError?: boolean;
+  isDuplicate?: boolean;
+  isNotFound?: boolean;
+}
+
 export interface SupabaseResponse<T = any> {
   success: boolean;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-    isSchemaError?: boolean;
-    isDuplicate?: boolean;
-    isNotFound?: boolean;
+  updatedAt?: string | null;
+  setting?: any;
+  error?: SupabaseErrorPayload;
+}
+
+function normalizeProxyError(
+  status: number,
+  json: any,
+  operation: string,
+  table: string,
+  fallbackMessage: string
+): SupabaseErrorPayload {
+  const rawErr = json && typeof json === 'object' ? json.error : undefined;
+  if (rawErr && typeof rawErr === 'object') {
+    return {
+      code: String(rawErr.code || json?.code || `HTTP_${status}`),
+      message: String(rawErr.message || json?.message || fallbackMessage),
+      httpStatus: Number(rawErr.httpStatus || status),
+      details: rawErr.details,
+      hint: rawErr.hint,
+      table: rawErr.table || table,
+      operation: rawErr.operation || operation,
+      isSchemaError: Boolean(rawErr.isSchemaError),
+      isDuplicate: Boolean(rawErr.isDuplicate),
+      isNotFound: Boolean(rawErr.isNotFound)
+    };
+  }
+  if (typeof rawErr === 'string' && rawErr.trim()) {
+    return {
+      code: String(json?.code || `HTTP_${status}`),
+      message: rawErr.trim(),
+      httpStatus: status,
+      table,
+      operation
+    };
+  }
+  if (json && typeof json === 'object' && typeof json.message === 'string' && json.message.trim()) {
+    return {
+      code: String(json.code || `HTTP_${status}`),
+      message: json.message.trim(),
+      httpStatus: status,
+      table,
+      operation
+    };
+  }
+  return {
+    code: `HTTP_${status}`,
+    message: `${fallbackMessage} (HTTP ${status})`,
+    httpStatus: status,
+    table,
+    operation
   };
+}
+
+export function formatSupabaseErrorMessage(err: any, fallback: string): string {
+  if (!err) return fallback;
+  if (typeof err === 'string') return err;
+  const baseMsg = typeof err.message === 'string' && err.message.trim() ? err.message.trim() : fallback;
+  const metaParts: string[] = [];
+  if (err.httpStatus) metaParts.push(`HTTP ${err.httpStatus}`);
+  if (err.code && err.code !== `HTTP_${err.httpStatus}`) metaParts.push(`Code: ${err.code}`);
+  if (err.table) metaParts.push(`Tabel: ${err.table}`);
+  if (err.operation) metaParts.push(`Operasi: ${err.operation}`);
+  const suffix = metaParts.length > 0 ? ` [${metaParts.join(' | ')}]` : '';
+  const hint = typeof err.hint === 'string' && err.hint.trim() ? ` (${err.hint.trim()})` : '';
+  return `${baseMsg}${suffix}${hint}`;
 }
 
 export interface WorkOrderFilterOptions {
@@ -598,14 +670,29 @@ export class SupabaseRepository {
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        return json && typeof json === 'object'
-          ? { success: false, error: json.error || { code: `HTTP_${res.status}`, message: `Gagal memuat setting (${res.status})` } }
-          : { success: false, error: { code: `HTTP_${res.status}`, message: `Gagal memuat setting (${res.status})` } };
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(
+            res.status,
+            json,
+            'SELECT',
+            'app_settings',
+            `Gagal memuat pengaturan "${key}"`
+          )
+        };
       }
       return json;
     } catch (err: any) {
-      return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat setting' } };
+      return {
+        success: false,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: err?.message || `Koneksi jaringan gagal saat memuat pengaturan "${key}"`,
+          table: 'app_settings',
+          operation: 'SELECT'
+        }
+      };
     }
   }
 
@@ -617,14 +704,29 @@ export class SupabaseRepository {
         body: JSON.stringify({ value, description })
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        return json && typeof json === 'object'
-          ? { success: false, error: json.error || { code: `HTTP_${res.status}`, message: `Gagal menyimpan setting (${res.status})` } }
-          : { success: false, error: { code: `HTTP_${res.status}`, message: `Gagal menyimpan setting (${res.status})` } };
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(
+            res.status,
+            json,
+            'UPSERT',
+            'app_settings',
+            `Gagal menyimpan pengaturan "${key}"`
+          )
+        };
       }
       return json;
     } catch (err: any) {
-      return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menyimpan setting' } };
+      return {
+        success: false,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: err?.message || `Koneksi jaringan gagal saat menyimpan pengaturan "${key}"`,
+          table: 'app_settings',
+          operation: 'UPSERT'
+        }
+      };
     }
   }
 

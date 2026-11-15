@@ -1790,7 +1790,14 @@ export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
     }
     if (!matchContr) return false;
 
-    const assignedId = String(ticket.installerId || ticket.installerUid || ticket.assignedToUid || ticket.assignedToId || '').trim();
+    const assignedId = String(
+      ticket.installerId ||
+      ticket.installerUid ||
+      ticket.assignedToUid ||
+      ticket.assignedToId ||
+      ticket.assignedTo ||
+      ''
+    ).trim();
     if (!assignedId) return false;
 
     const fbUid = String((user as any).firebaseUid || '').trim();
@@ -4330,7 +4337,9 @@ export async function createExpressApp(options?: {
       rootcauseLabel: rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause
     };
 
-    existingReports.unshift(reportEntry);
+    if (!existingReports.some((r: any) => r?.id === reportEntry.id)) {
+      existingReports.unshift(reportEntry);
+    }
 
     let checkOutAt = ticket.checkOutAt;
     let workSessionStatus = ticket.workSessionStatus;
@@ -4390,9 +4399,11 @@ export async function createExpressApp(options?: {
 
     if (status) {
       updates.statusWOInstaller = status;
-      if (status === 'Completed' || status === 'Installed') {
-        updates.statusWOAgent = 'Resolved';
+      // AppFlow 3 & 5: Technician report submission awaits Dispatch approval before Agent Resolved/Closed
+      if (ticket.statusWOAgent !== 'Closed' && ticket.statusWOAgent !== 'Resolved') {
+        updates.statusWOAgent = 'In Progress';
       }
+      updates.approvalStatus = 'BUTUH APPROVAL';
     }
     if (remarks) updates.remarksWOInstaller = remarks;
     if (reportStatusId) updates.reportStatusId = reportStatusId;
@@ -7403,6 +7414,25 @@ export async function createExpressApp(options?: {
         });
       }
 
+      // App Flow 5: Installer cannot submit technicalReport or new progressReports before PROGRESS Check-in
+      const hasNewProgressReport =
+        Array.isArray(updates.progressReports) &&
+        updates.progressReports.length > (Array.isArray(existing.progressReports) ? existing.progressReports.length : 0);
+      const hasNewTechnicalReport =
+        updates.technicalReport !== undefined &&
+        updates.technicalReport !== null &&
+        JSON.stringify(updates.technicalReport) !== JSON.stringify(existing.technicalReport ?? null);
+      if (user.role === 'installer' && !existing.checkInAt && (hasNewProgressReport || hasNewTechnicalReport)) {
+        return res.status(400).json({
+          success: false,
+          code: 'CHECK_IN_REQUIRED',
+          error: {
+            code: 'CHECK_IN_REQUIRED',
+            message: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
+          }
+        });
+      }
+
       // Date validation
       if (updates.appointmentDate !== undefined) {
         const rawDate = updates.appointmentDate;
@@ -8481,28 +8511,66 @@ export async function createExpressApp(options?: {
   app.get('/api/supabase/settings/:key', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { key } = req.params;
+      if (!/^[a-zA-Z0-9_.\-]{2,64}$/.test(key)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_KEY_FORMAT',
+            message: 'Format kunci pengaturan tidak valid.',
+            httpStatus: 400,
+            table: 'app_settings',
+            operation: 'SELECT'
+          }
+        });
+      }
+
       if (!isSupabaseMode()) {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({
             success: false,
-            error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' }
+            error: {
+              code: 'DATABASE_UNAVAILABLE',
+              message: 'Database authoritative Supabase tidak tersedia.',
+              httpStatus: 503,
+              table: 'app_settings',
+              operation: 'SELECT'
+            }
           });
         }
         return res.json({ success: true, data: (db.appSettings || {})[key] ?? null });
       }
+
       const result = await getAppSettingFromSupabase(key);
       if (!result.success) {
         if (isLocalJsonModeAllowed()) {
           return res.json({ success: true, data: (db.appSettings || {})[key] ?? null });
         }
-        return res.status(result.error?.isUnavailable ? 503 : 500).json({
+        const status = result.error?.httpStatus || (result.error?.isUnavailable ? 503 : result.error?.isPermissionError ? 403 : 500);
+        return res.status(status).json({
           success: false,
-          error: result.error
+          error: {
+            code: result.error?.code || 'DB_READ_ERROR',
+            message: result.error?.message || 'Gagal membaca konfigurasi dari Supabase PostgreSQL.',
+            details: result.error?.details,
+            hint: result.error?.hint,
+            httpStatus: status,
+            table: 'app_settings',
+            operation: 'SELECT'
+          }
         });
       }
-      return res.json({ success: true, data: result.data });
+      return res.json({ success: true, data: result.data, updatedAt: result.updatedAt || null });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err?.message } });
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: err?.message || 'Kesalahan internal server saat membaca pengaturan.',
+          httpStatus: 500,
+          table: 'app_settings',
+          operation: 'SELECT'
+        }
+      });
     }
   });
 
@@ -8513,38 +8581,175 @@ export async function createExpressApp(options?: {
       const user = req.user!;
       const { value, description } = req.body || {};
 
-      if (!/^[a-zA-Z0-9_\.\-]{2,64}$/.test(key)) {
+      if (!/^[a-zA-Z0-9_.\-]{2,64}$/.test(key)) {
         return res.status(400).json({
           success: false,
-          error: { code: 'INVALID_KEY_FORMAT', message: 'Format kunci pengaturan tidak valid.' }
+          error: {
+            code: 'INVALID_KEY_FORMAT',
+            message: 'Format kunci pengaturan tidak valid.',
+            httpStatus: 400,
+            table: 'app_settings',
+            operation: 'UPSERT'
+          }
         });
+      }
+
+      // Strict RBAC for navigation configuration keys: only Super Admin may modify navigation
+      if ((key === 'navigation_doc' || key === 'navigation_config') && user.role !== 'super_admin') {
+        await logServerAuditAsync(
+          'Access Denied (Navigation Configuration Write)',
+          'rbac',
+          key,
+          `User ${user.name} (${user.role}) ditolak menyimpan konfigurasi navigasi (${key}).`,
+          user
+        );
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'NAVIGATION_WRITE_FORBIDDEN',
+            message: 'Akses Ditolak: Hanya Super Admin yang berwenang mengubah dan menyimpan konfigurasi menu navigasi.',
+            httpStatus: 403,
+            table: 'app_settings',
+            operation: 'UPSERT'
+          }
+        });
+      }
+
+      if (value === undefined || value === null) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_PAYLOAD',
+            message: 'Payload konfigurasi (value) wajib disertakan.',
+            httpStatus: 400,
+            table: 'app_settings',
+            operation: 'UPSERT'
+          }
+        });
+      }
+
+      // Structural validation for canonical navigation documents to prevent accidental data loss
+      if (key === 'navigation_doc' || key === 'navigation_config') {
+        if (typeof value !== 'object' || Array.isArray(value)) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_NAVIGATION_PAYLOAD',
+              message: 'Payload konfigurasi navigasi harus berupa objek JSON yang valid.',
+              httpStatus: 400,
+              table: 'app_settings',
+              operation: 'UPSERT'
+            }
+          });
+        }
+        if (!Array.isArray(value.categories) || value.categories.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_NAVIGATION_CATEGORIES',
+              message: 'Konfigurasi navigasi wajib memiliki minimal satu kategori navigasi (categories).',
+              httpStatus: 400,
+              table: 'app_settings',
+              operation: 'UPSERT'
+            }
+          });
+        }
+        if (!Array.isArray(value.standaloneMenus) || value.standaloneMenus.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_NAVIGATION_STANDALONE_MENUS',
+              message: 'Konfigurasi navigasi wajib memiliki minimal satu menu mandiri (standaloneMenus).',
+              httpStatus: 400,
+              table: 'app_settings',
+              operation: 'UPSERT'
+            }
+          });
+        }
+        if (!Array.isArray(value.submenuItems)) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_NAVIGATION_SUBMENUS',
+              message: 'Field submenuItems pada konfigurasi navigasi harus berupa array.',
+              httpStatus: 400,
+              table: 'app_settings',
+              operation: 'UPSERT'
+            }
+          });
+        }
       }
 
       if (!isSupabaseMode()) {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({
             success: false,
-            error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' }
+            error: {
+              code: 'DATABASE_UNAVAILABLE',
+              message: 'Database authoritative Supabase tidak tersedia.',
+              httpStatus: 503,
+              table: 'app_settings',
+              operation: 'UPSERT'
+            }
           });
         }
+        const confirmedUpdatedAt = new Date().toISOString();
         db.appSettings = db.appSettings || {};
         db.appSettings[key] = value;
         saveDatabaseToDisk();
-        broadcastSupabaseChange('app_settings', 'UPDATE', { key, value });
+        broadcastSupabaseChange('app_settings', 'UPDATE', { key, value, updatedAt: confirmedUpdatedAt });
         await logServerAuditAsync('App Setting Saved (Local Dev)', 'settings', key, `Pengaturan "${key}" disimpan oleh ${user.name}`, user);
-        return res.json({ success: true, data: true });
+        return res.json({ success: true, data: true, key, updatedAt: confirmedUpdatedAt });
       }
 
-      const result = await saveAppSettingToSupabase(key, value, description, user.name);
+      const result = await saveAppSettingToSupabase(key, value, description, user.name || user.username);
       if (!result.success) {
-        return res.status(result.error?.isUnavailable ? 503 : 400).json({ success: false, error: result.error });
+        const status =
+          result.error?.httpStatus ||
+          (result.error?.isUnavailable ? 503 : result.error?.isPermissionError ? 403 : result.error?.isValidationError ? 400 : 500);
+        console.error('[API /api/supabase/settings] Save failed:', {
+          httpStatus: status,
+          table: 'app_settings',
+          operation: result.error?.operation || 'UPSERT',
+          key,
+          code: result.error?.code,
+          message: result.error?.message
+        });
+        return res.status(status).json({
+          success: false,
+          error: {
+            code: result.error?.code || 'DB_WRITE_ERROR',
+            message: result.error?.message || 'Gagal menyimpan konfigurasi ke Supabase PostgreSQL.',
+            details: result.error?.details,
+            hint: result.error?.hint,
+            httpStatus: status,
+            table: 'app_settings',
+            operation: result.error?.operation || 'UPSERT'
+          }
+        });
       }
 
-      broadcastSupabaseChange('app_settings', 'UPDATE', { key, value });
+      const confirmedUpdatedAt = result.updatedAt || new Date().toISOString();
+      broadcastSupabaseChange('app_settings', 'UPDATE', { key, value, updatedAt: confirmedUpdatedAt });
       await logServerAuditAsync('App Setting Saved (Supabase)', 'settings', key, `Pengaturan "${key}" disimpan oleh ${user.name}`, user);
-      return res.json({ success: true, data: true });
+      return res.json({
+        success: true,
+        data: true,
+        key,
+        updatedAt: confirmedUpdatedAt,
+        setting: result.record || null
+      });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err?.message } });
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: err?.message || 'Kesalahan internal server saat menyimpan pengaturan.',
+          httpStatus: 500,
+          table: 'app_settings',
+          operation: 'UPSERT'
+        }
+      });
     }
   });
 
@@ -9432,20 +9637,16 @@ export async function createExpressApp(options?: {
 
     if (isSupabaseMode()) {
       try {
-        // Enforce leader contractor/area scope using authoritative database
-        if (req.user!.role === 'leader') {
+        // Enforce RBAC scope for leader & installer using authoritative database
+        if (req.user!.role === 'leader' || req.user!.role === 'installer') {
           const tRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
           if (tRes.success && tRes.data) {
-            const ticket = tRes.data;
-            const ticketContractor = (ticket.contractorName || '').toLowerCase().trim();
-            const ticketArea = (ticket.area || '').toLowerCase().trim();
-            const leaderContr = (req.user!.contractor || '').toLowerCase().trim();
-            const leaderArea = (req.user!.area || '').toLowerCase().trim();
-            const matchContr = ticketContractor === leaderContr || ticketContractor.includes(leaderContr) || leaderContr.includes(ticketContractor);
-            const matchArea = !leaderArea || ticketArea === leaderArea || ticketArea.includes(leaderArea) || leaderArea.includes(ticketArea);
-            if (!matchContr || !matchArea) {
+            if (!checkTicketAccess(tRes.data, req.user!)) {
               return res.status(403).json({
-                error: 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
+                error:
+                  req.user!.role === 'leader'
+                    ? 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
+                    : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order yang ditugaskan kepada Anda.'
               });
             }
           }
@@ -9473,16 +9674,13 @@ export async function createExpressApp(options?: {
     }
 
     const ticket = db.tickets.find(t => t.id === id || t.woNumber === id);
-    if (ticket && req.user!.role === 'leader') {
-      const ticketContractor = (ticket.contactorName || ticket.contractorName || '').toLowerCase().trim();
-      const ticketArea = (ticket.area || '').toLowerCase().trim();
-      const leaderContr = (req.user!.contractor || '').toLowerCase().trim();
-      const leaderArea = (req.user!.area || '').toLowerCase().trim();
-      const matchContr = ticketContractor === leaderContr || ticketContractor.includes(leaderContr) || leaderContr.includes(ticketContractor);
-      const matchArea = !leaderArea || ticketArea === leaderArea || ticketArea.includes(leaderArea) || leaderArea.includes(ticketArea);
-      if (!matchContr || !matchArea) {
+    if (ticket && (req.user!.role === 'leader' || req.user!.role === 'installer')) {
+      if (!checkTicketAccess(ticket, req.user!)) {
         return res.status(403).json({
-          error: 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
+          error:
+            req.user!.role === 'leader'
+              ? 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
+              : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order yang ditugaskan kepada Anda.'
         });
       }
     }
@@ -9512,9 +9710,29 @@ export async function createExpressApp(options?: {
       });
     }
 
-    const selectedCategory = String(category || 'GENERAL').trim().toUpperCase();
+    const cleanText = String(text || '').trim();
+    const safeAttachments = Array.isArray(attachments) ? attachments : [];
+    if (!cleanText && safeAttachments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Pesan atau lampiran foto tidak boleh kosong.',
+        code: 'EMPTY_MESSAGE'
+      });
+    }
+
+    const rawCategory = String(category || '').trim();
+    if (user.role === 'installer' && (!rawCategory || rawCategory.toUpperCase() === 'UNCLASSIFIED')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Pilih kategori chat terlebih dahulu sebelum mengirim pesan.',
+        code: 'CATEGORY_REQUIRED'
+      });
+    }
+
+    const selectedCategory = (rawCategory || 'GENERAL').toUpperCase();
     const isInstallerProgressCheckIn = user.role === 'installer' && isProgressCategoryOnly(selectedCategory);
     const nowIso = new Date().toISOString();
+    const msgSnippet = cleanText || (safeAttachments.length > 0 ? `[Foto: ${safeAttachments[0]?.fileName || 'Lampiran'}]` : '');
 
     if (isSupabaseMode()) {
       try {
@@ -9534,6 +9752,16 @@ export async function createExpressApp(options?: {
 
         // App Flow 5: Trigger Check-in ONLY when Installer sends message with selected category PROGRESS
         let triggeredCheckIn = false;
+        const ticketUpdates: Record<string, any> = {};
+        if (ticketData) {
+          ticketUpdates.chatCategory = selectedCategory;
+          ticketUpdates.chatMessagesCount = (Number(ticketData.chatMessagesCount) || 0) + 1;
+          ticketUpdates.lastMessageAt = nowIso;
+          ticketUpdates.lastMessageSnippet = msgSnippet;
+          ticketUpdates.updatedAt = nowIso;
+          ticketUpdates.updatedBy = user.name;
+        }
+
         if (ticketData && isInstallerProgressCheckIn && (!ticketData.checkInAt || ticketData.workSessionStatus === 'Belum Check-in')) {
           triggeredCheckIn = true;
           const existingSessions = Array.isArray(ticketData.workSessions) ? [...ticketData.workSessions] : [];
@@ -9544,21 +9772,17 @@ export async function createExpressApp(options?: {
               status: 'Sedang Dikerjakan'
             });
           }
-          const updates: any = {
-            checkInAt: nowIso,
-            workSessionStatus: 'Sedang Dikerjakan',
-            workSessions: existingSessions
-          };
+          ticketUpdates.checkInAt = nowIso;
+          ticketUpdates.workSessionStatus = 'Sedang Dikerjakan';
+          ticketUpdates.workSessions = existingSessions;
           if (ticketData.statusWOInstaller !== 'Completed' && ticketData.statusWOInstaller !== 'Installed') {
-            updates.statusWOInstaller = 'On Site';
+            ticketUpdates.statusWOInstaller = 'On Site';
           }
-          await updateWorkOrderInSupabase(ticketData.id, updates);
-          ticketData.checkInAt = nowIso;
-          ticketData.workSessionStatus = 'Sedang Dikerjakan';
-          ticketData.workSessions = existingSessions;
-          if (updates.statusWOInstaller) {
-            ticketData.statusWOInstaller = updates.statusWOInstaller;
-          }
+        }
+
+        if (ticketData && Object.keys(ticketUpdates).length > 0) {
+          await updateWorkOrderInSupabase(ticketData.id, ticketUpdates);
+          Object.assign(ticketData, ticketUpdates);
           broadcastSupabaseChange('work_orders', 'UPDATE', ticketData);
         }
 
@@ -9570,10 +9794,10 @@ export async function createExpressApp(options?: {
           senderId: user.id,
           senderName: user.name,
           senderRole: user.role,
-          messageText: text || '',
+          messageText: cleanText,
           category: selectedCategory,
           isCheckIn: triggeredCheckIn,
-          attachments: attachments || []
+          attachments: safeAttachments
         });
 
         if (!insertRes.success && !isLocalJsonModeAllowed()) {
@@ -9591,9 +9815,9 @@ export async function createExpressApp(options?: {
           senderId: user.id,
           senderName: user.name,
           senderRole: user.role,
-          text: text || '',
+          text: cleanText,
           category: selectedCategory,
-          attachments: attachments || [],
+          attachments: safeAttachments,
           timestamp: nowIso,
           readBy: [user.id],
           isCheckIn: triggeredCheckIn
@@ -9602,7 +9826,13 @@ export async function createExpressApp(options?: {
         broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg);
 
         if (!isLocalJsonModeAllowed()) {
-          return res.json({ success: true, message: newMsg, ticket: ticketData, checkInTriggered: triggeredCheckIn });
+          return res.json({
+            success: true,
+            message: newMsg,
+            ticket: ticketData,
+            checkInTriggered: triggeredCheckIn,
+            checkedIn: triggeredCheckIn
+          });
         }
       } catch (err: any) {
         if (!isLocalJsonModeAllowed()) {
@@ -9625,6 +9855,15 @@ export async function createExpressApp(options?: {
     }
 
     let triggeredCheckIn = false;
+    if (ticket) {
+      ticket.chatCategory = selectedCategory;
+      ticket.chatMessagesCount = (Number(ticket.chatMessagesCount) || 0) + 1;
+      ticket.lastMessageAt = nowIso;
+      ticket.lastMessageSnippet = msgSnippet;
+      ticket.updatedAt = nowIso;
+      ticket.updatedBy = user.name;
+    }
+
     if (ticket && isInstallerProgressCheckIn && (!ticket.checkInAt || ticket.workSessionStatus === 'Belum Check-in')) {
       triggeredCheckIn = true;
       ticket.checkInAt = nowIso;
@@ -9643,8 +9882,6 @@ export async function createExpressApp(options?: {
           status: 'Sedang Dikerjakan'
         });
       }
-      ticket.updatedAt = nowIso;
-      ticket.updatedBy = user.name;
       broadcastSupabaseChange('work_orders', 'UPDATE', ticket);
     }
 
@@ -9655,9 +9892,9 @@ export async function createExpressApp(options?: {
       senderId: user.id,
       senderName: user.name,
       senderRole: user.role,
-      text: text || '',
+      text: cleanText,
       category: selectedCategory,
-      attachments: attachments || [],
+      attachments: safeAttachments,
       timestamp: nowIso,
       readBy: [user.id],
       isCheckIn: triggeredCheckIn
@@ -9667,7 +9904,13 @@ export async function createExpressApp(options?: {
     saveDatabaseToDisk();
     broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg);
 
-    res.json({ success: true, message: newMsg, ticket, checkInTriggered: triggeredCheckIn });
+    res.json({
+      success: true,
+      message: newMsg,
+      ticket,
+      checkInTriggered: triggeredCheckIn,
+      checkedIn: triggeredCheckIn
+    });
   });
 
   // App Flow 4: Mark LiveChat messages as read when user opens LiveChat drawer/tab

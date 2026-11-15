@@ -33,6 +33,7 @@ import {
   loadNavigationDocFromSupabase,
   subscribeToNavigationDoc
 } from '../services/supabaseConfigService';
+import { useApp } from './AppContext';
 
 interface UIConfigContextType {
   config: UIConfiguration;
@@ -138,8 +139,11 @@ interface UIConfigContextType {
   // Cloud Database Configuration (Supabase PostgreSQL)
   saveConfigToSupabase: (operatorName?: string) => Promise<{ success: boolean; error?: string; updatedAt?: string }>;
   loadConfigFromSupabase: () => Promise<{ success: boolean; error?: string }>;
+  reloadNavigationFromSupabase: () => Promise<{ success: boolean; error?: string }>;
   isCloudSyncing: boolean;
   lastCloudSyncTime: string | null;
+  lastCloudSyncError: string | null;
+  hasUnsavedNavChanges: boolean;
   cloudSyncStatus: 'synced' | 'local_only' | 'syncing' | 'error';
 }
 
@@ -289,6 +293,7 @@ const CAT_STORAGE_KEY = 'morajaws_navigation_categories_v4';
 const UIConfigContext = createContext<UIConfigContextType | undefined>(undefined);
 
 export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isLoggedIn, currentUser } = useApp();
   const [windowWidth, setWindowWidth] = useState<number>(() => {
     return typeof window !== 'undefined' ? window.innerWidth : 1200;
   });
@@ -549,30 +554,52 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return { allowMultipleOpenGroups: true };
   });
 
-  // Persist canonical navigation to LocalStorage
-  useEffect(() => {
+  const persistConfirmedNavToLocalStorage = (
+    cats: NavCategoryConfig[],
+    standalone: StandaloneMenuItem[],
+    subs: NavSubmenuItem[],
+    accordion: { allowMultipleOpenGroups: boolean }
+  ) => {
     try {
-      localStorage.setItem(NAV_CATEGORIES_KEY, JSON.stringify(navCategories));
-    } catch {}
-  }, [navCategories]);
+      localStorage.setItem(NAV_CATEGORIES_KEY, JSON.stringify(cats));
+      localStorage.setItem(NAV_STANDALONE_KEY, JSON.stringify(standalone));
+      localStorage.setItem(NAV_SUBMENUS_KEY, JSON.stringify(subs));
+      localStorage.setItem(NAV_ACCORDION_KEY, JSON.stringify(accordion));
+    } catch (e) {
+      console.warn('[UIConfig] Gagal menyimpan cache navigasi lokal:', e);
+    }
+  };
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(NAV_STANDALONE_KEY, JSON.stringify(standaloneMenus));
-    } catch {}
-  }, [standaloneMenus]);
+  const navVersionRef = useRef<number>(1);
+  const navCategoriesRef = useRef<NavCategoryConfig[]>(navCategories);
+  const standaloneMenusRef = useRef<StandaloneMenuItem[]>(standaloneMenus);
+  const submenuItemsRef = useRef<NavSubmenuItem[]>(submenuItems);
+  const accordionSettingsRef = useRef<{ allowMultipleOpenGroups: boolean }>(accordionSettings);
+  navCategoriesRef.current = navCategories;
+  standaloneMenusRef.current = standaloneMenus;
+  submenuItemsRef.current = submenuItems;
+  accordionSettingsRef.current = accordionSettings;
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(NAV_SUBMENUS_KEY, JSON.stringify(submenuItems));
-    } catch {}
-  }, [submenuItems]);
+  const committedNavSnapshotRef = useRef<string>(
+    JSON.stringify({
+      navCategories,
+      standaloneMenus,
+      submenuItems,
+      accordionSettings
+    })
+  );
+  const [hasUnsavedNavChanges, setHasUnsavedNavChanges] = useState<boolean>(false);
 
+  // Track dirty state deterministically; DO NOT overwrite confirmed localStorage cache on unconfirmed draft edits
   useEffect(() => {
-    try {
-      localStorage.setItem(NAV_ACCORDION_KEY, JSON.stringify(accordionSettings));
-    } catch {}
-  }, [accordionSettings]);
+    const currentSnapshot = JSON.stringify({
+      navCategories,
+      standaloneMenus,
+      submenuItems,
+      accordionSettings
+    });
+    setHasUnsavedNavChanges(currentSnapshot !== committedNavSnapshotRef.current);
+  }, [navCategories, standaloneMenus, submenuItems, accordionSettings]);
 
   // Backward compatibility: maintain legacy menuCategories and navigationItems
   const menuCategories = navCategories.filter(c => c.isActive).map(c => c.name);
@@ -828,101 +855,144 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return null;
     }
   });
+  const [lastCloudSyncError, setLastCloudSyncError] = useState<string | null>(null);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'local_only' | 'syncing' | 'error'>('local_only');
 
-  // Load from Supabase PostgreSQL on mount & subscribe to real-time updates for appSettings/navigation
+  const applyLoadedNavigationDoc = (navDoc: NavigationConfigDoc) => {
+    const nextCats = Array.isArray(navDoc.categories) && navDoc.categories.length > 0
+      ? navDoc.categories
+      : navCategoriesRef.current;
+    const nextStandalone = Array.isArray(navDoc.standaloneMenus) && navDoc.standaloneMenus.length > 0
+      ? sanitizeStandaloneMenus(navDoc.standaloneMenus)
+      : standaloneMenusRef.current;
+    const nextSubmenus = Array.isArray(navDoc.submenuItems) && navDoc.submenuItems.length > 0
+      ? sanitizeSubmenuItems(navDoc.submenuItems)
+      : submenuItemsRef.current;
+    const nextAccordion = navDoc.accordionSettings || accordionSettingsRef.current;
+
+    if (typeof navDoc.navigationVersion === 'number' && Number.isFinite(navDoc.navigationVersion)) {
+      navVersionRef.current = navDoc.navigationVersion;
+    }
+    committedNavSnapshotRef.current = JSON.stringify({
+      navCategories: nextCats,
+      standaloneMenus: nextStandalone,
+      submenuItems: nextSubmenus,
+      accordionSettings: nextAccordion
+    });
+
+    setNavCategoriesState(nextCats);
+    setStandaloneMenusState(nextStandalone);
+    setSubmenuItemsState(nextSubmenus);
+    setAccordionSettingsState(nextAccordion);
+    setHasUnsavedNavChanges(false);
+    persistConfirmedNavToLocalStorage(nextCats, nextStandalone, nextSubmenus, nextAccordion);
+
+    if (navDoc.updatedAt) {
+      setLastCloudSyncTime(navDoc.updatedAt);
+      try {
+        localStorage.setItem('morajaws_ui_cloud_sync_time', navDoc.updatedAt);
+      } catch {}
+    }
+    setLastCloudSyncError(null);
+    setCloudSyncStatus('synced');
+  };
+
+  // Load from Supabase PostgreSQL whenever authenticated session is ready & subscribe to real-time updates
   useEffect(() => {
+    if (!isLoggedIn || !currentUser?.id) {
+      setCloudSyncStatus('local_only');
+      setLastCloudSyncError(null);
+      return;
+    }
+
     let isMounted = true;
     let unsubNav: (() => void) | null = null;
     let unsubUI: (() => void) | null = null;
 
     async function initCloudConfig() {
+      setIsCloudSyncing(true);
+      setCloudSyncStatus('syncing');
+      setLastCloudSyncError(null);
+
       try {
-        // 1. First attempt to load appSettings/navigation
-        const navDoc = await loadNavigationDocFromSupabase();
-        if (navDoc && isMounted) {
-          if (Array.isArray(navDoc.categories) && navDoc.categories.length > 0) {
-            setNavCategoriesState(navDoc.categories);
+        // 1. Load navigation_doc from Supabase PostgreSQL (authoritative persisted source)
+        try {
+          const navDoc = await loadNavigationDocFromSupabase();
+          if (isMounted) {
+            if (navDoc) {
+              applyLoadedNavigationDoc(navDoc);
+            } else {
+              // Belum ada record di Supabase: pertahankan data lokal tanpa menimpa/menghapus
+              setCloudSyncStatus('local_only');
+            }
           }
-          if (Array.isArray(navDoc.standaloneMenus) && navDoc.standaloneMenus.length > 0) {
-            setStandaloneMenusState(sanitizeStandaloneMenus(navDoc.standaloneMenus));
+        } catch (navErr: any) {
+          console.error('[UIConfig] Gagal memuat navigation_doc dari Supabase:', navErr);
+          if (isMounted) {
+            setCloudSyncStatus('error');
+            setLastCloudSyncError(navErr?.message || 'Gagal memuat konfigurasi navigasi dari Supabase PostgreSQL.');
           }
-          if (Array.isArray(navDoc.submenuItems) && navDoc.submenuItems.length > 0) {
-            setSubmenuItemsState(sanitizeSubmenuItems(navDoc.submenuItems));
-          }
-          if (navDoc.accordionSettings) {
-            setAccordionSettingsState(navDoc.accordionSettings);
-          }
-          if (navDoc.updatedAt) {
-            setLastCloudSyncTime(navDoc.updatedAt);
-            try {
-              localStorage.setItem('morajaws_ui_cloud_sync_time', navDoc.updatedAt);
-            } catch {}
-          }
-          setCloudSyncStatus('synced');
         }
 
-        // Attach real-time listener for appSettings/navigation
-        unsubNav = subscribeToNavigationDoc(
-          (data) => {
-            if (!isMounted || !data) return;
-            if (Array.isArray(data.categories) && data.categories.length > 0) {
-              setNavCategoriesState(data.categories);
+        // Attach real-time listener for app_settings/navigation_doc
+        if (isMounted) {
+          unsubNav = subscribeToNavigationDoc(
+            (data) => {
+              if (!isMounted || !data) return;
+              applyLoadedNavigationDoc(data);
+            },
+            (err) => {
+              console.warn('[UIConfig] Navigation subscription notice:', err?.message || err);
+              if (isMounted) {
+                setCloudSyncStatus('error');
+                setLastCloudSyncError(err?.message || 'Koneksi real-time navigasi terputus.');
+              }
             }
-            if (Array.isArray(data.standaloneMenus) && data.standaloneMenus.length > 0) {
-              setStandaloneMenusState(sanitizeStandaloneMenus(data.standaloneMenus));
-            }
-            if (Array.isArray(data.submenuItems) && data.submenuItems.length > 0) {
-              setSubmenuItemsState(sanitizeSubmenuItems(data.submenuItems));
-            }
-            if (data.accordionSettings) {
-              setAccordionSettingsState(data.accordionSettings);
-            }
-            if (data.updatedAt) {
-              setLastCloudSyncTime(data.updatedAt);
-            }
-            setCloudSyncStatus('synced');
-          },
-          (err) => {
-            console.warn('[UIConfig] Navigation subscription notice:', err?.message || err);
-            if (isMounted) setCloudSyncStatus('local_only');
-          }
-        );
-
-        // 2. Also load general UI configuration (tables, theme, devices)
-        const cloudData = await loadUIConfigurationFromSupabase();
-        if (cloudData && isMounted && cloudData.config) {
-          setConfig(prev => ({
-            ...prev,
-            ...cloudData.config,
-            global: { ...prev.global, ...(cloudData.config.global || {}) },
-            device: {
-              ...prev.device,
-              ...(cloudData.config.device || {}),
-              android: { ...prev.device.android, ...(cloudData.config.device?.android || {}) },
-              pc: { ...prev.device.pc, ...(cloudData.config.device?.pc || {}) }
-            }
-          }));
+          );
         }
 
-        unsubUI = subscribeToUIConfiguration((data) => {
-          if (!isMounted || !data) return;
-          if (data.config) {
+        // 2. Load general UI configuration (tables, theme, devices)
+        try {
+          const cloudData = await loadUIConfigurationFromSupabase();
+          if (cloudData && isMounted && cloudData.config) {
             setConfig(prev => ({
               ...prev,
-              ...data.config,
-              global: { ...prev.global, ...(data.config.global || {}) },
+              ...cloudData.config,
+              global: { ...prev.global, ...(cloudData.config.global || {}) },
               device: {
                 ...prev.device,
-                ...(data.config.device || {}),
-                android: { ...prev.device.android, ...(data.config.device?.android || {}) },
-                pc: { ...prev.device.pc, ...(data.config.device?.pc || {}) }
+                ...(cloudData.config.device || {}),
+                android: { ...prev.device.android, ...(cloudData.config.device?.android || {}) },
+                pc: { ...prev.device.pc, ...(cloudData.config.device?.pc || {}) }
               }
             }));
           }
-        });
-      } catch (err) {
-        console.warn('[UIConfig] Could not sync initial cloud config:', err);
+        } catch (uiErr: any) {
+          console.warn('[UIConfig] Could not load ui_configuration:', uiErr?.message || uiErr);
+        }
+
+        if (isMounted) {
+          unsubUI = subscribeToUIConfiguration((data) => {
+            if (!isMounted || !data) return;
+            if (data.config) {
+              setConfig(prev => ({
+                ...prev,
+                ...data.config,
+                global: { ...prev.global, ...(data.config.global || {}) },
+                device: {
+                  ...prev.device,
+                  ...(data.config.device || {}),
+                  android: { ...prev.device.android, ...(data.config.device?.android || {}) },
+                  pc: { ...prev.device.pc, ...(data.config.device?.pc || {}) }
+                }
+              }));
+            }
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsCloudSyncing(false);
+        }
       }
     }
 
@@ -933,56 +1003,137 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (unsubNav) unsubNav();
       if (unsubUI) unsubUI();
     };
-  }, []);
+  }, [isLoggedIn, currentUser?.id, currentUser?.role]);
+
+  const reloadNavigationFromSupabase = async (): Promise<{ success: boolean; error?: string }> => {
+    setIsCloudSyncing(true);
+    setCloudSyncStatus('syncing');
+    setLastCloudSyncError(null);
+    try {
+      const navDoc = await loadNavigationDocFromSupabase();
+      if (!navDoc) {
+        setCloudSyncStatus('local_only');
+        return {
+          success: false,
+          error: 'Belum ada konfigurasi navigasi tersimpan di tabel app_settings Supabase PostgreSQL.'
+        };
+      }
+      applyLoadedNavigationDoc(navDoc);
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal memuat ulang konfigurasi navigasi dari Supabase PostgreSQL.';
+      setCloudSyncStatus('error');
+      setLastCloudSyncError(msg);
+      return { success: false, error: msg };
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
 
   // Save Canonical Navigation Configuration to Supabase PostgreSQL
   const saveNavigationConfig = async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string; updatedAt?: string }> => {
+    if (!Array.isArray(navCategories) || navCategories.length === 0) {
+      const msg = 'Validasi gagal: minimal harus ada 1 kategori navigasi sebelum menyimpan.';
+      setCloudSyncStatus('error');
+      setLastCloudSyncError(msg);
+      return { success: false, error: msg };
+    }
+    if (!Array.isArray(standaloneMenus) || standaloneMenus.length === 0) {
+      const msg = 'Validasi gagal: minimal harus ada 1 menu mandiri sebelum menyimpan.';
+      setCloudSyncStatus('error');
+      setLastCloudSyncError(msg);
+      return { success: false, error: msg };
+    }
+
     setIsCloudSyncing(true);
     setCloudSyncStatus('syncing');
+    setLastCloudSyncError(null);
     try {
+      const nextVersion = (navVersionRef.current || 1) + 1;
       const docData: NavigationConfigDoc = {
         categories: navCategories,
         standaloneMenus,
         submenuItems,
         accordionSettings,
-        navigationVersion: 2,
+        navigationVersion: nextVersion,
         updatedAt: new Date().toISOString(),
         updatedBy: operatorName
       };
       const res = await saveNavigationDocToSupabase(docData);
+      navVersionRef.current = nextVersion;
+      committedNavSnapshotRef.current = JSON.stringify({
+        navCategories,
+        standaloneMenus,
+        submenuItems,
+        accordionSettings
+      });
+      setHasUnsavedNavChanges(false);
+      persistConfirmedNavToLocalStorage(navCategories, standaloneMenus, submenuItems, accordionSettings);
       setLastCloudSyncTime(res.updatedAt);
+      setLastCloudSyncError(null);
       setCloudSyncStatus('synced');
       try {
         localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
       } catch {}
       return { success: true, updatedAt: res.updatedAt };
     } catch (err: any) {
+      const msg = err?.message || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.';
       setCloudSyncStatus('error');
-      return { success: false, error: err?.message || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.' };
+      setLastCloudSyncError(msg);
+      return { success: false, error: msg };
     } finally {
       setIsCloudSyncing(false);
     }
   };
 
   const resetNavigationConfig = async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string }> => {
-    setNavCategoriesState(DEFAULT_CANONICAL_CATEGORIES);
-    setStandaloneMenusState(DEFAULT_STANDALONE_MENUS);
-    setSubmenuItemsState(DEFAULT_SUBMENU_ITEMS);
-    setAccordionSettingsState({ allowMultipleOpenGroups: true });
+    setIsCloudSyncing(true);
+    setCloudSyncStatus('syncing');
+    setLastCloudSyncError(null);
     try {
+      const nextVersion = (navVersionRef.current || 1) + 1;
+      const defaultCats = DEFAULT_CANONICAL_CATEGORIES;
+      const defaultStandalone = sanitizeStandaloneMenus(DEFAULT_STANDALONE_MENUS);
+      const defaultSubmenus = sanitizeSubmenuItems(DEFAULT_SUBMENU_ITEMS);
+      const defaultAccordion = { allowMultipleOpenGroups: true };
       const docData: NavigationConfigDoc = {
-        categories: DEFAULT_CANONICAL_CATEGORIES,
-        standaloneMenus: DEFAULT_STANDALONE_MENUS,
-        submenuItems: DEFAULT_SUBMENU_ITEMS,
-        accordionSettings: { allowMultipleOpenGroups: true },
-        navigationVersion: 1,
+        categories: defaultCats,
+        standaloneMenus: defaultStandalone,
+        submenuItems: defaultSubmenus,
+        accordionSettings: defaultAccordion,
+        navigationVersion: nextVersion,
         updatedAt: new Date().toISOString(),
         updatedBy: operatorName
       };
-      await saveNavigationDocToSupabase(docData);
+      const res = await saveNavigationDocToSupabase(docData);
+      // Only mutate React state & localStorage after Supabase confirms persistence
+      navVersionRef.current = nextVersion;
+      committedNavSnapshotRef.current = JSON.stringify({
+        navCategories: defaultCats,
+        standaloneMenus: defaultStandalone,
+        submenuItems: defaultSubmenus,
+        accordionSettings: defaultAccordion
+      });
+      setNavCategoriesState(defaultCats);
+      setStandaloneMenusState(defaultStandalone);
+      setSubmenuItemsState(defaultSubmenus);
+      setAccordionSettingsState(defaultAccordion);
+      setHasUnsavedNavChanges(false);
+      persistConfirmedNavToLocalStorage(defaultCats, defaultStandalone, defaultSubmenus, defaultAccordion);
+      setLastCloudSyncTime(res.updatedAt);
+      setLastCloudSyncError(null);
+      setCloudSyncStatus('synced');
+      try {
+        localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
+      } catch {}
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: err?.message };
+      const msg = err?.message || 'Gagal mereset konfigurasi navigasi di Supabase PostgreSQL.';
+      setCloudSyncStatus('error');
+      setLastCloudSyncError(msg);
+      return { success: false, error: msg };
+    } finally {
+      setIsCloudSyncing(false);
     }
   };
 
@@ -1533,8 +1684,11 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         importConfigJson,
         saveConfigToSupabase,
         loadConfigFromSupabase,
+        reloadNavigationFromSupabase,
         isCloudSyncing,
         lastCloudSyncTime,
+        lastCloudSyncError,
+        hasUnsavedNavChanges,
         cloudSyncStatus
       }}
     >

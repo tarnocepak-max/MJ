@@ -7,6 +7,7 @@ import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from '../tickets/TechnicalReportForm';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import {
   Wrench,
   Phone,
@@ -659,18 +660,18 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               return (
                 <div
                   key={ticket.id}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-300 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-500 p-5 shadow-sm hover:shadow-md transition-all space-y-4 relative"
+                  className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] hover:border-[#431599]/50 dark:hover:border-[#A78BFA]/60 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all space-y-4 relative"
                 >
                   {/* Card Header: WO Number, Badges, Category */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 rounded-lg font-mono font-extrabold text-sm text-indigo-700 dark:text-indigo-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E9E5F0] dark:border-[#35105E]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2.5 py-1 bg-[#F5F1FF] dark:bg-[#2A1647] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-lg font-mono font-extrabold text-sm text-[#431599] dark:text-[#D8B4FE]">
                         {ticket.woNumber}
                       </span>
-                      <span className="px-2 py-0.5 rounded font-mono text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <span className="px-2 py-0.5 rounded font-mono text-[11px] font-semibold bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E]">
                         ID Cust: {ticket.idCustomer || ticket.customerId || '-'}
                       </span>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8]">
                         {ticket.ticketCategory || ticket.appointmentType || 'New Installation'}
                       </span>
                     </div>
@@ -874,19 +875,33 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
                     {/* Primary Action Buttons: Clean responsive arrangement with zero overlaps */}
                     <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCustomerAddressInGoogleMaps(ticket, () => {
+                            toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
+                          })
+                        }
+                        className="px-3 py-1.5 bg-[#F5F1FF] hover:bg-[#EFE9FA] dark:bg-[#2A1647] border border-[#D8CCF3] dark:border-[#5B35B1] text-[#431599] dark:text-[#D8B4FE] text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Buka rute Google Maps"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        <span>Maps</span>
+                      </button>
+
                       {/* Tombol Live Chat */}
                       {(() => {
                         const unread = getTicketUnreadCount(ticket.id);
                         return (
                           <button
                             onClick={() => handleOpenChat(ticket)}
-                            className="relative px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                            className="relative px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#431599] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                             title="Buka Live Chat koordinasi dengan Dispatch untuk tiket ini"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             <span>Live Chat</span>
                             {unread > 0 && (
-                              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#DC4C5A] text-white">
                                 {unread > 99 ? '99+' : unread}
                               </span>
                             )}
@@ -897,7 +912,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       {/* Tombol "Buka Tiket" / "Open Ticket" */}
                       <button
                         onClick={() => handleOpenTicket(ticket)}
-                        className="px-3.5 py-1.5 bg-[#3B1D78] hover:bg-[#5B35B1] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        className="px-3.5 py-1.5 bg-[#431599] hover:bg-[#35105E] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                         title="Buka rincian lengkap tiket dan formulir teknis"
                       >
                         <Eye className="w-3.5 h-3.5" />

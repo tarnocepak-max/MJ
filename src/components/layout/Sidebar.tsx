@@ -315,31 +315,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Mobile Backdrop Overlay */}
       <div
-        className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-45 md:hidden animate-fadeIn"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-45 md:hidden"
         onClick={() => onChangeState('closed')}
       />
 
-      {/* Sidebar Main Frame: Dark Purple Gloss Theme */}
-      <aside
-        className="fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto bg-[#160D29] text-slate-200 border-r border-[#35105E] transition-all duration-300 ease-in-out flex flex-col shrink-0 shadow-2xl md:shadow-none h-full w-64 select-none"
-      >
-        {/* Top Header with MoraJaws Logo */}
-        <div className="px-4 py-3.5 border-b border-[#35105E] flex items-center justify-between bg-[#110A21]">
-          <div className="flex items-center gap-2.5">
-            <MoraJawsLogo size="xs" animated={false} />
-            <div className="flex flex-col">
-              <span className="font-extrabold text-[#D8B4FE] uppercase tracking-wider text-[11px] leading-tight">
-                Menu Navigasi
+      {/* Sidebar Main Frame: Dark Purple #160D29 */}
+      <aside className="fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto bg-[#160D29] text-[#CEC0E8] border-r border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 shadow-[0_1px_8px_rgba(0,0,0,0.08)] md:shadow-none h-full w-64 select-none">
+        {/* Top Brand Header */}
+        <div className="h-16 px-4 flex items-center justify-between bg-[#160D29] border-b border-[#35105E]/60 sticky top-0 z-10 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <MoraJawsLogo size="sm" animated={false} withGlow={false} />
+            <div className="flex flex-col min-w-0">
+              <span className="font-display font-bold text-[17px] leading-none text-white tracking-tight truncate">
+                {config.global.appName || 'MoraJaws'}
               </span>
-              <span className="text-[9.5px] text-purple-400 font-medium">
-                MoraJaws Operations
+              <span className="text-[10px] font-semibold text-[#A78BFA] uppercase tracking-wider mt-1 truncate">
+                Work Order Management
               </span>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onChangeState('closed')}
-            className="p-1.5 text-purple-300 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-[#A78BFA] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer md:hidden"
             title="Tutup Menu"
           >
             <X className="w-4 h-4" />
@@ -347,11 +345,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Scrollable Navigation Body */}
-        <div className="flex-1 py-3 px-2.5 space-y-2 overflow-y-auto scrollbar-thin">
-          {/* ============================================================ */}
-          {/* A. MENU MANDIRI (TANPA KATEGORI INDUK, TANPA ACCORDION)      */}
-          {/* Langsung di bagian atas tanpa label header "MENU UTAMA"      */}
-          {/* ============================================================ */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
+          <div className="px-2.5 py-1.5 text-[11px] font-bold text-[#8B8495] uppercase tracking-wider">
+            Operations Core
+          </div>
+
+          {/* Standalone Menus */}
           <div className="space-y-1">
             {filteredStandaloneMenus.map(item => {
               const Icon = resolveNavIcon(item.icon);
@@ -367,181 +366,164 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => handleItemClick(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-md shadow-[#5B35B1]/40 border-l-4 border-l-[#D8B4FE] border-y border-r border-[#D8B4FE]/30'
-                      : 'text-purple-200 hover:text-white hover:bg-[#35105E]/50 border-l-4 border-l-transparent'
+                      ? 'bg-[#7135B5] text-white font-bold shadow-sm'
+                      : 'text-[#CEC0E8] font-medium hover:bg-[#35105E] hover:text-white'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-purple-300'}`} />
-                  <div className="flex-1 flex items-center justify-between text-left truncate">
-                    <span className="truncate">{item.label}</span>
-                    {badgeInfo && (
-                      <span
-                        className={`ml-2 px-1.5 py-0.2 text-[9.5px] font-bold rounded-full ${
-                          isActive
-                            ? 'bg-white text-[#35105E]'
-                            : badgeInfo.color === 'amber'
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                            : 'bg-[#5B35B1] text-purple-100'
-                        }`}
-                      >
-                        {badgeInfo.text}
-                      </span>
-                    )}
-                  </div>
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#E9D5FF]' : 'text-[#A78BFA]'}`} />
+                  <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
+                  {badgeInfo && (
+                    <span
+                      className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded tabular-nums shrink-0 ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : badgeInfo.color === 'amber'
+                          ? 'bg-[#E59A27]/20 text-[#FBBF24]'
+                          : 'bg-[#35105E] text-[#D8B4FE]'
+                      }`}
+                    >
+                      {badgeInfo.text}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* ============================================================ */}
-          {/* B. PEMISAH RAPI (JIKA MEMILIKI KATEGORI ACCORDION)           */}
-          {/* Tanpa judul "KATEGORI MENU" per spesifikasi                  */}
-          {/* ============================================================ */}
+          {/* Collapsible Category Accordions */}
           {filteredCategoriesWithSubmenus.length > 0 && (
-            <div className="my-2.5 border-t border-[#35105E]/60" />
-          )}
+            <div className="pt-3 space-y-1.5">
+              {filteredCategoriesWithSubmenus.map(cat => {
+                const CatIcon = resolveNavIcon(cat.icon);
+                const isAccordionMode = cat.mode !== 'static';
+                const isOpen = isAccordionMode ? !!openGroups[cat.id] : true;
+                const hasActiveChild = cat.submenus.some(
+                  sub =>
+                    activeTab === sub.id ||
+                    (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
+                    (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
+                );
 
-          {/* ============================================================ */}
-          {/* C. KATEGORI ACCORDION SUBMENU (Contractor & Area, Installer, Menu Tambahan) */}
-          {/* ============================================================ */}
-          {filteredCategoriesWithSubmenus.map(cat => {
-            const CatIcon = resolveNavIcon(cat.icon);
-            const isAccordionMode = cat.mode !== 'static';
-            const isOpen = isAccordionMode ? !!openGroups[cat.id] : true;
-            const hasActiveChild = cat.submenus.some(
-              sub =>
-                activeTab === sub.id ||
-                (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-                (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
-            );
-
-            return (
-              <div
-                key={cat.id}
-                className={`rounded-xl transition-all duration-200 ${
-                  hasActiveChild
-                    ? 'bg-[#251545]/70 border border-[#7135B5]/40 shadow-xs'
-                    : 'bg-[#1C1133]/40 border border-[#35105E]/40'
-                }`}
-              >
-                {/* Category Header Button */}
-                {isAccordionMode ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(cat.id, 'accordion')}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-purple-200 hover:text-white hover:bg-[#35105E]/60 rounded-xl transition-colors cursor-pointer group"
-                    aria-expanded={isOpen}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <CatIcon className={`w-4 h-4 shrink-0 ${hasActiveChild ? 'text-[#D8B4FE]' : 'text-purple-400 group-hover:text-purple-300'}`} />
-                      <span className="tracking-wide uppercase text-[11px] font-bold truncate">
-                        {cat.name}
-                      </span>
-                    </div>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 shrink-0 text-purple-400 transition-transform duration-300 ease-in-out ${
-                        isOpen ? 'rotate-180 text-[#D8B4FE]' : 'rotate-0 text-purple-400 group-hover:text-purple-300'
-                      }`}
-                    />
-                  </button>
-                ) : (
-                  <div className="w-full flex items-center justify-between px-3 py-2 text-xs font-extrabold text-purple-300 border-b border-[#35105E]/40">
-                    <div className="flex items-center gap-2.5 truncate">
-                      <CatIcon className={`w-4 h-4 shrink-0 ${hasActiveChild ? 'text-[#D8B4FE]' : 'text-purple-400'}`} />
-                      <span className="tracking-wider uppercase text-[11px] truncate">{cat.name}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Submenu Items with smooth collapse animation */}
-                {isOpen && (
-                  <div className="space-y-1 pl-1.5 pr-1 py-1.5 animate-fadeIn">
-                    {cat.submenus.map(item => {
-                      const SubIcon = resolveNavIcon(item.icon);
-                      const isActive =
-                        activeTab === item.id ||
-                        (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-                        (item.id === 'setup' &&
-                          ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
-
-                      const badgeInfo = getItemBadge(item.id, item.badge);
-
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => handleItemClick(item.id)}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                            isActive
-                              ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-md shadow-[#5B35B1]/40 border-l-4 border-l-[#D8B4FE] border-y border-r border-[#D8B4FE]/30'
-                              : item.highlight
-                              ? 'text-[#E9D5FF] bg-[#35105E]/80 hover:bg-[#5B35B1]/50 border-l-4 border-l-transparent'
-                              : 'text-purple-200 hover:text-white hover:bg-[#35105E]/50 border-l-4 border-l-transparent'
+                return (
+                  <div key={cat.id} className="space-y-1">
+                    {isAccordionMode ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(cat.id, 'accordion')}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          hasActiveChild
+                            ? 'text-white bg-[#35105E]/70'
+                            : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
+                        }`}
+                        aria-expanded={isOpen}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <CatIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
+                          <span className="truncate">{cat.name}</span>
+                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 shrink-0 text-[#A78BFA] transition-transform duration-200 ${
+                            isOpen ? 'rotate-180' : 'rotate-0'
                           }`}
-                        >
-                          <SubIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-purple-300'}`} />
-                          <div className="flex-1 flex items-center justify-between text-left truncate">
-                            <span className="truncate">{item.label}</span>
-                            {badgeInfo && (
-                              <span
-                                className={`ml-2 px-1.5 py-0.2 text-[9.5px] font-bold rounded-full ${
-                                  isActive
-                                    ? 'bg-white text-[#35105E]'
-                                    : badgeInfo.color === 'amber'
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                    : badgeInfo.color === 'emerald'
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                    : 'bg-[#5B35B1] text-purple-100'
-                                }`}
-                              >
-                                {badgeInfo.text}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                        />
+                      </button>
+                    ) : (
+                      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-bold text-[#D8B4FE]">
+                        <CatIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
+                        <span className="truncate">{cat.name}</span>
+                      </div>
+                    )}
 
-        {/* Footer: User Role Information & Logout */}
-        <div className="p-3 border-t border-[#35105E] bg-[#100921] space-y-2 shrink-0">
-          <div className="flex items-center justify-between px-2 text-[11px] text-purple-300">
-            <span className="truncate">
-              Role: <strong className="text-white capitalize">{userRole.replace('_', ' ')}</strong>
+                    {isOpen && (
+                      <div className="pl-6 pr-1 py-0.5 space-y-0.5">
+                        {cat.submenus.map(item => {
+                          const SubIcon = resolveNavIcon(item.icon);
+                          const isActive =
+                            activeTab === item.id ||
+                            (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
+                            (item.id === 'setup' &&
+                              ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
+
+                          const badgeInfo = getItemBadge(item.id, item.badge);
+
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleItemClick(item.id)}
+                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-[#7135B5] text-white font-bold shadow-sm'
+                                  : item.highlight
+                                  ? 'text-[#E9D5FF] bg-[#35105E]/50 hover:bg-[#35105E] hover:text-white font-medium'
+                                  : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white font-normal'
+                              }`}
+                            >
+                              <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#E9D5FF]' : 'text-[#A78BFA]/80'}`} />
+                              <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
+                              {badgeInfo && (
+                                <span
+                                  className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded tabular-nums shrink-0 ${
+                                    isActive
+                                      ? 'bg-white/20 text-white'
+                                      : badgeInfo.color === 'amber'
+                                      ? 'bg-[#E59A27]/20 text-[#FBBF24]'
+                                      : badgeInfo.color === 'emerald'
+                                      ? 'bg-[#16A36A]/20 text-emerald-300'
+                                      : 'bg-[#35105E] text-[#D8B4FE]'
+                                  }`}
+                                >
+                                  {badgeInfo.text}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </nav>
+
+        {/* Footer: Active Role & Session Controls */}
+        <div className="p-3 bg-[#35105E]/40 border-t border-[#35105E]/60 space-y-2 shrink-0">
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#160D29]/70 text-[11px] text-[#CEC0E8]">
+            <span className="truncate capitalize font-medium">
+              {userRole.replace('_', ' ')}
             </span>
-            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-[#35105E] text-[#D8B4FE] border border-[#7135B5]/40 uppercase tracking-wider">
-              {currentUser?.username || 'user'}
+            <span className="font-mono text-[10.5px] text-[#A78BFA] truncate max-w-[100px]">
+              @{currentUser?.username || 'staff'}
             </span>
           </div>
 
-          {userRole === 'super_admin' && (
+          <div className="flex items-center gap-1.5">
+            {userRole === 'super_admin' && (
+              <button
+                type="button"
+                onClick={() => setIsSessionModalOpen(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[#CEC0E8] hover:text-white hover:bg-[#35105E] text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                title="Kelola Sesi Staf Aktif"
+              >
+                <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#A78BFA]" />
+                <span>Sesi</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setIsSessionModalOpen(true)}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-purple-200 hover:text-white hover:bg-[#35105E] text-xs font-semibold transition-colors cursor-pointer"
-              title="Kelola Sesi Staf Aktif"
+              onClick={logout}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-rose-300 hover:text-white hover:bg-[#DC4C5A]/25 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+              title="Keluar / Logout"
             >
-              <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#D8B4FE]" />
-              <span className="truncate">Sesi Staf Aktif</span>
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              <span>Keluar</span>
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={logout}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 text-xs font-semibold transition-colors cursor-pointer"
-            title="Keluar / Logout"
-          >
-            <LogOut className="w-3.5 h-3.5 shrink-0" />
-            <span>Keluar / Logout</span>
-          </button>
+          </div>
         </div>
       </aside>
     </>

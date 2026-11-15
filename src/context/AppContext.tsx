@@ -2325,15 +2325,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 3. Mark ticket as In Progress / On Site
     const now = new Date().toISOString();
-    const updatedTicket: Ticket = {
-      ...ticket,
+    const workStartUpdates: Partial<Ticket> = {
       statusWOInstaller: 'On Site',
-      statusWOAgent: 'In Progress',
+      statusWOAgent: ticket.statusWOAgent === 'Closed' || ticket.statusWOAgent === 'Resolved' ? ticket.statusWOAgent : 'In Progress',
       workStartedAt: now,
       workStartedBy: currentUser.name,
       workStartedById: currentUser.id,
+      _offlineSyncStatus: !isOnline ? 'pending' : 'synced',
+      _offlineLastModified: now,
       updatedAt: now,
       updatedBy: currentUser.name
+    };
+    const updatedTicket: Ticket = {
+      ...ticket,
+      ...workStartUpdates
     };
 
     setTickets(prev => prev.map(t => (t.id === ticketId ? updatedTicket : t)));
@@ -2357,14 +2362,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Teknisi ${currentUser.name} memulai pengerjaan untuk WO ${ticket.woNumber}`
     );
 
-    // Persist to Supabase PostgreSQL
-    try {
-      await supabaseDb.updateWorkOrder(updatedTicket.id, updatedTicket);
-    } catch (err: any) {
-      console.warn('[Supabase] Error saving workStarted status:', err);
+    if (!isOnline) {
+      enqueueChange({
+        entity: 'ticket',
+        entityId: ticketId,
+        action: 'STATUS_CHANGE',
+        summary: `Mulai Kerjakan WO ${ticket.woNumber}`,
+        payload: workStartUpdates,
+        user: { id: currentUser.id, name: currentUser.name, role: currentUser.role }
+      }).catch(e => console.warn('Offline startWork enqueue error', e));
+      await saveTicketsOffline([updatedTicket]).catch(() => {});
+      return { success: true, ticket: updatedTicket };
     }
 
-    return { success: true, ticket: updatedTicket };
+    // Persist partial workStart update to Supabase PostgreSQL
+    try {
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.updateWorkOrder(updatedTicket.id, workStartUpdates);
+      if (!res.success) {
+        // Rollback optimistic state
+        setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
+        setSyncStatus('ERROR');
+        return {
+          success: false,
+          error: res.error?.message || 'Gagal menyimpan status Mulai Kerjakan ke server.'
+        };
+      }
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      const syncedTicket = res.data ? { ...updatedTicket, ...res.data } : updatedTicket;
+      setTickets(prev => prev.map(t => (t.id === ticketId ? syncedTicket : t)));
+      return { success: true, ticket: syncedTicket };
+    } catch (err: any) {
+      setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
+      setSyncStatus('ERROR');
+      return {
+        success: false,
+        error: err?.message || 'Koneksi ke server gagal saat memulai pengerjaan.'
+      };
+    }
   };
 
   const saveProgressReport = async (
@@ -2576,8 +2612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    const updatedWithProgress: Ticket = {
-      ...ticket,
+    const progressUpdateFields: Partial<Ticket> = {
       progressReports: [entry, ...(ticket.progressReports || [])],
       statusWOInstaller: nextInstallerStatus,
       // Status proses WO agent tetap In Progress (menunggu approval resmi dari Dispatch)
@@ -2600,6 +2635,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       _offlineLastModified: now,
       updatedAt: now,
       updatedBy: currentUser.name
+    };
+
+    const updatedWithProgress: Ticket = {
+      ...ticket,
+      ...progressUpdateFields
     };
 
     setTickets(prev =>
@@ -2640,9 +2680,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       if (isOnline) {
         setSyncStatus('SYNCING');
-        const saveRes = await supabaseDb.updateWorkOrder(updatedWithProgress.id, updatedWithProgress);
+        const saveRes = await supabaseDb.updateWorkOrder(updatedWithProgress.id, progressUpdateFields);
         if (!saveRes.success) {
-          throw new Error(saveRes.error?.message || 'Gagal menyimpan progress report ke Supabase');
+          setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
+          const errCode = saveRes.error?.code;
+          const errMsg = saveRes.error?.message || 'Gagal menyimpan progress report ke Supabase';
+          setSyncStatus('ERROR');
+          toast.error('Gagal menyimpan progress report ke Supabase PostgreSQL: ' + errMsg, 'Penyimpanan Gagal');
+          return { success: false, code: errCode, error: errMsg };
         }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
@@ -2655,6 +2700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast.warning(`Laporan WO ${ticket.woNumber} tersimpan offline di IndexedDB lokal (Butuh Approval).`, 'Laporan Offline');
       }
     } catch (err: any) {
+      setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
       setSyncStatus('ERROR');
       console.error('Failed writing progress report to Supabase:', err);
       toast.error('Gagal menyimpan progress report ke Supabase PostgreSQL: ' + (err?.message || err), 'Penyimpanan Gagal');
@@ -3279,7 +3325,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Only notify Check-in AFTER confirmed save of strict PROGRESS category message
-      if (currentUser.role === 'installer' && isStrictProgressCategory && (json.checkedIn || !hadCheckInBefore)) {
+      if (currentUser.role === 'installer' && isStrictProgressCategory && (json.checkInTriggered || json.checkedIn || !hadCheckInBefore)) {
         const checkInTs = json.ticket?.checkInAt || savedMessage.timestamp || new Date().toISOString();
         addAuditLog(
           'Installer Check-in Recorded',

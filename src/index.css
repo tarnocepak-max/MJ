@@ -1,13 +1,74 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-light-canvas: #F7F6FA;
+  --color-light-canvas-tinted: #F5F1FF;
+  --color-surface-white: #FFFFFF;
+  --color-surface-container: #F4EAFF;
+  --color-surface-container-low: #F9F0FF;
+  --color-surface-container-high: #F0E3FF;
+  --color-surface-container-highest: #EADDFA;
+  --color-border-subtle: #E9E5F0;
+  --color-border-lilac: #D8CCF3;
+
+  --color-brand-dark-purple: #160D29;
+  --color-brand-deep-purple: #35105E;
+  --color-brand-gloss-purple: #7135B5;
+  --color-brand-primary: #431599;
+  --color-lilac-accent: #A78BFA;
+  --color-lilac-glow: #D8B4FE;
+
+  --color-text-primary: #211A2E;
+  --color-text-secondary: #766B83;
+  --color-text-muted: #8B8495;
+
+  --color-status-success: #16A36A;
+  --color-status-warning: #E59A27;
+  --color-status-danger: #DC4C5A;
+  --color-status-info: #3977C9;
+}
 
 :root {
   --mj-dark-purple: #160D29;
   --mj-deep-purple: #35105E;
   --mj-gloss-purple: #7135B5;
+  --mj-primary: #431599;
   --mj-violet: #A855F7;
   --mj-lilac: #D8B4FE;
   --mj-light-lilac: #E9D5FF;
+  --mj-canvas: #F7F6FA;
+  --mj-border: #E9E5F0;
   --mj-white-glow: #FFFFFF;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #F7F6FA;
+    color: #211A2E;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html.dark,
+  html.dark body {
+    background-color: #140827;
+    color: #F5F1FF;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 /* -------------------------------------------------------------

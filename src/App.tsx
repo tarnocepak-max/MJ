@@ -26,7 +26,7 @@ import { LeaderPortal } from './components/portals/LeaderPortal';
 import { LeaderProgressDashboardView } from './components/portals/LeaderProgressDashboardView';
 import { ContractorAreaRecapView } from './components/reports/ContractorAreaRecapView';
 import { LocationBasecampView } from './components/contractors/LocationBasecampView';
-import { InstallerPortal, classifyInstallerStatus } from './components/portals/InstallerPortal';
+import { InstallerPortal, classifyInstallerStatus, StatusFilterCategory } from './components/portals/InstallerPortal';
 import { InstallerDashboardView } from './components/portals/InstallerDashboardView';
 import { InstallerWhatsAppCenter } from './components/whatsapp/InstallerWhatsAppCenter';
 import { ContactCentreView } from './components/contact/ContactCentreView';
@@ -119,6 +119,7 @@ const MainLayout: React.FC = () => {
   };
 
   const [leaderSubTab, setLeaderSubTab] = useState<LeaderTabType>(getInitialLeaderSubTab);
+  const [installerTaskFilter, setInstallerTaskFilter] = useState<StatusFilterCategory>('all');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailDefaultTab, setDetailDefaultTab] = useState<'overview' | 'report' | 'chat' | 'history'>('overview');
@@ -249,6 +250,26 @@ const MainLayout: React.FC = () => {
     }, 0);
   }, [isLoggedIn, isInstaller, tickets, currentUser, getTicketUnreadCount, todayWIB]);
 
+  // Scoped unconfirmed WhatsApp count for logged-in Installer (strictly today WIB)
+  const installerWaPendingCount = useMemo(() => {
+    if (!isLoggedIn || !isInstaller) return 0;
+    const myName = (currentUser?.name || '').toLowerCase().trim();
+    const myId = currentUser?.id || '';
+    const myUsername = (currentUser?.username || '').toLowerCase().trim();
+
+    return tickets.filter(t => {
+      if (t.isArchived || t.isDeleted) return false;
+      if (getTicketAppointmentDate(t) !== todayWIB) return false;
+      const assigned = (myId && t.assignedTo === myId) || (myUsername && t.assignedTo === myUsername);
+      const tInst = (t.installerName || '').toLowerCase().trim();
+      const nameMatch =
+        (myName && (tInst === myName || isInstallerMatch(t.installerName, myName))) ||
+        (myUsername && (tInst === myUsername || isInstallerMatch(t.installerName, myUsername)));
+      if (!assigned && !nameMatch) return false;
+      return t.statusWhatsApp !== 'confirmed' && t.statusWhatsApp !== 'cancelled';
+    }).length;
+  }, [isLoggedIn, isInstaller, tickets, currentUser, todayWIB]);
+
   // Unauthenticated Staff Protection: Render dedicated Staff Login Portal
   if (!isLoggedIn) {
     return (
@@ -317,13 +338,26 @@ const MainLayout: React.FC = () => {
 
   // Render view based on active tab with fallback
   const renderContent = () => {
+    const handleInstallerNavigateTab = (tab: string, filter?: string) => {
+      if (filter && ['all', 'pending', 'butuh_approval', 'done', 'reschedule', 'cancel'].includes(filter)) {
+        setInstallerTaskFilter(filter as StatusFilterCategory);
+      } else if (tab === 'installer_tasks') {
+        setInstallerTaskFilter('pending');
+      } else if (tab === 'installer_history') {
+        setInstallerTaskFilter('done');
+      } else {
+        setInstallerTaskFilter('all');
+      }
+      navigateTo(tab);
+    };
+
     // EXCLUSIVE INSTALLER VIEWPORT (Dashboard, Tugas Saya, WhatsApp, Live Chat Center)
     if (isInstaller) {
       switch (activeTab) {
         case 'installer_dashboard':
           return (
             <InstallerDashboardView
-              onNavigateTab={(tab) => navigateTo(tab)}
+              onNavigateTab={handleInstallerNavigateTab}
               onSelectTicket={handleOpenTicketDetail}
               onOpenWhatsApp={handleOpenWhatsAppModal}
             />
@@ -334,7 +368,7 @@ const MainLayout: React.FC = () => {
         case 'installer_history':
           return (
             <InstallerPortal
-              initialFilter={activeTab === 'installer_tasks' ? 'pending' : activeTab === 'installer_history' ? 'done' : 'all'}
+              initialFilter={activeTab === 'installer_history' ? 'done' : installerTaskFilter}
               onSelectTicket={handleOpenTicketDetail}
               onOpenWhatsApp={handleOpenWhatsAppModal}
             />
@@ -354,7 +388,7 @@ const MainLayout: React.FC = () => {
         default:
           return (
             <InstallerDashboardView
-              onNavigateTab={(tab) => navigateTo(tab)}
+              onNavigateTab={handleInstallerNavigateTab}
               onSelectTicket={handleOpenTicketDetail}
               onOpenWhatsApp={handleOpenWhatsAppModal}
             />
@@ -709,12 +743,9 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F1FF] dark:bg-[#140827] text-[#21183A] dark:text-[#F5F1FF] transition-colors relative">
-      {/* Top Header */}
-      <Header activeTab={activeTab} onNavigate={tab => navigateTo(tab)} />
-
+    <div className="h-dvh flex flex-col overflow-hidden bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-[#F5F1FF] transition-colors relative">
       {/* Main Workspace Frame */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Navigation Sidebar: STRICTLY NOT RENDERED FOR INSTALLER */}
         {!isInstaller && (
           <Sidebar
@@ -725,40 +756,45 @@ const MainLayout: React.FC = () => {
           />
         )}
 
-        {/* Floating Open Menu Button when sidebar is closed on desktop */}
-        {!isInstaller && currentSidebarState === 'closed' && !isDetailModalOpen && !isWhatsAppModalOpen && (
-          <button
-            onClick={() => setSidebarState('expanded')}
-            className="hidden md:flex fixed bottom-6 left-6 z-30 items-center gap-2 px-3.5 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white text-xs font-semibold rounded-full shadow-lg transition-transform hover:scale-105 cursor-pointer"
-            title="Buka Menu Navigasi"
-          >
-            <Menu className="w-4 h-4" />
-            <span>Buka Menu</span>
-          </button>
-        )}
+        {/* Right Column: Sticky Header + Content Viewport */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          <Header activeTab={activeTab} onNavigate={tab => navigateTo(tab)} />
 
-        {/* Content Viewport with responsive bottom navigation spacing */}
-        <main
-          className={`flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 ${
-            isInstaller
-              ? 'pb-28 sm:pb-24 w-full'
-              : currentUser.role === 'leader'
-              ? 'pb-24 sm:pb-20'
-              : isMobileView && config.device?.android?.showBottomNavigation !== false
-              ? 'pb-24'
-              : ''
-          }`}
-        >
-          <div
-            className={
-              isInstaller || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
-                ? 'w-full'
-                : 'max-w-7xl mx-auto'
-            }
+          {/* Floating Open Menu Button when sidebar is closed on desktop */}
+          {!isInstaller && currentSidebarState === 'closed' && !isDetailModalOpen && !isWhatsAppModalOpen && (
+            <button
+              onClick={() => setSidebarState('expanded')}
+              className="hidden md:flex fixed bottom-6 left-6 z-30 items-center gap-2 px-3.5 py-2 bg-[#5B35B1] hover:bg-[#7135B5] text-white text-xs font-bold rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer"
+              title="Buka Menu Navigasi"
+            >
+              <Menu className="w-4 h-4" />
+              <span>Buka Menu</span>
+            </button>
+          )}
+
+          {/* Content Viewport with responsive bottom navigation spacing */}
+          <main
+            className={`flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 ${
+              isInstaller
+                ? 'pb-28 sm:pb-24 w-full'
+                : currentUser.role === 'leader'
+                ? 'pb-24 sm:pb-20'
+                : isMobileView && config.device?.android?.showBottomNavigation !== false
+                ? 'pb-24'
+                : ''
+            }`}
           >
-            {renderContent()}
-          </div>
-        </main>
+            <div
+              className={
+                isInstaller || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
+                  ? 'w-full'
+                  : 'max-w-[1440px] mx-auto'
+              }
+            >
+              {renderContent()}
+            </div>
+          </main>
+        </div>
       </div>
 
       {/* Bottom Ergonomic Navigation:
@@ -769,9 +805,13 @@ const MainLayout: React.FC = () => {
       {isInstaller ? (
         <InstallerBottomNav
           activeTab={activeTab}
-          onTabChange={tab => navigateTo(tab)}
+          onTabChange={tab => {
+            if (tab === 'installer_tasks') setInstallerTaskFilter('pending');
+            navigateTo(tab);
+          }}
           pendingTasksCount={installerPendingCount}
           unreadMessagesCount={installerUnreadChatCount}
+          waPendingCount={installerWaPendingCount}
         />
       ) : currentUser.role === 'leader' ? (
         <LeaderBottomNav

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-07T14:11:35.576Z",
+  "generated_at": "2026-11-15T18:17:02.434Z",
   "reconciliation_meta": {
     "phase": "Phase 14C.3",
     "title": "MoraJaws Full Endpoint HTTP Integration Coverage & Security Verification",
-    "audit_timestamp": "2026-11-07T14:11:35.576Z",
+    "audit_timestamp": "2026-11-15T18:17:02.434Z",
     "auditor": "Senior Software Engineer, Security Reviewer & Migration Engineer",
     "methodology": "Pure dynamic ingestion of actual HTTP responses from loopback server execution; strict runtime typeof boolean assertion verification (status + functional); zero AST estimation; zero hardcoded PASS verdicts; zero truthy/string leakage.",
     "evidence_files": [
@@ -13,8 +13,8 @@
     ]
   },
   "metrics_distinction": {
-    "total_route_declarations": 133,
-    "total_unique_endpoints": 133,
+    "total_route_declarations": 150,
+    "total_unique_endpoints": 150,
     "total_http_requests_actually_executed": 225,
     "phase14c1_executed_http_requests": 71,
     "phase14c2_executed_http_requests": 80,
@@ -23,25 +23,25 @@
     "phase14c1_test_scenarios": 66,
     "phase14c2_test_scenarios": 80,
     "phase14c3_test_scenarios": 74,
-    "unique_endpoints_http_verified_pass": 132,
-    "unique_endpoints_http_verified_fail": 0,
+    "unique_endpoints_http_verified_pass": 123,
+    "unique_endpoints_http_verified_fail": 8,
     "unique_endpoints_internal_only": 0,
-    "unique_endpoints_not_tested": 1,
+    "unique_endpoints_not_tested": 19,
     "unique_endpoints_no_execution_evidence": 0,
     "coverage_achievement": "Phase 14C.3 achieved 100% HTTP integration coverage across all 132 declared Express routes with genuine loopback wire execution evidence."
   },
   "summary": {
-    "total_inventory_endpoints": 133,
-    "http_verified_pass": 132,
-    "http_verified_fail": 0,
+    "total_inventory_endpoints": 150,
+    "http_verified_pass": 123,
+    "http_verified_fail": 8,
     "internal_only": 0,
-    "not_tested": 1,
+    "not_tested": 19,
     "no_execution_evidence": 0
   },
   "live_safety_audit": {
     "cross_contractor": {
-      "test_run_id": "live_cross_1794060695509",
-      "timestamp": "2026-11-07T14:11:35.509Z",
+      "test_run_id": "live_cross_1794766622347",
+      "timestamp": "2026-11-15T18:17:02.347Z",
       "environment": "isolated_mock_staging_loopback",
       "request": {
         "method": "POST",
@@ -55,13 +55,13 @@
         "status_assertion_passed": true,
         "functional_assertion_passed": true,
         "actual_code": "SCOPE_MISMATCH",
-        "actual_message": "Akses Ditolak: Anda hanya dapat menugaskan Work Order dalam cakupan mitra kontraktor Anda (PT Mitra Jaringan Solusi)."
+        "actual_message": "Akses Ditolak: Anda hanya dapat menugaskan Work Order dalam cakupan mitra kontraktor Anda (c-test-01)."
       },
       "verdict": "PASS"
     },
     "protected_wo": {
-      "test_run_id": "live_protected_1794060695543",
-      "timestamp": "2026-11-07T14:11:35.543Z",
+      "test_run_id": "live_protected_1794766622391",
+      "timestamp": "2026-11-15T18:17:02.391Z",
       "environment": "isolated_mock_staging_loopback",
       "records_tested": [
         "wo_1793825457141_u4bnht",
@@ -119,8 +119,8 @@
       "verdict": "PASS"
     },
     "backup_routes_http": {
-      "test_run_id": "live_backup_http_1794060695571",
-      "timestamp": "2026-11-07T14:11:35.571Z",
+      "test_run_id": "live_backup_http_1794766622432",
+      "timestamp": "2026-11-15T18:17:02.432Z",
       "environment": "isolated_mock_staging_loopback",
       "tested_routes": [
         {
@@ -177,15 +177,15 @@
       "verdict": "PASS"
     },
     "quarantine_audit": {
-      "test_run_id": "quarantine_audit_1794060695571",
-      "timestamp": "2026-11-07T14:11:35.571Z",
+      "test_run_id": "quarantine_audit_1794766622432",
+      "timestamp": "2026-11-15T18:17:02.432Z",
       "items": [
         {
           "original_public_path": "public/assets/aistudio/morajawssv5_645d528d.zip",
           "quarantine_path": "quarantine/assets/aistudio/morajawssv5_645d528d.zip",
           "expected_sha256": "645d528de7f80b164e7dabaf18177c940323c3045d0b57d85890c6659c49cd01",
           "exists_in_quarantine": false,
-          "exists_in_public": true,
+          "exists_in_public": false,
           "quarantine_sha256": "",
           "sha256_match": false,
           "safely_quarantined": false
@@ -195,7 +195,7 @@
           "quarantine_path": "quarantine/assets/aistudio/remix-flexilayout_e63ea482.zip",
           "expected_sha256": "e63ea482d1b51ab31f0540bafe7a9011d342f93430a2f07cfa3fae9b809ee34b",
           "exists_in_quarantine": false,
-          "exists_in_public": true,
+          "exists_in_public": false,
           "quarantine_sha256": "",
           "sha256_match": false,
           "safely_quarantined": false
@@ -210,30 +210,27 @@
       {
         "label": "Artifact Firestore Backup",
         "path": ".aistudio/artifacts/brain/c9657985-1b13-4ada-a324-9057367bb5de/morajaws_production_firestore_backup.json",
-        "exists": true,
-        "size_bytes_actual_fs": 1055520,
-        "sha256": "c4b0b42c78f634735f1eb361947e641d096e13b9d071d8654fa13bfb5b1ab876",
-        "last_modified": "2026-11-07T13:40:18.560Z",
+        "exists": false,
+        "size_bytes_actual_fs": 0,
+        "last_modified": null,
         "is_inside_web_root": false,
         "protection_mechanism": "Express explicit route blocking (server.ts lines 8583 & 8586) returning HTTP 404 NOT_FOUND"
       },
       {
         "label": "Server Data Production Backup",
         "path": "data/morajaws_production_firestore_backup.json",
-        "exists": true,
-        "size_bytes_actual_fs": 1055520,
-        "sha256": "c4b0b42c78f634735f1eb361947e641d096e13b9d071d8654fa13bfb5b1ab876",
-        "last_modified": "2026-11-07T13:40:18.587Z",
+        "exists": false,
+        "size_bytes_actual_fs": 0,
+        "last_modified": null,
         "is_inside_web_root": false,
         "protection_mechanism": "Express explicit route blocking (server.ts lines 8583 & 8586) returning HTTP 404 NOT_FOUND"
       },
       {
         "label": "Local Database Fixture",
         "path": "data/morajaws_database.json",
-        "exists": true,
-        "size_bytes_actual_fs": 129007,
-        "sha256": "08aa5acf9f7198a9df3c6ce43aa2b1d26dffa23732f44345c8f5bb4a8dc1e2dc",
-        "last_modified": "2026-11-07T13:40:18.566Z",
+        "exists": false,
+        "size_bytes_actual_fs": 0,
+        "last_modified": null,
         "is_inside_web_root": false,
         "protection_mechanism": "Protected behind requireBackupDownloadPermission on /api/admin/backup/download"
       },
@@ -258,12 +255,12 @@
     ],
     "zip_archive_audit": {
       "legacy_zip_scanned": "public/assets/aistudio/morajaws0-nov-5-2026-10-46-20-pm_b249e691.zip",
-      "legacy_zip_exists": true,
-      "public_v5_zip_exists": true,
-      "public_remix_zip_exists": true,
+      "legacy_zip_exists": false,
+      "public_v5_zip_exists": false,
+      "public_remix_zip_exists": false,
       "quarantined_v5_zip_exists": false,
       "quarantined_remix_zip_exists": false,
-      "public_directory_is_clean": false,
+      "public_directory_is_clean": true,
       "sha256_verification": false
     },
     "gitignore_rules_enforced": [
@@ -291,7 +288,7 @@
       "path": "/api/health",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 1809,
+      "source_line": 1948,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -361,27 +358,27 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.839Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.005Z"
             },
             {
               "assertion_name": "Health Status matches ok",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.839Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.005Z"
             },
             {
               "assertion_name": "Active Database Status defined",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.839Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.005Z"
             },
             {
               "assertion_name": "Zero Secret Key Leakage in Health",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.839Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.005Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.838Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.004Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
@@ -392,7 +389,7 @@
       "path": "/api/auth/session",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 1955,
+      "source_line": 2081,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -428,22 +425,22 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.842Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.009Z"
             },
             {
               "assertion_name": "Authenticated Flag is False",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.842Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.009Z"
             },
             {
               "assertion_name": "User is Null",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.842Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.009Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.842Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.009Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         },
         {
@@ -467,27 +464,27 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.845Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.014Z"
             },
             {
               "assertion_name": "Authenticated Flag is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.845Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.014Z"
             },
             {
               "assertion_name": "Role matches super_admin",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.845Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.014Z"
             },
             {
               "assertion_name": "passwordHash is stripped",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.845Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.014Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.845Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.013Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
@@ -498,7 +495,7 @@
       "path": "/api/auth/firebase-login",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 1972,
+      "source_line": 2098,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -555,7 +552,7 @@
       "path": "/api/bootstrap",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 2118,
+      "source_line": 2107,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -647,7 +644,7 @@
       "path": "/api/auth/resolve-identity",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2252,
+      "source_line": 2284,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -683,22 +680,22 @@
             {
               "assertion_name": "HTTP Status Code matches expected (400)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.859Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.041Z"
             },
             {
               "assertion_name": "Status is 400",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.859Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.041Z"
             },
             {
               "assertion_name": "Code is INVALID_INPUT",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.859Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.041Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.859Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.041Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "INVALID_INPUT"
         },
@@ -723,27 +720,27 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.861Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.046Z"
             },
             {
               "assertion_name": "Found is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.861Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.046Z"
             },
             {
               "assertion_name": "Role matches super_admin",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.861Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.046Z"
             },
             {
               "assertion_name": "passwordHash is omitted",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.861Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.046Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.861Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.046Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
@@ -754,7 +751,7 @@
       "path": "/api/users/sync-profile",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 2343,
+      "source_line": 2374,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -811,8 +808,10 @@
       "path": "/api/auth/login",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2389,
-      "middlewares": [],
+      "source_line": 2484,
+      "middlewares": [
+        "handleLogin);"
+      ],
       "auth_enforced": false,
       "rbac_restriction": "public",
       "ownership_scope_verified": false,
@@ -865,111 +864,13 @@
     {
       "id": 8,
       "method": "POST",
-      "path": "/api/auth/logout",
-      "category": "Authentication & Identity",
-      "source_file": "server.ts",
-      "source_line": 2583,
-      "middlewares": [
-        "requireAuth"
-      ],
-      "auth_enforced": true,
-      "rbac_restriction": "authenticated",
-      "ownership_scope_verified": false,
-      "fail_closed_verified": true,
-      "test_type": "HTTP_INTEGRATION_TEST",
-      "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
-      "call_count": 2,
-      "scenarios": [
-        "POST /api/auth/logout - Unauthenticated request rejected (HTTP 401)",
-        "POST /api/auth/logout - Authenticated logout revokes session and increments version"
-      ],
-      "http_evidence": [
-        {
-          "suite": "Phase14C.3",
-          "scenario": "POST /api/auth/logout - Unauthenticated request rejected (HTTP 401)",
-          "test_scenario": "POST /api/auth/logout - Unauthenticated request rejected (HTTP 401)",
-          "scenario_number": 6,
-          "category": "Authentication & Identity",
-          "method": "POST",
-          "url": "/api/auth/logout",
-          "normalized_route": "/api/auth/logout",
-          "source_line": 925,
-          "token_role": null,
-          "expected_status": 401,
-          "actual_status": 401,
-          "status_assertion_passed": true,
-          "functional_assertion_passed": true,
-          "assertion_count": 2,
-          "failed_assertion_count": 0,
-          "assertion_results": [
-            {
-              "assertion_name": "HTTP Status Code matches expected (401)",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.863Z"
-            },
-            {
-              "assertion_name": "Status is 401",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.863Z"
-            }
-          ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.863Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
-          "environment": "isolated_mock_staging_loopback",
-          "response_code": "UNAUTHENTICATED"
-        },
-        {
-          "suite": "Phase14C.3",
-          "scenario": "POST /api/auth/logout - Authenticated logout revokes session and increments version",
-          "test_scenario": "POST /api/auth/logout - Authenticated logout revokes session and increments version",
-          "scenario_number": 7,
-          "category": "Authentication & Identity",
-          "method": "POST",
-          "url": "/api/auth/logout",
-          "normalized_route": "/api/auth/logout",
-          "source_line": 942,
-          "token_role": "installer",
-          "expected_status": 200,
-          "actual_status": 200,
-          "status_assertion_passed": true,
-          "functional_assertion_passed": true,
-          "assertion_count": 3,
-          "failed_assertion_count": 0,
-          "assertion_results": [
-            {
-              "assertion_name": "HTTP Status Code matches expected (200)",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.866Z"
-            },
-            {
-              "assertion_name": "Success Flag is True",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.866Z"
-            },
-            {
-              "assertion_name": "Message confirms session ended",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.866Z"
-            }
-          ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.866Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
-          "environment": "isolated_mock_staging_loopback",
-          "response_summary": "Sesi berhasil diakhiri"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "method": "POST",
       "path": "/api/auth/supabase-login",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2603,
-      "middlewares": [],
+      "source_line": 2485,
+      "middlewares": [
+        "handleLogin);"
+      ],
       "auth_enforced": false,
       "rbac_restriction": "public",
       "ownership_scope_verified": false,
@@ -1020,13 +921,36 @@
       ]
     },
     {
+      "id": 9,
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "category": "Authentication & Identity",
+      "source_file": "server.ts",
+      "source_line": 2538,
+      "middlewares": [
+        "handleRefresh);"
+      ],
+      "auth_enforced": false,
+      "rbac_restriction": "public",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
       "id": 10,
       "method": "POST",
       "path": "/api/auth/supabase-refresh",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2740,
-      "middlewares": [],
+      "source_line": 2539,
+      "middlewares": [
+        "handleRefresh);"
+      ],
       "auth_enforced": false,
       "rbac_restriction": "public",
       "ownership_scope_verified": false,
@@ -1079,15 +1003,123 @@
     {
       "id": 11,
       "method": "POST",
+      "path": "/api/auth/logout",
+      "category": "Authentication & Identity",
+      "source_file": "server.ts",
+      "source_line": 2571,
+      "middlewares": [
+        "handleLogout);"
+      ],
+      "auth_enforced": false,
+      "rbac_restriction": "public",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "HTTP_INTEGRATION_TEST",
+      "tested_in": "Phase14C.3",
+      "status": "HTTP_VERIFIED_FAIL",
+      "call_count": 2,
+      "scenarios": [
+        "POST /api/auth/logout - Unauthenticated request rejected (HTTP 401)",
+        "POST /api/auth/logout - Authenticated logout revokes session and increments version"
+      ],
+      "http_evidence": [
+        {
+          "suite": "Phase14C.3",
+          "scenario": "POST /api/auth/logout - Unauthenticated request rejected (HTTP 401)",
+          "test_scenario": "POST /api/auth/logout - Unauthenticated request rejected (HTTP 401)",
+          "scenario_number": 6,
+          "category": "Authentication & Identity",
+          "method": "POST",
+          "url": "/api/auth/logout",
+          "normalized_route": "/api/auth/logout",
+          "source_line": 925,
+          "token_role": null,
+          "expected_status": 401,
+          "actual_status": 200,
+          "status_assertion_passed": false,
+          "functional_assertion_passed": false,
+          "assertion_count": 2,
+          "failed_assertion_count": 2,
+          "assertion_results": [
+            {
+              "assertion_name": "HTTP Status Code matches expected (401)",
+              "assertion_passed": false,
+              "assertion_failure_reason": "HTTP status mismatch: expected 401, received 200",
+              "assertion_timestamp": "2026-11-15T18:16:54.049Z"
+            },
+            {
+              "assertion_name": "Status is 401",
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Status is 401' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.049Z"
+            }
+          ],
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.049Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
+          "environment": "isolated_mock_staging_loopback",
+          "response_summary": "Sesi login berhasil diakhiri.",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "HTTP status mismatch: expected 401, received 200",
+            "Assertion 'Status is 401' evaluated to false"
+          ]
+        },
+        {
+          "suite": "Phase14C.3",
+          "scenario": "POST /api/auth/logout - Authenticated logout revokes session and increments version",
+          "test_scenario": "POST /api/auth/logout - Authenticated logout revokes session and increments version",
+          "scenario_number": 7,
+          "category": "Authentication & Identity",
+          "method": "POST",
+          "url": "/api/auth/logout",
+          "normalized_route": "/api/auth/logout",
+          "source_line": 942,
+          "token_role": "installer",
+          "expected_status": 200,
+          "actual_status": 200,
+          "status_assertion_passed": true,
+          "functional_assertion_passed": true,
+          "assertion_count": 3,
+          "failed_assertion_count": 0,
+          "assertion_results": [
+            {
+              "assertion_name": "HTTP Status Code matches expected (200)",
+              "assertion_passed": true,
+              "assertion_timestamp": "2026-11-15T18:16:54.053Z"
+            },
+            {
+              "assertion_name": "Success Flag is True",
+              "assertion_passed": true,
+              "assertion_timestamp": "2026-11-15T18:16:54.053Z"
+            },
+            {
+              "assertion_name": "Message confirms session ended",
+              "assertion_passed": true,
+              "assertion_timestamp": "2026-11-15T18:16:54.053Z"
+            }
+          ],
+          "result": "PASS",
+          "timestamp": "2026-11-15T18:16:54.053Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
+          "environment": "isolated_mock_staging_loopback",
+          "response_summary": "Sesi login berhasil diakhiri."
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "method": "POST",
       "path": "/api/auth/supabase-logout",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2752,
+      "source_line": 2572,
       "middlewares": [
-        "requireAuth"
+        "handleLogout);"
       ],
-      "auth_enforced": true,
-      "rbac_restriction": "authenticated",
+      "auth_enforced": false,
+      "rbac_restriction": "public",
       "ownership_scope_verified": false,
       "fail_closed_verified": true,
       "test_type": "HTTP_INTEGRATION_TEST",
@@ -1172,74 +1204,17 @@
       ]
     },
     {
-      "id": 12,
-      "method": "POST",
-      "path": "/api/auth/supabase-reset-password",
-      "category": "Authentication & Identity",
-      "source_file": "server.ts",
-      "source_line": 2775,
-      "middlewares": [],
-      "auth_enforced": false,
-      "rbac_restriction": "public",
-      "ownership_scope_verified": false,
-      "fail_closed_verified": true,
-      "test_type": "HTTP_INTEGRATION_TEST",
-      "tested_in": "Phase14C.2",
-      "status": "HTTP_VERIFIED_PASS",
-      "call_count": 1,
-      "scenarios": [
-        "POST /api/auth/supabase-reset-password - Missing Email Rejected (HTTP 400)"
-      ],
-      "http_evidence": [
-        {
-          "suite": "Phase14C.2",
-          "scenario": "POST /api/auth/supabase-reset-password - Missing Email Rejected (HTTP 400)",
-          "test_scenario": "POST /api/auth/supabase-reset-password - Missing Email Rejected (HTTP 400)",
-          "scenario_number": 7,
-          "category": "Auth & Sessions",
-          "method": "POST",
-          "url": "/api/auth/supabase-reset-password",
-          "normalized_route": "/api/auth/supabase-reset-password",
-          "source_line": 724,
-          "token_role": null,
-          "expected_status": 400,
-          "actual_status": 400,
-          "status_assertion_passed": true,
-          "functional_assertion_passed": true,
-          "assertion_count": 2,
-          "failed_assertion_count": 0,
-          "assertion_results": [
-            {
-              "assertion_name": "HTTP Status Code matches expected (400)",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T07:15:02.308Z"
-            },
-            {
-              "assertion_name": "Functional Check: POST /api/auth/supabase-reset-password - Missing Email Rejected (HTTP 400)",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T07:15:02.308Z"
-            }
-          ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T07:15:02.308Z",
-          "test_run_id": "run_phase14c2_1794035702213_dq9oww",
-          "environment": "isolated_mock_staging_loopback",
-          "response_code": "INVALID_INPUT"
-        }
-      ]
-    },
-    {
       "id": 13,
       "method": "POST",
-      "path": "/api/auth/approve-mapping",
+      "path": "/api/auth/register",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2788,
+      "source_line": 2582,
       "middlewares": [
-        "requireSuperAdmin"
+        "blockPublicRegister);"
       ],
-      "auth_enforced": true,
-      "rbac_restriction": "super_admin",
+      "auth_enforced": false,
+      "rbac_restriction": "public",
       "ownership_scope_verified": false,
       "fail_closed_verified": false,
       "test_type": "NOT_TESTED",
@@ -1252,10 +1227,31 @@
     {
       "id": 14,
       "method": "POST",
+      "path": "/api/auth/signup",
+      "category": "Authentication & Identity",
+      "source_file": "server.ts",
+      "source_line": 2583,
+      "middlewares": [
+        "blockPublicRegister);"
+      ],
+      "auth_enforced": false,
+      "rbac_restriction": "public",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 15,
+      "method": "POST",
       "path": "/api/auth/change-password",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2803,
+      "source_line": 2586,
       "middlewares": [
         "requireAuth"
       ],
@@ -1345,12 +1341,138 @@
       ]
     },
     {
-      "id": 15,
+      "id": 16,
+      "method": "POST",
+      "path": "/api/auth/admin/reset-password",
+      "category": "Authentication & Identity",
+      "source_file": "server.ts",
+      "source_line": 2693,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 17,
+      "method": "POST",
+      "path": "/api/admin/users",
+      "category": "Session & Administration",
+      "source_file": "server.ts",
+      "source_line": 2826,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 18,
+      "method": "GET",
+      "path": "/api/admin/users",
+      "category": "Session & Administration",
+      "source_file": "server.ts",
+      "source_line": 2965,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 19,
+      "method": "PUT",
+      "path": "/api/admin/users/:id",
+      "category": "Session & Administration",
+      "source_file": "server.ts",
+      "source_line": 2995,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 20,
+      "method": "PATCH",
+      "path": "/api/admin/users/:id/status",
+      "category": "Session & Administration",
+      "source_file": "server.ts",
+      "source_line": 3061,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 21,
+      "method": "POST",
+      "path": "/api/admin/users/:id/revoke-sessions",
+      "category": "Session & Administration",
+      "source_file": "server.ts",
+      "source_line": 3137,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 22,
       "method": "GET",
       "path": "/api/auth/me",
       "category": "Authentication & Identity",
       "source_file": "server.ts",
-      "source_line": 2893,
+      "source_line": 3156,
       "middlewares": [
         "requireAuth"
       ],
@@ -1439,12 +1561,12 @@
       ]
     },
     {
-      "id": 16,
+      "id": 23,
       "method": "GET",
       "path": "/api/tickets",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 2908,
+      "source_line": 3172,
       "middlewares": [
         "requireAuth"
       ],
@@ -1482,17 +1604,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (401)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.868Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.055Z"
             },
             {
               "assertion_name": "Status is 401",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.868Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.055Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.868Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.055Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "UNAUTHENTICATED"
         },
@@ -1517,33 +1639,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.873Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.083Z"
             },
             {
               "assertion_name": "Success Flag is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.873Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.083Z"
             },
             {
               "assertion_name": "Tickets is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.873Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.083Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.873Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.082Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 17,
+      "id": 24,
       "method": "GET",
       "path": "/api/tickets/search",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 2950,
+      "source_line": 3218,
       "middlewares": [
         "requireAuth"
       ],
@@ -1704,12 +1826,12 @@
       ]
     },
     {
-      "id": 18,
+      "id": 25,
       "method": "POST",
       "path": "/api/tickets/sameday",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3037,
+      "source_line": 3300,
       "middlewares": [
         "requireDispatch"
       ],
@@ -1835,12 +1957,12 @@
       ]
     },
     {
-      "id": 19,
+      "id": 26,
       "method": "POST",
       "path": "/api/tickets/bulk-import",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3091,
+      "source_line": 3354,
       "middlewares": [
         "requireImportPermission"
       ],
@@ -2001,12 +2123,12 @@
       ]
     },
     {
-      "id": 20,
+      "id": 27,
       "method": "PUT",
       "path": "/api/tickets/:id",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3383,
+      "source_line": 3727,
       "middlewares": [
         "requireAuth",
         "handleUpdateTicket);"
@@ -2045,22 +2167,22 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.882Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.094Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.882Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.094Z"
             },
             {
               "assertion_name": "Protected WO Code matches PROTECTED_RECORD",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.882Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.094Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.882Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.094Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "PROTECTED_RECORD"
         },
@@ -2085,33 +2207,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.885Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.098Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.885Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.098Z"
             },
             {
               "assertion_name": "statusWOInstaller updated to In Progress",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.885Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.098Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.885Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.098Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 21,
+      "id": 28,
       "method": "PATCH",
       "path": "/api/tickets/:id",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3384,
+      "source_line": 3728,
       "middlewares": [
         "requireAuth",
         "handleUpdateTicket);"
@@ -2150,22 +2272,22 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.886Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.099Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.886Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.099Z"
             },
             {
               "assertion_name": "Code matches PROTECTED_RECORD",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.886Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.099Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.886Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.099Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "PROTECTED_RECORD"
         },
@@ -2190,33 +2312,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.888Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.102Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.888Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.102Z"
             },
             {
               "assertion_name": "slotTime updated",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.888Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.102Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.888Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.101Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 22,
+      "id": 29,
       "method": "POST",
       "path": "/api/tickets/assign",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3387,
+      "source_line": 3731,
       "middlewares": [
         "requireLeaderOrAdminForAssignment"
       ],
@@ -2486,12 +2608,12 @@
       ]
     },
     {
-      "id": 23,
+      "id": 30,
       "method": "POST",
       "path": "/api/tickets/reassign",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3569,
+      "source_line": 3951,
       "middlewares": [
         "requireLeaderOrAdminForAssignment"
       ],
@@ -2689,12 +2811,12 @@
       ]
     },
     {
-      "id": 24,
+      "id": 31,
       "method": "POST",
       "path": "/api/tickets/:id/report",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3709,
+      "source_line": 4117,
       "middlewares": [
         "requireAuth"
       ],
@@ -2855,12 +2977,12 @@
       ]
     },
     {
-      "id": 25,
+      "id": 32,
       "method": "POST",
       "path": "/api/tickets/:id/progress-report",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 3842,
+      "source_line": 4259,
       "middlewares": [
         "requireAuth"
       ],
@@ -3021,12 +3143,12 @@
       ]
     },
     {
-      "id": 26,
+      "id": 33,
       "method": "DELETE",
       "path": "/api/tickets/:id",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 4019,
+      "source_line": 4445,
       "middlewares": [
         "requireManagementData"
       ],
@@ -3065,17 +3187,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.892Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.106Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.892Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.106Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.892Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.106Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "REQUIRE_MANAGEMENT_DATA"
         },
@@ -3100,22 +3222,22 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.895Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.108Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.895Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.108Z"
             },
             {
               "assertion_name": "Code matches PROTECTED_RECORD",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.895Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.108Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.895Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.108Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "PROTECTED_RECORD"
         },
@@ -3140,34 +3262,34 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.898Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.111Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.898Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.111Z"
             },
             {
               "assertion_name": "Message confirms soft delete",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.898Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.111Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.897Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.111Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Work Order WO-TEST-MOCK-202 berhasil dihapus."
         }
       ]
     },
     {
-      "id": 27,
+      "id": 34,
       "method": "POST",
       "path": "/api/tickets/bulk-delete",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 4101,
+      "source_line": 4527,
       "middlewares": [
         "requireManagementData"
       ],
@@ -3293,12 +3415,12 @@
       ]
     },
     {
-      "id": 28,
+      "id": 35,
       "method": "POST",
       "path": "/api/tickets/purge-by-date",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 4200,
+      "source_line": 4626,
       "middlewares": [
         "requireManagementData"
       ],
@@ -3352,12 +3474,12 @@
       ]
     },
     {
-      "id": 29,
+      "id": 36,
       "method": "DELETE",
       "path": "/api/tickets/batch/:date",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 4209,
+      "source_line": 4635,
       "middlewares": [
         "requireManagementData"
       ],
@@ -3411,12 +3533,12 @@
       ]
     },
     {
-      "id": 30,
+      "id": 37,
       "method": "GET",
       "path": "/api/tickets/:woNumber/assignment-history",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 4219,
+      "source_line": 4645,
       "middlewares": [
         "requireAuth"
       ],
@@ -3453,33 +3575,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.900Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.114Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.900Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.114Z"
             },
             {
               "assertion_name": "History is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.900Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.114Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.900Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.113Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 31,
+      "id": 38,
       "method": "GET",
       "path": "/api/assignment-history",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 4219,
+      "source_line": 4645,
       "middlewares": [
         "requireAuth"
       ],
@@ -3640,12 +3762,12 @@
       ]
     },
     {
-      "id": 32,
+      "id": 39,
       "method": "GET",
       "path": "/api/assignment-history/:woNumber",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 4219,
+      "source_line": 4645,
       "middlewares": [
         "requireAuth"
       ],
@@ -3682,33 +3804,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.901Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.116Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.901Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.116Z"
             },
             {
               "assertion_name": "History is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.901Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.116Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.901Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.116Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 33,
+      "id": 40,
       "method": "GET",
       "path": "/api/contractors",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4270,
+      "source_line": 4696,
       "middlewares": [
         "requireAuth"
       ],
@@ -3797,12 +3919,12 @@
       ]
     },
     {
-      "id": 34,
+      "id": 41,
       "method": "POST",
       "path": "/api/contractors",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4295,
+      "source_line": 4721,
       "middlewares": [
         "requireAuth"
       ],
@@ -3927,12 +4049,12 @@
       ]
     },
     {
-      "id": 35,
+      "id": 42,
       "method": "PUT",
       "path": "/api/contractors/:id",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4429,
+      "source_line": 4855,
       "middlewares": [
         "requireAuth",
         "handleUpdateContractor);"
@@ -3971,17 +4093,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.902Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.122Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.902Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.122Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.902Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.121Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat mengubah data kontraktor."
         },
@@ -4006,34 +4128,34 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.904Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.125Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.904Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.125Z"
             },
             {
               "assertion_name": "Contractor object returned",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.904Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.125Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.904Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.125Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Data kontraktor berhasil diperbarui."
         }
       ]
     },
     {
-      "id": 36,
+      "id": 43,
       "method": "PATCH",
       "path": "/api/contractors/:id",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4430,
+      "source_line": 4856,
       "middlewares": [
         "requireAuth",
         "handleUpdateContractor);"
@@ -4071,29 +4193,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.906Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.129Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.906Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.129Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.906Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.129Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Data kontraktor berhasil diperbarui."
         }
       ]
     },
     {
-      "id": 37,
+      "id": 44,
       "method": "DELETE",
       "path": "/api/contractors/:id",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4432,
+      "source_line": 4858,
       "middlewares": [
         "requireAuth",
         "requireSuperAdmin"
@@ -4131,29 +4253,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.908Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.131Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.908Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.131Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.908Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.131Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Kontraktor berhasil dihapus dari database."
         }
       ]
     },
     {
-      "id": 38,
+      "id": 45,
       "method": "GET",
       "path": "/api/coverage-areas",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4465,
+      "source_line": 4891,
       "middlewares": [
         "requireAuth"
       ],
@@ -4242,12 +4364,12 @@
       ]
     },
     {
-      "id": 39,
+      "id": 46,
       "method": "POST",
       "path": "/api/coverage-areas",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4490,
+      "source_line": 4916,
       "middlewares": [
         "requireAuth"
       ],
@@ -4372,12 +4494,12 @@
       ]
     },
     {
-      "id": 40,
+      "id": 47,
       "method": "PUT",
       "path": "/api/coverage-areas/:id",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4591,
+      "source_line": 5017,
       "middlewares": [
         "requireAuth",
         "handleUpdateCoverageArea);"
@@ -4416,17 +4538,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.910Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.133Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.910Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.133Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.909Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.133Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat mengubah coverage area."
         },
@@ -4451,29 +4573,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.912Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.136Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.912Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.136Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.912Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.136Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Coverage area berhasil diperbarui."
         }
       ]
     },
     {
-      "id": 41,
+      "id": 48,
       "method": "PATCH",
       "path": "/api/coverage-areas/:id",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4592,
+      "source_line": 5018,
       "middlewares": [
         "requireAuth",
         "handleUpdateCoverageArea);"
@@ -4511,29 +4633,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.915Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.138Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.915Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.138Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.915Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.138Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Coverage area berhasil diperbarui."
         }
       ]
     },
     {
-      "id": 42,
+      "id": 49,
       "method": "DELETE",
       "path": "/api/coverage-areas/:id",
       "category": "Contractors & Area Management",
       "source_file": "server.ts",
-      "source_line": 4594,
+      "source_line": 5020,
       "middlewares": [
         "requireAuth",
         "requireSuperAdmin"
@@ -4571,29 +4693,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.917Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.141Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.917Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.141Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.917Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.141Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Coverage area berhasil dihapus dari database."
         }
       ]
     },
     {
-      "id": 43,
+      "id": 50,
       "method": "GET",
       "path": "/api/users",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 4627,
+      "source_line": 5053,
       "middlewares": [
         "requireAuth"
       ],
@@ -4682,12 +4804,12 @@
       ]
     },
     {
-      "id": 44,
+      "id": 51,
       "method": "POST",
       "path": "/api/users",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 4660,
+      "source_line": 5086,
       "middlewares": [
         "requireAuth"
       ],
@@ -4812,12 +4934,12 @@
       ]
     },
     {
-      "id": 45,
+      "id": 52,
       "method": "PUT",
       "path": "/api/users/:id",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 4762,
+      "source_line": 5188,
       "middlewares": [
         "requireAuth"
       ],
@@ -4943,12 +5065,12 @@
       ]
     },
     {
-      "id": 46,
+      "id": 53,
       "method": "POST",
       "path": "/api/users/:id/toggle",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 4931,
+      "source_line": 5357,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -5109,12 +5231,12 @@
       ]
     },
     {
-      "id": 47,
+      "id": 54,
       "method": "POST",
       "path": "/api/users/:id/reset-password",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 4991,
+      "source_line": 5417,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -5276,12 +5398,12 @@
       ]
     },
     {
-      "id": 48,
+      "id": 55,
       "method": "DELETE",
       "path": "/api/users/:id",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 5051,
+      "source_line": 5477,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -5319,17 +5441,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (400)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.919Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.142Z"
             },
             {
               "assertion_name": "Status is 400",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.919Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.143Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.919Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.142Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "Anda tidak dapat menghapus akun Anda sendiri saat sedang login."
         },
@@ -5354,29 +5476,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.920Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.145Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.920Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.145Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.920Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.145Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Akun User To Delete berhasil dihapus dari database."
         }
       ]
     },
     {
-      "id": 49,
+      "id": 56,
       "method": "GET",
       "path": "/api/sessions",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5125,
+      "source_line": 5551,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -5501,12 +5623,12 @@
       ]
     },
     {
-      "id": 50,
+      "id": 57,
       "method": "POST",
       "path": "/api/sessions/revoke",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5139,
+      "source_line": 5565,
       "middlewares": [
         "requireAuth"
       ],
@@ -5560,12 +5682,12 @@
       ]
     },
     {
-      "id": 51,
+      "id": 58,
       "method": "GET",
       "path": "/api/sessions/config",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5153,
+      "source_line": 5579,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -5619,12 +5741,12 @@
       ]
     },
     {
-      "id": 52,
+      "id": 59,
       "method": "POST",
       "path": "/api/sessions/config",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5157,
+      "source_line": 5583,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -5678,12 +5800,12 @@
       ]
     },
     {
-      "id": 53,
+      "id": 60,
       "method": "GET",
       "path": "/api/admin/backup/download",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5172,
+      "source_line": 5598,
       "middlewares": [
         "requireBackupDownloadPermission"
       ],
@@ -5773,12 +5895,12 @@
       ]
     },
     {
-      "id": 54,
+      "id": 61,
       "method": "GET",
       "path": "/api/config/global",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 5250,
+      "source_line": 5676,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -5829,12 +5951,12 @@
       ]
     },
     {
-      "id": 55,
+      "id": 62,
       "method": "POST",
       "path": "/api/config/global",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 5273,
+      "source_line": 5699,
       "middlewares": [
         "requireAuth"
       ],
@@ -5995,12 +6117,12 @@
       ]
     },
     {
-      "id": 56,
+      "id": 63,
       "method": "GET",
       "path": "/api/system/operational-date",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5319,
+      "source_line": 5746,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -6051,12 +6173,12 @@
       ]
     },
     {
-      "id": 57,
+      "id": 64,
       "method": "POST",
       "path": "/api/system/operational-date",
       "category": "Session & Administration",
       "source_file": "server.ts",
-      "source_line": 5323,
+      "source_line": 5750,
       "middlewares": [
         "requireAuth"
       ],
@@ -6110,12 +6232,12 @@
       ]
     },
     {
-      "id": 58,
+      "id": 65,
       "method": "GET",
       "path": "/api/sheets/config",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5346,
+      "source_line": 5773,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -6169,12 +6291,12 @@
       ]
     },
     {
-      "id": 59,
+      "id": 66,
       "method": "GET",
       "path": "/api/integrations/google-sheets/config",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5346,
+      "source_line": 5773,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -6212,17 +6334,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.922Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.146Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.922Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.146Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.922Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.146Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "REQUIRE_SUPER_ADMIN"
         },
@@ -6247,33 +6369,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.923Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.148Z"
             },
             {
               "assertion_name": "Config object present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.923Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.148Z"
             },
             {
               "assertion_name": "spreadsheetId present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.923Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.148Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.923Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.148Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 60,
+      "id": 67,
       "method": "POST",
       "path": "/api/sheets/config",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5350,
+      "source_line": 5777,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -6326,12 +6448,12 @@
       ]
     },
     {
-      "id": 61,
+      "id": 68,
       "method": "POST",
       "path": "/api/integrations/google-sheets/config",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5350,
+      "source_line": 5777,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -6368,33 +6490,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.925Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.149Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.925Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.150Z"
             },
             {
               "assertion_name": "sheetName updated",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.925Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.150Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.925Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.149Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 62,
+      "id": 69,
       "method": "GET",
       "path": "/api/integrations/google-sheets/status",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5369,
+      "source_line": 5796,
       "middlewares": [
         "requireAuth"
       ],
@@ -6483,12 +6605,12 @@
       ]
     },
     {
-      "id": 63,
+      "id": 70,
       "method": "POST",
       "path": "/api/integrations/google-sheets/test",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5393,
+      "source_line": 5820,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -6578,12 +6700,12 @@
       ]
     },
     {
-      "id": 64,
+      "id": 71,
       "method": "POST",
       "path": "/api/integrations/google-sheets/sync",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 5508,
+      "source_line": 5935,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -6637,12 +6759,12 @@
       ]
     },
     {
-      "id": 65,
+      "id": 72,
       "method": "POST",
       "path": "/api/attachments",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 5766,
+      "source_line": 6193,
       "middlewares": [
         "requireAuth"
       ],
@@ -6767,12 +6889,12 @@
       ]
     },
     {
-      "id": 66,
+      "id": 73,
       "method": "GET",
       "path": "/api/storage/readiness",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 5824,
+      "source_line": 6250,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -6807,46 +6929,46 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.929Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.156Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.929Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.156Z"
             },
             {
               "assertion_name": "Bucket is morajaws-reports",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.929Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.156Z"
             },
             {
               "assertion_name": "Readiness object present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.929Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.156Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.929Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.156Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 67,
+      "id": 74,
       "method": "POST",
       "path": "/api/storage/classify-file",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 5843,
+      "source_line": 6269,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
       "ownership_scope_verified": false,
-      "fail_closed_verified": true,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "POST /api/storage/classify-file - Classifies file source and taxonomy category"
@@ -6866,40 +6988,46 @@
           "expected_status": 200,
           "actual_status": 200,
           "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 1,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.931Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.158Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.931Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.158Z"
             },
             {
               "assertion_name": "Source type classified",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.931Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Source type classified' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.158Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.931Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
-          "environment": "isolated_mock_staging_loopback"
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.158Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
+          "environment": "isolated_mock_staging_loopback",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "Assertion 'Source type classified' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 68,
+      "id": 75,
       "method": "GET",
       "path": "/api/storage/actual-bucket-status",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 5854,
+      "source_line": 6280,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -6934,34 +7062,34 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.932Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.159Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.932Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.159Z"
             },
             {
               "assertion_name": "Bucket name matches morajaws-reports",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.932Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.159Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.932Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.159Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Bucket \"morajaws-reports\" benar-benar tersedia dan terverifikasi di Supabase Storage (PRIVATE)."
         }
       ]
     },
     {
-      "id": 69,
+      "id": 76,
       "method": "POST",
       "path": "/api/storage/test-upload",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 5872,
+      "source_line": 6298,
       "middlewares": [
         "requireAuth"
       ],
@@ -7015,12 +7143,12 @@
       ]
     },
     {
-      "id": 70,
+      "id": 77,
       "method": "POST",
       "path": "/api/storage/refresh-signed-url",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 5959,
+      "source_line": 6385,
       "middlewares": [
         "requireAuth"
       ],
@@ -7074,12 +7202,12 @@
       ]
     },
     {
-      "id": 71,
+      "id": 78,
       "method": "GET",
       "path": "/api/storage/download",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6023,
+      "source_line": 6449,
       "middlewares": [
         "requireAuth"
       ],
@@ -7133,12 +7261,12 @@
       ]
     },
     {
-      "id": 72,
+      "id": 79,
       "method": "POST",
       "path": "/api/storage/verify-access",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6085,
+      "source_line": 6511,
       "middlewares": [
         "requireAuth"
       ],
@@ -7175,33 +7303,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.935Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.161Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.935Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.161Z"
             },
             {
               "assertion_name": "Evaluation present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.935Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.161Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.935Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.161Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 73,
+      "id": 80,
       "method": "POST",
       "path": "/api/storage/phase2-sandbox-test",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6116,
+      "source_line": 6542,
       "middlewares": [
         "requireAuth"
       ],
@@ -7238,33 +7366,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.938Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.167Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.938Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.167Z"
             },
             {
               "assertion_name": "Stages object present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.938Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.167Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.938Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.167Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 74,
+      "id": 81,
       "method": "GET",
       "path": "/api/storage/adapter/config",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6479,
+      "source_line": 6905,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -7315,12 +7443,12 @@
       ]
     },
     {
-      "id": 75,
+      "id": 82,
       "method": "POST",
       "path": "/api/storage/adapter/upload",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6490,
+      "source_line": 6916,
       "middlewares": [
         "requireAuth"
       ],
@@ -7357,38 +7485,38 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.940Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.170Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.940Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.170Z"
             },
             {
               "assertion_name": "Metadata filePath present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.940Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.170Z"
             },
             {
               "assertion_name": "Signed URL generated",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.940Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.170Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.940Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.169Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 76,
+      "id": 83,
       "method": "GET",
       "path": "/api/storage/adapter/download",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6537,
+      "source_line": 6963,
       "middlewares": [
         "requireAuth"
       ],
@@ -7411,7 +7539,7 @@
           "scenario_number": 43,
           "category": "Storage Subsystem",
           "method": "GET",
-          "url": "/api/storage/adapter/download?storagePath=test-sandbox%2Fu_superadmin_01%2Fimage_report%2Fdata%2Fadp_file_1794060425940_8994713c_report_teknisi_01.jpg&category=test-sandbox",
+          "url": "/api/storage/adapter/download?storagePath=test-sandbox%2Fu_superadmin_01%2Fimage_report%2Fdata%2Fadp_file_1794766614169_5c77f4cd_report_teknisi_01.jpg&category=test-sandbox",
           "normalized_route": "/api/storage/adapter/download",
           "source_line": 1657,
           "token_role": "super_admin",
@@ -7425,28 +7553,28 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.943Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.173Z"
             },
             {
               "assertion_name": "Status is 200",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.943Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.173Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.943Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.173Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 77,
+      "id": 84,
       "method": "POST",
       "path": "/api/storage/adapter/signed-url",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6568,
+      "source_line": 6994,
       "middlewares": [
         "requireAuth"
       ],
@@ -7483,33 +7611,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.945Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.174Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.945Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.174Z"
             },
             {
               "assertion_name": "Signed URL present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.945Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.174Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.945Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.174Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 78,
+      "id": 85,
       "method": "POST",
       "path": "/api/storage/adapter/refresh-signed-url",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6596,
+      "source_line": 7022,
       "middlewares": [
         "requireAuth"
       ],
@@ -7546,33 +7674,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.947Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.176Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.947Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.176Z"
             },
             {
               "assertion_name": "Signed URL present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.947Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.176Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.946Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.176Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 79,
+      "id": 86,
       "method": "DELETE",
       "path": "/api/storage/adapter/file",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6625,
+      "source_line": 7051,
       "middlewares": [
         "requireAuth"
       ],
@@ -7609,29 +7737,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.948Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.179Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.948Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.179Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.948Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.179Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
-          "response_summary": "File sandbox \"test-sandbox/u_superadmin_01/image_report/data/adp_file_1794060425940_8994713c_report_teknisi_01.jpg\" berhasil dihapus."
+          "response_summary": "File sandbox \"test-sandbox/u_superadmin_01/image_report/data/adp_file_1794766614169_5c77f4cd_report_teknisi_01.jpg\" berhasil dihapus."
         }
       ]
     },
     {
-      "id": 80,
+      "id": 87,
       "method": "GET",
       "path": "/api/storage/adapter/reconciliation",
       "category": "Storage, Files & Attachments",
       "source_file": "server.ts",
-      "source_line": 6648,
+      "source_line": 7074,
       "middlewares": [
         "requireAuth"
       ],
@@ -7668,33 +7796,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.949Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.181Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.949Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.181Z"
             },
             {
               "assertion_name": "Recent Operation Logs is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.949Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.181Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.949Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.181Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 81,
+      "id": 88,
       "method": "GET",
       "path": "/api/supabase/work-orders",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 6675,
+      "source_line": 7101,
       "middlewares": [
         "requireAuth"
       ],
@@ -7731,33 +7859,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.951Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.183Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.951Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.183Z"
             },
             {
               "assertion_name": "Data is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.951Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.183Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.950Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.183Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 82,
+      "id": 89,
       "method": "GET",
       "path": "/api/supabase/work-orders/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 6758,
+      "source_line": 7184,
       "middlewares": [
         "requireAuth"
       ],
@@ -7794,43 +7922,43 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.880Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.092Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.880Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.092Z"
             },
             {
               "assertion_name": "Target work order retrieved",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.880Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.092Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.880Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.092Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 83,
+      "id": 90,
       "method": "POST",
       "path": "/api/supabase/work-orders",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 6808,
+      "source_line": 7234,
       "middlewares": [
         "requireAuth"
       ],
       "auth_enforced": true,
       "rbac_restriction": "authenticated",
-      "ownership_scope_verified": true,
-      "fail_closed_verified": true,
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "POST /api/supabase/work-orders - Dispatch creates new work order in Supabase (HTTP 201)"
@@ -7848,42 +7976,53 @@
           "source_line": 1792,
           "token_role": "dispatch",
           "expected_status": 201,
-          "actual_status": 201,
-          "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "actual_status": 403,
+          "status_assertion_passed": false,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 3,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (201)",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.953Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "HTTP status mismatch: expected 201, received 403",
+              "assertion_timestamp": "2026-11-15T18:16:54.185Z"
             },
             {
               "assertion_name": "Status is 201",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.953Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Status is 201' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.185Z"
             },
             {
               "assertion_name": "Success is True",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.953Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Success is True' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.185Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.953Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
-          "environment": "isolated_mock_staging_loopback"
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.185Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
+          "environment": "isolated_mock_staging_loopback",
+          "response_code": "REQUIRE_CREATE_PERMISSION",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "HTTP status mismatch: expected 201, received 403",
+            "Assertion 'Status is 201' evaluated to false",
+            "Assertion 'Success is True' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 84,
+      "id": 91,
       "method": "PATCH",
       "path": "/api/supabase/work-orders/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 6881,
+      "source_line": 7323,
       "middlewares": [
         "requireAuth"
       ],
@@ -7921,17 +8060,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.891Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.104Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.891Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.104Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.891Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.104Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         },
         {
@@ -7955,29 +8094,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.955Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.187Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.955Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.187Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.955Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.187Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "PROTECTED_RECORD"
         }
       ]
     },
     {
-      "id": 85,
+      "id": 92,
       "method": "DELETE",
       "path": "/api/supabase/work-orders/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 6979,
+      "source_line": 7461,
       "middlewares": [
         "requireManagementData"
       ],
@@ -8015,17 +8154,17 @@
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.956Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.196Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.956Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.196Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.956Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.196Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "PROTECTED_RECORD"
         },
@@ -8050,29 +8189,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.957Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.199Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.957Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.199Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.957Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.199Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Work Order wo_test_mock_202 berhasil ditandai terhapus (soft delete)."
         }
       ]
     },
     {
-      "id": 86,
+      "id": 93,
       "method": "POST",
       "path": "/api/supabase/work-orders/:id/archive",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7028,
+      "source_line": 7528,
       "middlewares": [
         "requireAuth"
       ],
@@ -8162,12 +8301,12 @@
       ]
     },
     {
-      "id": 87,
+      "id": 94,
       "method": "POST",
       "path": "/api/supabase/work-orders/:id/restore",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7073,
+      "source_line": 7573,
       "middlewares": [
         "requireAuth"
       ],
@@ -8257,12 +8396,12 @@
       ]
     },
     {
-      "id": 88,
+      "id": 95,
       "method": "POST",
       "path": "/api/supabase/work-orders/bulk-import",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7119,
+      "source_line": 7619,
       "middlewares": [
         "requireImportPermission"
       ],
@@ -8316,12 +8455,12 @@
       ]
     },
     {
-      "id": 89,
+      "id": 96,
       "method": "GET",
       "path": "/api/supabase/users",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7155,
+      "source_line": 7707,
       "middlewares": [
         "requireAuth"
       ],
@@ -8358,38 +8497,38 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.959Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.208Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.959Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.208Z"
             },
             {
               "assertion_name": "Data is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.959Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.208Z"
             },
             {
               "assertion_name": "passwordHash stripped from all users",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.959Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.208Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.959Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.208Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 90,
+      "id": 97,
       "method": "GET",
       "path": "/api/users/:id",
       "category": "User Management & RBAC",
       "source_file": "server.ts",
-      "source_line": 7195,
+      "source_line": 7755,
       "middlewares": [
         "requireAuth"
       ],
@@ -8550,12 +8689,12 @@
       ]
     },
     {
-      "id": 91,
+      "id": 98,
       "method": "GET",
       "path": "/api/supabase/users/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7195,
+      "source_line": 7755,
       "middlewares": [
         "requireAuth"
       ],
@@ -8592,33 +8731,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.960Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.211Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.960Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.211Z"
             },
             {
               "assertion_name": "ID matches target",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.960Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.211Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.960Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.211Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 92,
+      "id": 99,
       "method": "POST",
       "path": "/api/supabase/users",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7246,
+      "source_line": 7806,
       "middlewares": [
         "requireAuth"
       ],
@@ -8655,33 +8794,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (201)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.971Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.214Z"
             },
             {
               "assertion_name": "Status is 201",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.971Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.214Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.971Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.214Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.971Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.214Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 93,
+      "id": 100,
       "method": "PATCH",
       "path": "/api/supabase/users/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7308,
+      "source_line": 7879,
       "middlewares": [
         "requireAuth"
       ],
@@ -8718,28 +8857,28 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.978Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.216Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.978Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.216Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.978Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.216Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 94,
+      "id": 101,
       "method": "DELETE",
       "path": "/api/supabase/users/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7381,
+      "source_line": 7965,
       "middlewares": [
         "requireAuth"
       ],
@@ -8776,29 +8915,29 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.983Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.218Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.983Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.218Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.983Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.218Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_summary": "Pengguna berhasil dihapus."
         }
       ]
     },
     {
-      "id": 95,
+      "id": 102,
       "method": "POST",
       "path": "/api/supabase/users/:id/reset-password",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7454,
+      "source_line": 8046,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -8852,12 +8991,12 @@
       ]
     },
     {
-      "id": 96,
+      "id": 103,
       "method": "GET",
       "path": "/api/supabase/contractors",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7491,
+      "source_line": 8092,
       "middlewares": [
         "requireAuth"
       ],
@@ -8894,33 +9033,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.985Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.220Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.985Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.220Z"
             },
             {
               "assertion_name": "Data is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.985Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.220Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.985Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.220Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 97,
+      "id": 104,
       "method": "POST",
       "path": "/api/supabase/contractors",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7508,
+      "source_line": 8115,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -8957,33 +9096,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (201)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.986Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.222Z"
             },
             {
               "assertion_name": "Status is 201",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.986Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.222Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.986Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.222Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.986Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.222Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 98,
+      "id": 105,
       "method": "PATCH",
       "path": "/api/supabase/contractors/:id",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7527,
+      "source_line": 8149,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -9020,28 +9159,49 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.988Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.224Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.988Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.224Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.987Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.224Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 99,
+      "id": 106,
+      "method": "DELETE",
+      "path": "/api/supabase/contractors/:id",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8186,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 107,
       "method": "GET",
       "path": "/api/supabase/coverage-areas",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7550,
+      "source_line": 8214,
       "middlewares": [
         "requireAuth"
       ],
@@ -9078,33 +9238,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.989Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.225Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.989Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.225Z"
             },
             {
               "assertion_name": "Data is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.989Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.225Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.989Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.225Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 100,
+      "id": 108,
       "method": "POST",
       "path": "/api/supabase/coverage-areas",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7567,
+      "source_line": 8237,
       "middlewares": [
         "requireSuperAdmin"
       ],
@@ -9141,33 +9301,199 @@
             {
               "assertion_name": "HTTP Status Code matches expected (201)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.990Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.227Z"
             },
             {
               "assertion_name": "Status is 201",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.990Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.227Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.990Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.227Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.990Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.227Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 101,
+      "id": 109,
+      "method": "PATCH",
+      "path": "/api/supabase/coverage-areas/:id",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8272,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 110,
+      "method": "DELETE",
+      "path": "/api/supabase/coverage-areas/:id",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8305,
+      "middlewares": [
+        "requireSuperAdmin"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 111,
+      "method": "GET",
+      "path": "/api/supabase/wa-templates",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8333,
+      "middlewares": [
+        "requireAuth"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "authenticated",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 112,
+      "method": "POST",
+      "path": "/api/supabase/wa-templates",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8355,
+      "middlewares": [
+        "requireTemplateManager"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin, dispatch",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 113,
+      "method": "DELETE",
+      "path": "/api/supabase/wa-templates/:id",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8382,
+      "middlewares": [
+        "requireTemplateManager"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "super_admin, dispatch",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 114,
+      "method": "GET",
+      "path": "/api/supabase/preferences",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8406,
+      "middlewares": [
+        "requireAuth"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "authenticated",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 115,
+      "method": "POST",
+      "path": "/api/supabase/preferences",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8425,
+      "middlewares": [
+        "requireAuth"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "authenticated",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 116,
+      "method": "POST",
+      "path": "/api/supabase/system-error-logs",
+      "category": "Supabase Proxy & Protected Operations",
+      "source_file": "server.ts",
+      "source_line": 8449,
+      "middlewares": [],
+      "auth_enforced": false,
+      "rbac_restriction": "public",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 117,
       "method": "GET",
       "path": "/api/supabase/settings/:key",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7586,
+      "source_line": 8481,
       "middlewares": [
         "requireAuth"
       ],
@@ -9204,33 +9530,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.992Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.229Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.992Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.229Z"
             },
             {
               "assertion_name": "Data object present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.992Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.229Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.992Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.229Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 102,
+      "id": 118,
       "method": "POST",
       "path": "/api/supabase/settings/:key",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7597,
+      "source_line": 8548,
       "middlewares": [
         "requireSettingsManager"
       ],
@@ -9267,28 +9593,28 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.993Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.232Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.993Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.232Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.993Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.232Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 103,
+      "id": 119,
       "method": "GET",
       "path": "/api/supabase/audit-logs",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7623,
+      "source_line": 8727,
       "middlewares": [
         "requireAuditLogViewer"
       ],
@@ -9325,33 +9651,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.995Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.234Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.995Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.234Z"
             },
             {
               "assertion_name": "Data is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.995Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.234Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.995Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.234Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 104,
+      "id": 120,
       "method": "GET",
       "path": "/api/supabase/realtime/stream",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7641,
+      "source_line": 8745,
       "middlewares": [
         "requireAuth"
       ],
@@ -9388,33 +9714,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.996Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.236Z"
             },
             {
               "assertion_name": "Status is 200",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.996Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.236Z"
             },
             {
               "assertion_name": "SSE Flag is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.996Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.236Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.996Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.236Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 105,
+      "id": 121,
       "method": "POST",
       "path": "/api/supabase/phase8-shadow-dryrun",
       "category": "Supabase Proxy & Protected Operations",
       "source_file": "server.ts",
-      "source_line": 7687,
+      "source_line": 8798,
       "middlewares": [
         "requireAuth",
         "requireSuperAdmin"
@@ -9469,12 +9795,12 @@
       ]
     },
     {
-      "id": 106,
+      "id": 122,
       "method": "GET",
       "path": "/api/realtime/stream-sandbox",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7735,
+      "source_line": 8846,
       "middlewares": [
         "requireAuth",
         "requireRealtimeSandboxEnabled",
@@ -9566,12 +9892,12 @@
       ]
     },
     {
-      "id": 107,
+      "id": 123,
       "method": "POST",
       "path": "/api/realtime/publish-sandbox",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7756,
+      "source_line": 8867,
       "middlewares": [
         "requireAuth",
         "requireRealtimeSandboxEnabled",
@@ -9627,12 +9953,12 @@
       ]
     },
     {
-      "id": 108,
+      "id": 124,
       "method": "GET",
       "path": "/api/realtime/sandbox-status",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7789,
+      "source_line": 8900,
       "middlewares": [
         "requireAuth",
         "requireSandboxSuperAdmin"
@@ -9640,10 +9966,10 @@
       "auth_enforced": true,
       "rbac_restriction": "super_admin",
       "ownership_scope_verified": false,
-      "fail_closed_verified": true,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "GET /api/realtime/sandbox-status - Sandbox status strictly locked in production (HTTP 403)"
@@ -9663,41 +9989,47 @@
           "expected_status": 403,
           "actual_status": 403,
           "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 1,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.000Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.242Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.000Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.242Z"
             },
             {
               "assertion_name": "Code is FIREBASE_TOKEN_REQUIRED",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.000Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.242Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.000Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.241Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
-          "response_code": "FIREBASE_TOKEN_REQUIRED"
+          "response_code": "FORBIDDEN_NOT_ALLOWLISTED",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 109,
+      "id": 125,
       "method": "POST",
       "path": "/api/sandbox/journal/mutate",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7829,
+      "source_line": 8940,
       "middlewares": [
         "requireAuth",
         "requireSandboxEnabled",
@@ -9753,12 +10085,12 @@
       ]
     },
     {
-      "id": 110,
+      "id": 126,
       "method": "POST",
       "path": "/api/sandbox/journal/import-chunked",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7851,
+      "source_line": 8962,
       "middlewares": [
         "requireAuth",
         "requireSandboxEnabled",
@@ -9767,10 +10099,10 @@
       "auth_enforced": true,
       "rbac_restriction": "super_admin",
       "ownership_scope_verified": false,
-      "fail_closed_verified": true,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "POST /api/sandbox/journal/import-chunked - Sandbox chunked import strictly locked in production (HTTP 403)"
@@ -9790,41 +10122,47 @@
           "expected_status": 403,
           "actual_status": 403,
           "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 1,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.002Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.246Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.002Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.246Z"
             },
             {
               "assertion_name": "Code is FIREBASE_TOKEN_REQUIRED",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.002Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.246Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.002Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.246Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
-          "response_code": "FIREBASE_TOKEN_REQUIRED"
+          "response_code": "FORBIDDEN_NOT_ALLOWLISTED",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 111,
+      "id": 127,
       "method": "GET",
       "path": "/api/sandbox/outbox/query",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7878,
+      "source_line": 8989,
       "middlewares": [
         "requireAuth",
         "requireSandboxSuperAdmin"
@@ -9832,10 +10170,10 @@
       "auth_enforced": true,
       "rbac_restriction": "super_admin",
       "ownership_scope_verified": false,
-      "fail_closed_verified": true,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "GET /api/sandbox/outbox/query - Sandbox outbox query strictly locked in production (HTTP 403)"
@@ -9855,41 +10193,47 @@
           "expected_status": 403,
           "actual_status": 403,
           "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 1,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.003Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.250Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.003Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.250Z"
             },
             {
               "assertion_name": "Code is FIREBASE_TOKEN_REQUIRED",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.003Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.250Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.003Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.250Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
-          "response_code": "FIREBASE_TOKEN_REQUIRED"
+          "response_code": "FORBIDDEN_NOT_ALLOWLISTED",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 112,
+      "id": 128,
       "method": "POST",
       "path": "/api/sandbox/recovery/drain",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7907,
+      "source_line": 9018,
       "middlewares": [
         "requireAuth",
         "requireSandboxSuperAdmin"
@@ -9897,10 +10241,10 @@
       "auth_enforced": true,
       "rbac_restriction": "super_admin",
       "ownership_scope_verified": false,
-      "fail_closed_verified": true,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "POST /api/sandbox/recovery/drain - Sandbox recovery drain strictly locked in production (HTTP 403)"
@@ -9920,41 +10264,47 @@
           "expected_status": 403,
           "actual_status": 403,
           "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 1,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.004Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.251Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.004Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.251Z"
             },
             {
               "assertion_name": "Code is FIREBASE_TOKEN_REQUIRED",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.004Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.251Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.004Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.251Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
-          "response_code": "FIREBASE_TOKEN_REQUIRED"
+          "response_code": "FORBIDDEN_NOT_ALLOWLISTED",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 113,
+      "id": 129,
       "method": "GET",
       "path": "/api/sandbox/realtime/stream",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 7925,
+      "source_line": 9036,
       "middlewares": [
         "requireAuth",
         "requireSandboxSuperAdmin"
@@ -9962,10 +10312,10 @@
       "auth_enforced": true,
       "rbac_restriction": "super_admin",
       "ownership_scope_verified": false,
-      "fail_closed_verified": true,
+      "fail_closed_verified": false,
       "test_type": "HTTP_INTEGRATION_TEST",
       "tested_in": "Phase14C.3",
-      "status": "HTTP_VERIFIED_PASS",
+      "status": "HTTP_VERIFIED_FAIL",
       "call_count": 1,
       "scenarios": [
         "GET /api/sandbox/realtime/stream - Sandbox SSE stream strictly locked in production (HTTP 403)"
@@ -9985,41 +10335,47 @@
           "expected_status": 403,
           "actual_status": 403,
           "status_assertion_passed": true,
-          "functional_assertion_passed": true,
+          "functional_assertion_passed": false,
           "assertion_count": 3,
-          "failed_assertion_count": 0,
+          "failed_assertion_count": 1,
           "assertion_results": [
             {
               "assertion_name": "HTTP Status Code matches expected (403)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.005Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.253Z"
             },
             {
               "assertion_name": "Status is 403",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.005Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.253Z"
             },
             {
               "assertion_name": "Code is FIREBASE_TOKEN_REQUIRED",
-              "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.005Z"
+              "assertion_passed": false,
+              "assertion_failure_reason": "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false",
+              "assertion_timestamp": "2026-11-15T18:16:54.253Z"
             }
           ],
-          "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.005Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "result": "FAIL",
+          "timestamp": "2026-11-15T18:16:54.252Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
-          "response_code": "FIREBASE_TOKEN_REQUIRED"
+          "response_code": "FORBIDDEN_NOT_ALLOWLISTED",
+          "failure_reasons": [
+            "[FAIL] params.passed is false: test scenario reported failure",
+            "[FAIL] functionalPassed is false: functional check reported failure",
+            "Assertion 'Code is FIREBASE_TOKEN_REQUIRED' evaluated to false"
+          ]
         }
       ]
     },
     {
-      "id": 114,
+      "id": 130,
       "method": "POST",
       "path": "/api/sandbox/test/chaos",
       "category": "Realtime & Sandbox",
       "source_file": "server.ts",
-      "source_line": 8001,
+      "source_line": 9112,
       "middlewares": [
         "requireAuth",
         "requireSandboxEnabled",
@@ -10075,12 +10431,12 @@
       ]
     },
     {
-      "id": 115,
+      "id": 131,
       "method": "GET",
       "path": "/api/work-orders",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8020,
+      "source_line": 9131,
       "middlewares": [
         "requireAuth"
       ],
@@ -10242,12 +10598,12 @@
       ]
     },
     {
-      "id": 116,
+      "id": 132,
       "method": "GET",
       "path": "/api/work-orders/:id",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8043,
+      "source_line": 9154,
       "middlewares": [
         "requireAuth"
       ],
@@ -10301,12 +10657,12 @@
       ]
     },
     {
-      "id": 117,
+      "id": 133,
       "method": "GET",
       "path": "/api/tickets/:id",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8043,
+      "source_line": 9154,
       "middlewares": [
         "requireAuth"
       ],
@@ -10343,33 +10699,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.877Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.089Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.877Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.089Z"
             },
             {
               "assertion_name": "Ticket object present",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.877Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.089Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.877Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.089Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 118,
+      "id": 134,
       "method": "POST",
       "path": "/api/work-orders/:id/assign",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8070,
+      "source_line": 9181,
       "middlewares": [
         "requireLeaderOrAdminForAssignment"
       ],
@@ -10459,12 +10815,12 @@
       ]
     },
     {
-      "id": 119,
+      "id": 135,
       "method": "POST",
       "path": "/api/work-orders/:id/reassign",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8159,
+      "source_line": 9284,
       "middlewares": [
         "requireLeaderOrAdminForAssignment"
       ],
@@ -10518,12 +10874,12 @@
       ]
     },
     {
-      "id": 120,
+      "id": 136,
       "method": "GET",
       "path": "/api/settings",
       "category": "Communication & Audit",
       "source_file": "server.ts",
-      "source_line": 8248,
+      "source_line": 9387,
       "middlewares": [
         "requireAuth"
       ],
@@ -10576,12 +10932,12 @@
       ]
     },
     {
-      "id": 121,
+      "id": 137,
       "method": "GET",
       "path": "/api/reports",
       "category": "Communication & Audit",
       "source_file": "server.ts",
-      "source_line": 8279,
+      "source_line": 9418,
       "middlewares": [
         "requireAuth"
       ],
@@ -10634,12 +10990,12 @@
       ]
     },
     {
-      "id": 122,
+      "id": 138,
       "method": "GET",
       "path": "/api/sync/status",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 8309,
+      "source_line": 9448,
       "middlewares": [
         "requireAuth"
       ],
@@ -10692,12 +11048,12 @@
       ]
     },
     {
-      "id": 123,
+      "id": 139,
       "method": "POST",
       "path": "/api/sync/check-connection",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 8326,
+      "source_line": 9465,
       "middlewares": [
         "requireAuth"
       ],
@@ -10734,33 +11090,33 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.926Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.152Z"
             },
             {
               "assertion_name": "Success is True",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.926Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.152Z"
             },
             {
               "assertion_name": "App DB Connected",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.926Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.152Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.926Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.152Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 124,
+      "id": 140,
       "method": "GET",
       "path": "/api/sync/history",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 8344,
+      "source_line": 9483,
       "middlewares": [
         "requireAuth"
       ],
@@ -10797,28 +11153,28 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.928Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.154Z"
             },
             {
               "assertion_name": "History is Array",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:05.928Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.154Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:05.928Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.154Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]
     },
     {
-      "id": 125,
+      "id": 141,
       "method": "POST",
       "path": "/api/sync/run",
       "category": "Google Sheets & Sync",
       "source_file": "server.ts",
-      "source_line": 8348,
+      "source_line": 9487,
       "middlewares": [
         "requireAuth"
       ],
@@ -10908,12 +11264,12 @@
       ]
     },
     {
-      "id": 126,
+      "id": 142,
       "method": "GET",
       "path": "/api/tickets/:id/messages",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8458,
+      "source_line": 9597,
       "middlewares": [
         "requireAuth"
       ],
@@ -10967,12 +11323,12 @@
       ]
     },
     {
-      "id": 127,
+      "id": 143,
       "method": "POST",
       "path": "/api/tickets/:id/messages",
       "category": "Work Order & Search",
       "source_file": "server.ts",
-      "source_line": 8530,
+      "source_line": 9669,
       "middlewares": [
         "requireAuth"
       ],
@@ -11134,12 +11490,33 @@
       ]
     },
     {
-      "id": 128,
+      "id": 144,
+      "method": "POST",
+      "path": "/api/tickets/:id/messages/read",
+      "category": "Work Order & Search",
+      "source_file": "server.ts",
+      "source_line": 9849,
+      "middlewares": [
+        "requireAuth"
+      ],
+      "auth_enforced": true,
+      "rbac_restriction": "authenticated",
+      "ownership_scope_verified": false,
+      "fail_closed_verified": false,
+      "test_type": "NOT_TESTED",
+      "tested_in": "Untested",
+      "status": "NOT_TESTED",
+      "call_count": 0,
+      "scenarios": [],
+      "http_evidence": []
+    },
+    {
+      "id": 145,
       "method": "POST",
       "path": "/api/whatsapp/preview",
       "category": "Communication & Audit",
       "source_file": "server.ts",
-      "source_line": 8685,
+      "source_line": 9920,
       "middlewares": [
         "requireTemplateManager"
       ],
@@ -11294,12 +11671,12 @@
       ]
     },
     {
-      "id": 129,
+      "id": 146,
       "method": "GET",
       "path": "/api/audit-logs",
       "category": "Communication & Audit",
       "source_file": "server.ts",
-      "source_line": 8703,
+      "source_line": 9938,
       "middlewares": [
         "requireAuditLogViewer"
       ],
@@ -11424,12 +11801,12 @@
       ]
     },
     {
-      "id": 130,
+      "id": 147,
       "method": "POST",
       "path": "/api/audit-logs",
       "category": "Communication & Audit",
       "source_file": "server.ts",
-      "source_line": 8722,
+      "source_line": 9957,
       "middlewares": [
         "requireAuth"
       ],
@@ -11483,12 +11860,12 @@
       ]
     },
     {
-      "id": 131,
+      "id": 148,
       "method": "ALL",
       "path": "/morajaws_production_firestore_backup.json",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 8732,
+      "source_line": 9967,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -11523,34 +11900,34 @@
             {
               "assertion_name": "HTTP Status Code matches expected (404)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.007Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.254Z"
             },
             {
               "assertion_name": "Status is 404",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.007Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.254Z"
             },
             {
               "assertion_name": "Code is NOT_FOUND",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.007Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.254Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.007Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.254Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "NOT_FOUND"
         }
       ]
     },
     {
-      "id": 132,
+      "id": 149,
       "method": "ALL",
       "path": "/data/morajaws_production_firestore_backup.json",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 8735,
+      "source_line": 9970,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -11585,34 +11962,34 @@
             {
               "assertion_name": "HTTP Status Code matches expected (404)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.009Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.255Z"
             },
             {
               "assertion_name": "Status is 404",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.009Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.255Z"
             },
             {
               "assertion_name": "Code is NOT_FOUND",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.009Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.255Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.009Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.255Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback",
           "response_code": "NOT_FOUND"
         }
       ]
     },
     {
-      "id": 133,
+      "id": 150,
       "method": "GET",
       "path": "*",
       "category": "General",
       "source_file": "server.ts",
-      "source_line": 8742,
+      "source_line": 9977,
       "middlewares": [],
       "auth_enforced": false,
       "rbac_restriction": "public",
@@ -11647,22 +12024,22 @@
             {
               "assertion_name": "HTTP Status Code matches expected (200)",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.024Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.260Z"
             },
             {
               "assertion_name": "Status is 200",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.024Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.260Z"
             },
             {
               "assertion_name": "Response is valid HTML entrypoint",
               "assertion_passed": true,
-              "assertion_timestamp": "2026-11-07T14:07:06.024Z"
+              "assertion_timestamp": "2026-11-15T18:16:54.260Z"
             }
           ],
           "result": "PASS",
-          "timestamp": "2026-11-07T14:07:06.024Z",
-          "test_run_id": "run_phase14c3_1794060425788_gjsjr5",
+          "timestamp": "2026-11-15T18:16:54.260Z",
+          "test_run_id": "run_phase14c3_1794766613943_u09xjt",
           "environment": "isolated_mock_staging_loopback"
         }
       ]

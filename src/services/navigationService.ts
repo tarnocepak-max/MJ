@@ -5,7 +5,7 @@ import {
   NavigationSubmenuItem
 } from '../types/navigation';
 import { DEFAULT_NAVIGATION_CONFIG } from '../constants/defaultNavigationConfig';
-import { supabaseDb } from './supabaseDb';
+import { supabaseDb, formatSupabaseErrorMessage } from './supabaseDb';
 
 const NAV_SETTING_KEY = 'navigation_config';
 
@@ -82,7 +82,7 @@ export function normalizeNavigationConfig(raw: any): NavigationConfig {
 export async function loadNavigationConfigFromSupabase(): Promise<NavigationConfig | null> {
   const res = await supabaseDb.getAppSetting(NAV_SETTING_KEY);
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal memuat konfigurasi navigasi dari Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal memuat konfigurasi navigasi dari Supabase PostgreSQL.'));
   }
   const raw = res.data?.value ?? res.data;
   if (raw === null || raw === undefined) {
@@ -113,10 +113,10 @@ export async function saveNavigationConfigToSupabase(
   );
 
   if (!res.success) {
-    throw new Error(res.error?.message || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.');
+    throw new Error(formatSupabaseErrorMessage(res.error, 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.'));
   }
 
-  return { success: true, updatedAt };
+  return { success: true, updatedAt: res.updatedAt || updatedAt };
 }
 
 /**
@@ -130,8 +130,8 @@ export function subscribeToNavigationConfig(
     table: 'app_settings',
     onPayload: (payload) => {
       try {
-        const key = payload?.key || payload?.new?.setting_key;
-        const val = payload?.value ?? payload?.new?.setting_value;
+        const key = payload?.record?.key ?? payload?.key ?? payload?.new?.setting_key;
+        const val = payload?.record?.value ?? payload?.value ?? payload?.new?.setting_value;
         if (key === NAV_SETTING_KEY && val) {
           onUpdate(normalizeNavigationConfig(val));
         }

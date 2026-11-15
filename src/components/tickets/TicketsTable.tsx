@@ -1,14 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { Ticket, ColumnConfig } from '../../types/index.ts';
+import React, { useState, useMemo, useRef, useEffect, Fragment } from 'react';
+import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge } from '../common/Badge';
 import { TicketMobileCard } from './TicketMobileCard';
 import {
   Search,
-  Filter,
   SlidersHorizontal,
-  LayoutGrid,
   Download,
   Eye,
   MessageSquare,
@@ -17,50 +15,47 @@ import {
   CheckSquare,
   Square,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  MoreVertical,
-  UserCheck,
   Smartphone,
   Monitor,
-  Table as TableIcon,
   Trash2,
-  Layers,
   ShieldAlert,
   Calendar,
   AlertTriangle,
   X,
-  Lock,
   MessageCircle,
   MapPin,
   RefreshCw,
   Ticket as TicketIcon,
   Sparkles,
-  CalendarCheck,
-  ClockAlert
+  Copy,
+  Check,
+  CheckCircle2,
+  Zap,
+  ShieldCheck,
+  Image as ImageIcon,
+  Wrench,
+  FileText,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
 import {
-  parseAppointmentDate,
   getJakartaDateString,
-  getJakartaDateParts,
-  getTicketAppointmentDate,
-  formatAppointmentDateDisplay
+  getTicketAppointmentDate
 } from '../../services/appointmentDateParser';
 import {
-  getTicketWODate,
-  getJakartaDateRange,
-  getTodayWORange,
-  getLeaderWORange,
-  classifyTicketWODateTag,
-  getWODateTagLabel,
   formatIndonesianWODate,
-  executeSuperadminDispatchSearch,
-  CrossDateSearchResult
+  executeSuperadminDispatchSearch
 } from '../../services/woDateFilterEngine';
 import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
 
@@ -71,10 +66,24 @@ interface TicketsTableProps {
 }
 
 export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOpenWhatsApp, onNavigate }) => {
-  const { tickets, currentUser, archiveTicket, restoreTicket, assignTicketPersonnel, leadersList, installersList, bulkDeleteTickets, getTicketUnreadCount, todayWIB, refreshActiveTickets } = useApp();
-  const { config, setColumnVisibility, applyPreset, isMobileView, updateAndroidSettings } = useUIConfig();
+  const {
+    tickets,
+    currentUser,
+    archiveTicket,
+    restoreTicket,
+    assignTicketPersonnel,
+    approveProgressReport,
+    rejectProgressReport,
+    installersList,
+    getTicketUnreadCount,
+    todayWIB,
+    refreshActiveTickets
+  } = useApp();
+  const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Layout mode: 'cards' or 'table'
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
@@ -94,143 +103,37 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('ALL');
   const [showArchived, setShowArchived] = useState(false);
 
-  // Approval status counts across today's tickets (reactively follows 00:00 WIB rollover)
-  const approvalCounts = useMemo(() => {
-    let butuhApproval = 0;
-    let approved = 0;
-    let rejected = 0;
-    let closed = 0;
-    let totalToday = 0;
-    tickets.forEach(t => {
-      if (t.isArchived || t.isDeleted) return;
-      const appDate = getTicketAppointmentDate(t);
-      if (appDate !== todayWIB) return;
-      totalToday++;
-      if (t.approvalStatus === 'BUTUH APPROVAL') butuhApproval++;
-      if (t.approvalStatus === 'APPROVED') approved++;
-      if (t.approvalStatus === 'REJECTED') rejected++;
-      if (t.statusWOAgent === 'Closed') closed++;
-    });
-    return { butuhApproval, approved, rejected, closed, totalToday };
-  }, [tickets, todayWIB]);
+  // Inline Verification Drawer & Clipboard state
+  const [expandedDrawerTicketId, setExpandedDrawerTicketId] = useState<string | null>(null);
+  const [inlineNotes, setInlineNotes] = useState('');
+  const [inlineRejectReason, setInlineRejectReason] = useState('');
+  const [showInlineRejectBox, setShowInlineRejectBox] = useState(false);
+  const [inlineSubmitting, setInlineSubmitting] = useState(false);
+  const [copiedWoId, setCopiedWoId] = useState<string | null>(null);
 
-  // Dynamic Ticket Categories from database
-  const availableCategories = useMemo(() => {
-    const cats = new Set<string>();
-    tickets.forEach(t => {
-      if (t.ticketCategory && typeof t.ticketCategory === 'string' && t.ticketCategory.trim()) {
-        cats.add(t.ticketCategory.trim());
+  // Keyboard shortcuts: Ctrl+K / Cmd+K focus search, ESC clears when focused
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current && searchTerm) {
+        setSearchTerm('');
+        setCurrentPage(1);
       }
-    });
-    return Array.from(cats).sort();
-  }, [tickets]);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchTerm]);
 
-  // Cross-date search for Superadmin and Dispatch (strictly by woNumber or idCustomer)
-  const isCrossDateSearchEligible = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
-
-  const crossDateSearchResults = useMemo(() => {
-    if (isCrossDateSearchEligible && searchTerm.trim()) {
-      return executeSuperadminDispatchSearch(searchTerm, tickets);
-    }
-    return { isSearchActive: false, results: [], resultTickets: [], crossDateCount: 0 };
-  }, [isCrossDateSearchEligible, searchTerm, tickets]);
-
-  const isCrossDateActive = crossDateSearchResults.isSearchActive;
-
-  // Chat Unread Filter (Super Admin, Dispatch, Installer)
-
-  // 3-State Sorting state (Requirement 3: asc -> desc -> null)
-  const [sortField, setSortField] = useState<string>('updatedAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-
-  // Multi-selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showBulkAssign, setShowBulkAssign] = useState(false);
-  const [bulkInstaller, setBulkInstaller] = useState('');
-  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
-
-  // Super Admin Bulk Delete State
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-  const [bulkDeleteReason, setBulkDeleteReason] = useState('');
-  const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState('');
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
-
-  // Column manager popover
-  const [showColManager, setShowColManager] = useState(false);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number | 'ALL'>(config.ticketsTable.rowsPerPage || 10);
-
-  // Active columns sorted by order
-  const activeColumns = useMemo(() => {
-    return [...config.ticketsTable.columns]
-      .filter(col => col.visible)
-      .sort((a, b) => a.order - b.order);
-  }, [config.ticketsTable.columns]);
-
-  // Unique areas (scoped for Leader and Installer)
-  const areas = useMemo(() => {
-    if ((currentUser.role === 'leader' || currentUser.role === 'installer') && currentUser.area) {
-      return [currentUser.area];
-    }
-    const set = new Set(tickets.map(t => t.area).filter(Boolean));
-    return Array.from(set);
-  }, [tickets, currentUser.role, currentUser.area]);
-
-  // Unique Ticket Categories for filtering & search
-  const ticketCategories = useMemo(() => {
-    const set = new Set(tickets.map(t => t.ticketCategory).filter(Boolean));
-    return Array.from(set).sort();
-  }, [tickets]);
-
-  // Total unread chat count across tickets
-  const totalUnreadAcrossTickets = useMemo(() => {
-    return tickets.reduce((acc, t) => acc + (getTicketUnreadCount(t.id) > 0 ? 1 : 0), 0);
-  }, [tickets, getTicketUnreadCount]);
-
-  // Distinct Appointment Dates from tickets for quick chips
-  const availableAppointmentDates = useMemo(() => {
-    const set = new Set<string>();
-    tickets.forEach(t => {
-      const raw = t.appointmentDate;
-      if (raw) {
-        const parsed = parseAppointmentDate(raw);
-        if (parsed.date) set.add(parsed.date);
-      }
-    });
-    return Array.from(set).sort();
-  }, [tickets]);
-
-  // Filtering based on strict Appointment Date === todayWIB rules uniformly across all roles
-  const filteredTickets = useMemo(() => {
+  // Role-scoped base tickets for todayWIB (for accurate KPI strip counts)
+  const roleScopedTodayTickets = useMemo(() => {
     const todayStr = todayWIB || getJakartaDateString(0);
-
-    // 1. Cross-Date Search Active for Superadmin or Dispatch
-    // Allows searching past, today, and future dates ONLY by woNumber or idCustomer
-    if (isCrossDateActive) {
-      return crossDateSearchResults.resultTickets.filter(t => {
-        if (!t || t.isDeleted) return false;
-        if (showArchived ? !t.isArchived : t.isArchived) return false;
-        if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
-        if (selectedAgentStatus !== 'ALL' && t.statusWOAgent !== selectedAgentStatus) return false;
-        if (selectedInstallerStatus !== 'ALL' && t.statusWOInstaller !== selectedInstallerStatus) return false;
-        if (selectedWhatsAppStatus !== 'ALL' && t.statusWhatsApp !== selectedWhatsAppStatus) return false;
-        if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
-        return true;
-      });
-    }
-
-    // 2. Default View: STRICT APPOINTMENT DATE === TODAY WIB across ALL staff roles (NEVER createdAt)
     return (tickets || []).filter(t => {
-      if (!t || t.isDeleted) return false;
-      if (showArchived ? !t.isArchived : t.isArchived) return false;
+      if (!t || t.isDeleted || t.isArchived) return false;
+      const appDate = getTicketAppointmentDate(t);
+      if (!appDate || appDate !== todayStr) return false;
 
-      // Primary & sole schedule reference: authentic Appointment Date
-      const woDate = getTicketAppointmentDate(t);
-      if (!woDate || woDate !== todayStr) return false;
-
-      // Role-specific RBAC scoping (date rule above applies uniformly to ALL roles)
       if (currentUser?.role === 'leader') {
         const currentLeaderName = (currentUser.name || '').trim().toLowerCase();
         const currentLeaderArea = (currentUser.area || '').trim().toLowerCase();
@@ -258,8 +161,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         const cleanMyName = currentInstallerName.replace(/\(.*?\)/g, '').trim();
 
         const isAssignedToMe =
-          Boolean(tInstaller && (tInstaller === currentInstallerName || tInstaller === cleanMyName || tInstaller.includes(cleanMyName) || cleanMyName.includes(tInstaller))) ||
-          Boolean(tContact && currentInstallerPhone && tContact.replace(/\D/g, '') === currentInstallerPhone.replace(/\D/g, ''));
+          Boolean(
+            tInstaller &&
+              (tInstaller === currentInstallerName ||
+                tInstaller === cleanMyName ||
+                tInstaller.includes(cleanMyName) ||
+                cleanMyName.includes(tInstaller))
+          ) ||
+          Boolean(
+            tContact &&
+              currentInstallerPhone &&
+              tContact.replace(/\D/g, '') === currentInstallerPhone.replace(/\D/g, '')
+          );
 
         if (!isAssignedToMe) return false;
 
@@ -269,24 +182,187 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         }
       }
 
-      // Status filters
+      return true;
+    });
+  }, [tickets, todayWIB, currentUser]);
+
+  // Approval & operational counts across today's scoped tickets
+  const approvalCounts = useMemo(() => {
+    let butuhApproval = 0;
+    let approved = 0;
+    let rejected = 0;
+    let closed = 0;
+    let diLapangan = 0;
+    const totalToday = roleScopedTodayTickets.length;
+
+    roleScopedTodayTickets.forEach(t => {
+      if (t.approvalStatus === 'BUTUH APPROVAL') butuhApproval++;
+      if (t.approvalStatus === 'APPROVED') approved++;
+      if (t.approvalStatus === 'REJECTED' || t.approvalStatus === 'REVISI') rejected++;
+      if (t.statusWOAgent === 'Closed') closed++;
+      if (
+        ['En Route', 'On Site', 'In Progress', 'PROGRESS'].includes(String(t.statusWOInstaller)) ||
+        ['In Progress', 'PROGRESS'].includes(String(t.statusWOAgent))
+      ) {
+        diLapangan++;
+      }
+    });
+    return { butuhApproval, approved, rejected, closed, diLapangan, totalToday };
+  }, [roleScopedTodayTickets]);
+
+  // Cross-date search for Superadmin and Dispatch (strictly by woNumber or idCustomer)
+  const isCrossDateSearchEligible = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
+
+  const crossDateSearchResults = useMemo(() => {
+    if (isCrossDateSearchEligible && searchTerm.trim()) {
+      return executeSuperadminDispatchSearch(searchTerm, tickets);
+    }
+    return { isSearchActive: false, results: [], resultTickets: [], crossDateCount: 0 };
+  }, [isCrossDateSearchEligible, searchTerm, tickets]);
+
+  const isCrossDateActive = crossDateSearchResults.isSearchActive;
+
+  // 3-State Sorting state (asc -> desc -> null)
+  const [sortField, setSortField] = useState<string>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Multi-selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkInstaller, setBulkInstaller] = useState('');
+  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+
+  // Column manager popover
+  const [showColManager, setShowColManager] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | 'ALL'>(config.ticketsTable.rowsPerPage || 10);
+
+  // Active columns sorted by order
+  const activeColumns = useMemo(() => {
+    return [...config.ticketsTable.columns]
+      .filter(col => col.visible)
+      .sort((a, b) => a.order - b.order);
+  }, [config.ticketsTable.columns]);
+
+  // Unique areas (scoped for Leader and Installer)
+  const areas = useMemo(() => {
+    if ((currentUser.role === 'leader' || currentUser.role === 'installer') && currentUser.area) {
+      return [currentUser.area];
+    }
+    const set = new Set(tickets.map(t => t.area).filter(Boolean));
+    return Array.from(set).sort();
+  }, [tickets, currentUser.role, currentUser.area]);
+
+  // Unique Ticket Categories
+  const ticketCategories = useMemo(() => {
+    const set = new Set(tickets.map(t => t.ticketCategory).filter(Boolean));
+    return Array.from(set).sort();
+  }, [tickets]);
+
+  // Total unread chat count across tickets
+  const totalUnreadAcrossTickets = useMemo(() => {
+    return tickets.reduce((acc, t) => acc + (getTicketUnreadCount(t.id) > 0 ? 1 : 0), 0);
+  }, [tickets, getTicketUnreadCount]);
+
+  // Filtering based on strict Appointment Date === todayWIB rules uniformly across all roles
+  const filteredTickets = useMemo(() => {
+    const todayStr = todayWIB || getJakartaDateString(0);
+
+    if (isCrossDateActive) {
+      return crossDateSearchResults.resultTickets.filter(t => {
+        if (!t || t.isDeleted) return false;
+        if (showArchived ? !t.isArchived : t.isArchived) return false;
+        if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
+        if (selectedAgentStatus !== 'ALL' && t.statusWOAgent !== selectedAgentStatus) return false;
+        if (selectedInstallerStatus !== 'ALL' && t.statusWOInstaller !== selectedInstallerStatus) return false;
+        if (selectedWhatsAppStatus !== 'ALL' && t.statusWhatsApp !== selectedWhatsAppStatus) return false;
+        if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
+        if (selectedApprovalStatus !== 'ALL') {
+          if (selectedApprovalStatus === 'CLOSED') {
+            if (t.statusWOAgent !== 'Closed') return false;
+          } else if (selectedApprovalStatus === 'REJECTED') {
+            if (t.approvalStatus !== 'REJECTED' && t.approvalStatus !== 'REVISI') return false;
+          } else if (t.approvalStatus !== selectedApprovalStatus) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    return (tickets || []).filter(t => {
+      if (!t || t.isDeleted) return false;
+      if (showArchived ? !t.isArchived : t.isArchived) return false;
+
+      const woDate = getTicketAppointmentDate(t);
+      if (!woDate || woDate !== todayStr) return false;
+
+      if (currentUser?.role === 'leader') {
+        const currentLeaderName = (currentUser.name || '').trim().toLowerCase();
+        const currentLeaderArea = (currentUser.area || '').trim().toLowerCase();
+        const currentLeaderContractor = (currentUser.contractor || '').trim().toLowerCase();
+
+        const tLeader = (t.leaderName || '').trim().toLowerCase();
+        if (tLeader && currentLeaderName && tLeader !== currentLeaderName) return false;
+
+        if (currentLeaderArea) {
+          const tArea = (t.area || '').trim().toLowerCase();
+          if (tArea && tArea !== currentLeaderArea) return false;
+        }
+
+        if (currentLeaderContractor) {
+          const tCont = (t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (tCont && tCont !== currentLeaderContractor) return false;
+        }
+      } else if (currentUser?.role === 'installer') {
+        const currentInstallerName = (currentUser.name || '').trim().toLowerCase();
+        const currentInstallerPhone = (currentUser.phone || '').trim();
+        const currentInstallerArea = (currentUser.area || '').trim().toLowerCase();
+
+        const tInstaller = (t.installerName || '').trim().toLowerCase();
+        const tContact = (t.installerContact || '').trim();
+        const cleanMyName = currentInstallerName.replace(/\(.*?\)/g, '').trim();
+
+        const isAssignedToMe =
+          Boolean(
+            tInstaller &&
+              (tInstaller === currentInstallerName ||
+                tInstaller === cleanMyName ||
+                tInstaller.includes(cleanMyName) ||
+                cleanMyName.includes(tInstaller))
+          ) ||
+          Boolean(
+            tContact &&
+              currentInstallerPhone &&
+              tContact.replace(/\D/g, '') === currentInstallerPhone.replace(/\D/g, '')
+          );
+
+        if (!isAssignedToMe) return false;
+
+        if (currentInstallerArea) {
+          const tArea = (t.area || '').trim().toLowerCase();
+          if (tArea && tArea !== currentInstallerArea) return false;
+        }
+      }
+
       if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
       if (selectedAgentStatus !== 'ALL' && t.statusWOAgent !== selectedAgentStatus) return false;
       if (selectedInstallerStatus !== 'ALL' && t.statusWOInstaller !== selectedInstallerStatus) return false;
       if (selectedWhatsAppStatus !== 'ALL' && t.statusWhatsApp !== selectedWhatsAppStatus) return false;
       if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
 
-      // Approval Status filter (Dispatch & Super Admin workflow)
       if (selectedApprovalStatus !== 'ALL') {
         if (selectedApprovalStatus === 'CLOSED') {
           if (t.statusWOAgent !== 'Closed') return false;
+        } else if (selectedApprovalStatus === 'REJECTED') {
+          if (t.approvalStatus !== 'REJECTED' && t.approvalStatus !== 'REVISI') return false;
         } else if (t.approvalStatus !== selectedApprovalStatus) {
           return false;
         }
       }
 
-      // Search term for non-cross-date searches (e.g. Staff, Leader, Installer)
-      // Strictly scoped within today's Appointment Date view
       if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
         const q = searchTerm.trim().toLowerCase();
         const matchWo = (t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q);
@@ -319,7 +395,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     searchTerm
   ]);
 
-  // Sorting with Natural Collation & 3-state support (Ascending -> Descending -> Unsorted)
+  // Sorting
   const sortedTickets = useMemo(() => {
     if (!sortDirection) return filteredTickets;
     return sortDataArray(filteredTickets, { column: sortField, direction: sortDirection }, (item, col) => {
@@ -350,7 +426,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.size === paginatedTickets.length) {
+    if (selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(paginatedTickets.map(t => t.id)));
@@ -368,18 +444,74 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
   const handleApplyBulkAssign = () => {
     if (currentUser.role !== 'leader') {
-      alert('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.');
+      toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.');
       return;
     }
     if (!bulkInstaller) {
-      alert('Pilih teknisi terlebih dahulu.');
+      toast.error('Pilih teknisi terlebih dahulu.');
       return;
     }
     selectedIds.forEach(id => {
       assignTicketPersonnel(id, currentUser.name, bulkInstaller);
     });
+    toast.success(`${selectedIds.size} WO berhasil ditugaskan ke ${bulkInstaller}.`);
     setSelectedIds(new Set());
-    setShowBulkAssign(false);
+  };
+
+  const handleCopyWoNumber = async (e: React.MouseEvent, ticket: Ticket) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(ticket.woNumber);
+      setCopiedWoId(ticket.id);
+      toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
+      setTimeout(() => setCopiedWoId(prev => (prev === ticket.id ? null : prev)), 1600);
+    } catch {
+      toast.error('Gagal menyalin Nomor WO ke clipboard.');
+    }
+  };
+
+  const toggleInlineDrawer = (ticketId: string) => {
+    if (expandedDrawerTicketId === ticketId) {
+      setExpandedDrawerTicketId(null);
+      setShowInlineRejectBox(false);
+      setInlineNotes('');
+      setInlineRejectReason('');
+    } else {
+      setExpandedDrawerTicketId(ticketId);
+      setShowInlineRejectBox(false);
+      setInlineNotes('');
+      setInlineRejectReason('');
+    }
+  };
+
+  const handleInlineApprove = async (ticket: Ticket) => {
+    setInlineSubmitting(true);
+    const res = await approveProgressReport(ticket.id, inlineNotes.trim() || undefined);
+    setInlineSubmitting(false);
+    if (!res.success) {
+      toast.error(res.error || 'Gagal menyetujui laporan.');
+      return;
+    }
+    setExpandedDrawerTicketId(null);
+    setInlineNotes('');
+  };
+
+  const handleInlineReject = async (ticket: Ticket) => {
+    if (!inlineRejectReason.trim()) {
+      toast.error('Alasan revisi laporan wajib diisi.');
+      return;
+    }
+    setInlineSubmitting(true);
+    const res = await rejectProgressReport(ticket.id, inlineRejectReason.trim());
+    setInlineSubmitting(false);
+    if (!res.success) {
+      toast.error(res.error || 'Gagal mengirim permintaan revisi.');
+      return;
+    }
+    toast.success(`WO ${ticket.woNumber} dikembalikan untuk revisi teknisi.`);
+    setExpandedDrawerTicketId(null);
+    setShowInlineRejectBox(false);
+    setInlineRejectReason('');
   };
 
   const handleExportCSV = () => {
@@ -403,228 +535,344 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     document.body.removeChild(link);
   };
 
-  // Density styles
   const densityClass =
     config.ticketsTable.density === 'compact'
-      ? 'py-1.5 px-3 text-xs'
+      ? 'py-2 px-3 text-xs'
       : config.ticketsTable.density === 'spacious'
       ? 'py-3.5 px-4 text-sm'
       : 'py-2.5 px-3.5 text-xs';
 
+  const approvedPct = approvalCounts.totalToday > 0 ? ((approvalCounts.approved / approvalCounts.totalToday) * 100).toFixed(1) : '0.0';
+  const fieldPct = approvalCounts.totalToday > 0 ? ((approvalCounts.diLapangan / approvalCounts.totalToday) * 100).toFixed(1) : '0.0';
+  const canApproveInline = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
+
+  const hasActiveFilters =
+    selectedArea !== 'ALL' ||
+    selectedCategory !== 'ALL' ||
+    selectedInstallerStatus !== 'ALL' ||
+    selectedApprovalStatus !== 'ALL' ||
+    selectedAgentStatus !== 'ALL' ||
+    selectedWhatsAppStatus !== 'ALL' ||
+    Boolean(searchTerm.trim());
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setSelectedArea('ALL');
+    setSelectedCategory('ALL');
+    setSelectedInstallerStatus('ALL');
+    setSelectedApprovalStatus('ALL');
+    setSelectedAgentStatus('ALL');
+    setSelectedWhatsAppStatus('ALL');
+    setCurrentPage(1);
+  };
+
+  // Numeric pagination sequence helper
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | 'ellipsis')[] = [1];
+    if (currentPage > 3) pages.push('ellipsis');
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push('ellipsis');
+    pages.push(totalPages);
+    return pages;
+  }, [currentPage, totalPages]);
+
   return (
     <div className="space-y-4">
-      {/* TICKET MYREPUBLIC Official Page Header */}
-      <div className="bg-white dark:bg-[#1a0f30] rounded-2xl border-2 border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-            <TicketIcon className="w-5 h-5" />
+      {/* 1. 6-Card KPI & Operational Pulse Strip */}
+      <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {/* Card 1: Total Hari Ini */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedApprovalStatus('ALL');
+            setCurrentPage(1);
+          }}
+          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer bg-white dark:bg-[#1E1238] shadow-2xs ${
+            selectedApprovalStatus === 'ALL'
+              ? 'border-[#D8CCF3] dark:border-[#7135B5] ring-1 ring-[#7135B5]/20'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#D8CCF3]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+              Total Hari Ini
+            </span>
+            <span className="p-1.5 rounded-lg bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE]">
+              <TicketIcon className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200">
-                TICKET MYREPUBLIC
-              </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-[#3B1D78] dark:text-[#E9E1FF] border border-[#D8CCF3] dark:border-[#5B35B1]">
-                {filteredTickets.length} Work Order
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                Live Supabase Active
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Pusat pelacakan tiket gangguan, instalasi baru FTTH, penugasan teknisi, dan pemantauan pengerjaan lapangan MyRepublic.
-            </p>
+          <div className="mt-2 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold tabular-nums text-[#211A2E] dark:text-white">
+              {approvalCounts.totalToday}
+            </span>
+            <span className="text-[11px] font-semibold text-[#16A36A] tabular-nums">
+              {filteredTickets.length} tampil
+            </span>
+          </div>
+          <div className="mt-1 text-[10.5px] font-mono text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+            todayWIB: {todayWIB}
+          </div>
+        </button>
+
+        {/* Card 2: Highlighted Butuh Approval */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedApprovalStatus(prev => (prev === 'BUTUH APPROVAL' ? 'ALL' : 'BUTUH APPROVAL'));
+            setCurrentPage(1);
+          }}
+          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer shadow-2xs ${
+            selectedApprovalStatus === 'BUTUH APPROVAL'
+              ? 'bg-[#F0E3FF] dark:bg-[#35105E] border-[#7135B5] ring-2 ring-[#7135B5]/30'
+              : 'bg-[#F5F1FF] dark:bg-[#251247] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+              <span className="w-2 h-2 rounded-full bg-[#E59A27] shrink-0" />
+              <span>Butuh Approval</span>
+            </span>
+            <span className="p-1.5 rounded-lg bg-white/80 dark:bg-[#160D29] text-[#E59A27]">
+              <Clock className="w-3.5 h-3.5" />
+            </span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="font-display text-2xl font-bold tabular-nums text-[#431599] dark:text-white">
+              {approvalCounts.butuhApproval}
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${
+                approvalCounts.butuhApproval > 0
+                  ? 'bg-[#E59A27] text-white'
+                  : 'bg-[#ECFDF5] text-[#16A36A]'
+              }`}
+            >
+              {approvalCounts.butuhApproval > 0 ? 'Action Required' : 'Clear'}
+            </span>
+          </div>
+          <div className="mt-1 text-[10.5px] font-medium text-[#7135B5] dark:text-[#D8B4FE] truncate">
+            Antrian Verifikasi Dispatch
+          </div>
+        </button>
+
+        {/* Card 3: Disetujui */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedApprovalStatus(prev => (prev === 'APPROVED' ? 'ALL' : 'APPROVED'));
+            setCurrentPage(1);
+          }}
+          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer bg-white dark:bg-[#1E1238] shadow-2xs ${
+            selectedApprovalStatus === 'APPROVED'
+              ? 'border-[#16A36A] ring-2 ring-[#16A36A]/20'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A7F3D0]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+              Disetujui
+            </span>
+            <span className="p-1.5 rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#16A36A]">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
+          </div>
+          <div className="mt-2 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold tabular-nums text-[#16A36A]">
+              {approvalCounts.approved}
+            </span>
+            <span className="text-[11px] font-mono font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+              {approvedPct}%
+            </span>
+          </div>
+          <div className="mt-1 text-[10.5px] text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+            Siap Berita Acara
+          </div>
+        </button>
+
+        {/* Card 4: Perlu Revisi */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedApprovalStatus(prev => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'));
+            setCurrentPage(1);
+          }}
+          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer bg-white dark:bg-[#1E1238] shadow-2xs ${
+            selectedApprovalStatus === 'REJECTED'
+              ? 'border-[#DC4C5A] ring-2 ring-[#DC4C5A]/20'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#FECACA]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+              Perlu Revisi
+            </span>
+            <span className="p-1.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/60 text-[#DC4C5A]">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </span>
+          </div>
+          <div className="mt-2 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold tabular-nums text-[#DC4C5A]">
+              {approvalCounts.rejected}
+            </span>
+            <span className="text-[10.5px] font-semibold text-[#DC4C5A] truncate">
+              Revisi Teknisi
+            </span>
+          </div>
+          <div className="mt-1 text-[10.5px] text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+            Dropcore / Foto / OPM
+          </div>
+        </button>
+
+        {/* Card 5: Di Lapangan */}
+        <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238] p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+              Di Lapangan
+            </span>
+            <span className="p-1.5 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 text-[#3977C9]">
+              <Wrench className="w-3.5 h-3.5" />
+            </span>
+          </div>
+          <div className="mt-2 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold tabular-nums text-[#3977C9] dark:text-sky-400">
+              {approvalCounts.diLapangan}
+            </span>
+            <span className="text-[11px] font-mono font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+              {fieldPct}%
+            </span>
+          </div>
+          <div className="mt-1 text-[10.5px] text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+            On-site &amp; En-route
           </div>
         </div>
-      </div>
 
-      {/* Table Toolbar Area */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs space-y-3">
-        {/* Top Controls Row */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Search bar */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* Card 6: Fast Lane CTA */}
+        <div className="rounded-xl bg-gradient-to-br from-[#35105E] via-[#431599] to-[#7135B5] text-white p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#E9D5FF]">
+              Fast Lane
+            </span>
+            <Zap className="w-3.5 h-3.5 text-[#D8B4FE]" />
+          </div>
+          {currentUser.role === 'dispatch' ? (
+            <button
+              type="button"
+              onClick={() => onNavigate('form_sameday')}
+              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-white text-[#431599] hover:bg-[#F5F1FF] text-xs font-bold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+            >
+              + Form Sameday
+            </button>
+          ) : ['super_admin', 'management_data'].includes(currentUser.role) ? (
+            <button
+              type="button"
+              onClick={() => onNavigate('import')}
+              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-white text-[#431599] hover:bg-[#F5F1FF] text-xs font-bold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+            >
+              + Import Data WO
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onNavigate('contact_centre')}
+              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-white text-[#431599] hover:bg-[#F5F1FF] text-xs font-bold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Contact Centre
+            </button>
+          )}
+          <div className="mt-1.5 text-[10.5px] text-[#E9D5FF]/90 truncate">
+            {currentUser.role === 'dispatch'
+              ? 'Prioritas Khusus Sameday'
+              : ['super_admin', 'management_data'].includes(currentUser.role)
+              ? 'Input Batch WO Baru'
+              : 'Koordinasi Lapangan'}
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Search, Filters & Action Utilities Toolbar */}
+      <section className="bg-white dark:bg-[#1E1238] p-4 rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-2xs space-y-3.5">
+        {/* Row A: Search Input + Appointment Date Chip + Sync Button */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder={
                 isCrossDateSearchEligible
-                  ? "Cari Nomor WO atau ID Pelanggan (Pencarian Lintas Tanggal)..."
-                  : "Cari WO Hari Ini (Nomor WO atau ID Pelanggan)..."
+                  ? 'Cari Nomor WO (e.g. WO2026...) atau ID Customer (Lintas Tanggal)...'
+                  : 'Cari WO Hari Ini (Nomor WO, ID Customer, Nama, Teknisi)...'
               }
               value={searchTerm}
               onChange={e => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium"
+              className="w-full pl-9 pr-24 py-2 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/30 focus:border-[#7135B5] font-medium transition-all"
             />
-          </div>
-
-          {/* Action buttons & Presets */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* View Presets Selector */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline">Preset:</span>
-              <select
-                value={config.ticketsTable.activePresetId || ''}
-                onChange={e => applyPreset(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200 font-medium"
-              >
-                {config.ticketsTable.presets.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* View Layout Switcher (Table PC vs Kartu HP) */}
-            <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-100 dark:bg-slate-800">
-              <button
-                onClick={() => setLayoutMode('table')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                  effectiveLayout === 'table'
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="Tampilan Tabel Grid (Optimal untuk PC / Laptop)"
-              >
-                <Monitor className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tabel PC</span>
-              </button>
-              <button
-                onClick={() => setLayoutMode('cards')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                  effectiveLayout === 'cards'
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="Tampilan Kartu Nyaman (Optimal untuk Android / HP)"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Kartu HP</span>
-              </button>
-            </div>
-
-            {/* MoraJaws Luxury Refresh Button */}
-            <button
-              onClick={async () => {
-                await triggerRefresh(() => refreshActiveTickets(), 'MEMPERBARUI WORK ORDER...', 'Menyelaraskan data tabel tiket dan jadwal appointment');
-                toast.sync('Tabel Work Order berhasil diperbarui.');
-              }}
-              className="px-2.5 py-1.5 text-xs font-semibold text-[#D8B4FE] bg-[#35105E]/40 hover:bg-[#7135B5]/60 hover:text-white rounded-md border border-[#D8B4FE]/30 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-              title="Refresh tabel tiket & sinkronkan data"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh</span>
-            </button>
-
-            {/* Export CSV */}
-            <button
-              onClick={handleExportCSV}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md border border-slate-300 dark:border-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>Export</span>
-            </button>
-
-            {/* Archive Filter Toggle */}
-            <button
-              onClick={() => {
-                setShowArchived(!showArchived);
-                setCurrentPage(1);
-              }}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${
-                showArchived
-                  ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span>{showArchived ? 'Viewing Archived' : 'Archived'}</span>
-            </button>
-
-            {/* Chat Unread Action Filter (Super Admin, Dispatch, Installer only) */}
-            {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
-              <button
-                onClick={() => onNavigate('contact_centre')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all border ${
-                  totalUnreadAcrossTickets > 0
-                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100'
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                }`}
-                title="Filter tiket dengan pesan live chat belum dibaca"
-              >
-                <MessageCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                <span>Chat Unread</span>
-                {totalUnreadAcrossTickets > 0 && (
-                  <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
-                    'bg-rose-600 text-white'
-                  }`}>
-                    {totalUnreadAcrossTickets}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* Column Visibility Manager Button (Posisi Kanan) */}
-            <div className="relative ml-auto">
-              <button
-                onClick={() => setShowColManager(!showColManager)}
-                className="px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-md border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
-                title="Atur Visibilitas Kolom Tabel"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Columns ({activeColumns.length})</span>
-              </button>
-
-              {/* Column manager dropdown */}
-              {showColManager && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowColManager(false)} />
-                  <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-3 z-50 text-xs">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-700">
-                      <span className="font-semibold text-slate-900 dark:text-white">Setting Kolom Tabel</span>
-                      <button
-                        onClick={() => setShowColManager(false)}
-                        className="text-slate-400 hover:text-slate-600 text-xs"
-                      >
-                        Tutup
-                      </button>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
-                      {config.ticketsTable.columns.map(col => (
-                        <label
-                          key={col.key}
-                          className="flex items-center justify-between p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded cursor-pointer"
-                        >
-                          <span className="text-slate-700 dark:text-slate-300">{col.label}</span>
-                          <input
-                            type="checkbox"
-                            checked={col.visible}
-                            onChange={e => setColumnVisibility(col.key, e.target.checked)}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </>
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              {searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setCurrentPage(1);
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-[#E9E5F0] dark:bg-[#35105E] text-[10px] font-mono font-bold text-[#494453] dark:text-[#E9D5FF] hover:bg-[#D8CCF3] cursor-pointer"
+                >
+                  ESC clear
+                </button>
+              ) : (
+                <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-mono font-semibold text-[#8B8495]">
+                  Ctrl+K
+                </kbd>
               )}
             </div>
           </div>
+
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#5B35B1] text-xs">
+              <Calendar className="w-3.5 h-3.5 text-[#431599] dark:text-[#D8B4FE] shrink-0" />
+              <span className="font-semibold text-[#431599] dark:text-[#E9D5FF] whitespace-nowrap">
+                {isCrossDateActive
+                  ? `Lintas Tanggal (${filteredTickets.length} WO)`
+                  : `Appointment: ${formatIndonesianWODate(todayWIB)}`}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await triggerRefresh(
+                  () => refreshActiveTickets(),
+                  'MEMPERBARUI WORK ORDER...',
+                  'Menyelaraskan data tabel tiket dan jadwal appointment'
+                );
+                toast.sync('Tabel Work Order berhasil diperbarui.');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#16A36A] bg-[#ECFDF5] dark:bg-emerald-950/50 border border-[#A7F3D0] dark:border-emerald-800 hover:bg-[#D1FAE5] transition-colors cursor-pointer whitespace-nowrap"
+              title="Refresh tabel tiket & sinkronkan data"
+            >
+              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+              <span>Sync Data</span>
+            </button>
+          </div>
         </div>
 
-        {/* Cross-Date Search Banner (Super Admin & Dispatch) */}
+        {/* Cross-Date Search Banner */}
         {isCrossDateActive && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-purple-50 dark:bg-[#2A174E] border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-[#F4EAFF] dark:bg-[#2A174E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[#431599] dark:text-[#E9D5FF] text-xs">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+              <Sparkles className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
               <span>
-                <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan <strong>{filteredTickets.length}</strong> WO untuk kueri "{searchTerm}" (Hanya Nomor WO & ID Pelanggan).
+                <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan <strong>{filteredTickets.length}</strong> WO untuk kueri &ldquo;{searchTerm}&rdquo;.
                 {crossDateSearchResults.crossDateCount > 0 && (
-                  <span className="ml-1 text-purple-700 dark:text-purple-300">
+                  <span className="ml-1 opacity-85">
                     ({crossDateSearchResults.crossDateCount} WO di luar tanggal hari ini)
                   </span>
                 )}
@@ -636,113 +884,29 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSearchTerm('');
                 setCurrentPage(1);
               }}
-              className="px-2.5 py-1 bg-purple-200 dark:bg-purple-900/60 hover:bg-purple-300 dark:hover:bg-purple-800 text-purple-900 dark:text-purple-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer"
+              className="px-2.5 py-1 bg-white dark:bg-[#160D29] hover:bg-[#F7F6FA] text-[#431599] dark:text-[#E9D5FF] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-lg text-xs font-bold flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer whitespace-nowrap"
             >
               <X className="w-3.5 h-3.5" />
-              <span>Reset (Kembali ke Hari Ini)</span>
+              <span>Reset ke Hari Ini</span>
             </button>
           </div>
         )}
 
-        {/* Quick Workflow & Approval Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1">
-            Filter Alur:
-          </span>
-          <button
-            type="button"
-            onClick={() => { setSelectedApprovalStatus('ALL'); setCurrentPage(1); }}
-            className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-all cursor-pointer ${
-              selectedApprovalStatus === 'ALL'
-                ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-            }`}
-          >
-            Semua ({approvalCounts.totalToday})
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSelectedApprovalStatus('BUTUH APPROVAL'); setCurrentPage(1); }}
-            className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedApprovalStatus === 'BUTUH APPROVAL'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 hover:bg-amber-100'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
-            <span>Butuh Approval ({approvalCounts.butuhApproval})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSelectedApprovalStatus('APPROVED'); setCurrentPage(1); }}
-            className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedApprovalStatus === 'APPROVED'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
-            }`}
-          >
-            <span>✓ Approved ({approvalCounts.approved})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSelectedApprovalStatus('REJECTED'); setCurrentPage(1); }}
-            className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedApprovalStatus === 'REJECTED'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-900 hover:bg-rose-100'
-            }`}
-          >
-            <span>✕ Perlu Revisi ({approvalCounts.rejected})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSelectedApprovalStatus('CLOSED'); setCurrentPage(1); }}
-            className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedApprovalStatus === 'CLOSED'
-                ? 'bg-slate-700 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <span>🔒 Closed ({approvalCounts.closed})</span>
-          </button>
-        </div>
-
-        {/* Filters Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-          {/* Central Work Order Date Indicator */}
-          <div className="col-span-2 sm:col-span-1 lg:col-span-2 bg-[#E9E1FF]/60 dark:bg-[#3B1D78]/30 p-2 rounded-md border border-[#D8CCF3] dark:border-[#5B35B1]/50">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-[#3B1D78] dark:text-[#E9E1FF] flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-[#5B35B1]" />
-                <span>Tanggal WO Aktif:</span>
-              </label>
-              <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#5B35B1] text-white">
-                {isCrossDateActive ? 'Lintas Tanggal' : 'Hari Ini'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-1 text-xs">
-              <span className="font-semibold text-slate-800 dark:text-white">
-                {isCrossDateActive
-                  ? `Hasil Pencarian (${filteredTickets.length} WO)`
-                  : formatIndonesianWODate(todayWIB)}
-              </span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                WIB (Asia/Jakarta)
-              </span>
-            </div>
-          </div>
-
+        {/* Row B: 6-Column Filter Matrix */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
           <div>
-            <label className="block text-[11px] text-slate-500 mb-0.5">Area</label>
+            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+              Area Servis
+            </label>
             <select
               value={selectedArea}
               onChange={e => {
                 setSelectedArea(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300"
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
             >
-              <option value="ALL">All Areas</option>
+              <option value="ALL">Semua Area ({areas.length})</option>
               {areas.map(a => (
                 <option key={a} value={a}>{a}</option>
               ))}
@@ -750,7 +914,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
 
           <div>
-            <label className="block text-[11px] text-slate-500 mb-0.5 font-semibold text-indigo-700 dark:text-indigo-400">
+            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
               Kategori Tiket
             </label>
             <select
@@ -759,7 +923,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSelectedCategory(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 rounded text-slate-800 dark:text-slate-200 font-medium"
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
             >
               <option value="ALL">Semua Kategori ({ticketCategories.length})</option>
               {ticketCategories.map(cat => (
@@ -769,16 +933,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
 
           <div>
-            <label className="block text-[11px] text-slate-500 mb-0.5">Status Installer</label>
+            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+              Status Installer
+            </label>
             <select
               value={selectedInstallerStatus}
               onChange={e => {
                 setSelectedInstallerStatus(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300"
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
             >
-              <option value="ALL">All Status</option>
+              <option value="ALL">statusWOInstaller (All)</option>
               <option value="Unassigned">Unassigned</option>
               <option value="Assigned">Assigned</option>
               <option value="En Route">En Route</option>
@@ -789,8 +955,54 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
 
           <div>
-            <label className="block text-[11px] text-amber-600 dark:text-amber-400 mb-0.5 font-bold">
-              Status Approval
+            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+              Status WO Agent
+            </label>
+            <select
+              value={selectedAgentStatus}
+              onChange={e => {
+                setSelectedAgentStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
+            >
+              <option value="ALL">statusWOAgent (All)</option>
+              <option value="Pending">Pending</option>
+              <option value="Assigned">Assigned</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+              WhatsApp Handshake
+            </label>
+            <select
+              value={selectedWhatsAppStatus}
+              onChange={e => {
+                setSelectedWhatsAppStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
+            >
+              <option value="ALL">statusWhatsApp (All)</option>
+              <option value="not_prepared">Not Prepared</option>
+              <option value="ready">Ready to Contact</option>
+              <option value="opened_in_whatsapp">Opened in WA</option>
+              <option value="awaiting_confirmation">Awaiting Confirmation</option>
+              <option value="confirmed">Customer Confirmed</option>
+              <option value="reschedule_requested">Reschedule Needed</option>
+              <option value="unreachable">Unreachable</option>
+              <option value="invalid_number">Invalid Phone</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10.5px] font-semibold text-[#431599] dark:text-[#D8B4FE] mb-1">
+              Approval Dispatch
             </label>
             <select
               value={selectedApprovalStatus}
@@ -798,119 +1010,248 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSelectedApprovalStatus(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2 py-1 text-xs bg-amber-50/60 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/60 rounded text-slate-800 dark:text-slate-200 font-semibold"
+              className="w-full px-2.5 py-1.5 text-xs bg-[#F5F1FF] dark:bg-[#35105E]/50 border border-[#D8CCF3] dark:border-[#5B35B1] rounded-lg text-[#431599] dark:text-[#F5F1FF] font-semibold focus:outline-none focus:border-[#7135B5]"
             >
-              <option value="ALL">Semua Approval</option>
-              <option value="BUTUH APPROVAL">⚠️ Butuh Approval ({approvalCounts.butuhApproval})</option>
-              <option value="APPROVED">✓ Approved ({approvalCounts.approved})</option>
-              <option value="REJECTED">✕ Perlu Revisi ({approvalCounts.rejected})</option>
-              <option value="CLOSED">🔒 Closed ({approvalCounts.closed})</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] text-slate-500 mb-0.5">Status WO Agent</label>
-            <select
-              value={selectedAgentStatus}
-              onChange={e => {
-                setSelectedAgentStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300"
-            >
-              <option value="ALL">All Agent Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Assigned">Assigned</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
+              <option value="ALL">approvalStatus (All)</option>
+              <option value="BUTUH APPROVAL">Butuh Approval ({approvalCounts.butuhApproval})</option>
+              <option value="APPROVED">Approved ({approvalCounts.approved})</option>
+              <option value="REJECTED">Perlu Revisi ({approvalCounts.rejected})</option>
+              <option value="CLOSED">Closed ({approvalCounts.closed})</option>
             </select>
           </div>
         </div>
 
-        {/* Bulk Action Bar when rows selected */}
-        {selectedIds.size > 0 && (
-          <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 rounded-md flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="font-semibold text-indigo-900 dark:text-indigo-200">
-              {selectedIds.size} tiket terpilih
-            </span>
-            <div className="flex items-center gap-2 flex-wrap">
-              {currentUser.role === 'leader' ? (
-                <>
-                  <select
-                    value={bulkInstaller}
-                    onChange={e => setBulkInstaller(e.target.value)}
-                    className="px-2 py-1 text-xs bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 rounded text-slate-800 dark:text-slate-200"
-                  >
-                    <option value="">Pilih Teknisi...</option>
-                    {installersList.map(inst => (
-                      <option key={inst} value={inst}>{inst}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleApplyBulkAssign}
-                    className="px-3 py-1 font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded cursor-pointer transition-colors shadow-2xs"
-                  >
-                    Assign Teknisi
-                  </button>
-                </>
-              ) : currentUser.role !== 'super_admin' ? (
-                <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/50 px-2.5 py-1 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1 font-medium">
-                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                  <span>Hanya Leader yang dapat menugaskan WO ke teknisi</span>
-                </div>
-              ) : null}
-
-              {/* Management Data Bulk Delete Button */}
-              {currentUser.role === 'management_data' && (
-                <button
-                  onClick={() => {
-                    setBulkDeleteReason('');
-                    setBulkDeleteConfirmText('');
-                    setBulkDeleteError(null);
-                    setShowBulkDeleteModal(true);
-                  }}
-                  className="px-3 py-1 font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded cursor-pointer flex items-center gap-1.5 transition-colors shadow-2xs"
-                  title="Hapus Semua WO Terpilih (Khusus Management Data)"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Hapus ({selectedIds.size}) WO</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="px-2 py-1 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded cursor-pointer"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main Dynamic Table or Mobile Cards */}
-      {effectiveLayout === 'cards' ? (
-        <div className="space-y-3">
-          {/* Mobile Card Action Bar */}
-          <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs">
+        {/* Row C: Action Utilities Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29]/70 border border-[#E9E5F0] dark:border-[#35105E] text-xs">
+          {/* Left Selection & Contextual Bulk Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
             <button
+              type="button"
               onClick={handleSelectAll}
-              className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 min-h-[36px]"
+              className="inline-flex items-center gap-2 px-2 py-1 rounded-md font-bold text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] dark:hover:text-white cursor-pointer whitespace-nowrap"
             >
               {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
-                <CheckSquare className="w-4 h-4 text-indigo-600" />
+                <CheckSquare className="w-4 h-4 text-[#431599] dark:text-[#A78BFA]" />
               ) : (
-                <Square className="w-4 h-4 text-slate-400" />
+                <Square className="w-4 h-4 text-[#8B8495]" />
               )}
-              <span>Pilih Semua Halaman ({paginatedTickets.length})</span>
+              <span className="text-[11px] uppercase tracking-wider">Pilih Semua</span>
             </button>
-            <span className="text-[11px] text-slate-500 font-medium">
-              Mode: Kartu Nyaman HP 📱
-            </span>
+
+            <div className="hidden sm:flex items-center gap-1.5 pl-2 border-l border-[#E9E5F0] dark:border-[#35105E]">
+              <span className="text-[11px] text-[#766B83] dark:text-[#A78BFA] font-semibold">Preset:</span>
+              <select
+                value={config.ticketsTable.activePresetId || ''}
+                onChange={e => applyPreset(e.target.value)}
+                className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-md text-[#211A2E] dark:text-[#F5F1FF] font-medium cursor-pointer"
+              >
+                {config.ticketsTable.presets.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#E9E5F0] dark:border-[#35105E]">
+                <span className="px-2 py-0.5 rounded-md bg-[#F0E3FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] font-bold tabular-nums">
+                  {selectedIds.size} dipilih
+                </span>
+
+                {currentUser.role === 'leader' ? (
+                  <>
+                    <select
+                      value={bulkInstaller}
+                      onChange={e => setBulkInstaller(e.target.value)}
+                      className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-md text-[#211A2E] dark:text-white"
+                    >
+                      <option value="">Pilih Teknisi...</option>
+                      {installersList.map(inst => (
+                        <option key={inst} value={inst}>{inst}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleApplyBulkAssign}
+                      className="px-3 py-1 font-semibold text-white bg-[#431599] hover:bg-[#5B35B1] rounded-md cursor-pointer transition-colors whitespace-nowrap"
+                    >
+                      Assign Teknisi
+                    </button>
+                  </>
+                ) : currentUser.role !== 'super_admin' && currentUser.role !== 'management_data' ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded-md">
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                    <span>Assignment khusus Leader</span>
+                  </span>
+                ) : null}
+
+                {currentUser.role === 'management_data' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    className="px-2.5 py-1 font-semibold text-white bg-[#DC4C5A] hover:bg-rose-700 rounded-md cursor-pointer inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus ({selectedIds.size})</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="px-2 py-1 text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] hover:bg-[#E9E5F0] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 cursor-pointer whitespace-nowrap"
+              >
+                <X className="w-3 h-3" />
+                <span>Reset Filter</span>
+              </button>
+            )}
           </div>
 
+          {/* Right View, Columns & Export Controls */}
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
+            {/* Table vs Cards Toggle */}
+            <div className="flex items-center rounded-lg border border-[#E9E5F0] dark:border-[#35105E] p-0.5 bg-white dark:bg-[#1E1238]">
+              <button
+                type="button"
+                onClick={() => setLayoutMode('table')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  effectiveLayout === 'table'
+                    ? 'bg-[#431599] text-white shadow-xs'
+                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode('cards')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  effectiveLayout === 'cards'
+                    ? 'bg-[#431599] text-white shadow-xs'
+                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Cards</span>
+              </button>
+            </div>
+
+            {/* Archive Filter Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowArchived(!showArchived);
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                showArchived
+                  ? 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]/50'
+                  : 'bg-white dark:bg-[#1E1238] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:bg-[#F5F1FF]'
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>{showArchived ? 'Archived' : 'Archive'}</span>
+            </button>
+
+            {/* Chat Unread Shortcut */}
+            {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
+              <button
+                type="button"
+                onClick={() => onNavigate('contact_centre')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border cursor-pointer whitespace-nowrap ${
+                  totalUnreadAcrossTickets > 0
+                    ? 'bg-[#FEF2F2] dark:bg-rose-950/40 text-[#DC4C5A] dark:text-rose-300 border-[#FECACA] dark:border-rose-900'
+                    : 'bg-white dark:bg-[#1E1238] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:bg-[#F5F1FF]'
+                }`}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>Chat</span>
+                {totalUnreadAcrossTickets > 0 && (
+                  <span className="px-1.5 py-0.2 bg-[#DC4C5A] text-white text-[10px] rounded-full font-bold tabular-nums">
+                    {totalUnreadAcrossTickets}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Columns Popover */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowColManager(!showColManager)}
+                className="px-2.5 py-1.5 text-xs font-semibold text-[#431599] dark:text-[#E9D5FF] bg-white dark:bg-[#1E1238] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] rounded-lg border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span className="tabular-nums">Columns ({activeColumns.length})</span>
+                <ChevronDown className="w-3 h-3 opacity-70" />
+              </button>
+
+              {showColManager && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowColManager(false)} />
+                  <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] rounded-xl shadow-xl border border-[#E9E5F0] dark:border-[#35105E] p-3 z-50 text-xs">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E9E5F0] dark:border-[#35105E]">
+                      <span className="font-bold text-[#211A2E] dark:text-white">Visibilitas Kolom</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowColManager(false)}
+                        className="text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white text-xs cursor-pointer"
+                      >
+                        Tutup
+                      </button>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+                      {config.ticketsTable.columns.map(col => (
+                        <label
+                          key={col.key}
+                          className="flex items-center justify-between p-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 rounded-lg cursor-pointer"
+                        >
+                          <span className="text-[#211A2E] dark:text-[#F5F1FF]">{col.label}</span>
+                          <input
+                            type="checkbox"
+                            checked={col.visible}
+                            onChange={e => setColumnVisibility(col.key, e.target.checked)}
+                            className="rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5]"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Export CSV */}
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-[#16A36A] hover:bg-[#15803D] rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Main Dynamic Table or Mobile Cards */}
+      {effectiveLayout === 'cards' ? (
+        <div className="space-y-3">
           {paginatedTickets.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 py-12 text-center text-slate-400 text-xs">
+            <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] py-12 text-center text-[#8B8495] text-xs">
               Tidak ada tiket Work Order yang cocok dengan filter pencarian.
             </div>
           ) : (
@@ -927,455 +1268,726 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               ))}
             </div>
           )}
-
-          {/* Pagination Bar for Cards */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500 shadow-2xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>
-                Menampilkan <span className="font-semibold text-slate-700 dark:text-slate-300">{sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}</span> -{' '}
-                <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}</span> dari{' '}
-                <span className="font-semibold text-slate-700 dark:text-slate-300">{sortedTickets.length}</span> tiket
-              </span>
-
-              <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200 dark:border-slate-700">
-                <select
-                  value={pageSize === 'ALL' ? 'ALL' : String(pageSize)}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setPageSize(val === 'ALL' ? 'ALL' : Number(val));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200"
-                >
-                  <option value="10">10 / hal</option>
-                  <option value="25">25 / hal</option>
-                  <option value="50">50 / hal</option>
-                  <option value="100">100 / hal</option>
-                  <option value="ALL">Semua ({sortedTickets.length})</option>
-                </select>
-                {pageSize !== 'ALL' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPageSize('ALL');
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors"
-                  >
-                    Lihat Semua
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                disabled={currentPage === 1 || pageSize === 'ALL'}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40 min-h-[36px]"
-              >
-                Sebelumnya
-              </button>
-              <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
-                {pageSize === 'ALL' ? 'Semua' : `${currentPage} / ${totalPages || 1}`}
-              </span>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40 min-h-[36px]"
-              >
-                Selanjutnya
-              </button>
-            </div>
-          </div>
         </div>
       ) : (
-        /* Dynamic PC Table Grid */
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto min-h-[300px]">
+        <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto min-h-[280px]">
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                  {/* Select All Checkbox - Fixed sticky left-0 */}
-                  <th className="py-2.5 px-3 w-10 text-center sticky left-0 bg-slate-50 dark:bg-slate-800 z-20 border-r border-slate-200 dark:border-slate-800">
-                    <button onClick={handleSelectAll} className="text-slate-400 hover:text-slate-600">
+                <tr className="bg-[#F4EAFF] dark:bg-[#251545] border-b border-[#D8CCF3] dark:border-[#35105E] text-[11px] font-bold text-[#431599] dark:text-[#D8B4FE] uppercase tracking-wider">
+                  <th className="py-3 px-3 w-10 text-center sticky left-0 bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E]">
+                    <button type="button" onClick={handleSelectAll} className="text-[#431599] dark:text-[#D8B4FE] cursor-pointer">
                       {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
-                        <CheckSquare className="w-4 h-4 text-indigo-600" />
+                        <CheckSquare className="w-4 h-4" />
                       ) : (
-                        <Square className="w-4 h-4" />
+                        <Square className="w-4 h-4 opacity-60" />
                       )}
                     </button>
                   </th>
 
-                {/* Dynamically configured headers */}
-                {activeColumns.map(col => {
-                  const isSorted = sortField === col.key;
-                  const isLeftSticky = col.sticky === 'left' || col.key === 'woNumber';
-                  const isRightSticky = col.sticky === 'right' || col.key === 'actions';
+                  {activeColumns.map(col => {
+                    const isSorted = sortField === col.key;
+                    const isLeftSticky = col.sticky === 'left' || col.key === 'woNumber';
+                    const isRightSticky = col.sticky === 'right' || col.key === 'actions';
 
-                  return (
-                    <th
-                      key={col.key}
-                      style={{ width: col.width ? `${col.width}px` : undefined }}
-                      className={`py-2.5 px-3 whitespace-nowrap ${
-                        col.sortable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700' : ''
-                      } ${
-                        isLeftSticky
-                          ? 'sticky left-10 bg-slate-50 dark:bg-slate-800 z-20 border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                          : ''
-                      } ${
-                        isRightSticky
-                          ? 'sticky right-0 bg-slate-50 dark:bg-slate-800 z-20 border-l border-slate-200 dark:border-slate-800 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                          : ''
-                      }`}
-                      onClick={() => col.sortable && handleSort(col.key)}
-                    >
-                      <div
-                        className="flex items-center gap-1.5"
-                        title={col.sortable ? (isSorted && sortDirection ? `Urutan: ${sortDirection.toUpperCase()} (Klik untuk ubah)` : 'Klik untuk mengurutkan') : undefined}
+                    return (
+                      <th
+                        key={col.key}
+                        style={{ width: col.width ? `${col.width}px` : undefined }}
+                        className={`py-3 px-3.5 whitespace-nowrap ${
+                          col.sortable ? 'cursor-pointer hover:bg-[#E9D5FF]/50 dark:hover:bg-[#35105E]' : ''
+                        } ${
+                          isLeftSticky
+                            ? 'sticky left-10 bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                            : ''
+                        } ${
+                          isRightSticky
+                            ? 'sticky right-0 bg-[#F4EAFF] dark:bg-[#251545] z-20 border-l border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                            : ''
+                        }`}
+                        onClick={() => col.sortable && handleSort(col.key)}
                       >
-                        <span>{col.label}</span>
-                        {col.sortable && (
-                          isSorted && sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-indigo-600 font-bold shrink-0" />
-                          ) : isSorted && sortDirection === 'desc' ? (
-                            <ArrowDown className="w-3.5 h-3.5 text-indigo-600 font-bold shrink-0" />
-                          ) : (
-                            <ArrowUpDown className="w-3 h-3 text-slate-400 shrink-0" />
-                          )
-                        )}
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-normal">
-              {paginatedTickets.length === 0 ? (
-                <tr>
-                  <td colSpan={activeColumns.length + 1} className="py-12 text-center text-slate-400 text-xs">
-                    Tidak ada tiket Work Order yang cocok dengan filter.
-                  </td>
-                </tr>
-              ) : (
-                paginatedTickets.map(ticket => {
-                  const isSelected = selectedIds.has(ticket.id);
-                  const stickyCellBg = isSelected
-                    ? 'bg-indigo-50/95 dark:bg-indigo-950/90'
-                    : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800';
-
-                  return (
-                    <tr
-                      key={ticket.id}
-                      className={`group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors ${
-                        isSelected ? 'bg-indigo-50/40 dark:bg-indigo-950/20' : ''
-                      }`}
-                    >
-                      {/* Row Checkbox - Fixed sticky left-0 */}
-                      <td className={`py-2 px-3 text-center sticky left-0 ${stickyCellBg} z-10 border-r border-slate-200 dark:border-slate-800 transition-colors`}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleSelect(ticket.id);
-                          }}
-                          className="text-slate-400 hover:text-slate-600"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-indigo-600" />
-                          ) : (
-                            <Square className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5">
+                          <span>{col.label}</span>
+                          {col.sortable && (
+                            isSorted && sortDirection === 'asc' ? (
+                              <ArrowUp className="w-3.5 h-3.5 shrink-0" />
+                            ) : isSorted && sortDirection === 'desc' ? (
+                              <ArrowDown className="w-3.5 h-3.5 shrink-0" />
+                            ) : (
+                              <ArrowUpDown className="w-3 h-3 opacity-50 shrink-0" />
+                            )
                           )}
-                        </button>
-                      </td>
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
 
-                      {/* Render Cell Values by Key */}
-                      {activeColumns.map(col => {
-                        const rawVal = (ticket as any)[col.key];
+              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                {paginatedTickets.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeColumns.length + 1} className="py-12 text-center text-[#8B8495] text-xs">
+                      Tidak ada tiket Work Order yang cocok dengan filter.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTickets.map(ticket => {
+                    const isSelected = selectedIds.has(ticket.id);
+                    const isExpanded = expandedDrawerTicketId === ticket.id;
+                    const stickyCellBg = isExpanded
+                      ? 'bg-[#F5F1FF] dark:bg-[#251247]'
+                      : isSelected
+                      ? 'bg-[#F5F1FF] dark:bg-[#2E1459]'
+                      : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F7F6FA] dark:group-hover:bg-[#251545]';
 
-                        if (col.key === 'actions') {
-                          return (
-                            <td
-                              key={col.key}
-                              className={`${densityClass} text-center whitespace-nowrap sticky right-0 ${stickyCellBg} z-10 border-l border-slate-200 dark:border-slate-800 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors`}
+                    const hasInlineEvidence =
+                      ticket.approvalStatus === 'BUTUH APPROVAL' ||
+                      Boolean(ticket.technicalReport) ||
+                      Boolean(ticket.progressReports && ticket.progressReports.length > 0);
+
+                    // Real photos deduplicated for drawer
+                    const drawerPhotos = Array.from(
+                      new Set(
+                        [
+                          ...(ticket.technicalReport?.photos || []),
+                          ticket.technicalReport?.photoBeforeUrl,
+                          ticket.technicalReport?.photoAfterUrl
+                        ].filter((u): u is string => Boolean(u && typeof u === 'string' && u.trim()))
+                      )
+                    );
+
+                    const latestReport = ticket.progressReports?.[0];
+
+                    return (
+                      <Fragment key={ticket.id}>
+                        <tr
+                          className={`group transition-colors ${
+                            isExpanded
+                              ? 'bg-[#F5F1FF]/70 dark:bg-[#251247]/70'
+                              : isSelected
+                              ? 'bg-[#F5F1FF]/50 dark:bg-[#2E1459]/40'
+                              : 'hover:bg-[#F7F6FA] dark:hover:bg-[#251545]/60'
+                          }`}
+                        >
+                          {/* Row Checkbox */}
+                          <td className={`py-2.5 px-3 text-center sticky left-0 ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] transition-colors`}>
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleToggleSelect(ticket.id);
+                              }}
+                              className="text-[#8B8495] hover:text-[#431599] cursor-pointer"
                             >
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSelectTicket(ticket);
-                                  }}
-                                  className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-                                  title="View Detail"
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-[#431599] dark:text-[#A78BFA]" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+                          </td>
+
+                          {/* Render Cell Values by Key */}
+                          {activeColumns.map(col => {
+                            const rawVal = (ticket as any)[col.key];
+
+                            if (col.key === 'actions') {
+                              const unread = getTicketUnreadCount(ticket.id);
+                              return (
+                                <td
+                                  key={col.key}
+                                  className={`${densityClass} text-center whitespace-nowrap sticky right-0 ${stickyCellBg} z-10 border-l border-[#E9E5F0] dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors`}
                                 >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-                                {/* Chat Action with Unread Badge (Super Admin, Dispatch, Installer only) */}
-                                {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (() => {
-                                  const unread = getTicketUnreadCount(ticket.id);
-                                  return (
+                                  <div className="flex items-center justify-center gap-1">
+                                    {hasInlineEvidence && (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          toggleInlineDrawer(ticket.id);
+                                        }}
+                                        className={`px-2 py-1 rounded-md text-[11px] font-bold border transition-colors cursor-pointer whitespace-nowrap ${
+                                          isExpanded
+                                            ? 'bg-[#431599] text-white border-[#431599]'
+                                            : 'bg-[#F5F1FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
+                                        }`}
+                                        title="Buka Drawer Verifikasi Teknis"
+                                      >
+                                        {isExpanded ? 'Tutup' : 'Review'}
+                                      </button>
+                                    )}
+
+                                    {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          if (!isExpanded) {
+                                            toggleInlineDrawer(ticket.id);
+                                          } else {
+                                            handleInlineApprove(ticket);
+                                          }
+                                        }}
+                                        className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#16A36A] hover:bg-[#15803D] text-white transition-colors cursor-pointer whitespace-nowrap"
+                                        title="Verifikasi & Approve Laporan"
+                                      >
+                                        Approve
+                                      </button>
+                                    )}
+
                                     <button
-                                      onClick={(e) => {
+                                      type="button"
+                                      onClick={e => {
                                         e.stopPropagation();
-                                        onSelectTicket(ticket, 'chat');
+                                        onSelectTicket(ticket);
                                       }}
-                                      className={`relative p-1 rounded transition-colors ${
-                                        unread > 0
-                                          ? 'text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100'
-                                          : 'text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
-                                      }`}
-                                      title={unread > 0 ? `${unread} Chat Belum Dibaca - Buka Live Chat` : 'Buka Live Chat'}
+                                      className="p-1.5 text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
+                                      title="Buka Detail Lengkap WO"
                                     >
-                                      <MessageCircle className="w-3.5 h-3.5" />
-                                      {unread > 0 && (
-                                        <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-rose-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-xs">
-                                          {unread > 99 ? '99+' : unread}
-                                        </span>
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          onSelectTicket(ticket, 'chat');
+                                        }}
+                                        className={`relative p-1.5 rounded-md transition-colors cursor-pointer ${
+                                          unread > 0
+                                            ? 'text-[#DC4C5A] bg-[#FEF2F2] dark:bg-rose-950/50'
+                                            : 'text-[#431599] dark:text-[#A78BFA] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
+                                        }`}
+                                        title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
+                                      >
+                                        <MessageCircle className="w-3.5 h-3.5" />
+                                        {unread > 0 && (
+                                          <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-[#DC4C5A] text-white text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums">
+                                            {unread > 99 ? '99+' : unread}
+                                          </span>
+                                        )}
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        onOpenWhatsApp(ticket);
+                                      }}
+                                      className="p-1.5 text-[#16A36A] hover:bg-[#ECFDF5] dark:hover:bg-emerald-950/40 rounded-md cursor-pointer"
+                                      title="WhatsApp Confirmation"
+                                    >
+                                      <MessageSquare className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        if (ticket.isArchived) restoreTicket(ticket.id);
+                                        else archiveTicket(ticket.id);
+                                      }}
+                                      className="p-1.5 text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white rounded-md cursor-pointer"
+                                      title={ticket.isArchived ? 'Restore' : 'Archive'}
+                                    >
+                                      {ticket.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                                    </button>
+
+                                    {currentUser.role === 'management_data' && (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          setTicketToDelete(ticket);
+                                        }}
+                                        className="p-1.5 text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 rounded-md cursor-pointer"
+                                        title="Hapus Work Order (Management Data Only)"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'woNumber') {
+                              return (
+                                <td
+                                  key={col.key}
+                                  className={`${densityClass} sticky left-10 ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors`}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        onSelectTicket(ticket);
+                                      }}
+                                      className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline tabular-nums cursor-pointer text-left"
+                                    >
+                                      {ticket.woNumber}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={e => handleCopyWoNumber(e, ticket)}
+                                      className="p-1 rounded text-[#8B8495] hover:text-[#431599] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                                      title="Salin Nomor WO"
+                                    >
+                                      {copiedWoId === ticket.id ? (
+                                        <Check className="w-3 h-3 text-[#16A36A]" />
+                                      ) : (
+                                        <Copy className="w-3 h-3" />
                                       )}
                                     </button>
-                                  );
-                                })()}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenWhatsApp(ticket);
-                                  }}
-                                  className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded"
-                                  title="WhatsApp Confirmation"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (ticket.isArchived) restoreTicket(ticket.id);
-                                    else archiveTicket(ticket.id);
-                                  }}
-                                  className="p-1 text-slate-400 hover:text-slate-600 rounded"
-                                  title={ticket.isArchived ? 'Restore' : 'Archive'}
-                                >
-                                  {ticket.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-                                </button>
-                                {currentUser.role === 'management_data' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setTicketToDelete(ticket);
-                                    }}
-                                    className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors"
-                                    title="Hapus Work Order (Management Data Only)"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          );
-                        }
+                                  </div>
+                                </td>
+                              );
+                            }
 
-                        if (col.key === 'woNumber') {
-                          return (
-                            <td
-                              key={col.key}
-                              className={`${densityClass} font-mono font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline sticky left-10 bg-white dark:bg-slate-900 z-10 border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSelectTicket(ticket);
-                              }}
-                            >
-                              {ticket.woNumber}
-                            </td>
-                          );
-                        }
+                            if (col.key === 'statusWOAgent') {
+                              return (
+                                <td key={col.key} className={densityClass}>
+                                  <StatusAgentBadge status={ticket.statusWOAgent} />
+                                </td>
+                              );
+                            }
 
-                        if (col.key === 'statusWOAgent') {
-                          return (
-                            <td key={col.key} className={densityClass}>
-                              <StatusAgentBadge status={ticket.statusWOAgent} />
-                            </td>
-                          );
-                        }
+                            if (col.key === 'statusWOInstaller') {
+                              return (
+                                <td key={col.key} className={densityClass}>
+                                  <div className="flex flex-col gap-1 items-start">
+                                    <StatusInstallerBadge status={ticket.statusWOInstaller} />
+                                    {ticket.approvalStatus && <StatusApprovalBadge status={ticket.approvalStatus} />}
+                                  </div>
+                                </td>
+                              );
+                            }
 
-                        if (col.key === 'statusWOInstaller') {
-                          return (
-                            <td key={col.key} className={densityClass}>
-                              <div className="flex flex-col gap-1 items-start">
-                                <StatusInstallerBadge status={ticket.statusWOInstaller} />
-                                {ticket.approvalStatus && (
+                            if (col.key === 'approvalStatus') {
+                              return (
+                                <td key={col.key} className={densityClass}>
                                   <StatusApprovalBadge status={ticket.approvalStatus} />
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'statusWhatsApp') {
+                              return (
+                                <td key={col.key} className={densityClass}>
+                                  <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'customerPhone') {
+                              return (
+                                <td key={col.key} className={`${densityClass} font-mono text-[#494453] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}>
+                                  {ticket.customerPhone || '-'}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'idCustomer') {
+                              return (
+                                <td key={col.key} className={`${densityClass} font-mono font-semibold text-[#211A2E] dark:text-white tabular-nums`}>
+                                  {ticket.idCustomer}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'customerAddress' || col.key === 'streetName' || col.key === 'address') {
+                              return (
+                                <td key={col.key} className={`${densityClass} text-[#494453] dark:text-[#CEC0E8] max-w-xs`}>
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      openCustomerAddressInGoogleMaps(ticket);
+                                    }}
+                                    className="group/map flex items-start gap-1.5 text-left hover:text-[#431599] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer w-full"
+                                    title="Klik untuk membuka lokasi pelanggan di Google Maps"
+                                  >
+                                    <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0 mt-0.5 group-hover/map:scale-110 transition-transform" />
+                                    <span className="truncate group-hover/map:underline text-xs">
+                                      {rawVal || (ticket as any).customerAddress || ticket.streetName || '-'}
+                                    </span>
+                                  </button>
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'installerName') {
+                              return (
+                                <td key={col.key} className={densityClass}>
+                                  {ticket.installerName ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
+                                      {ticket.installerName}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF3C7] dark:bg-amber-950/40 text-[#92400E] dark:text-amber-300 border border-[#F59E0B]/40 whitespace-nowrap">
+                                      Belum Ditugaskan
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td
+                                key={col.key}
+                                className={`${densityClass} text-[#211A2E] dark:text-[#F5F1FF] ${
+                                  col.wrapText ? 'break-words max-w-xs' : 'whitespace-nowrap truncate max-w-xs'
+                                }`}
+                              >
+                                {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? (
+                                  String(rawVal)
+                                ) : (
+                                  <span className="text-[#8B8495] italic font-normal">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* Expandable Inline Verification Drawer */}
+                        {isExpanded && (
+                          <tr className="bg-[#F5F1FF]/70 dark:bg-[#251247]/80">
+                            <td colSpan={activeColumns.length + 1} className="p-4 sm:p-5 border-y border-[#D8CCF3] dark:border-[#5B35B1]">
+                              <div className="space-y-4">
+                                {/* Drawer Header */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-[#FEF3C7] dark:bg-amber-950/60 border border-[#F59E0B]/40 flex items-center justify-center shrink-0">
+                                      <ShieldCheck className="w-5 h-5 text-[#E59A27]" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h4 className="font-display text-sm font-bold text-[#211A2E] dark:text-white">
+                                          Verifikasi Hasil Pekerjaan Teknisi
+                                        </h4>
+                                        <StatusApprovalBadge status={ticket.approvalStatus} />
+                                      </div>
+                                      <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] mt-0.5 font-mono tabular-nums">
+                                        {ticket.woNumber} — Teknisi: {ticket.installerName || 'Belum Ditugaskan'} ({ticket.contactorName || ticket.contractorName || '-'})
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectTicket(ticket, 'report')}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#160D29] text-[#431599] dark:text-[#E9D5FF] border border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F4EAFF] cursor-pointer whitespace-nowrap"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                      <span>Buka Detail Penuh</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleInlineDrawer(ticket.id)}
+                                      className="p-1.5 rounded-lg text-[#766B83] hover:text-[#211A2E] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E] cursor-pointer"
+                                      title="Tutup Drawer"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* 3 Real Technical Telemetry Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3">
+                                    <div className="text-[11px] font-semibold text-[#766B83] dark:text-[#A78BFA]">
+                                      Redaman OPM (dBm)
+                                    </div>
+                                    <div className="mt-1 flex items-baseline gap-2">
+                                      <span className="font-mono text-lg font-bold text-[#16A36A] tabular-nums">
+                                        {ticket.technicalReport?.opticalPowerRx || ticket.technicalReport?.opticalPowerDbm || 'Belum diinput'}
+                                      </span>
+                                      {ticket.oltCode && (
+                                        <span className="text-[10.5px] font-mono text-[#766B83] dark:text-[#CEC0E8]">
+                                          OLT: {ticket.oltCode}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3">
+                                    <div className="text-[11px] font-semibold text-[#766B83] dark:text-[#A78BFA]">
+                                      Nomor Seri ONT / Modem
+                                    </div>
+                                    <div className="mt-1 font-mono text-sm font-bold text-[#211A2E] dark:text-white tabular-nums truncate">
+                                      {ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber || 'Belum diinput'}
+                                    </div>
+                                    <div className="mt-0.5 text-[10.5px] text-[#766B83] dark:text-[#CEC0E8] truncate">
+                                      Material: {ticket.technicalReport?.usedMaterials || '-'}
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3">
+                                    <div className="text-[11px] font-semibold text-[#766B83] dark:text-[#A78BFA]">
+                                      Dropcore &amp; FAT
+                                    </div>
+                                    <div className="mt-1 font-mono text-sm font-bold text-[#211A2E] dark:text-white tabular-nums">
+                                      {ticket.dropcoreLength ? `${ticket.dropcoreLength}` : 'Belum diinput'}
+                                    </div>
+                                    <div className="mt-0.5 text-[10.5px] font-mono text-[#766B83] dark:text-[#CEC0E8] truncate">
+                                      FAT: {ticket.fatCode || ticket.fat || '-'} | Port: {ticket.fatPort || '-'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Latest 3-Tier Progress Report + Evidence Photos */}
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                                  <div className="lg:col-span-5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3 space-y-2">
+                                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+                                      <FileText className="w-3.5 h-3.5" />
+                                      <span>Ringkasan Laporan Teknisi</span>
+                                    </div>
+                                    {latestReport ? (
+                                      <div className="space-y-1 text-xs">
+                                        <div className="font-semibold text-[#211A2E] dark:text-white">
+                                          {latestReport.reportStatusLabel || latestReport.reportStatus} &rarr;{' '}
+                                          {latestReport.reasonReportLabel || latestReport.reasonReport}
+                                        </div>
+                                        <div className="text-[#766B83] dark:text-[#CEC0E8]">
+                                          Rootcause: {latestReport.rootcauseLabel || latestReport.rootCause || '-'}
+                                        </div>
+                                        {latestReport.remarksReport && (
+                                          <p className="p-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] text-[11.5px]">
+                                            {latestReport.remarksReport}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : ticket.technicalReport ? (
+                                      <div className="space-y-1 text-xs">
+                                        <div className="font-semibold text-[#211A2E] dark:text-white">
+                                          {ticket.technicalReport.workResult} ({ticket.technicalReport.mainCategory})
+                                        </div>
+                                        <p className="text-[#494453] dark:text-[#CEC0E8]">
+                                          {ticket.technicalReport.technicalDescription || '-'}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs text-[#8B8495] italic">
+                                        Belum ada laporan progress tersubmit dari teknisi.
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="lg:col-span-7 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+                                        <ImageIcon className="w-3.5 h-3.5" />
+                                        <span>Bukti Dokumentasi Lapangan ({drawerPhotos.length})</span>
+                                      </div>
+                                    </div>
+                                    {drawerPhotos.length > 0 ? (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {drawerPhotos.map((photoUrl, idx) => (
+                                          <button
+                                            key={photoUrl + idx}
+                                            type="button"
+                                            onClick={() => onSelectTicket(ticket, 'report')}
+                                            className="group/img relative aspect-video rounded-lg overflow-hidden border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] cursor-pointer"
+                                          >
+                                            <img
+                                              src={photoUrl}
+                                              alt={`Dokumentasi ${idx + 1} - ${ticket.woNumber}`}
+                                              referrerPolicy="no-referrer"
+                                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
+                                              onError={e => {
+                                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                              }}
+                                            />
+                                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/65 text-white text-[9.5px] font-mono">
+                                              Foto #{idx + 1}
+                                            </span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="py-4 text-center rounded-lg border border-dashed border-[#D8CCF3] dark:border-[#35105E] text-xs text-[#8B8495]">
+                                        Belum ada foto bukti dokumentasi yang diunggah pada Technical Report.
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Inline Dispatch Approval / Rejection Controls (STRICTLY dispatch / super_admin when BUTUH APPROVAL) */}
+                                {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
+                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#5B35B1] p-3 space-y-2.5">
+                                    <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={inlineNotes}
+                                        onChange={e => setInlineNotes(e.target.value)}
+                                        placeholder="Tambahkan catatan dispatch internal untuk approval / berita acara..."
+                                        className="flex-1 px-3 py-2 text-xs rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[#211A2E] dark:text-white focus:outline-none focus:border-[#7135B5]"
+                                      />
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <button
+                                          type="button"
+                                          disabled={inlineSubmitting}
+                                          onClick={() => handleInlineApprove(ticket)}
+                                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-[#16A36A] hover:bg-[#15803D] disabled:opacity-50 text-white shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5" />
+                                          <span>{inlineSubmitting ? 'Memproses...' : 'Approve & Close WO'}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={inlineSubmitting}
+                                          onClick={() => setShowInlineRejectBox(v => !v)}
+                                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC4C5A] border border-[#FECACA] transition-colors cursor-pointer whitespace-nowrap"
+                                        >
+                                          <AlertTriangle className="w-3.5 h-3.5" />
+                                          <span>Minta Revisi</span>
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {showInlineRejectBox && (
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
+                                        <input
+                                          type="text"
+                                          value={inlineRejectReason}
+                                          onChange={e => setInlineRejectReason(e.target.value)}
+                                          placeholder="Wajib isi alasan penolakan / item yang harus direvisi teknisi..."
+                                          className="flex-1 px-3 py-2 text-xs rounded-lg bg-[#FEF2F2]/60 dark:bg-rose-950/30 border border-[#FECACA] dark:border-rose-800 text-[#211A2E] dark:text-white focus:outline-none"
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={inlineSubmitting}
+                                          onClick={() => handleInlineReject(ticket)}
+                                          className="px-3.5 py-2 rounded-lg text-xs font-bold bg-[#DC4C5A] hover:bg-rose-700 disabled:opacity-50 text-white cursor-pointer whitespace-nowrap"
+                                        >
+                                          Kirim Revisi
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </td>
-                          );
-                        }
-
-                        if (col.key === 'approvalStatus') {
-                          return (
-                            <td key={col.key} className={densityClass}>
-                              <StatusApprovalBadge status={ticket.approvalStatus} />
-                            </td>
-                          );
-                        }
-
-                        if (col.key === 'statusWhatsApp') {
-                          return (
-                            <td key={col.key} className={densityClass}>
-                              <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
-                            </td>
-                          );
-                        }
-
-                        if (col.key === 'customerPhone') {
-                          return (
-                            <td key={col.key} className={`${densityClass} font-mono text-slate-600 dark:text-slate-300`}>
-                              {ticket.customerPhone || '-'}
-                            </td>
-                          );
-                        }
-
-                        if (col.key === 'idCustomer') {
-                          return (
-                            <td key={col.key} className={`${densityClass} font-mono text-slate-600 dark:text-slate-300`}>
-                              {ticket.idCustomer}
-                            </td>
-                          );
-                        }
-
-                        if (col.key === 'customerAddress' || col.key === 'streetName' || col.key === 'address') {
-                          return (
-                            <td key={col.key} className={`${densityClass} text-slate-700 dark:text-slate-300 max-w-xs`}>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openCustomerAddressInGoogleMaps(ticket);
-                                }}
-                                className="group flex items-start gap-1.5 text-left text-slate-700 dark:text-slate-200 hover:text-purple-700 dark:hover:text-purple-300 transition-colors cursor-pointer w-full"
-                                title="Klik untuk membuka lokasi pelanggan di Google Maps"
-                              >
-                                <MapPin className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                                <span className="truncate group-hover:underline font-normal text-xs">
-                                  {rawVal || (ticket as any).customerAddress || ticket.streetName || '-'}
-                                </span>
-                              </button>
-                            </td>
-                          );
-                        }
-
-                        if (col.key === 'installerName') {
-                          return (
-                            <td key={col.key} className={densityClass}>
-                              {ticket.installerName ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                  {ticket.installerName}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                  Belum Ditugaskan
-                                </span>
-                              )}
-                            </td>
-                          );
-                        }
-
-                        return (
-                          <td
-                            key={col.key}
-                            className={`${densityClass} text-slate-700 dark:text-slate-300 ${
-                              col.wrapText ? 'break-words max-w-xs' : 'whitespace-nowrap truncate max-w-xs'
-                            }`}
-                          >
-                            {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? (
-                              String(rawVal)
-                            ) : (
-                              <span className="text-slate-400 italic font-normal">-</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
 
-        {/* Pagination Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+      {/* 4. Footer Pagination & WIB Timezone Info */}
+      <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 text-xs text-[#766B83] dark:text-[#CEC0E8]">
           <div className="flex flex-wrap items-center gap-3">
-            <div>
-              Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}</span> to{' '}
-              <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}</span> of{' '}
-              <span className="font-semibold text-slate-700 dark:text-slate-300">{sortedTickets.length}</span> tickets
-            </div>
-
-            <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-700">
-              <span className="text-[11px] text-slate-400">View:</span>
+            <div className="flex items-center gap-2">
+              <span>Baris per halaman:</span>
               <select
                 value={pageSize === 'ALL' ? 'ALL' : String(pageSize)}
-                onChange={(e) => {
+                onChange={e => {
                   const val = e.target.value;
                   setPageSize(val === 'ALL' ? 'ALL' : Number(val));
                   setCurrentPage(1);
                 }}
-                className="px-2 py-1 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                className="px-2 py-1 text-xs font-semibold bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-md text-[#211A2E] dark:text-white cursor-pointer"
               >
-                <option value="10">10 per page</option>
-                <option value="25">25 per page</option>
-                <option value="50">50 per page</option>
-                <option value="100">100 per page</option>
-                <option value="ALL">All ({sortedTickets.length} tickets)</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="ALL">Semua ({sortedTickets.length})</option>
               </select>
+            </div>
 
-              {pageSize !== 'ALL' ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPageSize('ALL');
-                    setCurrentPage(1);
-                  }}
-                  className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition-colors border border-indigo-200 dark:border-indigo-800/60"
-                >
-                  Lihat Semua
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPageSize(10);
-                    setCurrentPage(1);
-                  }}
-                  className="px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors border border-slate-300 dark:border-slate-600"
-                >
-                  Batas 10
-                </button>
-              )}
+            <div className="tabular-nums">
+              Menampilkan{' '}
+              <span className="font-bold text-[#211A2E] dark:text-white">
+                {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}–{Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
+              </span>{' '}
+              dari <span className="font-bold text-[#211A2E] dark:text-white">{sortedTickets.length}</span> Work Orders
             </div>
           </div>
 
           <div className="flex items-center gap-1">
             <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1 || pageSize === 'ALL'}
+              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Halaman pertama"
+            >
+              <ChevronsLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
               onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
               disabled={currentPage === 1 || pageSize === 'ALL'}
-              className="px-2.5 py-1 text-xs font-medium rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40"
+              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Halaman sebelumnya"
             >
-              Previous
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="px-2 font-medium text-slate-700 dark:text-slate-300">
-              {pageSize === 'ALL' ? `Page 1 of 1 (All ${sortedTickets.length})` : `Page ${currentPage} of ${totalPages}`}
-            </span>
+
+            {pageSize !== 'ALL' &&
+              pageNumbers.map((item, idx) =>
+                item === 'ellipsis' ? (
+                  <span key={`e-${idx}`} className="px-2 text-[#8B8495]">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setCurrentPage(item)}
+                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold tabular-nums transition-colors cursor-pointer ${
+                      currentPage === item
+                        ? 'bg-[#160D29] dark:bg-[#7135B5] text-white'
+                        : 'text-[#494453] dark:text-[#CEC0E8] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
+
             <button
+              type="button"
               onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-              className="px-2.5 py-1 text-xs font-medium rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-40"
+              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Halaman berikutnya"
             >
-              Next
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
+              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Halaman terakhir"
+            >
+              <ChevronsRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
+
+        <div className="px-4 py-2 bg-[#F7F6FA] dark:bg-[#160D29]/60 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+          <span className="w-2 h-2 rounded-full bg-[#16A36A] shrink-0" />
+          <span>
+            Menampilkan data sesuai zona waktu <strong>Asia/Jakarta (WIB)</strong>. Sinkronisasi dua arah via Express API &amp; Supabase aktif.
+          </span>
+        </div>
       </div>
-      )}
 
       {/* Management Data Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && currentUser.role === 'management_data' && (
