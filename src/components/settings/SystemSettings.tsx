@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { RootCauseCategory, Contractor, CoverageArea } from '../../types/index.ts';
@@ -6,34 +6,46 @@ import {
   Settings,
   Plus,
   Check,
-  Edit2,
   Save,
   Building2,
   MapPin,
   Wrench,
-  Layers,
   FileSpreadsheet,
   Trash2,
   AlertCircle,
-  CheckCircle2,
   Palette,
   Clock,
   KeyRound,
   ListFilter,
-  Volume2
+  Volume2,
+  Lock,
+  RefreshCw,
+  Server,
+  SlidersHorizontal,
+  Info,
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
-import { ShieldAlert } from 'lucide-react';
 import { getJakartaDateString } from '../../services/appointmentDateParser';
 import { DroplistManagementView } from './DroplistManagementView';
 import { SoundSettingsView } from './SoundSettingsView';
 
 interface SystemSettingsProps {
-  defaultTab?: 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
+  defaultTab?: 'core_config' | 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
   embeddedInSetupHub?: boolean;
 }
 
+interface HealthTelemetry {
+  status?: string;
+  backend?: { active?: boolean; runtime?: string; port?: number };
+  database?: { active?: boolean; primaryTarget?: string; status?: string };
+  server?: { name?: string; status?: string; environment?: string; uptimeSeconds?: number; timestamp?: string };
+  supabase?: { status?: string; latencyMs?: number | null; message?: string };
+  databaseStats?: { totalTickets?: number | null; totalUsers?: number | null; totalContractors?: number | null; totalAuditLogs?: number | null };
+}
+
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
-  defaultTab = 'contractors',
+  defaultTab = 'core_config',
   embeddedInSetupHub = false
 }) => {
   const {
@@ -41,33 +53,63 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
     updateHeaderMapping,
     contractors,
     addContractor,
-    updateContractor,
     coverageAreas,
     addCoverageArea,
-    updateCoverageArea,
     rootCauseCategories,
     updateRootCauseCategories,
     currentUser,
     operationalDate,
     setOperationalDate,
-    setIsSessionModalOpen
+    setIsSessionModalOpen,
+    databaseStatus,
+    syncStatus,
+    tickets,
+    users,
+    refreshDatabaseData
   } = useApp();
 
-  const { config, setGlobalTheme } = useUIConfig();
+  const { config, setGlobalTheme, setShowEmptyFields, updateAndroidSettings } = useUIConfig();
 
   const initialTab =
     embeddedInSetupHub && (defaultTab === 'report_dropdowns' || defaultTab === 'sound_settings')
-      ? 'contractors'
+      ? 'core_config'
       : defaultTab;
 
   const [activeTab, setActiveTab] = useState<
-    'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings'
+    'core_config' | 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings'
   >(initialTab);
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [operationalDateInput, setOperationalDateInput] = useState(operationalDate);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Live cluster telemetry from /api/health
+  const [healthData, setHealthData] = useState<HealthTelemetry | null>(null);
+  const [isLoadingTelemetry, setIsLoadingTelemetry] = useState(false);
+
+  const fetchHealthTelemetry = useCallback(async () => {
+    setIsLoadingTelemetry(true);
+    try {
+      const res = await fetch('/api/health', { credentials: 'include' });
+      if (res.ok) {
+        const json = await res.json();
+        setHealthData(json);
+      }
+    } catch {
+      // keep previous snapshot silently if offline
+    } finally {
+      setIsLoadingTelemetry(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHealthTelemetry();
+  }, [fetchHealthTelemetry]);
+
+  useEffect(() => {
+    setOperationalDateInput(operationalDate);
+  }, [operationalDate]);
 
   // Contractor Form State
   const [showAddContractor, setShowAddContractor] = useState(false);
@@ -349,43 +391,57 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto pb-1">
+      <div className="flex items-center gap-1.5 border-b border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold overflow-x-auto pb-1.5">
         {!embeddedInSetupHub && (
           <>
             <button
               type="button"
               onClick={() => setActiveTab('report_dropdowns')}
-              className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
                 activeTab === 'report_dropdowns'
-                  ? 'border-[#7135B5] text-[#7135B5] dark:text-[#D8B4FE] font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+                  : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
               }`}
             >
-              <ListFilter className="w-4 h-4 text-[#A855F7]" />
+              <ListFilter className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
               <span>Kategori Report</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('sound_settings')}
-              className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
                 activeTab === 'sound_settings'
-                  ? 'border-[#7135B5] text-[#7135B5] dark:text-[#D8B4FE] font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+                  : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
               }`}
             >
-              <Volume2 className="w-4 h-4 text-[#A855F7]" />
+              <Volume2 className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
               <span>Sound & Notifikasi</span>
             </button>
           </>
         )}
 
         <button
+          type="button"
+          onClick={() => setActiveTab('core_config')}
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+            activeTab === 'core_config'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          <span>Operasional Core & Telemetri</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('contractors')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === 'contractors'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
           }`}
         >
           <Building2 className="w-4 h-4" />
@@ -393,11 +449,12 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('coverage')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === 'coverage'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
           }`}
         >
           <MapPin className="w-4 h-4" />
@@ -405,63 +462,473 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('root_causes')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === 'root_causes'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
           }`}
         >
           <Wrench className="w-4 h-4" />
-          <span>Kategori Root Cause Wi-Fi ({rootCauseCategories.length})</span>
+          <span>Root Cause Wi-Fi ({rootCauseCategories.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('header_mapping')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === 'header_mapping'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
           }`}
         >
           <FileSpreadsheet className="w-4 h-4" />
-          <span>Kamus Alias Header Impor ({headerMappings.length})</span>
+          <span>Alias Header Impor ({headerMappings.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('branding')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === 'branding'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
           }`}
         >
           <Palette className="w-4 h-4" />
-          <span>Branding & Logo MoraJaws</span>
+          <span>Branding & Tema</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('system_session')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === 'system_session'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
+              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          <span>Sesi Staf & Operasional WIB</span>
+          <span>Sesi Staf & WIB</span>
         </button>
       </div>
 
+      {/* TAB 0: CORE OPERATIONAL CONFIG & LIVE CLUSTER TELEMETRY */}
+      {activeTab === 'core_config' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left 8 Columns: Master Data & Konfigurasi Operasional Core */}
+          <div className="lg:col-span-8 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] p-5 sm:p-6 shadow-[0_1px_3px_rgba(33,26,46,0.04)] space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F5F1FF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#7135B5]/50 text-[#7135B5] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
+                    Master Data & Konfigurasi Operasional Core
+                  </h3>
+                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                    Pengaturan identitas white-label, tanggal operasional WIB, dan perilaku antarmuka global.
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[#494453] dark:text-[#D8B4FE] self-start sm:self-auto">
+                Scope: Global System
+              </span>
+            </div>
+
+            {/* White-Label Name & Locked WIB Timezone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#CEC0E8]">
+                  Nama Aplikasi / White Label
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    disabled={!isSuperAdmin || isSaving}
+                    value={appNameInput}
+                    onChange={e => setAppNameInput(e.target.value)}
+                    placeholder="MoraJaws"
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-xs font-bold text-[#211A2E] dark:text-white focus:border-[#7135B5] focus:outline-none disabled:opacity-60"
+                  />
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={async () => {
+                        setIsSaving(true);
+                        try {
+                          const res = await setGlobalTheme({
+                            appName: appNameInput.trim() || 'MoraJaws'
+                          });
+                          if (!res.success) {
+                            triggerError(res.error || 'Gagal memperbarui nama aplikasi.');
+                          } else {
+                            triggerNotice(`Nama aplikasi "${appNameInput.trim() || 'MoraJaws'}" disimpan ke PostgreSQL.`);
+                          }
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-[#7135B5] hover:bg-[#5B35B1] text-white text-xs font-bold cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      Simpan
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#8B8495] dark:text-[#CEC0E8]/75">
+                  Tampil pada header, sidebar, dan portal login staf.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#CEC0E8]">
+                  Timezone Operasional FTTH
+                </label>
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-xs font-bold text-[#494453] dark:text-[#D8B4FE]">
+                  <span>Asia/Jakarta (WIB) — Terkunci SOP</span>
+                  <Lock className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+                </div>
+                <p className="text-[11px] text-[#8B8495] dark:text-[#CEC0E8]/75">
+                  Seluruh pencatatan SLA, appointment, dan rollover 00:00 berpatokan pada WIB.
+                </p>
+              </div>
+            </div>
+
+            {/* Operational Date Picker (todayWIB) */}
+            <div className="p-4 rounded-xl bg-[#F5F1FF]/70 dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+                  Tanggal Acuan Operasional (todayWIB)
+                </div>
+                <div className="text-base font-extrabold font-mono text-[#211A2E] dark:text-white tabular-nums mt-0.5">
+                  {operationalDate} <span className="text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8]">(WIB)</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  disabled={!isSuperAdmin || isSaving}
+                  value={operationalDateInput}
+                  onChange={e => setOperationalDateInput(e.target.value)}
+                  className="px-3 py-1.5 bg-white dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#35105E] rounded-xl text-xs font-bold text-[#211A2E] dark:text-white disabled:opacity-60"
+                />
+                <button
+                  type="button"
+                  disabled={!isSuperAdmin || isSaving}
+                  onClick={async () => {
+                    if (!isSuperAdmin) return;
+                    setIsSaving(true);
+                    try {
+                      const res = await setOperationalDate(operationalDateInput);
+                      if (!res.success) {
+                        triggerError(res.error || 'Gagal menyimpan tanggal operasional.');
+                      } else {
+                        triggerNotice(`Tanggal operasional diperbarui ke ${operationalDateInput} (WIB).`);
+                      }
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#7135B5] hover:bg-[#5B35B1] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Terapkan
+                </button>
+                <button
+                  type="button"
+                  disabled={!isSuperAdmin || isSaving}
+                  onClick={async () => {
+                    if (!isSuperAdmin) return;
+                    const realDate = getJakartaDateString(0);
+                    setIsSaving(true);
+                    try {
+                      const res = await setOperationalDate(realDate);
+                      if (!res.success) {
+                        triggerError(res.error || 'Gagal mereset tanggal operasional.');
+                      } else {
+                        setOperationalDateInput(realDate);
+                        triggerNotice(`Tanggal operasional direset ke aktual WIB: ${realDate}.`);
+                      }
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[#494453] dark:text-[#CEC0E8] hover:bg-[#F7F6FA] text-xs font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  Aktual WIB
+                </button>
+              </div>
+            </div>
+
+            {/* Enterprise UI & Operational Controls (Wired to UIConfigContext) */}
+            <div className="space-y-3 pt-1">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#CEC0E8]">
+                Preferensi Tampilan & Guardrails Global
+              </div>
+
+              {/* Theme Mode & Table Density */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-2">
+                  <div className="text-xs font-bold text-[#211A2E] dark:text-white">Mode Tema Antarmuka</div>
+                  <div className="flex items-center gap-1.5">
+                    {(['light', 'dark', 'system'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        type="button"
+                        disabled={!isSuperAdmin || isSaving}
+                        onClick={async () => {
+                          const res = await setGlobalTheme({ themeMode: mode });
+                          if (res.success) triggerNotice(`Tema antarmuka diubah ke "${mode}".`);
+                        }}
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold capitalize transition-colors cursor-pointer disabled:opacity-60 ${
+                          config.global.themeMode === mode
+                            ? 'bg-[#7135B5] text-white'
+                            : 'bg-white dark:bg-[#1E1238] text-[#494453] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E]'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-2">
+                  <div className="text-xs font-bold text-[#211A2E] dark:text-white">Kepadatan Tabel Work Order</div>
+                  <div className="flex items-center gap-1.5">
+                    {(['compact', 'normal', 'comfortable'] as const).map(dens => (
+                      <button
+                        key={dens}
+                        type="button"
+                        disabled={!isSuperAdmin || isSaving}
+                        onClick={async () => {
+                          const res = await setGlobalTheme({ density: dens });
+                          if (res.success) triggerNotice(`Kepadatan tabel diubah ke "${dens}".`);
+                        }}
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold capitalize transition-colors cursor-pointer disabled:opacity-60 ${
+                          config.global.density === dens
+                            ? 'bg-[#7135B5] text-white'
+                            : 'bg-white dark:bg-[#1E1238] text-[#494453] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E]'
+                        }`}
+                      >
+                        {dens}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Real Boolean Switches */}
+              <div className="divide-y divide-[#E9E5F0] dark:divide-[#35105E] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA]/60 dark:bg-[#160D29]/70">
+                <div className="p-3.5 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-[#211A2E] dark:text-white">
+                      Tampilkan Field Kosong di Detail Tiket (WO Fullview)
+                    </div>
+                    <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                      Menampilkan seluruh atribut canonical 17 section walaupun nilainya belum terisi.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={config.ticketDetail.showEmptyFields}
+                    disabled={!isSuperAdmin}
+                    onClick={async () => {
+                      const nextVal = !config.ticketDetail.showEmptyFields;
+                      const res = await setShowEmptyFields(nextVal);
+                      if (res.success) triggerNotice(`Tampilkan field kosong: ${nextVal ? 'Aktif' : 'Disembunyikan'}.`);
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                      config.ticketDetail.showEmptyFields ? 'bg-[#7135B5]' : 'bg-[#CBC3D5] dark:bg-[#35105E]'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        config.ticketDetail.showEmptyFields ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="p-3.5 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-[#211A2E] dark:text-white">
+                      Auto-Close Sidebar pada Perangkat Mobile / Android
+                    </div>
+                    <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                      Menutup panel navigasi secara otomatis setelah berpindah halaman di layar kecil.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={config.device?.android?.autoCloseSidebarOnNavigate !== false}
+                    disabled={!isSuperAdmin}
+                    onClick={async () => {
+                      const currentVal = config.device?.android?.autoCloseSidebarOnNavigate !== false;
+                      const res = await updateAndroidSettings({ autoCloseSidebarOnNavigate: !currentVal });
+                      if (res.success) triggerNotice(`Auto-close sidebar mobile: ${!currentVal ? 'Aktif' : 'Nonaktif'}.`);
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                      config.device?.android?.autoCloseSidebarOnNavigate !== false ? 'bg-[#7135B5]' : 'bg-[#CBC3D5] dark:bg-[#35105E]'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        config.device?.android?.autoCloseSidebarOnNavigate !== false ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right 4 Columns: Live Node Telemetri Cluster + Master Control Notice */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-[#160D29] text-white rounded-2xl border border-[#35105E] p-5 shadow-md space-y-4">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#35105E]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#35105E] border border-[#7135B5]/50 flex items-center justify-center text-[#D8B4FE]">
+                    <Server className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-sm leading-tight">Node Telemetri Cluster</h4>
+                    <span className="text-[10.5px] text-[#A78BFA]">Live dari /api/health</span>
+                  </div>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-extrabold uppercase ${
+                    healthData?.database?.active || databaseStatus === 'connected'
+                      ? 'bg-[#16A36A]/20 text-emerald-300 border border-[#16A36A]/40'
+                      : 'bg-[#E59A27]/20 text-amber-300 border border-[#E59A27]/40'
+                  }`}
+                >
+                  {healthData?.database?.active || databaseStatus === 'connected' ? 'NORMAL' : 'LOKAL'}
+                </span>
+              </div>
+
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#CEC0E8]/80">Primary Database</span>
+                  <span className="font-mono font-bold text-white truncate">
+                    {healthData?.database?.primaryTarget || 'Supabase PostgreSQL'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#CEC0E8]/80">Backend Runtime</span>
+                  <span className="font-mono font-semibold text-[#D8B4FE]">
+                    {healthData?.backend?.runtime || 'Node.js Express'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#CEC0E8]/80">Supabase Latency</span>
+                  <span className="font-mono font-bold text-emerald-300 tabular-nums">
+                    {typeof healthData?.supabase?.latencyMs === 'number'
+                      ? `${healthData.supabase.latencyMs} ms`
+                      : databaseStatus === 'connected'
+                      ? 'Aktif'
+                      : '-'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#CEC0E8]/80">Server Uptime</span>
+                  <span className="font-mono font-bold text-white tabular-nums">
+                    {typeof healthData?.server?.uptimeSeconds === 'number'
+                      ? `${Math.floor(healthData.server.uptimeSeconds / 60)}m ${healthData.server.uptimeSeconds % 60}s`
+                      : '-'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#CEC0E8]/80">Sinkronisasi Status</span>
+                  <span className="font-mono font-bold text-[#D8B4FE]">{syncStatus}</span>
+                </div>
+              </div>
+
+              {/* Real Record Counts Box */}
+              <div className="p-3 rounded-xl bg-[#22123F] border border-[#35105E] space-y-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#A78BFA]">
+                  Populasi Entitas Terverifikasi
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                  <div>
+                    <div className="font-mono font-extrabold text-sm text-white tabular-nums">
+                      {healthData?.databaseStats?.totalTickets ?? tickets.length}
+                    </div>
+                    <div className="text-[10px] text-[#CEC0E8]/75">Work Order</div>
+                  </div>
+                  <div>
+                    <div className="font-mono font-extrabold text-sm text-white tabular-nums">
+                      {healthData?.databaseStats?.totalUsers ?? users.length}
+                    </div>
+                    <div className="text-[10px] text-[#CEC0E8]/75">Akun Staf</div>
+                  </div>
+                  <div>
+                    <div className="font-mono font-extrabold text-sm text-white tabular-nums">
+                      {healthData?.databaseStats?.totalContractors ?? contractors.length}
+                    </div>
+                    <div className="text-[10px] text-[#CEC0E8]/75">Kontraktor</div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isLoadingTelemetry}
+                onClick={async () => {
+                  await Promise.all([fetchHealthTelemetry(), refreshDatabaseData()]);
+                  triggerNotice('Telemetri cluster dan data cloud berhasil disegarkan.');
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-[#35105E] hover:bg-[#5B35B1] border border-[#7135B5]/50 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {isLoadingTelemetry ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" />
+                )}
+                <span>Refresh Telemetri &amp; Re-Sync Cloud</span>
+              </button>
+            </div>
+
+            {/* Master Control Notice Card */}
+            <div className="bg-[#F5F1FF] dark:bg-[#22123F] rounded-2xl border border-[#D8CCF3] dark:border-[#35105E] p-4 space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-[#211A2E] dark:text-white">
+                    Master Control Notice
+                  </div>
+                  <p className="text-[11px] text-[#494453] dark:text-[#CEC0E8] leading-relaxed">
+                    Perubahan konfigurasi global disebarkan ke seluruh sesi Dispatch, Leader, dan Installer melalui jalur SSE PostgreSQL secara real-time.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSessionModalOpen(true)}
+                className="w-full py-2 px-3 rounded-xl bg-white dark:bg-[#160D29] hover:bg-[#F0E3FF] dark:hover:bg-[#35105E] border border-[#D8CCF3] dark:border-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Kelola Sesi Staf Aktif</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TAB 1: MASTER CONTRACTORS */}
       {activeTab === 'contractors' && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4 text-xs">
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] p-5 shadow-[0_1px_3px_rgba(33,26,46,0.04)] space-y-4 text-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+              <h4 className="font-bold text-[#211A2E] dark:text-white text-sm">
                 Daftar Vendor Kontraktor Resmi
               </h4>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
                 Pendaftaran akun Leader wajib memilih kontraktor dari daftar master ini.
               </p>
             </div>
@@ -470,7 +937,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               type="button"
               disabled={!isSuperAdmin || isSaving}
               onClick={() => setShowAddContractor(!showAddContractor)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1.5 self-start sm:self-auto"
+              className="px-3.5 py-2 bg-[#7135B5] hover:bg-[#5B35B1] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Kontraktor Baru</span>
@@ -544,7 +1011,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-semibold"
+                  className="px-4 py-1.5 bg-[#7135B5] hover:bg-[#5B35B1] text-white rounded-xl font-bold cursor-pointer"
                 >
                   Simpan Kontraktor
                 </button>
@@ -552,9 +1019,9 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </form>
           )}
 
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+          <div className="overflow-x-auto border border-[#E9E5F0] dark:border-[#35105E] rounded-xl">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase">
+              <thead className="bg-[#F7F6FA] dark:bg-[#160D29] text-[11px] font-bold text-[#494453] dark:text-[#CEC0E8] uppercase">
                 <tr>
                   <th className="py-2.5 px-3">Nama Vendor</th>
                   <th className="py-2.5 px-3">Kode</th>
@@ -564,33 +1031,33 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                   <th className="py-2.5 px-3">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
                 {contractors.map((c, cIdx) => (
-                  <tr key={`settings-contractor-row-${c.id || c.name}-${cIdx}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
+                  <tr key={`settings-contractor-row-${c.id || c.name}-${cIdx}`} className="hover:bg-[#F5F1FF]/50 dark:hover:bg-[#35105E]/30">
+                    <td className="py-2.5 px-3 font-semibold text-[#211A2E] dark:text-white">
                       {c.name}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-indigo-600 font-bold">
+                    <td className="py-2.5 px-3 font-mono text-[#7135B5] dark:text-[#D8B4FE] font-bold">
                       {c.code}
                     </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
-                      {c.leaderName || <span className="text-slate-400 italic">Belum ada leader</span>}
+                    <td className="py-2.5 px-3 font-medium text-[#494453] dark:text-[#CEC0E8]">
+                      {c.leaderName || <span className="text-[#8B8495] italic">Belum ada leader</span>}
                     </td>
                     <td className="py-2.5 px-3">
                       <div className="flex flex-wrap gap-1">
                         {c.coverageAreas.map(a => (
-                          <span key={a} className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-700 dark:text-slate-300">
+                          <span key={a} className="px-2 py-0.5 rounded-full bg-[#F5F1FF] dark:bg-[#35105E] text-[10px] font-semibold text-[#431599] dark:text-[#D8B4FE]">
                             {a}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td className="py-2.5 px-3 text-slate-500">
+                    <td className="py-2.5 px-3 text-[#766B83] dark:text-[#CEC0E8]">
                       <div>{c.phone || '-'}</div>
-                      <div className="text-[11px] text-slate-400">{c.email || ''}</div>
+                      <div className="text-[11px] text-[#8B8495]">{c.email || ''}</div>
                     </td>
                     <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
                         {c.active ? 'Aktif' : 'Nonaktif'}
                       </span>
                     </td>
@@ -604,13 +1071,13 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
       {/* TAB 2: COVERAGE AREA & CLUSTER */}
       {activeTab === 'coverage' && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4 text-xs">
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] p-5 shadow-[0_1px_3px_rgba(33,26,46,0.04)] space-y-4 text-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-xs">
-                Wilayah Cakupan & Cluster Layanan
+              <h4 className="font-bold text-[#211A2E] dark:text-white text-sm">
+                Wilayah Cakupan &amp; Cluster Layanan
               </h4>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
                 Data master area untuk alokasi otomatis penugasan kontraktor dan pemetaan beban kerja.
               </p>
             </div>
@@ -619,7 +1086,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               type="button"
               disabled={!isSuperAdmin || isSaving}
               onClick={() => setShowAddArea(!showAddArea)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1.5 self-start sm:self-auto"
+              className="px-3.5 py-2 bg-[#7135B5] hover:bg-[#5B35B1] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Coverage Area Baru</span>
@@ -627,28 +1094,28 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           </div>
 
           {showAddArea && isSuperAdmin && (
-            <form onSubmit={handleCreateArea} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-              <h5 className="font-bold text-slate-900 dark:text-white text-xs">Form Area Baru</h5>
+            <form onSubmit={handleCreateArea} className="p-4 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] space-y-3">
+              <h5 className="font-bold text-[#211A2E] dark:text-white text-xs">Form Area Baru</h5>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Nama Area / Kota *</label>
+                  <label className="block text-[#494453] dark:text-[#CEC0E8] font-semibold mb-1">Nama Area / Kota *</label>
                   <input
                     type="text"
                     required
                     placeholder="Contoh: Bogor Kota"
                     value={newAreaName}
                     onChange={e => setNewAreaName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-[#E9E5F0] dark:border-[#35105E] rounded-lg bg-white dark:bg-[#1E1238] text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Daftar Cluster (Pisahkan Koma)</label>
+                  <label className="block text-[#494453] dark:text-[#CEC0E8] font-semibold mb-1">Daftar Cluster (Pisahkan Koma)</label>
                   <input
                     type="text"
                     placeholder="Contoh: Baranangsiang Indah, Pajajaran Hills, Cimahpar Permai"
                     value={newAreaClusters}
                     onChange={e => setNewAreaClusters(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-[#E9E5F0] dark:border-[#35105E] rounded-lg bg-white dark:bg-[#1E1238] text-xs"
                   />
                 </div>
               </div>
@@ -656,13 +1123,13 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddArea(false)}
-                  className="px-3 py-1.5 border rounded text-slate-600 dark:text-slate-400"
+                  className="px-3 py-1.5 border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#494453] dark:text-[#CEC0E8] cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-semibold"
+                  className="px-4 py-1.5 bg-[#7135B5] hover:bg-[#5B35B1] text-white rounded-lg font-bold cursor-pointer"
                 >
                   Simpan Area
                 </button>
@@ -674,23 +1141,23 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             {coverageAreas.map(area => (
               <div
                 key={area.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-2"
+                className="p-4 rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-indigo-600" />
+                  <span className="font-bold text-[#211A2E] dark:text-white text-sm flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE]" />
                     <span>{area.name}</span>
                   </span>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#F0E3FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] tabular-nums">
                     {area.clusters.length} Cluster
                   </span>
                 </div>
 
                 <div className="pt-1">
-                  <span className="text-[10.5px] text-slate-400 uppercase font-semibold block mb-1">Cluster Terdaftar:</span>
+                  <span className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8] uppercase font-semibold block mb-1">Cluster Terdaftar:</span>
                   <div className="flex flex-wrap gap-1">
                     {area.clusters.map(cluster => (
-                      <span key={cluster} className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border text-[11px] text-slate-700 dark:text-slate-300">
+                      <span key={cluster} className="px-2 py-0.5 rounded-lg bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[11px] text-[#494453] dark:text-[#CEC0E8]">
                         {cluster}
                       </span>
                     ))}
@@ -704,12 +1171,12 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
       {/* TAB 3: ROOT CAUSE TAXONOMY */}
       {activeTab === 'root_causes' && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4 text-xs">
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] p-5 shadow-[0_1px_3px_rgba(33,26,46,0.04)] space-y-4 text-xs">
           <div>
-            <h4 className="font-bold text-slate-900 dark:text-white text-xs">
-              Kamus Taksonomi Root Cause & Kendala Teknisi Wi-Fi
+            <h4 className="font-bold text-[#211A2E] dark:text-white text-sm">
+              Kamus Taksonomi Root Cause &amp; Kendala Teknisi Wi-Fi
             </h4>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
               Kategori ini menjadi pilihan standar teknisi saat mengisi laporan penutupan tiket atau eskalasi gangguan.
             </p>
           </div>
@@ -717,37 +1184,38 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Category Selector */}
             <div className="space-y-1.5">
-              <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Pilih Kategori Utama:</span>
+              <span className="font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">Pilih Kategori Utama:</span>
               {rootCauseCategories.map((cat, idx) => (
                 <button
                   key={cat.id}
+                  type="button"
                   onClick={() => setSelectedCategoryIndex(idx)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
+                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                     selectedCategoryIndex === idx
-                      ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 font-bold'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300'
+                      ? 'border-[#7135B5] bg-[#F5F1FF] dark:bg-[#35105E]/60 text-[#431599] dark:text-[#D8B4FE] font-bold'
+                      : 'border-[#E9E5F0] dark:border-[#35105E] hover:bg-[#F7F6FA] dark:hover:bg-[#160D29] text-[#211A2E] dark:text-[#CEC0E8]'
                   }`}
                 >
                   <div className="text-xs">{cat.name}</div>
-                  <div className="text-[10px] text-slate-400 font-normal mt-0.5">{cat.items.length} Penyebab Masalah</div>
+                  <div className="text-[10px] text-[#8B8495] font-normal mt-0.5">{cat.items.length} Penyebab Masalah</div>
                 </button>
               ))}
             </div>
 
             {/* Root Causes List in Category */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+              <div className="p-4 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] space-y-3">
                 <div className="flex items-center justify-between">
-                  <h5 className="font-bold text-slate-900 dark:text-white text-xs">
+                  <h5 className="font-bold text-[#211A2E] dark:text-white text-xs">
                     Daftar Root Cause: {rootCauseCategories[selectedCategoryIndex]?.name}
                   </h5>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] font-mono text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
                     {rootCauseCategories[selectedCategoryIndex]?.items.length} item aktif
                   </span>
                 </div>
 
                 {rootCauseCategories[selectedCategoryIndex]?.description && (
-                  <p className="text-[11px] text-slate-500 italic">
+                  <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] italic">
                     {rootCauseCategories[selectedCategoryIndex].description}
                   </p>
                 )}
@@ -760,12 +1228,12 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                     placeholder="Tambah penyebab masalah baru..."
                     value={newRootCauseItem}
                     onChange={e => setNewRootCauseItem(e.target.value)}
-                    className="flex-1 px-3 py-1.5 border rounded-lg bg-white dark:bg-slate-900 text-xs disabled:opacity-60"
+                    className="flex-1 px-3 py-1.5 border border-[#E9E5F0] dark:border-[#35105E] rounded-xl bg-white dark:bg-[#1E1238] text-xs disabled:opacity-60"
                   />
                   <button
                     type="submit"
                     disabled={!isSuperAdmin || isSaving}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1 shrink-0"
+                    className="px-3.5 py-1.5 bg-[#7135B5] hover:bg-[#5B35B1] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center gap-1 shrink-0 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{isSaving ? 'Menyimpan...' : 'Tambah'}</span>
@@ -777,14 +1245,14 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                   {rootCauseCategories[selectedCategoryIndex]?.items.map(item => (
                     <div
                       key={item}
-                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E]"
                     >
-                      <span className="font-medium text-slate-800 dark:text-slate-200">{item}</span>
+                      <span className="font-medium text-[#211A2E] dark:text-[#CEC0E8]">{item}</span>
                       <button
                         type="button"
                         disabled={!isSuperAdmin || isSaving}
                         onClick={() => handleRemoveRootCause(selectedCategoryIndex, item)}
-                        className="text-slate-400 hover:text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed p-1"
+                        className="text-[#8B8495] hover:text-[#DC4C5A] disabled:opacity-40 disabled:cursor-not-allowed p-1 cursor-pointer"
                         title="Hapus root cause"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -800,14 +1268,14 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
       {/* TAB 4: HEADER MAPPING */}
       {activeTab === 'header_mapping' && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 shadow-2xs space-y-4 text-xs">
-          <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] p-5 shadow-[0_1px_3px_rgba(33,26,46,0.04)] space-y-4 text-xs">
+          <h4 className="font-bold text-[#211A2E] dark:text-white text-sm">
             Kamus Alias Header Terdaftar ({headerMappings.length} Fields)
           </h4>
 
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-md">
+          <div className="overflow-x-auto border border-[#E9E5F0] dark:border-[#35105E] rounded-xl">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase">
+              <thead className="bg-[#F7F6FA] dark:bg-[#160D29] text-[11px] font-bold text-[#494453] dark:text-[#CEC0E8] uppercase">
                 <tr>
                   <th className="py-2.5 px-3">Standard Field</th>
                   <th className="py-2.5 px-3">Label</th>
@@ -817,25 +1285,25 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                   <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
                 {headerMappings.map(mapping => {
                   const isEditing = editingField === mapping.standardField;
                   return (
-                    <tr key={mapping.standardField} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className="py-2.5 px-3 font-mono font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    <tr key={mapping.standardField} className="hover:bg-[#F5F1FF]/50 dark:hover:bg-[#35105E]/30">
+                      <td className="py-2.5 px-3 font-mono font-bold text-[#431599] dark:text-[#D8B4FE] whitespace-nowrap">
                         {mapping.standardField}
                       </td>
-                      <td className="py-2.5 px-3 font-medium whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-medium whitespace-nowrap text-[#211A2E] dark:text-white">
                         {mapping.label}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 uppercase whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-[#766B83] uppercase whitespace-nowrap">
                         {mapping.category}
                       </td>
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         {mapping.required ? (
-                          <span className="text-rose-600 font-semibold">Yes</span>
+                          <span className="text-[#DC4C5A] font-bold">Yes</span>
                         ) : (
-                          <span className="text-slate-400">Optional</span>
+                          <span className="text-[#8B8495]">Optional</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3">
@@ -844,10 +1312,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                             type="text"
                             value={aliasInput}
                             onChange={e => setAliasInput(e.target.value)}
-                            className="w-full p-1.5 border rounded bg-white dark:bg-slate-800 text-xs"
+                            className="w-full p-1.5 border border-[#D8CCF3] dark:border-[#35105E] rounded-lg bg-white dark:bg-[#160D29] text-xs"
                           />
                         ) : (
-                          <span className="text-slate-600 dark:text-slate-300">
+                          <span className="text-[#494453] dark:text-[#CEC0E8]">
                             {mapping.aliases.join(', ')}
                           </span>
                         )}
@@ -858,7 +1326,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                             type="button"
                             disabled={isSaving}
                             onClick={() => handleSaveAliases(mapping.standardField)}
-                            className="px-2 py-1 bg-emerald-600 disabled:opacity-50 text-white rounded text-xs font-semibold"
+                            className="px-2.5 py-1 bg-[#16A36A] disabled:opacity-50 text-white rounded-lg text-xs font-bold cursor-pointer"
                           >
                             {isSaving ? '...' : 'Simpan'}
                           </button>
@@ -870,7 +1338,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                               setEditingField(mapping.standardField);
                               setAliasInput(mapping.aliases.join(', '));
                             }}
-                            className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 dark:text-slate-300 rounded border text-xs"
+                            className="px-2.5 py-1 bg-[#F7F6FA] dark:bg-[#160D29] hover:bg-[#F0E3FF] disabled:opacity-40 disabled:cursor-not-allowed text-[#431599] dark:text-[#D8B4FE] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold cursor-pointer"
                           >
                             Edit
                           </button>
@@ -887,16 +1355,16 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
       {/* TAB 5: BRANDING & LOGO */}
       {activeTab === 'branding' && (
-        <form onSubmit={handleSaveBranding} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xs space-y-4 text-xs max-w-xl">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">
+        <form onSubmit={handleSaveBranding} className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] p-6 shadow-[0_1px_3px_rgba(33,26,46,0.04)] space-y-4 text-xs max-w-xl">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#E9E5F0] dark:border-[#35105E]">
+            <div className="w-9 h-9 rounded-xl bg-[#7135B5] text-white flex items-center justify-center font-bold">
               <Palette className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+              <h4 className="font-bold text-[#211A2E] dark:text-white text-sm">
                 Kustomisasi Branding Aplikasi (MoraJaws)
               </h4>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
                 Atur nama aplikasi dan warna tema utama yang tampil di seluruh navbar dan header.
               </p>
             </div>
@@ -904,7 +1372,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
           <div className="space-y-3">
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              <label className="block text-[#494453] dark:text-[#CEC0E8] font-semibold mb-1">
                 Nama Aplikasi
               </label>
               <input
@@ -913,19 +1381,19 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 value={appNameInput}
                 onChange={e => setAppNameInput(e.target.value)}
                 placeholder="MoraJaws"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold text-slate-900 dark:text-white text-sm disabled:opacity-60"
+                className="w-full px-3 py-2 bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-xl font-bold text-[#211A2E] dark:text-white text-sm disabled:opacity-60"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              <label className="block text-[#494453] dark:text-[#CEC0E8] font-semibold mb-1">
                 Aksen Warna Utama (Brand Color)
               </label>
               <select
                 disabled={!isSuperAdmin || isSaving}
                 value={appPrimaryColor}
                 onChange={e => setAppPrimaryColor(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-medium disabled:opacity-60"
+                className="w-full px-3 py-2 bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-xl font-medium disabled:opacity-60"
               >
                 <option value="indigo">Indigo Modern (MoraJaws Default)</option>
                 <option value="blue">Deep Ocean Blue</option>
@@ -940,7 +1408,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <button
               type="submit"
               disabled={!isSuperAdmin || isSaving}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1.5"
+              className="px-5 py-2 bg-[#7135B5] hover:bg-[#5B35B1] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Menyimpan...' : 'Simpan Konfigurasi Branding'}</span>

@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions } = useApp();
+  const { currentUser, tickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus } = useApp();
   const {
     isMobileView,
     config,
@@ -510,9 +510,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </nav>
 
-        {/* Footer: Active Role & Session Controls */}
-        <div className="p-3 bg-[#35105E]/40 border-t border-[#35105E]/60 space-y-2 shrink-0">
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#160D29]/70 text-[11px] text-[#CEC0E8]">
+        {/* Footer: Live Cluster Status + Active Role & Session Controls */}
+        <div className="p-3 bg-[#1E1236] border-t border-[#35105E]/70 space-y-2 shrink-0">
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#160D29] border border-[#35105E]/70 text-[10.5px]">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  databaseStatus === 'connected'
+                    ? 'bg-[#16A36A]'
+                    : databaseStatus === 'connecting'
+                    ? 'bg-[#E59A27] animate-pulse'
+                    : 'bg-[#DC4C5A]'
+                }`}
+              />
+              <span className="font-semibold text-[#E9D5FF] truncate">
+                {databaseStatus === 'connected'
+                  ? 'Cluster: JKT-01'
+                  : databaseStatus === 'connecting'
+                  ? 'Menghubungkan DB'
+                  : 'Mode Lokal'}
+              </span>
+            </div>
+            <span className="font-mono text-[10px] text-[#A78BFA] font-bold uppercase">
+              {syncStatus === 'SAVED' ? 'LIVE' : syncStatus}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#160D29]/75 text-[11px] text-[#CEC0E8]">
             <span className="truncate capitalize font-medium">
               {userRole.replace('_', ' ')}
             </span>

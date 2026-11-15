@@ -806,7 +806,11 @@ const MainLayout: React.FC = () => {
 
         {/* Right Column: Sticky Header + Content Viewport */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          <Header activeTab={activeTab} onNavigate={tab => navigateTo(tab)} />
+          <Header
+            activeTab={activeTab}
+            onNavigate={tab => navigateTo(tab)}
+            onSelectTicket={handleOpenTicketDetail}
+          />
 
           {/* Floating Open Menu Button when sidebar is closed on desktop */}
           {!isInstaller && currentSidebarState === 'closed' && !isDetailModalOpen && !isWhatsAppModalOpen && (
