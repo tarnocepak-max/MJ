@@ -26,6 +26,7 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
 
   const totalActiveTickets = tickets.filter(t => !t.isArchived).length;
   const isSuperOrDispatch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
+  const canImportWO = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
 
   const touchSizeClass = 
     config.device?.android?.touchTargetSize === 'large'
@@ -83,8 +84,8 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
           </span>
         </button>
 
-        {/* Tab 3: Text To Table (or Leader/Teknisi depending on role) */}
-        {isSuperOrDispatch ? (
+        {/* Tab 3: Text To Table (Super Admin & Management Data) or Leader/Teknisi depending on role */}
+        {canImportWO ? (
           <button
             onClick={() => onNavigate('import')}
             className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[56px] min-h-[44px] rounded-xl cursor-pointer relative ${

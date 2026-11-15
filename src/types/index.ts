@@ -174,6 +174,7 @@ export interface TicketMessage {
   attachments: ChatAttachment[];
   timestamp: string;
   readBy?: string[];
+  isCheckIn?: boolean;
 }
 
 export type WhatsAppConfirmationStatus =
@@ -211,6 +212,7 @@ export type TicketStatusWOInstaller =
 export type WODistributionStatus =
   | 'distributed'
   | 'unmapped_contractor'
+  | 'unmapped_leader'
   | 'coverage_mismatch'
   | 'schedule_not_available'
   | 'unmatched_installer'
@@ -299,6 +301,8 @@ export interface Ticket {
   contractorName?: string;
   contractorId?: string;
   leaderName?: string;
+  leaderId?: string;
+  leaderContact?: string;
   corlapName?: string;
   corlapContact?: string;
   installerName?: string;

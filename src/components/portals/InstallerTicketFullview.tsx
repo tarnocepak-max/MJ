@@ -5,6 +5,7 @@ import { StatusInstallerBadge, StatusWhatsAppBadge, StatusAgentBadge, StatusAppr
 import { buildWhatsAppClickToChatUrl } from '../../services/whatsappService';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { formatJakartaTimeOnly, getTicketWorkStatus } from '../../services/workSessionService';
 import {
   ArrowLeft,
   Phone,
@@ -64,6 +65,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     getMessagesForTicket,
     sendTicketMessage,
     markTicketMessagesAsRead,
+    getTicketUnreadCount,
     reportDropdownCategories,
     isDropdownCategoriesLoading,
     hierarchicalStatuses,
@@ -80,6 +82,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const activeTicket = useMemo(() => {
     return tickets.find(t => t.id === initialTicket.id) || initialTicket;
   }, [tickets, initialTicket]);
+
+  const requiresProgressCheckIn = currentUser.role === 'installer' && !activeTicket.checkInAt;
+  const workSession = useMemo(() => getTicketWorkStatus(activeTicket), [activeTicket]);
+  const unreadChatCount = getTicketUnreadCount(activeTicket.id);
 
   // UI helpers
   const [copiedAddress, setCopiedAddress] = useState(false);
@@ -249,6 +255,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     if (e) e.preventDefault();
     if (isSubmittingReport) return;
 
+    if (requiresProgressCheckIn) {
+      playErrorSound();
+      const msg = 'Check-in belum tercatat! Kirim minimal 1 pesan LiveChat dengan kategori PROGRESS terlebih dahulu sebelum Save Report.';
+      setReportError(msg);
+      toast.error(msg, 'Check-in Wajib (PROGRESS)');
+      return;
+    }
+
     // 1. Validasi formulir 3 tingkat
     if (!reportStatus) {
       setReportError('Silakan pilih Report Status (Level 1).');
@@ -302,16 +316,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         playErrorSound();
         const errMsg = res.error || 'Gagal menyimpan laporan ke Supabase PostgreSQL.';
         setReportError(errMsg);
-        showGlobalError({
-          errorCode: 'MJ-DB-002',
-          module: 'Database',
-          operation: 'Save Progress Report',
-          description: 'Gagal menyimpan data laporan.',
-          message: errMsg,
-          technicalDetails: errMsg,
-          severity: 'HIGH',
-          onRetry: () => handleSaveReport()
-        });
+        if ((res as any).code === 'CHECK_IN_REQUIRED') {
+          toast.error(errMsg, 'Check-in PROGRESS Diperlukan');
+        } else {
+          showGlobalError({
+            errorCode: 'MJ-DB-002',
+            module: 'Database',
+            operation: 'Save Progress Report',
+            description: 'Gagal menyimpan data laporan.',
+            message: errMsg,
+            technicalDetails: errMsg,
+            severity: 'HIGH',
+            onRetry: () => handleSaveReport()
+          });
+        }
       }
     } catch (err: any) {
       playErrorSound();
@@ -396,11 +414,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [isChatActive, setIsChatActive] = useState(false);
 
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const chatSectionRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
 
   const messages = getMessagesForTicket(activeTicket.id);
+
+  // Reset explicit LiveChat activation when switching ticket
+  useEffect(() => {
+    setIsChatActive(false);
+  }, [activeTicket.id]);
 
   // Sync category when activeTicket.chatCategory changes from Supabase PostgreSQL
   useEffect(() => {
@@ -416,10 +442,25 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     toast.success(`Kategori chat disinkronkan ke "${newCat}".`);
   };
 
-  // Auto mark messages as read
+  const handleOpenProgressChatForCheckIn = async () => {
+    const progressCat =
+      activeChatCategories.find(c => String(c.name || '').trim().toUpperCase() === 'PROGRESS')?.name || 'PROGRESS';
+    setChatCategory(progressCat);
+    await setTicketChatCategory(activeTicket.id, progressCat);
+    setIsChatActive(true);
+    chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 200);
+    toast.info('Kategori PROGRESS dipilih. Kirim pesan untuk mencatat Check-in otomatis.', 'Siap Check-in');
+  };
+
+  // Mark messages as read ONLY when Installer explicitly activates/focuses LiveChat Room
   useEffect(() => {
-    markTicketMessagesAsRead(activeTicket.id);
-  }, [activeTicket.id, messages.length, markTicketMessagesAsRead]);
+    if (isChatActive) {
+      markTicketMessagesAsRead(activeTicket.id);
+    }
+  }, [isChatActive, activeTicket.id, messages.length, markTicketMessagesAsRead]);
 
   // Auto scroll chat to bottom
   useEffect(() => {
@@ -475,7 +516,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   };
 
   // Handle sending chat message
-  const handleSendChatMessage = (e?: React.FormEvent, directText?: string) => {
+  const handleSendChatMessage = async (e?: React.FormEvent, directText?: string) => {
     if (e) e.preventDefault();
     if (isSendingChat) return;
 
@@ -484,20 +525,23 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return;
     }
 
+    setIsChatActive(true);
     setIsSendingChat(true);
     setChatError(null);
 
-    const res = sendTicketMessage(activeTicket.id, text.trim(), chatAttachments, chatCategory);
-    setIsSendingChat(false);
-
-    if (res.success) {
-      setChatInputText('');
-      setChatAttachments([]);
-    } else {
-      const err = res.error || 'Gagal mengirim pesan chat.';
-      setChatError(err);
-      toast.error(err, 'Chat Gagal');
-      setTimeout(() => setChatError(null), 4000);
+    try {
+      const res = await sendTicketMessage(activeTicket.id, text.trim(), chatAttachments, chatCategory);
+      if (res.success) {
+        setChatInputText('');
+        setChatAttachments([]);
+      } else {
+        const err = res.error || 'Gagal mengirim pesan chat.';
+        setChatError(err);
+        toast.error(err, 'Chat Gagal');
+        setTimeout(() => setChatError(null), 4000);
+      }
+    } finally {
+      setIsSendingChat(false);
     }
   };
 
@@ -563,7 +607,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         </div>
 
         {/* Quick Header Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <div className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 border ${
+            workSession.status === 'Selesai'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+              : workSession.status === 'Sedang Dikerjakan'
+              ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300'
+              : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+          }`}>
+            <Clock className="w-3 h-3 shrink-0" />
+            <span>
+              {activeTicket.checkInAt
+                ? `Check-in: ${formatJakartaTimeOnly(activeTicket.checkInAt)}${activeTicket.checkOutAt ? ` · Check-out: ${formatJakartaTimeOnly(activeTicket.checkOutAt)} (${workSession.durationFormatted})` : ''}`
+                : 'Belum Check-in (Kirim PROGRESS LiveChat)'}
+            </span>
+          </div>
+
           {!activeTicket.workStartedAt ? (
             <button
               type="button"
@@ -579,7 +638,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           ) : (
             <div className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
               <Clock className="w-3 h-3 text-emerald-500" />
-              <span>Dikerjakan: {activeTicket.workStartedAt ? new Date(activeTicket.workStartedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+              <span>Mulai: {formatJakartaTimeOnly(activeTicket.workStartedAt)}</span>
             </div>
           )}
 
@@ -847,6 +906,28 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </span>
               </div>
 
+              {/* Pre-Check-in Gate Banner (App Flow 5) */}
+              {requiresProgressCheckIn && (
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">Wajib Check-in via LiveChat Kategori PROGRESS</div>
+                      <p className="text-[11px] opacity-90 mt-0.5">
+                        Tombol Save Report dikunci sebelum Anda mengirim pesan LiveChat dengan kategori <strong>PROGRESS</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenProgressChatForCheckIn}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 cursor-pointer"
+                  >
+                    Buka LiveChat & Pilih Kategori PROGRESS
+                  </button>
+                </div>
+              )}
+
               {/* Error Notice if any */}
               {reportError && (
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
@@ -996,9 +1077,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
                   <button
                     type="submit"
-                    disabled={isSubmittingReport}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    title="Simpan Laporan Status"
+                    disabled={isSubmittingReport || requiresProgressCheckIn}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    title={requiresProgressCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu' : 'Simpan Laporan Status'}
                   >
                     <Save className="w-4 h-4" />
                     <span>{isSubmittingReport ? 'Menyimpan...' : 'Save Report'}</span>
@@ -1012,18 +1093,29 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           {/* KOLOM KANAN (Right Column ~54% on desktop: lg:col-span-7/6) */}
           {/* Live Chat Room                                             */}
           {/* ========================================================== */}
-          <div className="lg:col-span-7 xl:col-span-6">
+          <div
+            ref={chatSectionRef}
+            onClick={() => {
+              if (!isChatActive) setIsChatActive(true);
+            }}
+            className="lg:col-span-7 xl:col-span-6"
+          >
             <div className="bg-white dark:bg-[#150B27] rounded-2xl border border-slate-200 dark:border-[#2D1754] p-5 shadow-xs flex flex-col h-[740px]">
               
               {/* Header with Blue Chat Icon & Blue Title */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2D1754] shrink-0">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2D1754] shrink-0 gap-2 flex-wrap">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
                     <MessageSquare className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base text-blue-600 dark:text-blue-400">
-                      Live Chat Room
+                    <h3 className="font-bold text-base text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                      <span>Live Chat Room</span>
+                      {unreadChatCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                          {unreadChatCount > 99 ? '99+' : unreadChatCount} Baru
+                        </span>
+                      )}
                     </h3>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
                       Koordinasi WO: <strong className="text-slate-700 dark:text-slate-300 font-mono">{activeTicket.woNumber}</strong>
@@ -1032,6 +1124,18 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {!isChatActive && unreadChatCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsChatActive(true);
+                      }}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                    >
+                      Tandai Dibaca
+                    </button>
+                  )}
                   {chatCategory && (
                     <span
                       className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white shadow-2xs flex items-center gap-1.5"
@@ -1238,8 +1342,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
                     {/* Input Type Message... */}
                     <input
+                      ref={chatInputRef}
                       type="text"
                       value={chatInputText}
+                      onFocus={() => setIsChatActive(true)}
                       onChange={e => setChatInputText(e.target.value)}
                       placeholder="Type Message..."
                       className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"

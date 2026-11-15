@@ -19,9 +19,8 @@ import { FormSamedayView } from './components/sameday/FormSamedayView';
 import { ReportDataWOView } from './components/reports/ReportDataWOView';
 import { ScheduleCalendarView } from './components/schedule/ScheduleCalendarView';
 import { LoginLogView } from './components/audit/LoginLogView';
-import { SettingDroplistView } from './components/settings/SettingDroplistView';
-import { DroplistManagementView } from './components/settings/DroplistManagementView';
-import { SoundSettingsView } from './components/settings/SoundSettingsView';
+import { AuditLogViewer } from './components/audit/AuditLogViewer';
+import { TemplateBuilder } from './components/whatsapp/TemplateBuilder';
 
 import { LeaderPortal } from './components/portals/LeaderPortal';
 import { LeaderProgressDashboardView } from './components/portals/LeaderProgressDashboardView';
@@ -32,21 +31,11 @@ import { InstallerDashboardView } from './components/portals/InstallerDashboardV
 import { InstallerWhatsAppCenter } from './components/whatsapp/InstallerWhatsAppCenter';
 import { ContactCentreView } from './components/contact/ContactCentreView';
 import { ManagementDataPortal } from './components/portals/ManagementDataPortal';
-import { NavigationConfigView } from './components/setup/NavigationConfigView';
 
 import { DatabaseSyncMonitoringView } from './components/database/DatabaseSyncMonitoringView';
 import { DatabaseManagementView } from './components/database/DatabaseManagementView';
 import { TextToTableImporter } from './components/textToTable/TextToTableImporter';
 import { GoogleSheetsSyncView } from './components/sheets/GoogleSheetsSyncView';
-
-import { UserManagementView } from './components/users/UserManagementView';
-import { ManagementRoleView } from './components/users/ManagementRoleView';
-import { SystemSettings } from './components/settings/SystemSettings';
-import { UIConfigurationBuilder } from './components/uiBuilder/UIConfigurationBuilder';
-import { AuditLogViewer } from './components/audit/AuditLogViewer';
-import { SystemHealthView } from './components/settings/SystemHealthView';
-import { TemplateBuilder } from './components/whatsapp/TemplateBuilder';
-import { WorkflowManager } from './components/workflows/WorkflowManager';
 
 import { StaffLoginPortal } from './components/auth/StaffLoginPortal';
 import { SessionManagementModal } from './components/settings/SessionManagementModal';
@@ -394,7 +383,6 @@ const MainLayout: React.FC = () => {
           <ScheduleCalendarView
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
-            onNavigate={tab => setActiveTab(tab)}
           />
         );
       case 'login_logs': {
@@ -429,7 +417,7 @@ const MainLayout: React.FC = () => {
         return <LoginLogView />;
       }
       case 'setting_droplist':
-        return <SettingDroplistView />;
+        return <SetupHubView initialTab="droplists" onNavigateTab={tab => setActiveTab(tab)} />;
 
       // Leader & Contractor Basecamp (WO CONTRACTOR)
       case 'leader_portal':
@@ -455,7 +443,6 @@ const MainLayout: React.FC = () => {
           <LeaderProgressDashboardView
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
-            onNavigate={tab => setActiveTab(tab)}
           />
         );
       case 'installer_mgmt':
@@ -515,7 +502,6 @@ const MainLayout: React.FC = () => {
             initialFilter={activeTab === 'installer_tasks' ? 'pending' : activeTab === 'installer_history' ? 'done' : 'all'}
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
-            onNavigate={tab => setActiveTab(tab)}
           />
         );
       }
@@ -556,17 +542,47 @@ const MainLayout: React.FC = () => {
           <ManagementDataPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
-            onNavigate={tab => setActiveTab(tab)}
           />
         );
       }
       case 'database_sync':
-        return <DatabaseSyncMonitoringView />;
+        return (currentUser.role === 'super_admin' || currentUser.role === 'management_data')
+          ? <DatabaseSyncMonitoringView />
+          : <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'database_management':
-        return <DatabaseManagementView />;
+        return (currentUser.role === 'super_admin' || currentUser.role === 'management_data')
+          ? <DatabaseManagementView />
+          : <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'import':
-      case 'import_excel':
+      case 'import_excel': {
+        const canImportWO = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
+        if (!canImportWO) {
+          const redirectTarget = isInstaller
+            ? 'installer_dashboard'
+            : currentUser.role === 'leader'
+            ? 'wo_assignment'
+            : currentUser.role === 'dispatch'
+            ? 'tickets'
+            : 'dashboard';
+          setTimeout(() => {
+            setActiveTab(redirectTarget);
+          }, 1500);
+          return (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
+                ✕
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                Akses Ditolak: Otoritas Import Work Order Dibatasi
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Sesuai App Flow MoraJaws, modul Import Work Order hanya diizinkan untuk <strong>Super Admin</strong> dan <strong>Management Data</strong>. Role Anda ({currentUser.role}) tidak memiliki akses. Mengalihkan...
+              </p>
+            </div>
+          );
+        }
         return <TextToTableImporter onImportSuccess={() => setActiveTab('tickets')} />;
+      }
       case 'sheets_sync':
         return currentUser.role === 'super_admin' ? (
           <GoogleSheetsSyncView />
@@ -574,15 +590,15 @@ const MainLayout: React.FC = () => {
           <DashboardOverview onNavigate={tab => setActiveTab(tab)} />
         );
 
-      // System, Roles, Users & Config
+      // System, Roles, Users & Config (Consolidated into SETUP TERPUSAT MORAJAWS)
       case 'users':
-        return <UserManagementView />;
+        return <SetupHubView initialTab="users" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'management_role':
-        return <ManagementRoleView />;
+        return <SetupHubView initialTab="roles" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'settings':
-        return <SystemSettings />;
+        return <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'ui_builder':
-        return <UIConfigurationBuilder />;
+        return <SetupHubView initialTab="ui_builder" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'audit_logs': {
         const canAccessAudit = currentUser.role === 'super_admin' || currentUser.role === 'it_support';
         if (!canAccessAudit) {
@@ -615,7 +631,7 @@ const MainLayout: React.FC = () => {
         return <AuditLogViewer />;
       }
       case 'system_health':
-        return <SystemHealthView />;
+        return <SetupHubView initialTab="health_logs" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'templates': {
         const canAccessTemplates = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
         if (!canAccessTemplates) {
@@ -646,7 +662,7 @@ const MainLayout: React.FC = () => {
         return <TemplateBuilder />;
       }
       case 'workflows':
-        return <WorkflowManager />;
+        return <SetupHubView initialTab="workflows" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'offline_sync':
         return (
           <div className="p-8 bg-white dark:bg-[#1a0f30] rounded-2xl shadow-sm border border-[#D8CCF3] dark:border-[#3B1D78] text-center space-y-4 max-w-2xl mx-auto">
@@ -671,17 +687,17 @@ const MainLayout: React.FC = () => {
         );
 
       case 'setup':
-        return <SetupHubView onNavigateTab={tab => setActiveTab(tab)} />;
+        return <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
 
       case 'nav_config':
-        return <NavigationConfigView />;
+        return <SetupHubView initialTab="nav_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'sound_settings':
-        return <SoundSettingsView />;
+        return <SetupHubView initialTab="sound" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'droplist_management':
       case 'setting_droplist_status':
       case 'setting_droplist_reason':
       case 'setting_droplist_rootcause':
-        return <DroplistManagementView />;
+        return <SetupHubView initialTab="droplists" onNavigateTab={tab => setActiveTab(tab)} />;
 
       default:
         return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;

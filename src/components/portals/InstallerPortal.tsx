@@ -107,7 +107,9 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     updateTicketStatus,
     startWorkOnTicket,
     currentUser,
-    users
+    users,
+    getTicketUnreadCount,
+    setTicketChatCategory
   } = useApp();
   const { toast } = useToast();
 
@@ -176,6 +178,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   // Ticket Detail Modal State
   const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'details' | 'chat'>('details');
+  const [chatInitialCategory, setChatInitialCategory] = useState<string | undefined>(undefined);
 
   // Quick Live Chat Modal State
   const [chatModalTicket, setChatModalTicket] = useState<Ticket | null>(null);
@@ -863,14 +866,24 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     {/* Primary Action Buttons: Clean responsive arrangement with zero overlaps */}
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Tombol Live Chat */}
-                      <button
-                        onClick={() => handleOpenChat(ticket)}
-                        className="px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-                        title="Buka Live Chat koordinasi dengan Dispatch untuk tiket ini"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>Live Chat</span>
-                      </button>
+                      {(() => {
+                        const unread = getTicketUnreadCount(ticket.id);
+                        return (
+                          <button
+                            onClick={() => handleOpenChat(ticket)}
+                            className="relative px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                            title="Buka Live Chat koordinasi dengan Dispatch untuk tiket ini"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Live Chat</span>
+                            {unread > 0 && (
+                              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                                {unread > 99 ? '99+' : unread}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })()}
 
                       {/* Tombol "Buka Tiket" / "Open Ticket" */}
                       <button
@@ -914,18 +927,28 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               {/* Action Buttons in Modal Header: LIVE CHAT, WHATSAPP, CLOSE */}
               <div className="flex items-center gap-2">
                 {/* Live Chat Tab Switcher Button */}
-                <button
-                  onClick={() => setDetailModalTab(prev => prev === 'chat' ? 'details' : 'chat')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs ${
-                    detailModalTab === 'chat'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
-                  }`}
-                  title="Buka panel Live Chat untuk koordinasi instan"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{detailModalTab === 'chat' ? 'Kembali ke Rincian' : 'Buka Live Chat'}</span>
-                </button>
+                {(() => {
+                  const detailUnread = getTicketUnreadCount(detailTicket.id);
+                  return (
+                    <button
+                      onClick={() => setDetailModalTab(prev => prev === 'chat' ? 'details' : 'chat')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs ${
+                        detailModalTab === 'chat'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                      }`}
+                      title="Buka panel Live Chat untuk koordinasi instan"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>{detailModalTab === 'chat' ? 'Kembali ke Rincian' : 'Buka Live Chat'}</span>
+                      {detailUnread > 0 && detailModalTab !== 'chat' && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                          {detailUnread > 99 ? '99+' : detailUnread}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })()}
 
                 {/* WhatsApp */}
                 <button
@@ -964,7 +987,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   </div>
 
                   <div className="rounded-xl border border-indigo-200 dark:border-indigo-900 overflow-hidden shadow-xs">
-                    <TicketLiveChat ticket={detailTicket} />
+                    <TicketLiveChat ticket={detailTicket} initialCategory={chatInitialCategory} />
                   </div>
                 </div>
               ) : (
@@ -1108,7 +1131,14 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       <Wifi className="w-3.5 h-3.5 text-teal-600" />
                       <span>5. Laporan Teknis Lapangan (Optical Power OPM & Root Cause)</span>
                     </h5>
-                    <TechnicalReportForm ticket={detailTicket} />
+                    <TechnicalReportForm
+                      ticket={detailTicket}
+                      onRequestProgressCheckIn={() => {
+                        setChatInitialCategory('PROGRESS');
+                        setTicketChatCategory(detailTicket.id, 'PROGRESS');
+                        setDetailModalTab('chat');
+                      }}
+                    />
                   </div>
 
                   {/* Section 7: Bukti Foto Before & After */}

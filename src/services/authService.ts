@@ -67,14 +67,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   dispatch: [
     'login',
-    'import_data',
     'view_all_wo',
     'view_contractor_wo',
-    'distribute_wo',
     'manage_leader_schedule',
     'edit_technical_report',
     'access_live_chat',
     'edit_wo_data',
+    'application_configuration',
+    'setting_droplist',
     'manage_whatsapp_templates'
   ],
   leader: [
@@ -95,9 +95,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_all_wo',
     'view_contractor_wo',
     'import_data',
+    'distribute_wo',
     'manage_field_mapping',
     'database_management',
-    'delete_wo_data'
+    'delete_wo_data',
+    'application_configuration',
+    'setting_droplist'
   ],
   it_support: [
     'login',

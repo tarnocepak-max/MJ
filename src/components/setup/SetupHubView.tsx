@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Sliders,
@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   FolderTree,
-  Building2
+  Building2,
+  ShieldAlert
 } from 'lucide-react';
 
 // Sub-components
@@ -39,6 +40,7 @@ import { LoginLogView } from '../audit/LoginLogView';
 import { NavigationConfigView } from './NavigationConfigView';
 
 export type SetupTabKey =
+  | 'app_config'
   | 'master_data'
   | 'general'
   | 'nav_config'
@@ -58,78 +60,89 @@ interface SetupHubViewProps {
 }
 
 export const SetupHubView: React.FC<SetupHubViewProps> = ({
-  initialTab = 'master_data',
+  initialTab = 'app_config',
   onNavigateTab
 }) => {
   const { currentUser } = useApp();
-  const [activeTab, setActiveTab] = useState<SetupTabKey>(initialTab);
+  const normalizedInitialTab: SetupTabKey =
+    initialTab === 'master_data' || initialTab === 'general' ? 'app_config' : initialTab;
+  const [activeTab, setActiveTab] = useState<SetupTabKey>(normalizedInitialTab);
   const [dbSubTab, setDbSubTab] = useState<'management' | 'monitoring' | 'sheets'>('management');
   const [logSubTab, setLogSubTab] = useState<'health' | 'audit' | 'login'>('health');
 
+  useEffect(() => {
+    setActiveTab(normalizedInitialTab);
+  }, [normalizedInitialTab]);
+
   const userRole = currentUser?.role || 'installer';
 
-  // Check role-based tab access
+  // Check role-based tab access (App Flow 6: block Leader & Installer)
   const isSuperadmin = userRole === 'super_admin';
   const isDispatch = userRole === 'dispatch';
   const isManagement = userRole === 'management_data';
-  const isLeader = userRole === 'leader';
+  const canAccessSetupHub = isSuperadmin || isManagement || isDispatch;
 
   const accessibleTabs = useMemo(() => {
     const tabs: { key: SetupTabKey; label: string; icon: React.ElementType; badge?: string }[] = [];
 
-    // 1. Konfigurasi Master Data (Super Admin & Management Data)
-    if (isSuperadmin || isManagement) {
-      tabs.push({ key: 'master_data', label: 'Konfigurasi Master Data', icon: Building2 });
+    if (!canAccessSetupHub) {
+      return tabs;
     }
 
-    // 2. Pengaturan Aplikasi
-    tabs.push({ key: 'general', label: 'Pengaturan Aplikasi', icon: Sliders });
+    // 1. Konfigurasi Sistem & Master Data (Super Admin & Management Data)
+    if (isSuperadmin || isManagement) {
+      tabs.push({ key: 'app_config', label: 'Konfigurasi Sistem & Master Data', icon: Building2 });
+      tabs.push({ key: 'nav_config', label: 'Konfigurasi Menu Navigasi', icon: FolderTree, badge: 'Nav' });
+      tabs.push({ key: 'ui_builder', label: 'Kolom & Tampilan UI', icon: LayoutTemplate });
+      tabs.push({ key: 'database', label: 'Database & Sinkronisasi', icon: Database, badge: 'Sync' });
+    }
 
-    // 3. Menu Navigation Config (Superadmin full edit, others view)
-    tabs.push({ key: 'nav_config', label: 'Konfigurasi Menu Navigasi', icon: FolderTree, badge: 'Nav' });
-
-    // 4. Users & Roles (Superadmin only)
+    // 2. Users & Roles (Superadmin only)
     if (isSuperadmin) {
       tabs.push({ key: 'users', label: 'Manajemen Pengguna', icon: Users });
       tabs.push({ key: 'roles', label: 'Role & Otoritas', icon: Shield });
     }
 
-    // 5. Kategori Report (Superadmin, Dispatch, Management Data)
+    // 3. Kategori Report (Superadmin, Dispatch, Management Data)
     if (isSuperadmin || isDispatch || isManagement) {
       tabs.push({ key: 'droplists', label: 'Kategori Report', icon: List });
     }
 
-    // 6. WhatsApp Templates (Superadmin & Dispatch ONLY - Requirement 5)
+    // 4. WhatsApp Templates & Workflows (Superadmin & Dispatch)
     if (isSuperadmin || isDispatch) {
       tabs.push({ key: 'whatsapp', label: 'Template WhatsApp', icon: MessageSquare });
-    }
-
-    // 7. Sound / Audio Settings (All roles)
-    tabs.push({ key: 'sound', label: 'Notifikasi & Audio', icon: Volume2 });
-
-    // 8. UI Configuration / Columns
-    tabs.push({ key: 'ui_builder', label: 'Kolom & Tampilan UI', icon: LayoutTemplate });
-
-    // 9. Database & Sync (Superadmin & Management Data)
-    if (isSuperadmin || isManagement) {
-      tabs.push({ key: 'database', label: 'Database & Sinkronisasi', icon: Database, badge: 'Sync' });
-    }
-
-    // 10. Workflows (Superadmin & Dispatch)
-    if (isSuperadmin || isDispatch) {
       tabs.push({ key: 'workflows', label: 'Workflows & Otomasi', icon: GitBranch });
     }
 
-    // 11. System Health & Logs (Superadmin only)
+    // 5. Notifikasi & Audio (Allowed Setup Hub roles)
+    tabs.push({ key: 'sound', label: 'Notifikasi & Audio', icon: Volume2 });
+
+    // 6. System Health & Logs (Superadmin only)
     if (isSuperadmin) {
       tabs.push({ key: 'health_logs', label: 'Kesehatan & Log', icon: Activity });
     }
 
     return tabs;
-  }, [isSuperadmin, isDispatch, isManagement, isLeader]);
+  }, [canAccessSetupHub, isSuperadmin, isDispatch, isManagement]);
+
+  if (!canAccessSetupHub) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-rose-200 dark:border-rose-900 text-center max-w-lg mx-auto space-y-4 shadow-sm my-8">
+        <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h3 className="font-bold text-slate-900 dark:text-white text-base">
+          Akses Ditolak: SETUP TERPUSAT MORAJAWS
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Pusat Setup Terpusat MoraJaws dilindungi dan tidak dapat diakses oleh peran <strong>{userRole}</strong>.
+        </p>
+      </div>
+    );
+  }
 
   // Ensure active tab is allowed, otherwise fallback to first accessible
-  const currentTab = accessibleTabs.some(t => t.key === activeTab) ? activeTab : (accessibleTabs[0]?.key || 'general');
+  const currentTab = accessibleTabs.some(t => t.key === activeTab) ? activeTab : (accessibleTabs[0]?.key || 'sound');
 
   return (
     <div className="space-y-6">
@@ -197,17 +210,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
 
       {/* Main Tab Content View */}
       <div className="transition-all">
-        {/* 1. Konfigurasi Master Data */}
-        {currentTab === 'master_data' && (
+        {/* 1. Konfigurasi Sistem & Master Data Terpusat */}
+        {currentTab === 'app_config' && (isSuperadmin || isManagement) && (
           <div className="space-y-4">
-            <SystemSettings defaultTab="contractors" />
-          </div>
-        )}
-
-        {/* 2. Pengaturan Aplikasi */}
-        {currentTab === 'general' && (
-          <div className="space-y-4">
-            <SystemSettings defaultTab="branding" />
+            <SystemSettings defaultTab="contractors" embeddedInSetupHub />
           </div>
         )}
 

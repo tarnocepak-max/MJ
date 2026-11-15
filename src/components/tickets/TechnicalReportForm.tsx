@@ -20,9 +20,14 @@ import {
 interface TechnicalReportFormProps {
   ticket: Ticket;
   onSuccess?: () => void;
+  onRequestProgressCheckIn?: () => void;
 }
 
-export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({ ticket, onSuccess }) => {
+export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
+  ticket,
+  onSuccess,
+  onRequestProgressCheckIn
+}) => {
   const {
     currentUser,
     rootCauseCategories,
@@ -33,6 +38,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({ ticket
   const { playReportSavedSound, playErrorSound } = useMoraJawsSound();
 
   const existingReport = ticket.technicalReport;
+  const requiresCheckIn = currentUser.role === 'installer' && !ticket.checkInAt;
 
   const [isEditing, setIsEditing] = useState(!existingReport);
   const [mainCategory, setMainCategory] = useState(
@@ -105,6 +111,15 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({ ticket
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (requiresCheckIn) {
+      playErrorSound();
+      setNotice({
+        type: 'error',
+        text: 'Check-in belum tercatat. Teknisi wajib mengirim pesan LiveChat dengan kategori PROGRESS terlebih dahulu sebelum Save Report.'
+      });
+      return;
+    }
 
     if (!technicalDescription.trim()) {
       setNotice({ type: 'error', text: 'Deskripsi teknis kendala wajib diisi.' });
@@ -322,6 +337,29 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({ ticket
             )}
           </div>
 
+          {requiresCheckIn && (
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-xs">Check-in Wajib via LiveChat (Kategori PROGRESS)</div>
+                  <p className="text-[11px] opacity-90 mt-0.5">
+                    Save Report akan mencatat Check-out otomatis dan diblokir sebelum Anda mengirim minimal 1 pesan LiveChat dengan kategori <strong>PROGRESS</strong>.
+                  </p>
+                </div>
+              </div>
+              {onRequestProgressCheckIn && (
+                <button
+                  type="button"
+                  onClick={onRequestProgressCheckIn}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 cursor-pointer"
+                >
+                  Buka LiveChat (Kategori PROGRESS)
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Main Category */}
             <div>
@@ -506,7 +544,9 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({ ticket
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="submit"
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
+              disabled={requiresCheckIn}
+              title={requiresCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu untuk Check-in' : 'Simpan Laporan Teknis & Check-out'}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Simpan Laporan & Selesaikan Tugas Lapangan</span>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   UIConfiguration,
   ColumnConfig,
@@ -169,7 +169,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Mandiri', order: 1, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
   { id: 'tickets', label: 'Work Order Management', category: 'Mandiri', order: 2, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'schedule', label: 'Jadwal & Kalender', category: 'Mandiri', order: 3, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'import', label: 'Import Data WO', category: 'Mandiri', order: 4, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'import', label: 'Import Data WO', category: 'Mandiri', order: 4, visible: true, roles: ['super_admin', 'management_data'] },
   { id: 'installer_portal', label: 'Dashboard Installer', category: 'Mandiri', order: 5, visible: true, roles: ['installer'] },
   { id: 'installer_tasks', label: 'Tugas Saya', category: 'Mandiri', order: 6, visible: true, roles: ['installer'] },
   { id: 'users', label: 'Manajemen Akun', category: 'Mandiri', order: 7, visible: true, roles: ['super_admin'] },
@@ -178,7 +178,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // =========================================================================
   // 2. KATEGORI: WO CONTRACTOR — STATIC
   // =========================================================================
-  { id: 'wo_assignment', label: 'Assign WO', category: 'WO CONTRACTOR', order: 9, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'wo_assignment', label: 'Assign WO', category: 'WO CONTRACTOR', order: 9, visible: true, roles: ['leader'] },
   { id: 'progress_dashboard', label: 'Dashboard Progress WO', category: 'WO CONTRACTOR', order: 10, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
   { id: 'installer_mgmt', label: 'Pendaftaran Akun Teknisi', category: 'WO CONTRACTOR', order: 11, visible: true, roles: ['super_admin', 'leader'] },
   { id: 'contractor_recap', label: 'Rekap Total WO per Kontraktor', category: 'WO CONTRACTOR', order: 13, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
@@ -201,12 +201,12 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // =========================================================================
   // 5. KATEGORI: SETUP — ACCORDION
   // =========================================================================
-  { id: 'setup', label: 'Setup Terpusat MoraJaws', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
+  { id: 'setup', label: 'SETUP TERPUSAT MORAJAWS', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
   { id: 'nav_config', label: 'Konfigurasi Menu Navigasi', category: 'Setup', order: 22, visible: true, roles: ['super_admin'] },
   { id: 'management_role', label: 'Role & Permission', category: 'Setup', order: 23, visible: true, roles: ['super_admin'] },
   { id: 'droplist_management', label: 'Droplist Management', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
-  { id: 'sound_settings', label: 'Pengaturan Notifikasi', category: 'Setup', order: 25, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'settings', label: 'Pengaturan Sistem', category: 'Setup', order: 26, visible: true, roles: ['super_admin'] },
+  { id: 'sound_settings', label: 'Pengaturan Notifikasi', category: 'Setup', order: 25, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'settings', label: 'Pengaturan Sistem', category: 'Setup', order: 26, visible: false, roles: ['super_admin'] },
   { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 27, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
 
   // =========================================================================
@@ -299,6 +299,21 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const sanitizeToolbarButtons = (toolbarCfg: UIConfiguration['toolbar']) => ({
+    ...toolbarCfg,
+    buttons: (toolbarCfg?.buttons || DEFAULT_UI_CONFIG.toolbar.buttons).map(btn => {
+      if (btn.id === 'btn_import_wo') {
+        return { ...btn, roleRequired: ['super_admin', 'management_data'] };
+      }
+      if (btn.id === 'btn_bulk_assign') {
+        return { ...btn, roleRequired: ['leader'] };
+      }
+      return btn;
+    })
+  });
+
+  const isFirstConfigMountRef = useRef(true);
+
   const [config, setConfig] = useState<UIConfiguration>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -320,7 +335,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             pc: { ...DEFAULT_UI_CONFIG.device.pc, ...(parsed.device?.pc || {}) }
           },
           ticketsTable: { ...DEFAULT_UI_CONFIG.ticketsTable, ...parsed.ticketsTable },
-          toolbar: { ...DEFAULT_UI_CONFIG.toolbar, ...parsed.toolbar },
+          toolbar: sanitizeToolbarButtons({ ...DEFAULT_UI_CONFIG.toolbar, ...parsed.toolbar }),
           ticketDetail: { ...DEFAULT_UI_CONFIG.ticketDetail, ...parsed.ticketDetail }
         };
       }
@@ -342,6 +357,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ...prev,
             ...data.config,
             global: { ...prev.global, ...(data.config.global || {}) },
+            toolbar: sanitizeToolbarButtons({ ...prev.toolbar, ...(data.config.toolbar || {}) }),
             device: {
               ...prev.device,
               ...(data.config.device || {}),
@@ -354,7 +370,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .catch(() => {});
   }, []);
 
-  // Sync to localStorage and backend
+  // Sync to localStorage and backend (only persist to backend if user is authorized to manage settings)
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
@@ -362,15 +378,25 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to save UI configuration to localStorage', e);
     }
 
-    // Persist to backend server API
-    fetch('/api/config/global', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      },
-      body: JSON.stringify({ config })
-    }).catch(() => {});
+    if (isFirstConfigMountRef.current) {
+      isFirstConfigMountRef.current = false;
+    } else {
+      try {
+        const sessionStr = localStorage.getItem('morajaws_auth_session');
+        const sess = sessionStr ? JSON.parse(sessionStr) : null;
+        const role = sess?.user?.role;
+        if (sess?.token && ['super_admin', 'management_data', 'dispatch', 'it_support'].includes(role)) {
+          fetch('/api/config/global', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders()
+            },
+            body: JSON.stringify({ config })
+          }).catch(() => {});
+        }
+      } catch {}
+    }
 
     // Apply document theme class if dark mode
     if (config.global.themeMode === 'dark') {
@@ -388,13 +414,15 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const NAV_SUBMENUS_KEY = 'morajaws_nav_submenus_v6';
   const NAV_ACCORDION_KEY = 'morajaws_nav_accordion_v6';
 
-  // Sanitizer: Hapus Reason Report & Rootcause, konsolidasi PUSAT SETUP, dan Kategori Report
+  // Sanitizer: Hapus Reason Report & Rootcause, konsolidasi SETUP TERPUSAT MORAJAWS, & enforce App Flow roles
   const sanitizeSubmenuItems = (items: NavSubmenuItem[]): NavSubmenuItem[] => {
     if (!Array.isArray(items)) return [];
+    const seen = new Set<string>();
     return items
       .filter(item => {
         const id = (item.id || '').toLowerCase();
         const label = (item.label || '').toLowerCase();
+        if (!id || seen.has(id)) return false;
         // Hapus Reason Report dan Rootcause dari sidebar/submenu
         if (
           id === 'reason_report' ||
@@ -407,22 +435,42 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         ) {
           return false;
         }
-        // Konsolidasi: hilangkan menu terpisah Pengaturan Sistem/Master Data lama yang sudah digabung ke PUSAT SETUP
+        // Konsolidasi: hilangkan menu terpisah Pengaturan Sistem/Master Data lama yang sudah digabung ke SETUP TERPUSAT MORAJAWS
         if (
           id === 'settings' ||
           id === 'master_data' ||
+          id === 'master_data_config' ||
+          id === 'app_settings' ||
           label === 'pengaturan aplikasi' ||
           label === 'konfigurasi master data' ||
-          label === 'pengaturan aplikasi (morajaws)'
+          label === 'pengaturan aplikasi (morajaws)' ||
+          label === 'pengaturan sistem'
         ) {
           return false;
         }
+        seen.add(id);
         return true;
       })
       .map(item => {
         const safeRoles = Array.isArray(item.roles) ? item.roles : [];
         if (item.id === 'setup') {
-          return { ...item, label: 'PUSAT SETUP', roles: safeRoles };
+          return {
+            ...item,
+            label: 'SETUP TERPUSAT MORAJAWS',
+            roles: ['super_admin', 'dispatch', 'management_data']
+          };
+        }
+        if (item.id === 'wo_assignment') {
+          return {
+            ...item,
+            roles: ['leader']
+          };
+        }
+        if (item.id === 'sound_settings') {
+          return {
+            ...item,
+            roles: safeRoles.filter(r => r !== 'leader' && r !== 'installer')
+          };
         }
         if (item.id === 'droplist_management') {
           return { ...item, label: 'Kategori Report', roles: safeRoles };
@@ -433,10 +481,19 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const sanitizeStandaloneMenus = (items: StandaloneMenuItem[]): StandaloneMenuItem[] => {
     if (!Array.isArray(items)) return DEFAULT_STANDALONE_MENUS;
-    return items.map(item => ({
-      ...item,
-      roles: Array.isArray(item.roles) ? item.roles : ['super_admin']
-    }));
+    return items.map(item => {
+      const roles = Array.isArray(item.roles) ? item.roles : ['super_admin'];
+      if (item.id === 'import') {
+        return {
+          ...item,
+          roles: ['super_admin', 'management_data']
+        };
+      }
+      return {
+        ...item,
+        roles
+      };
+    });
   };
 
   // 1. Exactly 3 Categories: Contractor & Area, Installer, Menu Tambahan
@@ -788,7 +845,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setNavCategoriesState(navDoc.categories);
           }
           if (Array.isArray(navDoc.standaloneMenus) && navDoc.standaloneMenus.length > 0) {
-            setStandaloneMenusState(navDoc.standaloneMenus);
+            setStandaloneMenusState(sanitizeStandaloneMenus(navDoc.standaloneMenus));
           }
           if (Array.isArray(navDoc.submenuItems) && navDoc.submenuItems.length > 0) {
             setSubmenuItemsState(sanitizeSubmenuItems(navDoc.submenuItems));
@@ -813,7 +870,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               setNavCategoriesState(data.categories);
             }
             if (Array.isArray(data.standaloneMenus) && data.standaloneMenus.length > 0) {
-              setStandaloneMenusState(data.standaloneMenus);
+              setStandaloneMenusState(sanitizeStandaloneMenus(data.standaloneMenus));
             }
             if (Array.isArray(data.submenuItems) && data.submenuItems.length > 0) {
               setSubmenuItemsState(sanitizeSubmenuItems(data.submenuItems));

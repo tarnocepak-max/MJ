@@ -73,7 +73,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       icon: 'FileSpreadsheet',
       order: 4,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'management_data']
+      roles: ['super_admin', 'management_data']
     },
     {
       id: 'contact_centre',

@@ -169,11 +169,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     '15:00 - 17:00 WIB'
   ];
 
-  // Leader contractor & area
+  // Leader contractor & area + strict role authorization (App Flow 2 & 3)
+  const isLeaderRole = currentUser.role === 'leader';
   const leaderContractor = currentUser.contractor || '';
   const leaderArea = currentUser.area || '';
   const displayContractor = leaderContractor || (contractorsList?.[0] || 'PT Mitra Jaringan Solusi');
   const displayArea = leaderArea || (areasList?.[0] || 'Jakarta Selatan');
+
+  const isScopeTextMatch = (a?: string | null, b?: string | null): boolean => {
+    const na = String(a || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const nb = String(b || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!na || !nb) return false;
+    return na === nb || na.includes(nb) || nb.includes(na);
+  };
 
   // Persistent Quota Settings
   const QUOTA_STORAGE_KEY = `morajaws_leader_quota_${(leaderContractor || 'default').replace(/\s+/g, '_').toLowerCase()}`;
@@ -336,6 +344,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   });
 
   const handleOpenReassignModal = (ticket: Ticket) => {
+    if (!isLeaderRole) {
+      toast.error('Hanya akun dengan peran Leader yang berwenang melakukan reassign teknisi.', 'Akses Ditolak');
+      return;
+    }
     if (!ticket.installerName) {
       toast.warning('Tiket ini belum memiliki teknisi. Silakan gunakan menu Assign WO untuk penugasan awal.', 'Belum Di-assign');
       return;
@@ -355,6 +367,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   };
 
   const handleExecuteReassign = async () => {
+    if (!isLeaderRole) {
+      toast.error('Hanya akun dengan peran Leader yang berwenang melakukan reassign teknisi.', 'Akses Ditolak');
+      return;
+    }
     if (!reassignModalState.ticket) return;
     if (!reassignModalState.targetInstaller) {
       toast.error('Pilih teknisi baru yang akan menerima tugas WO.', 'Pilih Teknisi');
@@ -385,23 +401,35 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   };
 
-  // Scoped tickets for this Leader's contractor
+  // Scoped tickets for this Leader's contractor & area (plus direct leaderId/leaderName match)
   const contractorTickets = useMemo(() => {
     return currentUser.role === 'super_admin'
       ? tickets.filter(t => !t.isArchived && !t.isDeleted)
       : tickets.filter(t => {
           if (t.isArchived || t.isDeleted) return false;
           const cName = t.contactorName || t.contractorName || '';
-          return !leaderContractor || cName.toLowerCase() === leaderContractor.toLowerCase();
+          const contractorMatched = !leaderContractor || isScopeTextMatch(cName, leaderContractor);
+          if (!contractorMatched) return false;
+          if (leaderArea && t.area && !isScopeTextMatch(t.area, leaderArea)) {
+            const directLeaderAssigned =
+              (t.leaderId && t.leaderId === currentUser.id) ||
+              (t.leaderName && isScopeTextMatch(t.leaderName, currentUser.name));
+            if (!directLeaderAssigned) return false;
+          }
+          return true;
         });
-  }, [tickets, currentUser.role, leaderContractor]);
+  }, [tickets, currentUser.role, currentUser.id, currentUser.name, leaderContractor, leaderArea]);
 
-  // Installers belonging to this contractor
+  // Active installers belonging to this contractor & area scope
   const myInstallers = useMemo(() => {
-    return users.filter(
-      u => u.role === 'installer' && (currentUser.role === 'super_admin' || u.contractor === leaderContractor)
-    );
-  }, [users, currentUser.role, leaderContractor]);
+    return users.filter(u => {
+      if (u.role !== 'installer' || u.active === false || u.isArchived) return false;
+      if (currentUser.role === 'super_admin') return true;
+      if (leaderContractor && !isScopeTextMatch(u.contractor, leaderContractor)) return false;
+      if (leaderArea && u.area && !isScopeTextMatch(u.area, leaderArea)) return false;
+      return true;
+    });
+  }, [users, currentUser.role, leaderContractor, leaderArea]);
 
   const triggerNotice = (type: 'success' | 'error' | 'warning', text: string) => {
     setNotice({ type, text });
@@ -605,9 +633,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         }
       }
 
-      // Date Range Filter (Strict Asia/Jakarta Appointment Date - Default Today or Applied Range)
+      // Date Range Filter (Strict Asia/Jakarta Appointment Date - Default Today or Applied Range; 'All' includes unscheduled WOs)
       const ticketDate = getTicketAppointmentDate(t);
-      if (!ticketDate) return false;
+      if ((appliedDateStart || appliedDateEnd) && !ticketDate) return false;
       if (appliedDateStart && ticketDate < appliedDateStart) return false;
       if (appliedDateEnd && ticketDate > appliedDateEnd) return false;
 
@@ -791,8 +819,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return `Halo Rekan Teknisi ${installer.name},\n\nAda penugasan Work Order baru untuk Anda dari Korlap (${currentUser.name} - ${leaderContractor}):\n\n📌 Detail Work Order:\n- No. WO: ${ticket.woNumber}\n- Kategori: ${ticket.ticketCategory}\n- Tanggal Kunjungan: ${ticket.appointmentDate || 'Belum Ditentukan'}\n- Slot Waktu: ${ticket.slotTime}\n\n📍 Lokasi Pelanggan:\n- Nama: ${ticket.customerName}\n- No. Kontak: ${ticket.customerPhone}\n- Alamat: ${ticket.streetName || '-'}\n- Patokan: ${ticket.streetAlternatif || '-'}\n- Cluster: ${ticket.clusterName || '-'}\n- Area: ${ticket.area}\n\n🔧 Data Jaringan:\n- OLT/FDT: ${ticket.fdtCode || '-'}\n- FAT Code: ${ticket.fatCode || '-'}\n\nHarap segera konfirmasi penerimaan tugas melalui Portal Teknisi Lapangan.\nTerima kasih, selamat bertugas!`;
   };
 
-  // Single Ticket Assignment
+  // Single Ticket Assignment (Leader Only)
   const handleAssignTicket = (ticket: Ticket, installerName: string, slotTime?: string, bypassWarning = false) => {
+    if (!isLeaderRole) {
+      toast.error('Hanya akun dengan peran Leader yang berwenang melakukan assign teknisi.', 'Akses Ditolak');
+      return;
+    }
     if (!installerName) return;
 
     const installerUser = myInstallers.find(
@@ -840,8 +872,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   };
 
-  // Bulk Assign Confirmation Execution
+  // Bulk Assign Confirmation Execution (Leader Only)
   const handleExecuteBulkAssignModal = () => {
+    if (!isLeaderRole) {
+      toast.error('Hanya akun dengan peran Leader yang berwenang melakukan bulk assign teknisi.', 'Akses Ditolak');
+      return;
+    }
     if (!bulkTargetInstaller) {
       toast.error('Pilih teknisi tujuan penugasan.', 'Validasi Gagal');
       return;
@@ -1388,12 +1424,16 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <td key={col.id} className="py-2.5 px-3">
             <select
               value={t.installerName || ''}
+              disabled={!isLeaderRole}
               onChange={e => {
-                if (e.target.value !== t.installerName) {
+                if (isLeaderRole && e.target.value !== t.installerName) {
                   handleAssignTicket(t, e.target.value, t.slotTime);
                 }
               }}
+              title={isLeaderRole ? 'Pilih teknisi pelaksana' : 'Hanya Leader yang berwenang melakukan assign teknisi'}
               className={`w-full px-2 py-1 text-xs rounded-lg border font-medium ${
+                !isLeaderRole ? 'opacity-70 cursor-not-allowed ' : ''
+              }${
                 t.installerName
                   ? 'bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
                   : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold'
@@ -1498,15 +1538,17 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
               {t.installerName && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenReassignModal(t)}
-                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Reassign / Alihkan penugasan WO ke teknisi lain"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Reassign</span>
-                  </button>
+                  {isLeaderRole && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReassignModal(t)}
+                      className="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Reassign / Alihkan penugasan WO ke teknisi lain"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reassign</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -2234,17 +2276,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   </div>
                 </div>
 
-                {/* Tombol Aksi: Upload Assign WO (Magenta Theme) */}
+                {/* Tombol Aksi: Upload Assign WO (Magenta Theme, Leader Only) */}
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsUploadAssignModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-[#D81B83] hover:bg-[#C21875] text-white border border-[#EC91C0] rounded-xl transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-95"
-                    title="Unggah berkas Excel/CSV untuk penugasan massal"
-                  >
-                    <FileUp className="w-4 h-4 text-white" />
-                    <span>Upload Assign WO</span>
-                  </button>
+                  {isLeaderRole ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsUploadAssignModalOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-[#D81B83] hover:bg-[#C21875] text-white border border-[#EC91C0] rounded-xl transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-95"
+                      title="Unggah berkas Excel/CSV untuk penugasan massal"
+                    >
+                      <FileUp className="w-4 h-4 text-white" />
+                      <span>Upload Assign WO</span>
+                    </button>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
+                      Mode Monitoring (Assign hanya Leader)
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -2546,14 +2594,16 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsBulkAssignModalOpen(true)}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#5B35B1] hover:to-[#9333EA] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg border border-[#D8B4FE]/50 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
-                    >
-                      <UserCheck className="w-4 h-4 text-[#E9D5FF]" />
-                      <span>ASSIGN DATA WO ({selectedTicketIds.length})</span>
-                    </button>
+                    {isLeaderRole && (
+                      <button
+                        type="button"
+                        onClick={() => setIsBulkAssignModalOpen(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#5B35B1] hover:to-[#9333EA] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg border border-[#D8B4FE]/50 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+                      >
+                        <UserCheck className="w-4 h-4 text-[#E9D5FF]" />
+                        <span>ASSIGN DATA WO ({selectedTicketIds.length})</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -2632,29 +2682,35 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
                         {/* Actions */}
                         <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 gap-2">
-                          {t.installerName ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenReassignModal(t)}
-                              className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
-                              title="Alihkan tugas WO ke teknisi lain (Reassign)"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>Reassign WO</span>
-                            </button>
+                          {isLeaderRole ? (
+                            t.installerName ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReassignModal(t)}
+                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
+                                title="Alihkan tugas WO ke teknisi lain (Reassign)"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Reassign WO</span>
+                              </button>
+                            ) : (
+                              <select
+                                value={t.installerName || ''}
+                                onChange={e => {
+                                  if (e.target.value) handleAssignTicket(t, e.target.value, t.slotTime);
+                                }}
+                                className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg max-w-[140px]"
+                              >
+                                <option value="">Pilih Teknisi...</option>
+                                {myInstallers.map(inst => (
+                                  <option key={inst.id} value={inst.name}>{inst.name}</option>
+                                ))}
+                              </select>
+                            )
                           ) : (
-                            <select
-                              value={t.installerName || ''}
-                              onChange={e => {
-                                if (e.target.value) handleAssignTicket(t, e.target.value, t.slotTime);
-                              }}
-                              className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg max-w-[140px]"
-                            >
-                              <option value="">Pilih Teknisi...</option>
-                              {myInstallers.map(inst => (
-                                <option key={inst.id} value={inst.name}>{inst.name}</option>
-                              ))}
-                            </select>
+                            <span className="text-[11px] text-slate-500">
+                              Teknisi: <strong>{t.installerName || 'Belum Di-assign'}</strong>
+                            </span>
                           )}
 
                           <button
@@ -2737,10 +2793,16 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
                                     <div className="space-y-1.5">
                                       <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">
-                                        📋 Catatan & Status Pekerjaan
+                                        📋 Catatan & Status Pekerjaan (WIB)
                                       </span>
-                                      <div className="p-2 rounded bg-white dark:bg-slate-900 border text-slate-600 dark:text-slate-300 text-[11px]">
-                                        {t.remarksWOInstaller || t.remarksAgent || 'Belum ada catatan khusus pada tiket ini.'}
+                                      <div className="p-2 rounded bg-white dark:bg-slate-900 border text-slate-600 dark:text-slate-300 text-[11px] space-y-1">
+                                        <div>{t.remarksWOInstaller || t.remarksAgent || 'Belum ada catatan khusus pada tiket ini.'}</div>
+                                        <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-3 font-mono text-[10.5px]">
+                                          <span>Status: <strong>{getTicketWorkStatus(t).status}</strong></span>
+                                          <span>Check-in: <strong>{t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '-'}</strong></span>
+                                          <span>Check-out: <strong>{t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '-'}</strong></span>
+                                          <span>Durasi: <strong>{getTicketWorkStatus(t).durationFormatted}</strong></span>
+                                        </div>
                                       </div>
                                       {t.technicalReport && (
                                         <div className="text-[11px] text-emerald-600 font-semibold">
@@ -3396,6 +3458,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         contractorTickets={contractorTickets}
         myInstallers={myInstallers}
         onExecuteBulkAssign={assignments => {
+          if (!isLeaderRole) {
+            toast.error('Hanya akun dengan peran Leader yang berwenang melakukan assign teknisi.', 'Akses Ditolak');
+            return;
+          }
           assignments.forEach(a => {
             assignTicketPersonnel(a.ticketId, currentUser.name, a.installerName);
           });

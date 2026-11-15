@@ -228,14 +228,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
             </button>
           )}
 
-          <button
-            onClick={() => onNavigate('setup')}
-            className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
-              activeTab === 'setup' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
-            }`}
-          >
-            Setup
-          </button>
+          {['super_admin', 'management_data', 'dispatch'].includes(currentUser.role) && (
+            <button
+              onClick={() => onNavigate('setup')}
+              className={`hover:text-[#5B35B1] dark:hover:text-[#E9E1FF] transition-colors whitespace-nowrap pb-1 cursor-pointer ${
+                activeTab === 'setup' ? 'text-[#5B35B1] dark:text-[#E9E1FF] border-b-2 border-[#5B35B1] dark:border-[#8064D9] font-bold' : ''
+              }`}
+            >
+              Setup
+            </button>
+          )}
         </nav>
       )}
 

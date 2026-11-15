@@ -84,6 +84,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     duplicates: number;
     enrolledContractors?: number;
     newContractors?: number;
+    distributedCount?: number;
+    undistributedCount?: number;
   } | null>(null);
   const [showMappingCatalog, setShowMappingCatalog] = useState(false);
   const [sourceFileName, setSourceFileName] = useState('Input_Text_Table.txt');
@@ -388,8 +390,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setTimeout(() => setExportNotice(null), 4000);
   };
 
-  // RBAC Access Restriction: Only Super Admin and Dispatch can perform imports
-  const canImport = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
+  // RBAC Access Restriction: Only Super Admin and Management Data can perform imports (App Flow 1 & 3)
+  const canImport = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
 
   if (!canImport) {
     return (
@@ -401,8 +403,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           Akses Ditolak: Otoritas Import Work Order Dibatasi
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          Berdasarkan Master Konstitusi Keamanan MoraJaws, proses import Work Order (Text-to-Table, XLSX, CSV)
-          hanya dapat dilakukan oleh peran <strong>Super Admin</strong> dan <strong>Dispatch</strong>.
+          Berdasarkan App Flow MoraJaws, proses import Work Order (Text-to-Table, XLSX, CSV)
+          hanya dapat dilakukan oleh peran <strong>Super Admin</strong> dan <strong>Management Data</strong>.
         </p>
         <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-300 font-medium">
           Akun Anda: <span className="font-bold capitalize">{currentUser.name} ({currentUser.role})</span>. Akses import ditolak pada level UI dan Backend Server.
@@ -684,7 +686,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       imported: report.importedCount,
       duplicates: report.duplicatesIgnored,
       enrolledContractors: enrolledNewCount,
-      newContractors: enrolledNewCount
+      newContractors: enrolledNewCount,
+      distributedCount: report.distributedCount,
+      undistributedCount: report.undistributedCount
     });
     setParseResult(null);
     setRawText('');
@@ -926,7 +930,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           <div>
             <p className="font-semibold text-sm">Proses Import Berhasil!</p>
             <p className="mt-0.5">
-              {importReport.imported} tiket baru berhasil ditambahkan dan didistribusikan ke antrean mitra.
+              {importReport.imported} tiket baru berhasil ditambahkan ({importReport.distributedCount ?? 0} terdistribusi ke Leader
+              {(importReport.undistributedCount ?? 0) > 0 ? `, ${importReport.undistributedCount} Belum Terdistribusi` : ''}).
               {importReport.enrolledContractors !== undefined && importReport.enrolledContractors > 0 && (
                 <span className="font-medium text-emerald-900 dark:text-emerald-200">
                   {' '}{importReport.enrolledContractors} kategori kontraktor ({importReport.newContractors || 0} baru) telah terdaftar di Master Data.

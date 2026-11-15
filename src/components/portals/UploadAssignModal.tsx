@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Ticket, User } from '../../types/index.ts';
-import { Upload, FileUp, X, CheckCircle2, AlertTriangle, FileSpreadsheet, Check } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { Upload, FileUp, X, CheckCircle2, AlertTriangle, FileSpreadsheet, Check, ShieldAlert } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface UploadAssignModalProps {
@@ -18,6 +19,9 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
   myInstallers,
   onExecuteBulkAssign
 }) => {
+  const { currentUser } = useApp();
+  const isLeaderRole = currentUser.role === 'leader';
+
   const [pasteData, setPasteData] = useState('');
   const [parsedRows, setParsedRows] = useState<{
     woNumber: string;
@@ -31,8 +35,9 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
 
   if (!isOpen) return null;
 
+  const activeInstallers = myInstallers.filter(inst => inst.active !== false && !inst.isArchived);
   const installerNamesMap = new Map<string, string>();
-  myInstallers.forEach(inst => {
+  activeInstallers.forEach(inst => {
     installerNamesMap.set(inst.name.toLowerCase().trim(), inst.name);
     installerNamesMap.set(inst.username.toLowerCase().trim(), inst.name);
   });
@@ -121,6 +126,7 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
   };
 
   const handleConfirm = () => {
+    if (!isLeaderRole) return;
     const validOnes = parsedRows.filter(r => r.isValid && r.ticketId);
     if (validOnes.length === 0) return;
 
@@ -166,6 +172,12 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
 
         {/* Body */}
         <div className="p-5 max-h-[65vh] overflow-y-auto space-y-4">
+          {!isLeaderRole && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2 text-rose-700 dark:text-rose-300 text-xs font-medium">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              <span>Hanya akun dengan peran <strong>Leader</strong> yang berwenang melakukan penugasan teknisi (Assign WO).</span>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <label className="flex-1 border-2 border-dashed border-[#C4B5FD] hover:border-[#6D28D9] rounded-xl p-4 text-center cursor-pointer bg-[#EDE9FE]/20 transition-colors">
               <FileSpreadsheet className="w-6 h-6 text-[#6D28D9] mx-auto mb-1" />
@@ -250,9 +262,9 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={validCount === 0 || isProcessing}
+            disabled={!isLeaderRole || validCount === 0 || isProcessing}
             className={`px-5 py-2 rounded-xl font-bold text-white transition-all shadow-sm cursor-pointer ${
-              validCount === 0 || isProcessing
+              !isLeaderRole || validCount === 0 || isProcessing
                 ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-60'
                 : 'bg-[#6D28D9] hover:bg-[#5B21B6]'
             }`}

@@ -20,9 +20,10 @@ import {
 
 interface TicketLiveChatProps {
   ticket: Ticket;
+  initialCategory?: string;
 }
 
-export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket }) => {
+export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialCategory }) => {
   const {
     currentUser,
     getMessagesForTicket,
@@ -108,15 +109,20 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket }) => {
     setPendingAttachments(prev => prev.filter(att => att.id !== id));
   };
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(
-    () => ticket.chatCategory && ticket.chatCategory.toUpperCase() !== 'UNCLASSIFIED' ? ticket.chatCategory : ''
-  );
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    if (initialCategory && initialCategory.trim()) return initialCategory;
+    return ticket.chatCategory && ticket.chatCategory.toUpperCase() !== 'UNCLASSIFIED' ? ticket.chatCategory : '';
+  });
 
   useEffect(() => {
+    if (initialCategory && initialCategory.trim()) {
+      setSelectedCategory(initialCategory);
+      return;
+    }
     if (ticket.chatCategory && ticket.chatCategory.toUpperCase() !== 'UNCLASSIFIED') {
       setSelectedCategory(ticket.chatCategory);
     }
-  }, [ticket.chatCategory]);
+  }, [ticket.chatCategory, initialCategory]);
 
   const isInstaller = currentUser.role === 'installer';
   const hasValidCategory = Boolean(selectedCategory && selectedCategory.trim() && selectedCategory.toUpperCase() !== 'UNCLASSIFIED');
@@ -129,7 +135,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket }) => {
     }
   };
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend !== undefined ? textToSend : inputText;
     if (isSubmitting) return;
 
@@ -144,18 +150,21 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket }) => {
     if (!text.trim() && pendingAttachments.length === 0) return;
 
     setIsSubmitting(true);
-    const result = sendTicketMessage(ticket.id, text.trim(), pendingAttachments, selectedCategory || undefined);
-    setIsSubmitting(false);
+    try {
+      const result = await sendTicketMessage(ticket.id, text.trim(), pendingAttachments, selectedCategory || undefined);
 
-    if (result.success) {
-      setInputText('');
-      setPendingAttachments([]);
-      setErrorMessage(null);
-    } else {
-      const err = result.error || 'Gagal mengirim pesan.';
-      setErrorMessage(err);
-      toast.error(err, 'Gagal Mengirim');
-      setTimeout(() => setErrorMessage(null), 4000);
+      if (result.success) {
+        setInputText('');
+        setPendingAttachments([]);
+        setErrorMessage(null);
+      } else {
+        const err = result.error || 'Gagal mengirim pesan.';
+        setErrorMessage(err);
+        toast.error(err, 'Gagal Mengirim');
+        setTimeout(() => setErrorMessage(null), 4000);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -228,30 +237,32 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket }) => {
               style={{ backgroundColor: currentCategoryObj?.color || '#5B35B1' }}
             >
               <Tag className="w-3 h-3" />
-              <span>{ticket.chatCategory || 'UNCLASSIFIED'}</span>
+              <span>{selectedCategory || ticket.chatCategory || 'UNCLASSIFIED'}</span>
             </span>
 
-            <select
-              value={ticket.chatCategory || 'UNCLASSIFIED'}
-              onChange={e => {
-                setTicketChatCategory(ticket.id, e.target.value);
-                toast.success(`Kategori chat tiket diubah ke "${e.target.value}".`);
-              }}
-              className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none"
-              title="Ganti Kategori Chat"
-            >
-              {activeCategories.length > 0 ? (
-                activeCategories.map(cat => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
+            {currentUser.role !== 'leader' && (
+              <select
+                value={selectedCategory || ticket.chatCategory || 'UNCLASSIFIED'}
+                onChange={e => {
+                  handleSelectCategory(e.target.value);
+                  toast.success(`Kategori chat tiket diubah ke "${e.target.value}".`);
+                }}
+                className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none"
+                title="Ganti Kategori Chat"
+              >
+                {activeCategories.length > 0 ? (
+                  activeCategories.map(cat => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value={ticket.chatCategory || 'UNCLASSIFIED'}>
+                    {ticket.chatCategory || 'UNCLASSIFIED'}
                   </option>
-                ))
-              ) : (
-                <option value={ticket.chatCategory || 'UNCLASSIFIED'}>
-                  {ticket.chatCategory || 'UNCLASSIFIED'}
-                </option>
-              )}
-            </select>
+                )}
+              </select>
+            )}
           </div>
 
           <span className="text-slate-400">Total:</span>

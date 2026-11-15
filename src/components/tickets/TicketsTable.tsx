@@ -1235,7 +1235,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                                       <MessageCircle className="w-3.5 h-3.5" />
                                       {unread > 0 && (
                                         <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-rose-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-xs">
-                                          {unread > 9 ? '9+' : unread}
+                                          {unread > 99 ? '99+' : unread}
                                         </span>
                                       )}
                                     </button>

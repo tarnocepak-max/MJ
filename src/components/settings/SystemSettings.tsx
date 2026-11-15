@@ -29,9 +29,13 @@ import { SoundSettingsView } from './SoundSettingsView';
 
 interface SystemSettingsProps {
   defaultTab?: 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
+  embeddedInSetupHub?: boolean;
 }
 
-export const SystemSettings: React.FC<SystemSettingsProps> = ({ defaultTab = 'contractors' }) => {
+export const SystemSettings: React.FC<SystemSettingsProps> = ({
+  defaultTab = 'contractors',
+  embeddedInSetupHub = false
+}) => {
   const {
     headerMappings,
     updateHeaderMapping,
@@ -51,9 +55,14 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({ defaultTab = 'co
 
   const { config, setGlobalTheme } = useUIConfig();
 
+  const initialTab =
+    embeddedInSetupHub && (defaultTab === 'report_dropdowns' || defaultTab === 'sound_settings')
+      ? 'contractors'
+      : defaultTab;
+
   const [activeTab, setActiveTab] = useState<
     'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings'
-  >(defaultTab);
+  >(initialTab);
   const [operationalDateInput, setOperationalDateInput] = useState(operationalDate);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -82,17 +91,17 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({ defaultTab = 'co
   const [appNameInput, setAppNameInput] = useState(config.global.appName || 'MoraJaws');
   const [appPrimaryColor, setAppPrimaryColor] = useState(config.global.primaryColor || 'indigo');
 
-  if (currentUser.role !== 'super_admin') {
+  if (currentUser.role !== 'super_admin' && currentUser.role !== 'management_data') {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-slate-200 dark:border-slate-800 text-center max-w-lg mx-auto space-y-4 shadow-sm my-8">
         <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto">
           <ShieldAlert className="w-6 h-6" />
         </div>
         <h3 className="font-bold text-slate-900 dark:text-white text-base">
-          Akses Ditolak: Otoritas Master Data Dibatasi
+          Akses Ditolak: Otoritas Setup Terpusat Dibatasi
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          Berdasarkan Master Konstitusi Keamanan MoraJaws, pengaturan master kontraktor, cakupan area, dan konfigurasi master field mapping dibatasi mutlak hanya untuk <strong>Super Admin</strong>.
+          Parameter kontraktor, cakupan area, dan pemetaan kolom dalam Setup Terpusat MoraJaws hanya dapat diakses oleh <strong>Super Admin</strong> dan <strong>Management Data</strong>.
         </p>
         <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-300 font-medium">
           Akun Anda: <span className="font-bold capitalize">{currentUser.name} ({currentUser.role})</span>.
@@ -212,22 +221,24 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({ defaultTab = 'co
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-slate-800 text-white flex items-center justify-center shrink-0">
-            <Settings className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Konfigurasi Master Data & Pengaturan Aplikasi (MoraJaws)
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Kelola master vendor kontraktor, cakupan coverage area, taksonomi kendala & root cause Wi-Fi teknisi, kamus alias header impor, dan branding aplikasi.
-            </p>
+      {/* Top Banner (Hidden when embedded cleanly in Setup Terpusat MoraJaws) */}
+      {!embeddedInSetupHub && (
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md bg-slate-800 text-white flex items-center justify-center shrink-0">
+              <Settings className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Parameter Sistem & Master Data Operasional
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Kelola master vendor kontraktor, cakupan coverage area, taksonomi kendala & root cause Wi-Fi teknisi, kamus alias header impor, dan identitas operasional.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {notice && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded text-xs flex items-center gap-2">
@@ -238,31 +249,35 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({ defaultTab = 'co
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab('report_dropdowns')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
-            activeTab === 'report_dropdowns'
-              ? 'border-[#7135B5] text-[#7135B5] dark:text-[#D8B4FE] font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <ListFilter className="w-4 h-4 text-[#A855F7]" />
-          <span>Kategori Report</span>
-        </button>
+        {!embeddedInSetupHub && (
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveTab('report_dropdowns')}
+              className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'report_dropdowns'
+                  ? 'border-[#7135B5] text-[#7135B5] dark:text-[#D8B4FE] font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <ListFilter className="w-4 h-4 text-[#A855F7]" />
+              <span>Kategori Report</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('sound_settings')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
-            activeTab === 'sound_settings'
-              ? 'border-[#7135B5] text-[#7135B5] dark:text-[#D8B4FE] font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Volume2 className="w-4 h-4 text-[#A855F7]" />
-          <span>Sound & Notifikasi</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('sound_settings')}
+              className={`px-3 py-2 border-b-2 flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'sound_settings'
+                  ? 'border-[#7135B5] text-[#7135B5] dark:text-[#D8B4FE] font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Volume2 className="w-4 h-4 text-[#A855F7]" />
+              <span>Sound & Notifikasi</span>
+            </button>
+          </>
+        )}
 
         <button
           onClick={() => setActiveTab('contractors')}

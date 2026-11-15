@@ -8,7 +8,8 @@ import {
   UserRole,
   WODistributionStatus,
   DetectedImportContractor,
-  WOAssignmentHistory
+  WOAssignmentHistory,
+  User
 } from '../types/index.ts';
 import * as XLSX from 'xlsx';
 import { parseAppointmentDate, formatAppointmentDateDisplay, DateParseResult } from './appointmentDateParser.ts';
@@ -830,14 +831,15 @@ export function runWODistributionEngine(
   ticket: Partial<Ticket>,
   contractors: Contractor[],
   coverageAreas: CoverageArea[],
-  userRole: UserRole = 'dispatch'
+  userRole: UserRole = 'super_admin',
+  users: User[] = []
 ): { ticket: Partial<Ticket>; status: WODistributionStatus; reason: string } {
-  // Permission verification: Only Dispatch or Super Admin can distribute WO
-  if (userRole !== 'super_admin' && userRole !== 'dispatch') {
+  // Permission verification: Only Super Admin and Management Data can import/distribute WO
+  if (userRole !== 'super_admin' && userRole !== 'management_data') {
     return {
       ticket,
       status: 'pending',
-      reason: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang berwenang mendistribusikan WO.'
+      reason: 'Akses Ditolak: Hanya Super Admin dan Management Data yang berwenang melakukan import dan distribusi WO.'
     };
   }
 
@@ -853,7 +855,6 @@ export function runWODistributionEngine(
   }
 
   // Step 2: Validate Customer ID (Strict 7 digits)
-  // Accept standard 7 digits, or if prefix 'CUST-', check suffix
   const custId = (result.idCustomer || result.customerId || '').trim();
   const digitsOnly = custId.replace(/\D/g, '');
   if (digitsOnly.length !== 7) {
@@ -864,21 +865,51 @@ export function runWODistributionEngine(
     };
   }
 
-  // Step 3: Match Contractor against Master Contractors
-  let matchedContractor: Contractor | undefined;
+  // Step 3: Match Contractor against Master Contractors (never random fallback)
   const rawContractor = (result.contactorName || result.contractorName || '').trim();
+  const norm = (val?: string) => String(val || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const normContractor = norm(rawContractor);
 
-  if (rawContractor) {
+  let matchedContractor: Contractor | undefined;
+  if (normContractor) {
     matchedContractor = contractors.find(
-      c => c.name.toLowerCase() === rawContractor.toLowerCase() ||
-           c.code.toLowerCase() === rawContractor.toLowerCase() ||
-           c.name.toLowerCase().includes(rawContractor.toLowerCase())
+      c => c.active !== false && (
+        norm(c.name) === normContractor ||
+        (c.code && norm(c.code) === normContractor) ||
+        norm(c.name).includes(normContractor) ||
+        normContractor.includes(norm(c.name))
+      )
     );
   }
 
-  if (!matchedContractor) {
+  const activeLeaders = (users || []).filter(
+    u => u && u.role === 'leader' && u.active !== false && !u.isDeleted
+  );
+  const leaderMatchesContractor = (u: User): boolean => {
+    const uContrId = norm(u.contractorId);
+    const uContrName = norm(u.contractor);
+    if (matchedContractor) {
+      if (uContrId && norm(matchedContractor.id) === uContrId) return true;
+      if (uContrName && (uContrName === norm(matchedContractor.name) || uContrName.includes(norm(matchedContractor.name)) || norm(matchedContractor.name).includes(uContrName))) {
+        return true;
+      }
+      if (matchedContractor.code && uContrName === norm(matchedContractor.code)) return true;
+    }
+    if (normContractor && uContrName) {
+      return uContrName === normContractor || uContrName.includes(normContractor) || normContractor.includes(uContrName);
+    }
+    return false;
+  };
+
+  const contractorLeaders = activeLeaders
+    .filter(leaderMatchesContractor)
+    .sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
+
+  if (!rawContractor || (!matchedContractor && contractorLeaders.length === 0)) {
     result.distributionStatus = 'unmapped_contractor';
-    result.distributionNotes = `Kontraktor '${rawContractor || 'Kosong'}' tidak terdaftar di Master Kontraktor.`;
+    result.distributionNotes = rawContractor
+      ? `Belum Terdistribusi: Contractor '${rawContractor}' tidak terdaftar di Master Kontraktor.`
+      : 'Belum Terdistribusi: Contractor/Vendor pada Work Order kosong.';
     return {
       ticket: result,
       status: 'unmapped_contractor',
@@ -886,48 +917,78 @@ export function runWODistributionEngine(
     };
   }
 
-  // Step 4: Verify Coverage Area and Cluster
-  const ticketArea = (result.area || '').trim().toLowerCase();
-  const ticketCluster = (result.clusterName || '').trim().toLowerCase();
+  const canonicalContractorName = matchedContractor?.name || rawContractor;
+  if (matchedContractor) {
+    result.contactorName = matchedContractor.name;
+    result.contractorName = matchedContractor.name;
+    result.contractorId = matchedContractor.id;
+  }
 
-  const isAreaCovered = matchedContractor.coverageAreas.some(ca => ca.toLowerCase() === ticketArea);
-  if (!isAreaCovered && ticketArea) {
-    result.distributionStatus = 'coverage_mismatch';
-    result.distributionNotes = `Area '${result.area}' berada di luar cakupan operasional kontraktor ${matchedContractor.name}.`;
+  // Step 4: Verify Coverage Area if Master Contractor explicitly restricts coverage areas
+  const ticketArea = norm(result.area);
+  if (matchedContractor && Array.isArray(matchedContractor.coverageAreas) && matchedContractor.coverageAreas.length > 0 && ticketArea) {
+    const isAreaCovered = matchedContractor.coverageAreas.some(ca => {
+      const nca = norm(ca);
+      return nca === ticketArea || nca.includes(ticketArea) || ticketArea.includes(nca);
+    });
+    if (!isAreaCovered) {
+      result.distributionStatus = 'coverage_mismatch';
+      result.distributionNotes = `Belum Terdistribusi: Area '${result.area}' di luar cakupan kontraktor ${matchedContractor.name}.`;
+      return {
+        ticket: result,
+        status: 'coverage_mismatch',
+        reason: result.distributionNotes
+      };
+    }
+  }
+
+  // Step 5: Match Leader strictly: Contractor + Area first, then Contractor-level Leader
+  let resolvedLeader: User | undefined;
+  if (ticketArea) {
+    resolvedLeader = contractorLeaders.find(u => {
+      const la = norm(u.area);
+      return la && (la === ticketArea || la.includes(ticketArea) || ticketArea.includes(la));
+    });
+  }
+  if (!resolvedLeader && matchedContractor?.leaderId) {
+    resolvedLeader = contractorLeaders.find(u => u.id === matchedContractor.leaderId);
+  }
+  if (!resolvedLeader && matchedContractor?.leaderName) {
+    const targetName = norm(matchedContractor.leaderName);
+    resolvedLeader = contractorLeaders.find(u => norm(u.name) === targetName);
+  }
+  if (!resolvedLeader) {
+    resolvedLeader = contractorLeaders.find(u => !norm(u.area)) || contractorLeaders[0];
+  }
+
+  if (resolvedLeader) {
+    result.leaderId = resolvedLeader.id;
+    result.leaderName = resolvedLeader.name;
+    result.leaderContact = resolvedLeader.phone || result.leaderContact;
+    result.corlapName = resolvedLeader.name;
+  } else if (matchedContractor?.leaderName && matchedContractor.leaderName.trim()) {
+    result.leaderId = matchedContractor.leaderId || result.leaderId;
+    result.leaderName = matchedContractor.leaderName.trim();
+    result.corlapName = matchedContractor.leaderName.trim();
+  } else {
+    result.distributionStatus = 'unmapped_leader';
+    result.distributionNotes = `Belum Terdistribusi: Contractor '${canonicalContractorName}' belum memiliki Leader aktif.`;
     return {
       ticket: result,
-      status: 'coverage_mismatch',
+      status: 'unmapped_leader',
       reason: result.distributionNotes
     };
   }
 
-  // Step 5: Validate Appointment Date & Slot Time
-  // CRITICAL: Do NOT substitute "Date" as appointmentDate
+  // Step 6: Validate Appointment Date & preserve Slot Time
   if (!result.appointmentDate) {
     result.distributionStatus = 'schedule_not_available';
     result.distributionNotes = 'Tanggal kunjungan (Appointment Date) belum ditentukan.';
-    // Still bind contractor details so Leader can see and schedule it
-    result.contactorName = matchedContractor.name;
-    result.contractorName = matchedContractor.name;
-    result.contractorId = matchedContractor.id;
-    if (matchedContractor.leaderName && !result.leaderName) {
-      result.leaderName = matchedContractor.leaderName;
-      result.corlapName = matchedContractor.leaderName;
-    }
     return {
       ticket: result,
       status: 'schedule_not_available',
       reason: result.distributionNotes
     };
-  }
-
-  // Step 6: Bind Contractor & Leader
-  result.contactorName = matchedContractor.name;
-  result.contractorName = matchedContractor.name;
-  result.contractorId = matchedContractor.id;
-  if (matchedContractor.leaderName && !result.leaderName) {
-    result.leaderName = matchedContractor.leaderName;
-    result.corlapName = matchedContractor.leaderName;
   }
 
   // Step 7: Check Installer assignment
@@ -940,7 +1001,7 @@ export function runWODistributionEngine(
   }
 
   result.distributionStatus = 'distributed';
-  result.distributionNotes = `Berhasil didistribusikan ke ${matchedContractor.name} (${matchedContractor.leaderName || 'Leader'}).`;
+  result.distributionNotes = `Terdistribusi otomatis ke Leader ${result.leaderName} (${canonicalContractorName}${result.area ? ` - ${result.area}` : ''}).`;
 
   return {
     ticket: result,
@@ -952,9 +1013,10 @@ export function runWODistributionEngine(
 export function autoDistributeTicket(
   ticket: Partial<Ticket>,
   contractors: Contractor[],
-  coverageAreas: CoverageArea[]
+  coverageAreas: CoverageArea[],
+  users: User[] = []
 ): Partial<Ticket> {
-  const { ticket: res } = runWODistributionEngine(ticket, contractors, coverageAreas, 'dispatch');
+  const { ticket: res } = runWODistributionEngine(ticket, contractors, coverageAreas, 'super_admin', users);
   return res;
 }
 
@@ -1300,7 +1362,8 @@ export function processRawImportWithEngine(
   contractors: Contractor[] = [],
   coverageAreas: CoverageArea[] = [],
   customConfigs: CanonicalFieldConfig[] = MASTER_CANONICAL_FIELDS,
-  operatorRole: UserRole = 'dispatch'
+  operatorRole: UserRole = 'super_admin',
+  users: User[] = []
 ): {
   parsedRows: ParsedRowData[];
   validCount: number;
@@ -1575,7 +1638,7 @@ export function processRawImportWithEngine(
     });
 
     // Run WODistributionEngine with merged contractors (including dynamically recognized contractors)
-    const distResult = runWODistributionEngine(mapped, mergedContractors, mergedCoverageAreas, operatorRole);
+    const distResult = runWODistributionEngine(mapped, mergedContractors, mergedCoverageAreas, operatorRole, users);
     Object.assign(mapped, distResult.ticket);
 
     // -------------------------------------------------------------
@@ -1811,15 +1874,15 @@ export function parseExcelWorkbook(buffer: ArrayBuffer | Uint8Array): Record<str
  */
 export function reassignWOTechnician(
   ticket: Ticket,
-  targetInstaller: { id: string; name: string; phone?: string; active: boolean; contractor?: string },
+  targetInstaller: { id: string; name: string; phone?: string; active: boolean; contractor?: string; area?: string },
   leader: { id: string; name: string; role: string; contractor?: string; area?: string },
   reason: string
 ): { success: boolean; ticket?: Ticket; historyEntry?: WOAssignmentHistory; error?: string } {
-  // 1. Check permissions
-  if (leader.role !== 'leader' && leader.role !== 'super_admin') {
+  // 1. Strict permission: ONLY leader can assign/reassign technicians
+  if (leader.role !== 'leader') {
     return {
       success: false,
-      error: 'Akses Ditolak: Hanya Leader / Korlap lapangan yang berwenang melakukan reassignment teknisi.'
+      error: 'Akses Ditolak: Hanya akun dengan role Leader yang berwenang melakukan assignment atau reassignment teknisi.'
     };
   }
 
@@ -1838,14 +1901,24 @@ export function reassignWOTechnician(
     };
   }
 
-  // 3. Verify contractor scope for Leader
-  if (leader.role === 'leader' && leader.contractor) {
+  // 3. Verify contractor & area scope for Leader
+  if (leader.contractor) {
     const leaderContr = leader.contractor.toLowerCase().trim();
     const woContr = (ticket.contactorName || ticket.contractorName || '').toLowerCase().trim();
     if (woContr && !woContr.includes(leaderContr) && !leaderContr.includes(woContr)) {
       return {
         success: false,
         error: `Akses Ditolak: WO ${ticket.woNumber} berada di bawah vendor ${ticket.contactorName || ticket.contractorName}, di luar cakupan Anda (${leader.contractor}).`
+      };
+    }
+  }
+  if (leader.area && ticket.area) {
+    const leaderArea = leader.area.toLowerCase().trim();
+    const woArea = ticket.area.toLowerCase().trim();
+    if (!woArea.includes(leaderArea) && !leaderArea.includes(woArea)) {
+      return {
+        success: false,
+        error: `Akses Ditolak: WO ${ticket.woNumber} berada di area ${ticket.area}, di luar cakupan wilayah Anda (${leader.area}).`
       };
     }
   }
@@ -1858,13 +1931,23 @@ export function reassignWOTechnician(
     };
   }
 
-  if (leader.role === 'leader' && leader.contractor && targetInstaller.contractor) {
+  if (leader.contractor && targetInstaller.contractor) {
     const leaderContr = leader.contractor.toLowerCase().trim();
     const instContr = targetInstaller.contractor.toLowerCase().trim();
     if (!instContr.includes(leaderContr) && !leaderContr.includes(instContr)) {
       return {
         success: false,
         error: `Teknisi ${targetInstaller.name} terdaftar di vendor ${targetInstaller.contractor}, berbeda dengan vendor Anda (${leader.contractor}).`
+      };
+    }
+  }
+  if (leader.area && targetInstaller.area) {
+    const leaderArea = leader.area.toLowerCase().trim();
+    const instArea = targetInstaller.area.toLowerCase().trim();
+    if (!instArea.includes(leaderArea) && !leaderArea.includes(instArea)) {
+      return {
+        success: false,
+        error: `Teknisi ${targetInstaller.name} berada di wilayah ${targetInstaller.area}, berbeda dengan wilayah Anda (${leader.area}).`
       };
     }
   }
@@ -1886,6 +1969,7 @@ export function reassignWOTechnician(
   }
 
   const now = new Date().toISOString();
+  const nextInstallerStatus = ticket.checkInAt ? (ticket.statusWOInstaller || 'In Progress') : 'Assigned';
   const historyEntry: WOAssignmentHistory = {
     id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
     woNumber: ticket.woNumber,
@@ -1898,20 +1982,19 @@ export function reassignWOTechnician(
     timestamp: now,
     reason: reason.trim(),
     previousStatus: ticket.statusWOInstaller,
-    newStatus: 'Assigned',
+    newStatus: nextInstallerStatus,
     sourceAction: 'reassign'
   };
 
-  // 6. Mutate only assignment fields, preserving master data, reports, and chat
+  // 6. Mutate only assignment fields, preserving master data, reports, check-in/out sessions, and chat
   const updatedTicket: Ticket = {
     ...ticket,
-    // Active assignment updated atomically (old installer loses active assignment, new installer gains it)
     installerName: targetInstaller.name,
     installerContact: targetInstaller.phone || ticket.installerContact,
     reassignedAt: now,
     reassignedBy: leader.name,
     reassignmentReason: reason.trim(),
-    statusWOInstaller: 'Assigned', // Reset field status to Assigned for the new installer
+    statusWOInstaller: nextInstallerStatus,
     assignmentHistory: [...(ticket.assignmentHistory || []), historyEntry],
     updatedAt: now,
     updatedBy: `${leader.name} (Reassign)`

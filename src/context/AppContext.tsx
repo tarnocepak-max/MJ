@@ -60,7 +60,7 @@ import {
 import {
   calculateDurationMinutes,
   formatWorkDuration,
-  isProgressCheckInMessage,
+  isProgressCategory,
   formatJakartaTimestamp
 } from '../services/workSessionService';
 import { useToast } from './ToastContext';
@@ -150,7 +150,7 @@ interface AppContextType {
   saveTechnicalReport: (
     ticketId: string,
     reportData: Omit<TechnicalReport, 'id' | 'ticketId' | 'submittedAt' | 'submittedBy'>
-  ) => { success: boolean; error?: string };
+  ) => { success: boolean; error?: string; code?: string };
   saveProgressReport: (
     ticketId: string,
     data: {
@@ -165,7 +165,7 @@ interface AppContextType {
       rootcauseId?: string;
       rootcauseLabel?: string;
     }
-  ) => Promise<{ success: boolean; error?: string; report?: ProgressReportEntry }>;
+  ) => Promise<{ success: boolean; error?: string; code?: string; report?: ProgressReportEntry }>;
   verifyTechnicalReport: (ticketId: string) => void;
   startWorkOnTicket: (ticketId: string) => Promise<{ success: boolean; error?: string; ticket?: Ticket }>;
   approveProgressReport: (ticketId: string, notes?: string) => Promise<{ success: boolean; error?: string }>;
@@ -200,12 +200,12 @@ interface AppContextType {
   bulkImportTickets: (
     imported: Partial<Ticket>[],
     options?: { duplicatePolicy?: 'skip' | 'update_allowed' | 'review' }
-  ) => { importedCount: number; updatedCount?: number; duplicatesIgnored: number; rejectedDuplicates?: string[] };
+  ) => { importedCount: number; updatedCount?: number; duplicatesIgnored: number; rejectedDuplicates?: string[]; distributedCount?: number; undistributedCount?: number };
   deleteImportedTicketsByDate: (importDate: string, reason: string) => { success: boolean; count: number; error?: string };
 
   // Live Chat
   ticketMessages: TicketMessage[];
-  sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string) => { success: boolean; error?: string; message?: TicketMessage };
+  sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string) => Promise<{ success: boolean; error?: string; message?: TicketMessage }>;
   getMessagesForTicket: (ticketId: string) => TicketMessage[];
   markTicketMessagesAsRead: (ticketId: string) => void;
   getTicketUnreadCount: (ticketId: string) => number;
@@ -669,6 +669,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Supabase Express SSE Subscriptions & Master Sync
   useEffect(() => {
     let unsubWorkOrders: (() => void) | null = null;
+    let unsubMessages: (() => void) | null = null;
     let unsubUsers: (() => void) | null = null;
     let unsubSettings: (() => void) | null = null;
     let isCancelled = false;
@@ -710,6 +711,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         onError: () => {
           // Non-fatal SSE fallback; periodic polling remains active
         }
+      });
+
+      unsubMessages = supabaseDb.subscribeToChanges({
+        table: 'ticket_messages',
+        onPayload: (payload) => {
+          if (isCancelled || !payload) return;
+          if (payload.eventType === 'READ_RECEIPT' && payload.ticketId && payload.userId) {
+            const readerId = String(payload.userId);
+            const targetTicketId = String(payload.ticketId);
+            setTicketMessages(prev =>
+              prev.map(m => {
+                if (m.ticketId !== targetTicketId) return m;
+                const readers = Array.isArray(m.readBy) ? m.readBy : [];
+                if (readers.includes(readerId)) return m;
+                return { ...m, readBy: [...readers, readerId] };
+              })
+            );
+            return;
+          }
+          if (payload.new && payload.new.id) {
+            const incomingMsg: TicketMessage = payload.new;
+            setTicketMessages(prev => {
+              if (prev.some(m => m.id === incomingMsg.id)) {
+                return prev.map(m => (m.id === incomingMsg.id ? { ...m, ...incomingMsg } : m));
+              }
+              return [...prev, incomingMsg].sort(
+                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+              );
+            });
+          }
+        },
+        onError: () => {}
       });
 
       unsubUsers = supabaseDb.subscribeToChanges({
@@ -759,6 +792,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('offline', handleOffline);
       clearInterval(pollInterval);
       if (unsubWorkOrders) unsubWorkOrders();
+      if (unsubMessages) unsubMessages();
       if (unsubUsers) unsubUsers();
       if (unsubSettings) unsubSettings();
     };
@@ -809,6 +843,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           if (Array.isArray(data.tickets)) {
             setTickets(data.tickets);
+          }
+          if (Array.isArray(data.ticketMessages)) {
+            setTicketMessages(() => {
+              const map = new Map<string, TicketMessage>();
+              data.ticketMessages.forEach((m: TicketMessage) => {
+                if (m && m.id) map.set(m.id, m);
+              });
+              return Array.from(map.values()).sort(
+                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+              );
+            });
           }
           if (Array.isArray(data.contractors) && data.contractors.length > 0) {
             setContractors(deduplicateContractors(data.contractors));
@@ -1249,7 +1294,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const hasPermission = (permission: Permission) => checkPermission(currentUser.role, permission);
   const canDelete = currentUser.role === 'super_admin';
-  const canImport = currentUser.role === 'super_admin' || currentUser.role === 'dispatch' || currentUser.role === 'management_data';
+  const canImport = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
   const canEditWOData = currentUser.role === 'super_admin' || currentUser.role === 'dispatch' || currentUser.role === 'management_data';
 
   // Role Scoped Work Orders (Strict RBAC Data Management)
@@ -1974,6 +2019,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
+    // App Flow 5: Installer MUST record PROGRESS LiveChat check-in before saving report
+    if (currentUser.role === 'installer' && !ticket.checkInAt) {
+      const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
+      toast.error(msg, 'Check-in PROGRESS Diperlukan');
+      return { success: false, code: 'CHECK_IN_REQUIRED', error: msg };
+    }
+
     const now = new Date().toISOString();
     const report: TechnicalReport = {
       ...reportData,
@@ -2229,11 +2281,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rootcauseId?: string;
       rootcauseLabel?: string;
     }
-  ): Promise<{ success: boolean; error?: string; report?: ProgressReportEntry }> => {
+  ): Promise<{ success: boolean; error?: string; code?: string; report?: ProgressReportEntry }> => {
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
-    // 1. Strict Installer Assignment Verification
+    // 1. Strict Installer Assignment Verification & Check-in Requirement (App Flow 5)
     if (currentUser.role === 'installer') {
       const myId = currentUser.id || '';
       const myUsername = (currentUser.username || '').toLowerCase().trim();
@@ -2249,6 +2301,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return {
           success: false,
           error: 'Akses Ditolak: Anda hanya berwenang menyimpan laporan untuk tiket yang di-assign kepada Anda.'
+        };
+      }
+
+      if (!ticket.checkInAt) {
+        const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
+        toast.error(msg, 'Check-in PROGRESS Diperlukan');
+        return {
+          success: false,
+          code: 'CHECK_IN_REQUIRED',
+          error: msg
         };
       }
     }
@@ -3018,8 +3080,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
-  // Live Chat
-  const sendTicketMessage = (ticketId: string, text: string, attachments: ChatAttachment[] = [], category?: string) => {
+  // Live Chat (App Flow 4 & 5: Confirmed backend persistence, strict category PROGRESS check-in, persisted readBy)
+  const sendTicketMessage = async (
+    ticketId: string,
+    text: string,
+    attachments: ChatAttachment[] = [],
+    category?: string
+  ): Promise<{ success: boolean; error?: string; message?: TicketMessage }> => {
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
@@ -3033,7 +3100,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Pesan atau lampiran foto tidak boleh kosong.' };
     }
 
-    // Requirement 7: Validasi wajib bagi Installer untuk memilih kategori chat
+    // Validasi wajib bagi Installer untuk memilih kategori chat
     if (currentUser.role === 'installer') {
       const myId = currentUser.id || '';
       const myUsername = (currentUser.username || '').toLowerCase().trim();
@@ -3059,135 +3126,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const effectiveCategory = (category || ticket.chatCategory || '').trim();
-    const isProgressCategory = effectiveCategory.toUpperCase() === 'PROGRESS';
-    const now = new Date().toISOString();
+    const isStrictProgressCategory = isProgressCategory(effectiveCategory);
+    const hadCheckInBefore = Boolean(ticket.checkInAt);
 
-    const newMessage: TicketMessage = {
-      id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-      ticketId,
-      woNumber: ticket.woNumber,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderRole: currentUser.role,
-      text: text.trim(),
-      category: effectiveCategory || undefined,
-      attachments,
-      timestamp: now,
-      readBy: [currentUser.id]
-    };
+    try {
+      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          text: text.trim(),
+          attachments,
+          category: effectiveCategory || undefined
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success || !json.message) {
+        const errMsg = json?.error || `Gagal mengirim pesan LiveChat (${res.status})`;
+        toast.error(errMsg, 'Pesan Gagal Terkirim');
+        return { success: false, error: errMsg };
+      }
 
-    setTicketMessages(prev => [...prev, newMessage]);
+      const savedMessage: TicketMessage = {
+        ...json.message,
+        readBy: Array.isArray(json.message.readBy) ? json.message.readBy : [currentUser.id]
+      };
 
-    // Update ticket message indicators & sync chatCategory
-    let updatedTicketChat: Ticket = {
-      ...ticket,
-      chatCategory: effectiveCategory || ticket.chatCategory,
-      chatMessagesCount: (ticket.chatMessagesCount || 0) + 1,
-      lastMessageAt: now,
-      lastMessageSnippet: text.trim() || (attachments.length > 0 ? `[Foto: ${attachments[0].fileName}]` : ''),
-      updatedAt: now,
-      updatedBy: currentUser.name
-    };
-
-    // Requirement 3.A & Requirement 6: Integrasi Live Chat Kategori/Pesan PROGRESS dengan Auto Check-in & Status WO
-    const isProgressText = isProgressCheckInMessage(text);
-    const isProgressActivity = isProgressCategory || isProgressText;
-
-    if (currentUser.role === 'installer' && isProgressActivity) {
-      // Automatic Check-in: Only record on first valid PROGRESS activity of the active session
-      if (!ticket.checkInAt || ticket.workSessionStatus === 'Belum Check-in') {
-        updatedTicketChat.checkInAt = now;
-        updatedTicketChat.workSessionStatus = 'Sedang Dikerjakan';
-
-        if (!Array.isArray(updatedTicketChat.workSessions)) {
-          updatedTicketChat.workSessions = [];
+      setTicketMessages(prev => {
+        if (prev.some(m => m.id === savedMessage.id)) {
+          return prev.map(m => (m.id === savedMessage.id ? savedMessage : m));
         }
+        return [...prev, savedMessage];
+      });
 
-        const hasActiveSession = updatedTicketChat.workSessions.some(s => s.status === 'Sedang Dikerjakan');
-        if (!hasActiveSession) {
-          updatedTicketChat.workSessions.push({
-            sessionId: 'ws_' + Date.now(),
-            checkInAt: now,
-            status: 'Sedang Dikerjakan'
-          });
-        }
+      if (json.ticket) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+      } else {
+        const now = savedMessage.timestamp || new Date().toISOString();
+        setTickets(prev =>
+          prev.map(t =>
+            t.id === ticketId
+              ? {
+                  ...t,
+                  chatCategory: effectiveCategory || t.chatCategory,
+                  chatMessagesCount: (t.chatMessagesCount || 0) + 1,
+                  lastMessageAt: now,
+                  lastMessageSnippet: text.trim() || (attachments.length > 0 ? `[Foto: ${attachments[0].fileName}]` : ''),
+                  updatedAt: now
+                }
+              : t
+          )
+        );
+      }
 
+      // Only notify Check-in AFTER confirmed save of strict PROGRESS category message
+      if (currentUser.role === 'installer' && isStrictProgressCategory && (json.checkedIn || !hadCheckInBefore)) {
+        const checkInTs = json.ticket?.checkInAt || savedMessage.timestamp || new Date().toISOString();
         addAuditLog(
           'Installer Check-in Recorded',
           'ticket',
           ticketId,
-          `Teknisi ${currentUser.name} check-in otomatis pada WO ${ticket.woNumber} via pesan PROGRESS Live Chat (${formatJakartaTimestamp(now)})`
+          `Teknisi ${currentUser.name} check-in otomatis pada WO ${ticket.woNumber} via pesan LiveChat kategori PROGRESS (${formatJakartaTimestamp(checkInTs)})`
         );
-
         toast.info(
-          `Check-in berhasil tercatat pada ${formatJakartaTimestamp(now)}. Durasi kerja mulai dihitung.`,
-          'Check-in Otomatis'
+          `Check-in berhasil tercatat pada ${formatJakartaTimestamp(checkInTs)}. Durasi kerja mulai dihitung.`,
+          'Check-in Otomatis (PROGRESS)'
         );
       }
 
-      const isClosed = ticket.statusWOAgent === 'Closed';
-      const isApprovalState = ticket.approvalStatus === 'BUTUH APPROVAL' || ticket.approvalStatus === 'APPROVED';
-
-      // Rule: Jangan menimpa status BUTUH APPROVAL, APPROVED, atau CLOSED
-      if (!isClosed && !isApprovalState) {
-        const alreadyProgress =
-          ticket.statusWOAgent === 'In Progress' &&
-          (ticket.statusWOInstaller === 'PROGRESS' || ticket.statusWOInstaller === 'On Site');
-
-        if (!alreadyProgress) {
-          updatedTicketChat.statusWOAgent = 'In Progress';
-          updatedTicketChat.statusWOInstaller = 'PROGRESS';
-          if (!updatedTicketChat.workStartedAt) {
-            updatedTicketChat.workStartedAt = now;
-            updatedTicketChat.workStartedBy = currentUser.name;
-            updatedTicketChat.workStartedById = currentUser.id;
-          }
-
-          const progressActivity: TicketActivity = {
-            id: 'act-' + Date.now(),
-            ticketId,
-            woNumber: ticket.woNumber,
-            action: 'Status Diperbarui ke PROGRESS via Live Chat',
-            description: `Teknisi ${currentUser.name} mengirim chat dengan aktivitas PROGRESS. Status WO otomatis menjadi PROGRESS.`,
-            performedBy: currentUser.name,
-            userRole: currentUser.role,
-            timestamp: now
-          };
-          setTicketActivities(prev => [progressActivity, ...prev]);
-
-          addAuditLog(
-            'Chat Status PROGRESS',
-            'ticket',
-            ticketId,
-            `Status WO ${ticket.woNumber} otomatis diperbarui ke PROGRESS setelah teknisi ${currentUser.name} mengirim pesan PROGRESS.`
-          );
-
-          toast.info(
-            `Status Work Order ${ticket.woNumber} otomatis ditandai sebagai PROGRESS.`,
-            'Status WO: PROGRESS'
-          );
-        }
+      if (attachments.length > 0) {
+        addAuditLog('Chat Attachment Uploaded', 'ticket', ticketId, `${currentUser.name} uploaded ${attachments.length} photo(s) in ticket chat`);
       }
+
+      return { success: true, message: savedMessage };
+    } catch (err: any) {
+      const errMsg = err?.message || 'Koneksi gagal saat mengirim pesan LiveChat. Check-in tidak dicatat.';
+      toast.error(errMsg, 'Gagal Mengirim Pesan');
+      return { success: false, error: errMsg };
     }
-
-    setTickets(prev =>
-      prev.map(t => (t.id === ticketId ? updatedTicketChat : t))
-    );
-
-    // Persist ticket metadata updates and chat message via Express backend proxy (Supabase PostgreSQL)
-    supabaseDb.updateWorkOrder(updatedTicketChat.id, updatedTicketChat).catch(e => console.warn('[Supabase] Error syncing ticket status from chat:', e));
-
-    fetch(`/api/tickets/${ticketId}/messages`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ text: text.trim(), attachments, category: effectiveCategory || undefined })
-    }).catch(e => console.error('Error syncing chat message to server:', e));
-
-    if (attachments.length > 0) {
-      addAuditLog('Chat Attachment Uploaded', 'ticket', ticketId, `${currentUser.name} uploaded ${attachments.length} photo(s) in ticket chat`);
-    }
-
-    return { success: true, message: newMessage };
   };
 
   const getMessagesForTicket = (ticketId: string) => {
@@ -3197,19 +3212,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const markTicketMessagesAsRead = (ticketId: string) => {
+    const currentUserId = currentUser?.id || '';
+    if (!currentUserId) return;
+
+    let hasUnread = false;
     setTicketMessages(prev => {
       let changed = false;
-      const currentUserId = currentUser?.id || '';
-      if (!currentUserId) return prev;
       const next = prev.map(m => {
         if (m.ticketId !== ticketId) return m;
         const currentReaders = Array.isArray(m.readBy) ? m.readBy : [];
         if (currentReaders.includes(currentUserId)) return m;
         changed = true;
+        hasUnread = true;
         return { ...m, readBy: [...currentReaders, currentUserId] };
       });
       return changed ? next : prev;
     });
+
+    // Persist read receipt to backend (idempotent even if local unread count was hydrated differently)
+    supabaseDb.markTicketMessagesRead(ticketId).catch(() => {});
   };
 
   const getTicketUnreadCount = (ticketId: string): number => {
@@ -3311,19 +3332,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Strict Rule: Non-leaders cannot modify installerName
-    if (updates.installerName !== undefined && currentUser.role !== 'leader') {
-      delete (updates as any).installerName;
+    // Strict Rule: Non-leaders cannot modify installerName / installerId
+    if ((updates.installerName !== undefined || updates.installerId !== undefined) && currentUser.role !== 'leader') {
+      return { success: false, error: 'Akses Ditolak: Hanya Leader yang berwenang melakukan assignment teknisi.' };
+    }
+
+    // Strict Rule: Dispatch cannot modify WO Leader / distribution assignment
+    if (currentUser.role === 'dispatch') {
+      const forbiddenDispatchFields: (keyof Ticket)[] = ['leaderName', 'leaderId', 'corlapName', 'distributionStatus'];
+      const hasForbidden = forbiddenDispatchFields.some(f => updates[f] !== undefined && updates[f] !== existing[f]);
+      if (hasForbidden) {
+        return { success: false, error: 'Akses Ditolak: Dispatch tidak berwenang mengubah distribusi Leader atau assignment WO.' };
+      }
     }
 
     let mergedTicket: Ticket | undefined;
     setTickets(prev =>
       prev.map(t => {
         if (t.id !== id) return t;
+        const nextInstallerStatus = updates.installerName
+          ? (t.checkInAt ? t.statusWOInstaller : 'Assigned')
+          : t.statusWOInstaller;
         const merged: Ticket = {
           ...t,
           ...updates,
-          statusWOInstaller: updates.installerName ? 'Assigned' : t.statusWOInstaller,
+          statusWOInstaller: nextInstallerStatus,
           updatedAt: new Date().toISOString(),
           updatedBy: currentUser.name
         };
@@ -3362,44 +3395,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
-  const assignTicketPersonnel = (ticketId: string, leaderName?: string, installerName?: string) => {
-    // Strict Rule: Hanya LEADER yang bisa assign WO ke teknisi
-    if (installerName !== undefined && installerName !== '') {
-      if (currentUser.role !== 'leader') {
-        addAuditLog(
-          'Unauthorized Technician Assignment Blocked',
-          'ticket',
-          ticketId,
-          `Penugasan teknisi ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi. Operator: ${currentUser.name} (${currentUser.role})`
-        );
-        toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.', 'Otoritas Dibatasi');
-        return;
-      }
-    }
-
-    // Only Dispatch, Super Admin, or Leader (for their contractor) can assign personnel
-    if (currentUser.role !== 'super_admin' && currentUser.role !== 'dispatch' && currentUser.role !== 'leader') {
+  const assignTicketPersonnel = (ticketId: string, _leaderName?: string, installerName?: string) => {
+    // App Flow 2: Strictly ONLY Leader can assign WO to technician
+    if (currentUser.role !== 'leader') {
+      addAuditLog(
+        'Unauthorized Technician Assignment Blocked',
+        'ticket',
+        ticketId,
+        `Penugasan teknisi ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi. Operator: ${currentUser.name} (${currentUser.role})`
+      );
+      toast.error('Akses Ditolak: Hanya Leader yang berwenang melakukan assignment teknisi.', 'Otoritas Dibatasi');
       return;
     }
 
     const targetTicket = getTicketById(ticketId);
+    if (!targetTicket) return;
+
+    // Verify Contractor & Area scope of Leader
+    const norm = (v?: string) => String(v || '').toLowerCase().trim();
+    const leaderContr = norm(currentUser.contractor);
+    const woContr = norm(targetTicket.contactorName || targetTicket.contractorName);
+    if (leaderContr && woContr && !woContr.includes(leaderContr) && !leaderContr.includes(woContr)) {
+      toast.error(`Akses Ditolak: WO ${targetTicket.woNumber} berada di luar cakupan Contractor Anda (${currentUser.contractor}).`, 'Di Luar Cakupan');
+      return;
+    }
+    const leaderArea = norm(currentUser.area);
+    const woArea = norm(targetTicket.area);
+    if (leaderArea && woArea && !woArea.includes(leaderArea) && !leaderArea.includes(woArea)) {
+      toast.error(`Akses Ditolak: WO ${targetTicket.woNumber} berada di luar wilayah Anda (${currentUser.area}).`, 'Di Luar Wilayah');
+      return;
+    }
+
+    // Validate active installer in Leader scope
+    const cleanInstName = (installerName || '').trim();
+    const matchedInstaller = users.find(
+      u => u.role === 'installer' && norm(u.name) === norm(cleanInstName)
+    );
+    if (cleanInstName && matchedInstaller && !matchedInstaller.active) {
+      toast.error(`Teknisi ${matchedInstaller.name} sedang tidak aktif di sistem.`, 'Teknisi Nonaktif');
+      return;
+    }
+    if (cleanInstName && matchedInstaller && leaderContr && matchedInstaller.contractor) {
+      const instContr = norm(matchedInstaller.contractor);
+      if (!instContr.includes(leaderContr) && !leaderContr.includes(instContr)) {
+        toast.error(`Teknisi ${matchedInstaller.name} berasal dari vendor lain (${matchedInstaller.contractor}).`, 'Di Luar Cakupan');
+        return;
+      }
+    }
+
     let updatedTicketItem: Ticket | undefined;
 
     setTickets(prev =>
       prev.map(t => {
         if (t.id !== ticketId) return t;
-        const canAssignInstaller = currentUser.role === 'leader';
-        const canAssignLeader = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
         let updated: Ticket = {
           ...t,
-          leaderName: canAssignLeader && leaderName !== undefined ? leaderName : t.leaderName,
-          installerName: canAssignInstaller && installerName !== undefined ? installerName : t.installerName,
-          statusWOInstaller: (canAssignInstaller && installerName) ? 'Assigned' : t.statusWOInstaller,
+          installerName: cleanInstName || undefined,
+          installerId: matchedInstaller?.id || t.installerId,
+          installerContact: matchedInstaller?.phone || t.installerContact,
+          leaderName: t.leaderName || currentUser.name,
+          leaderId: t.leaderId || currentUser.id,
+          statusWOInstaller: cleanInstName ? (t.checkInAt ? t.statusWOInstaller : 'Assigned') : 'Unassigned',
           updatedAt: new Date().toISOString(),
           updatedBy: currentUser.name
         };
 
-        if (canAssignInstaller && installerName) {
+        if (cleanInstName) {
           const res = executeWorkflowsOnTicket(updated, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
           updated = res.ticket;
           if (res.logs.length > 0) {
@@ -3414,71 +3475,94 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (updatedTicketItem) {
       setSyncStatus('SYNCING');
-      supabaseDb.updateWorkOrder(updatedTicketItem.id, updatedTicketItem)
-        .then((res) => {
-          if (!res.success) throw new Error(res.error?.message || 'Penugasan gagal');
+      fetch('/api/tickets/assign', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          ticketId: updatedTicketItem.id,
+          installerName: cleanInstName,
+          installerId: matchedInstaller?.id,
+          installerContact: matchedInstaller?.phone
+        })
+      })
+        .then(async res => {
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json.success) {
+            throw new Error(json?.error || `Penugasan gagal (${res.status})`);
+          }
           setSyncStatus('SAVED');
           setLastSyncTime(new Date().toISOString());
-          if (installerName && currentUser.role === 'leader') {
-            toast.success(`Teknisi ${installerName} berhasil ditugaskan ke WO ${targetTicket?.woNumber || ''}!`, 'Penugasan Berhasil');
+          if (cleanInstName) {
+            toast.success(`Teknisi ${cleanInstName} berhasil ditugaskan ke WO ${targetTicket.woNumber}!`, 'Penugasan Berhasil');
           }
         })
         .catch(err => {
           setSyncStatus('ERROR');
-          toast.error('Gagal menyimpan penugasan ke Supabase PostgreSQL: ' + (err?.message || err), 'Penugasan Gagal');
+          toast.error('Gagal menyimpan penugasan ke server: ' + (err?.message || err), 'Penugasan Gagal');
         });
     }
 
-    addAuditLog('Personnel Assigned', 'ticket', ticketId, `Leader: ${leaderName || '-'}, Installer: ${currentUser.role === 'leader' ? installerName || '-' : '(Otoritas Terbatas Leader)'}`);
+    addAuditLog('Personnel Assigned', 'ticket', ticketId, `Leader ${currentUser.name} assigned Installer: ${cleanInstName || '-'}`);
   };
 
   const bulkAssignPersonnel = (
     ticketIds: string[],
-    leaderName?: string,
+    _leaderName?: string,
     installerName?: string,
     slotTime?: string,
     remarks?: string
   ): { success: boolean; count: number } => {
-    // Strict Rule: Hanya LEADER yang bisa assign WO ke teknisi
-    if (installerName !== undefined && installerName !== '') {
-      if (currentUser.role !== 'leader') {
-        addAuditLog(
-          'Unauthorized Bulk Technician Assignment Blocked',
-          'ticket',
-          'bulk',
-          `Penugasan massal teknisi ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi. Operator: ${currentUser.name} (${currentUser.role})`
-        );
-        toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.', 'Otoritas Dibatasi');
-        return { success: false, count: 0 };
-      }
-    }
-
-    if (currentUser.role !== 'super_admin' && currentUser.role !== 'dispatch' && currentUser.role !== 'leader') {
-      toast.error('Anda tidak memiliki wewenang untuk menugaskan personel.', 'Akses Ditolak');
+    // App Flow 2: Strictly ONLY Leader can assign WO to technician
+    if (currentUser.role !== 'leader') {
+      addAuditLog(
+        'Unauthorized Bulk Technician Assignment Blocked',
+        'ticket',
+        'bulk',
+        `Penugasan massal teknisi ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi. Operator: ${currentUser.name} (${currentUser.role})`
+      );
+      toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.', 'Otoritas Dibatasi');
       return { success: false, count: 0 };
     }
 
+    const norm = (v?: string) => String(v || '').toLowerCase().trim();
+    const cleanInstName = (installerName || '').trim();
+    const matchedInstaller = cleanInstName
+      ? users.find(u => u.role === 'installer' && norm(u.name) === norm(cleanInstName))
+      : undefined;
+
+    if (cleanInstName && matchedInstaller && !matchedInstaller.active) {
+      toast.error(`Teknisi ${matchedInstaller.name} sedang tidak aktif di sistem.`, 'Teknisi Nonaktif');
+      return { success: false, count: 0 };
+    }
+
+    const leaderContr = norm(currentUser.contractor);
+    const leaderArea = norm(currentUser.area);
+
     const targetSet = new Set(ticketIds);
-    let updatedCount = 0;
     const now = new Date().toISOString();
     const updatedTicketsList: Ticket[] = [];
 
     setTickets(prev =>
       prev.map(t => {
         if (!targetSet.has(t.id)) return t;
-        updatedCount++;
+        const woContr = norm(t.contactorName || t.contractorName);
+        const woArea = norm(t.area);
+        if (leaderContr && woContr && !woContr.includes(leaderContr) && !leaderContr.includes(woContr)) return t;
+        if (leaderArea && woArea && !woArea.includes(leaderArea) && !leaderArea.includes(woArea)) return t;
+
         let updated: Ticket = {
           ...t,
-          leaderName: leaderName !== undefined && leaderName !== '' ? leaderName : t.leaderName,
-          installerName: installerName !== undefined && installerName !== '' ? installerName : t.installerName,
+          installerName: cleanInstName !== '' ? cleanInstName : t.installerName,
+          installerId: matchedInstaller?.id || t.installerId,
+          installerContact: matchedInstaller?.phone || t.installerContact,
           slotTime: slotTime !== undefined && slotTime !== '' ? slotTime : t.slotTime,
-          statusWOInstaller: installerName ? 'Assigned' : t.statusWOInstaller,
+          statusWOInstaller: cleanInstName ? (t.checkInAt ? t.statusWOInstaller : 'Assigned') : t.statusWOInstaller,
           remarksWOInstaller: remarks ? (t.remarksWOInstaller ? `${t.remarksWOInstaller}; ${remarks}` : remarks) : t.remarksWOInstaller,
           updatedAt: now,
           updatedBy: currentUser.name
         };
 
-        if (installerName) {
+        if (cleanInstName) {
           const res = executeWorkflowsOnTicket(updated, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
           updated = res.ticket;
           if (res.logs.length > 0) {
@@ -3491,33 +3575,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    // Persist batch to Supabase PostgreSQL
+    if (updatedTicketsList.length === 0) {
+      toast.warning('Tidak ada tiket dalam cakupan Contractor & Area Anda untuk ditugaskan.', 'Di Luar Cakupan');
+      return { success: false, count: 0 };
+    }
+
     setSyncStatus('SYNCING');
-    Promise.all(updatedTicketsList.map(t => supabaseDb.updateWorkOrder(t.id, t)))
+    Promise.all(
+      updatedTicketsList.map(t =>
+        fetch('/api/tickets/assign', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            ticketId: t.id,
+            installerName: t.installerName,
+            installerId: t.installerId,
+            installerContact: t.installerContact,
+            slotTime: t.slotTime,
+            remarksWOInstaller: t.remarksWOInstaller
+          })
+        }).then(r => r.json())
+      )
+    )
       .then(() => {
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
-        toast.success(`Berhasil memperbarui penugasan untuk ${updatedTicketsList.length} tiket di Supabase PostgreSQL.`, 'Penugasan Massal Sukses');
+        toast.success(`Berhasil memperbarui penugasan untuk ${updatedTicketsList.length} tiket.`, 'Penugasan Massal Sukses');
       })
       .catch(err => {
         setSyncStatus('ERROR');
-        toast.error('Gagal menyimpan penugasan massal ke Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
+        toast.error('Gagal menyimpan penugasan massal ke server: ' + (err?.message || err), 'Gagal');
       });
 
     addAuditLog(
       'Bulk Personnel Assigned',
       'ticket',
-      `${ticketIds.length} tickets`,
-      `Bulk assigned ${ticketIds.length} tickets by ${currentUser.name}. Leader: ${leaderName || '-'}, Installer: ${installerName || '-'}, Slot: ${slotTime || 'Original'}`
+      `${updatedTicketsList.length} tickets`,
+      `Bulk assigned ${updatedTicketsList.length} tickets by Leader ${currentUser.name}. Installer: ${cleanInstName || '-'}, Slot: ${slotTime || 'Original'}`
     );
 
-    return { success: true, count: ticketIds.length };
+    return { success: true, count: updatedTicketsList.length };
   };
 
   const reassignTicketPersonnel = (ticketId: string, newInstallerName: string, reason: string): { success: boolean; error?: string; historyEntry?: WOAssignmentHistory } => {
-    // 1. RBAC check: Leader only (or Super Admin)
-    if (currentUser.role !== 'leader' && currentUser.role !== 'super_admin') {
-      const err = 'Akses Ditolak: Hanya Leader / Korlap berwenang melakukan Reassign WO.';
+    // 1. App Flow 2 RBAC check: Strictly Leader ONLY
+    if (currentUser.role !== 'leader') {
+      const err = 'Akses Ditolak: Hanya akun dengan role Leader yang berwenang melakukan Reassign WO.';
       toast.error(err, 'Akses Ditolak');
       return { success: false, error: err };
     }
@@ -3529,11 +3632,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: err };
     }
 
-    const targetInstaller = users.find(u => u.name === newInstallerName && u.role === 'installer') || {
+    const foundInstaller = users.find(u => u.name.toLowerCase().trim() === newInstallerName.toLowerCase().trim() && u.role === 'installer');
+    const targetInstaller = foundInstaller || {
       id: 'inst-' + Date.now(),
       name: newInstallerName,
       active: true,
-      contractor: currentUser.contractor
+      contractor: currentUser.contractor,
+      area: currentUser.area
     };
 
     // Call central reassignWOTechnician service engine
@@ -3558,18 +3663,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Update tickets state
     setTickets(prev => prev.map(t => t.id === ticketId ? reassignRes.ticket! : t));
 
-    // Confirmed write to Supabase PostgreSQL
+    // Persist via authoritative backend reassign endpoint
     setSyncStatus('SYNCING');
-    supabaseDb.updateWorkOrder(reassignRes.ticket.id, reassignRes.ticket)
-      .then((res) => {
-        if (!res.success) throw new Error(res.error?.message || 'Reassign gagal');
+    fetch('/api/tickets/reassign', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        ticketId,
+        woNumber: ticket.woNumber,
+        newInstallerName,
+        newInstallerId: foundInstaller?.id,
+        reason
+      })
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error || `Reassign gagal (${res.status})`);
+        }
+        if (json.ticket) {
+          setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, ...json.ticket } : t));
+        }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
         toast.success(`WO ${ticket.woNumber} berhasil dialihkan ke ${newInstallerName}!`, 'Reassign Berhasil');
       })
       .catch(err => {
         setSyncStatus('ERROR');
-        toast.error('Gagal menyimpan reassign ke Supabase PostgreSQL: ' + (err?.message || err), 'Reassign Gagal');
+        setTickets(prev => prev.map(t => t.id === ticketId ? ticket : t));
+        toast.error('Gagal menyimpan reassign ke server: ' + (err?.message || err), 'Reassign Gagal');
       });
 
     // Audit log
@@ -3579,18 +3701,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ticket.woNumber,
       `WO ${ticket.woNumber} dialihkan dari ${ticket.installerName || 'Unassigned'} ke ${newInstallerName} oleh ${currentUser.name}. Alasan: ${reason}`
     );
-
-    // Call backend API async to persist and verify
-    fetch('/api/tickets/reassign', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        ticketId,
-        woNumber: ticket.woNumber,
-        newInstallerName,
-        reason
-      })
-    }).catch(e => console.warn('Backend reassign sync notice failed', e));
 
     return { success: true, historyEntry: reassignRes.historyEntry };
   };
@@ -3763,17 +3873,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     imported: Partial<Ticket>[],
     options?: { duplicatePolicy?: 'skip' | 'update_allowed' | 'review' }
   ) => {
-    // Strict RBAC: Leader and Installer MUST be rejected
-    if (currentUser.role !== 'super_admin' && currentUser.role !== 'dispatch') {
+    // App Flow 1 & 3: ONLY Super Admin and Management Data can import WO (Dispatch, Leader, Installer are rejected)
+    if (currentUser.role !== 'super_admin' && currentUser.role !== 'management_data') {
       addAuditLog('Unauthorized Import Blocked', 'import_batch', 'import-denied', `Akses import ditolak untuk peran ${currentUser.role}`);
-      toast.error('Akses Ditolak: Hanya Super Admin atau Dispatch yang berwenang import tiket.', 'Akses Ditolak');
-      return { importedCount: 0, updatedCount: 0, duplicatesIgnored: 0 };
+      toast.error('Akses Ditolak: Hanya Super Admin atau Management Data yang berwenang melakukan import Work Order.', 'Akses Ditolak');
+      return { importedCount: 0, updatedCount: 0, duplicatesIgnored: 0, distributedCount: 0, undistributedCount: 0 };
     }
 
     const policy = options?.duplicatePolicy || 'skip';
     let importedCount = 0;
     let updatedCount = 0;
     let duplicatesIgnored = 0;
+    let distributedCount = 0;
+    let undistributedCount = 0;
     const existingWos = new Set(tickets.map(t => t.woNumber.toUpperCase().trim()));
 
     // Automatic Contractor & Coverage Area Registration from Import Results
@@ -3898,13 +4010,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       batchAcceptedWos.add(upperWo);
 
-      // Run central WODistributionEngine with dynamically recognized contractors
+      // Run central WODistributionEngine with dynamically recognized contractors & Contractor+Area Leader matching
       const { ticket: distributed, status: distStatus, reason: distReason } = runWODistributionEngine(
         item,
         activeContractors,
         activeCoverageAreas,
-        currentUser.role
+        currentUser.role,
+        users
       );
+      if (distStatus === 'distributed') {
+        distributedCount++;
+      } else {
+        undistributedCount++;
+      }
 
       // Customer ID validation (exact 7 digits)
       const rawCustId = (distributed.idCustomer || distributed.customerId || '').trim();
@@ -3965,7 +4083,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         contactorName: distributed.contactorName || distributed.contractorName || '',
         contractorName: distributed.contactorName || distributed.contractorName || '',
         contractorId: distributed.contractorId,
+        leaderId: distributed.leaderId,
         leaderName: distributed.leaderName || distributed.corlapName,
+        leaderContact: distributed.leaderContact,
         corlapName: distributed.corlapName || distributed.leaderName,
         corlapContact: distributed.corlapContact,
         installerName: distributed.installerName,
@@ -4060,7 +4180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    return { importedCount, updatedCount, duplicatesIgnored, rejectedDuplicates };
+    return { importedCount, updatedCount, duplicatesIgnored, rejectedDuplicates, distributedCount, undistributedCount };
   };
 
   // Delete imported data filtered by import date within 7-day retention window
@@ -4258,7 +4378,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             contractors,
             coverageAreas,
             canonicalFields,
-            currentUser.role
+            currentUser.role,
+            users
           );
 
           // Auto-register any new contractor categories detected from Google Sheet

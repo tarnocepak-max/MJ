@@ -198,12 +198,12 @@ export const DEFAULT_UI_CONFIG: UIConfiguration = {
   toolbar: {
     buttons: [
       { id: 'btn_refresh', label: 'Refresh', icon: 'RotateCw', visible: true, order: 1, group: 'secondary' },
-      { id: 'btn_import_wo', label: 'Import WO', icon: 'FileSpreadsheet', visible: true, order: 2, group: 'primary', roleRequired: ['super_admin', 'dispatch'] },
+      { id: 'btn_import_wo', label: 'Import WO', icon: 'FileSpreadsheet', visible: true, order: 2, group: 'primary', roleRequired: ['super_admin', 'management_data'] },
       { id: 'btn_export', label: 'Export Data', icon: 'Download', visible: true, order: 3, group: 'secondary' },
       { id: 'btn_view_presets', label: 'View Presets', icon: 'LayoutGrid', visible: true, order: 4, group: 'secondary' },
       { id: 'btn_table_settings', label: 'Customize Table', icon: 'SlidersHorizontal', visible: true, order: 5, group: 'secondary' },
       { id: 'btn_archive_toggle', label: 'Archived Tickets', icon: 'Archive', visible: true, order: 6, group: 'more_menu' },
-      { id: 'btn_bulk_assign', label: 'Bulk Assign', icon: 'UserCheck', visible: true, order: 7, group: 'more_menu', roleRequired: ['super_admin', 'dispatch', 'leader'] }
+      { id: 'btn_bulk_assign', label: 'Bulk Assign', icon: 'UserCheck', visible: true, order: 7, group: 'more_menu', roleRequired: ['leader'] }
     ],
     showSearch: true,
     showFilters: true,
@@ -316,7 +316,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     icon: 'FileSpreadsheet',
     order: 4,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'management_data']
+    roles: ['super_admin', 'management_data']
   },
   {
     id: 'contact_centre',
@@ -372,7 +372,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'contractor_area',
     order: 1,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader']
+    roles: ['leader']
   },
   {
     id: 'progress_dashboard',
@@ -434,13 +434,13 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
   // 3. Menu Tambahan
   {
     id: 'setup',
-    label: 'PUSAT SETUP',
+    label: 'SETUP TERPUSAT MORAJAWS',
     icon: 'Sliders',
     categoryId: 'menu_tambahan',
     order: 1,
     visible: true,
     highlight: true,
-    roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support']
+    roles: ['super_admin', 'dispatch', 'management_data']
   },
   {
     id: 'nav_config',
@@ -485,7 +485,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 6,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader']
+    roles: ['super_admin', 'dispatch']
   },
   {
     id: 'audit_logs',

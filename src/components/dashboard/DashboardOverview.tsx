@@ -70,7 +70,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         <h2 className="text-sm font-semibold text-slate-800">Akses Cepat</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={() => onNavigate('tickets')} className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700">Daftar Work Order</button>
-          {['super_admin', 'dispatch'].includes(currentUser?.role || '') && (
+          {['super_admin', 'management_data'].includes(currentUser?.role || '') && (
             <button onClick={() => onNavigate('import')} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">Import WO</button>
           )}
           <button onClick={() => onNavigate('contact_centre')} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">LiveChat</button>

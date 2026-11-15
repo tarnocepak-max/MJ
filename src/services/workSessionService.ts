@@ -95,18 +95,19 @@ export function calculateDurationMinutes(checkInIso: string, checkOutIso: string
 }
 
 /**
- * Detects if a message text is an operational PROGRESS check-in trigger.
- * Matches: 'PROGRESS', 'progress', '[PROGRESS]', 'PROGRESS: ...', 'Update PROGRESS ...'
+ * Strictly detects if the selected LiveChat category is 'PROGRESS'.
+ * App Flow 5 Rule: Check-in triggers ONLY when selected category is 'PROGRESS'.
  */
-export function isProgressCheckInMessage(text?: string | null): boolean {
-  if (!text) return false;
-  const upper = text.trim().toUpperCase();
-  if (upper === 'PROGRESS') return true;
-  if (upper.startsWith('PROGRESS')) return true;
-  if (upper.includes('[PROGRESS]')) return true;
-  if (upper.includes('PROGRESS:')) return true;
-  if (upper.includes('PROGRESS -')) return true;
-  return false;
+export function isProgressCategory(category?: string | null): boolean {
+  return String(category || '').trim().toUpperCase() === 'PROGRESS';
+}
+
+/**
+ * Legacy-compatible wrapper: requires selected category === 'PROGRESS'.
+ * Free-text keyword matching in other categories is intentionally disabled.
+ */
+export function isProgressCheckInMessage(_text?: string | null, category?: string | null): boolean {
+  return isProgressCategory(category);
 }
 
 /**

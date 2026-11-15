@@ -294,7 +294,7 @@ export const ContactCentreView: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!activeTicket || isSubmitting) return;
 
@@ -307,16 +307,24 @@ export const ContactCentreView: React.FC = () => {
     if (!inputText.trim() && pendingAttachments.length === 0) return;
 
     setIsSubmitting(true);
-    const res = sendTicketMessage(activeTicket.id, inputText.trim(), pendingAttachments);
-    setIsSubmitting(false);
+    try {
+      const res = await sendTicketMessage(
+        activeTicket.id,
+        inputText.trim(),
+        pendingAttachments,
+        activeTicket.chatCategory || undefined
+      );
 
-    if (res.success) {
-      setInputText('');
-      setPendingAttachments([]);
-      setErrorMessage(null);
-    } else {
-      setErrorMessage(res.error || 'Gagal mengirim pesan.');
-      toast.error(res.error || 'Gagal mengirim pesan.', 'Error');
+      if (res.success) {
+        setInputText('');
+        setPendingAttachments([]);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage(res.error || 'Gagal mengirim pesan.');
+        toast.error(res.error || 'Gagal mengirim pesan.', 'Error');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -383,7 +391,7 @@ export const ContactCentreView: React.FC = () => {
             </span>
             {unread > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-600 text-white animate-pulse">
-                {unread} baru
+                {unread > 99 ? '99+' : unread} baru
               </span>
             )}
           </div>
@@ -495,7 +503,7 @@ export const ContactCentreView: React.FC = () => {
                   <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
                     activeCategoryFilter === 'all_unread' ? 'bg-white text-rose-600' : 'bg-rose-600 text-white'
                   }`}>
-                    {totalUnreadCount}
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                   </span>
                 )}
               </button>
@@ -522,7 +530,7 @@ export const ContactCentreView: React.FC = () => {
                     <span className="text-[10px] opacity-75 font-mono">({group.tickets.length})</span>
                     {group.unreadCount > 0 && (
                       <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-600 text-white">
-                        {group.unreadCount}
+                        {group.unreadCount > 99 ? '99+' : group.unreadCount}
                       </span>
                     )}
                   </button>
@@ -587,7 +595,7 @@ export const ContactCentreView: React.FC = () => {
 
                       {group.unreadCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white shadow-2xs">
-                          {group.unreadCount} Unread
+                          {group.unreadCount > 99 ? '99+' : group.unreadCount} Unread
                         </span>
                       )}
                     </button>

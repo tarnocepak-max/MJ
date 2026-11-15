@@ -253,7 +253,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
               <span>Chat</span>
               {unread > 0 && (
                 <span className="px-1.5 py-0.2 bg-rose-600 text-white text-[10px] font-bold rounded-full">
-                  {unread}
+                  {unread > 99 ? '99+' : unread}
                 </span>
               )}
             </button>

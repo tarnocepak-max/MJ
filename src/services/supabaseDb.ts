@@ -639,6 +639,18 @@ export class SupabaseRepository {
     }
   }
 
+  async markTicketMessagesRead(ticketId: string): Promise<SupabaseResponse<{ updatedCount: number }>> {
+    try {
+      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/read`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menandai pesan sudah dibaca' } };
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // SECURE REALTIME SUBSCRIPTION VIA BACKEND SERVER-SENT EVENTS (SSE)
   // ---------------------------------------------------------------------------
