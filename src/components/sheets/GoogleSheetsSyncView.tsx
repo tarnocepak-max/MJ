@@ -155,10 +155,18 @@ export const GoogleSheetsSyncView: React.FC = () => {
     }
   };
 
+  const handleConfigUpdate = async (updates: Parameters<typeof updateGoogleSheetsConfig>[0]) => {
+    const res = await updateGoogleSheetsConfig(updates);
+    if (!res.success && res.error) {
+      setVerifyNotice({ type: 'error', message: res.error });
+    }
+    return res;
+  };
+
   const handleLogoutGoogle = async () => {
     await googleSignOut();
     setGoogleUser(null);
-    updateGoogleSheetsConfig({ enabled: false });
+    await handleConfigUpdate({ enabled: false });
   };
 
   const handleTestConnection = async () => {
@@ -196,7 +204,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
           type: 'success',
           message: `Koneksi Google Sheets Berhasil (${data.latencyMs || 0}ms). Ditemukan ${data.sheets?.length || 0} tab sheet dan ${data.headers?.length || 0} kolom Work Order.`
         });
-        updateGoogleSheetsConfig({
+        await handleConfigUpdate({
           spreadsheetId: cleanId,
           sheetName: selectedSheetName || destSheetName || 'Work_Orders'
         });
@@ -264,17 +272,19 @@ export const GoogleSheetsSyncView: React.FC = () => {
         setSelectedSheetName(meta.sheets[0] || 'Work_Orders');
       }
 
-      updateGoogleSheetsConfig({
+      const saveRes = await handleConfigUpdate({
         spreadsheetId: meta.id,
         spreadsheetUrl: meta.url,
         spreadsheetTitle: meta.title,
         sheetName: meta.sheets.includes(selectedSheetName) ? selectedSheetName : (meta.sheets[0] || 'Work_Orders')
       });
 
-      setVerifyNotice({
-        type: 'success',
-        message: `Spreadsheet "${meta.title}" berhasil diverifikasi (${meta.sheets.length} tab terdeteksi).`
-      });
+      if (saveRes.success) {
+        setVerifyNotice({
+          type: 'success',
+          message: `Spreadsheet "${meta.title}" berhasil diverifikasi (${meta.sheets.length} tab terdeteksi).`
+        });
+      }
     } catch (err: any) {
       setVerifyNotice({
         type: 'error',
@@ -287,7 +297,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
 
   const handleCreateNewSpreadsheet = async () => {
     if (!getAccessToken()) {
-      alert('Silakan masuk dengan akun Google terlebih dahulu.');
+      setVerifyNotice({ type: 'error', message: 'Silakan masuk dengan akun Google terlebih dahulu.' });
       return;
     }
 
@@ -300,19 +310,24 @@ export const GoogleSheetsSyncView: React.FC = () => {
       setAvailableSheets(meta.sheets);
       setSelectedSheetName('Work_Orders');
 
-      updateGoogleSheetsConfig({
+      const saveRes = await handleConfigUpdate({
         spreadsheetId: meta.id,
         spreadsheetUrl: meta.url,
         spreadsheetTitle: meta.title,
         sheetName: 'Work_Orders'
       });
 
-      setVerifyNotice({
-        type: 'success',
-        message: `Spreadsheet baru "${meta.title}" berhasil dibuat otomatis di Google Drive Anda!`
-      });
+      if (saveRes.success) {
+        setVerifyNotice({
+          type: 'success',
+          message: `Spreadsheet baru "${meta.title}" berhasil dibuat otomatis di Google Drive Anda!`
+        });
+      }
     } catch (err: any) {
-      alert(err?.message || 'Gagal membuat Google Spreadsheet baru.');
+      setVerifyNotice({
+        type: 'error',
+        message: err?.message || 'Gagal membuat Google Spreadsheet baru.'
+      });
     } finally {
       setIsCreatingSheet(false);
     }
@@ -850,7 +865,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                   onChange={e => {
                     setSelectedSheetName(e.target.value);
                     setDestSheetName(e.target.value);
-                    updateGoogleSheetsConfig({ sheetName: e.target.value });
+                    void handleConfigUpdate({ sheetName: e.target.value });
                   }}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
                 >
@@ -865,7 +880,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                   onChange={e => {
                     setSelectedSheetName(e.target.value);
                     setDestSheetName(e.target.value);
-                    updateGoogleSheetsConfig({ sheetName: e.target.value });
+                    void handleConfigUpdate({ sheetName: e.target.value });
                   }}
                   placeholder="Contoh: Work_Orders"
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
@@ -907,7 +922,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
               <input
                 type="checkbox"
                 checked={googleSheetsConfig.enabled}
-                onChange={e => updateGoogleSheetsConfig({ enabled: e.target.checked })}
+                onChange={e => void handleConfigUpdate({ enabled: e.target.checked })}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
@@ -923,7 +938,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
               </label>
               <select
                 value={googleSheetsConfig.syncInterval}
-                onChange={e => updateGoogleSheetsConfig({ syncInterval: Number(e.target.value) })}
+                onChange={e => void handleConfigUpdate({ syncInterval: Number(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium"
               >
                 <option value={1}>Setiap 1 Menit (Testing / Fast)</option>
@@ -941,7 +956,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
               </label>
               <select
                 value={googleSheetsConfig.syncDirection}
-                onChange={e => updateGoogleSheetsConfig({ syncDirection: e.target.value as any })}
+                onChange={e => void handleConfigUpdate({ syncDirection: e.target.value as any })}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium"
               >
                 <option value="both">🔁 Dua Arah (Pull & Push)</option>
@@ -958,7 +973,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
               <input
                 type="checkbox"
                 checked={googleSheetsConfig.autoExportOnStatusChange}
-                onChange={e => updateGoogleSheetsConfig({ autoExportOnStatusChange: e.target.checked })}
+                onChange={e => void handleConfigUpdate({ autoExportOnStatusChange: e.target.checked })}
                 className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
               />
               <div>
@@ -976,7 +991,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
               <input
                 type="checkbox"
                 checked={googleSheetsConfig.autoRegisterContractors}
-                onChange={e => updateGoogleSheetsConfig({ autoRegisterContractors: e.target.checked })}
+                onChange={e => void handleConfigUpdate({ autoRegisterContractors: e.target.checked })}
                 className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
               />
               <div>

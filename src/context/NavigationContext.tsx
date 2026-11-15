@@ -8,11 +8,17 @@ import {
 } from '../types/navigation';
 import { DEFAULT_NAVIGATION_CONFIG } from '../constants/defaultNavigationConfig';
 import {
-  saveNavigationConfigToSupabase,
   loadNavigationConfigFromSupabase,
-  subscribeToNavigationConfig,
   normalizeNavigationConfig
 } from '../services/navigationService';
+import {
+  getGlobalConfig,
+  saveGlobalConfig,
+  subscribeToGlobalConfigUpdates,
+  ConfigConflictError,
+  GlobalConfigConflictDetails,
+  setTrackedConfigVersion
+} from '../services/globalConfigService';
 import { useToast } from './ToastContext';
 
 const NAV_STORAGE_KEY = 'morajaws_navigation_config_v2';
@@ -25,6 +31,10 @@ interface NavigationContextType {
   isCloudSyncing: boolean;
   cloudSyncStatus: 'synced' | 'local_only' | 'syncing' | 'error';
   lastSyncTime: string | null;
+  navVersion: number;
+  navConflict: GlobalConfigConflictDetails | null;
+  clearNavConflict: () => void;
+  resolveNavConflict: (strategy: 'reload' | 'overwrite') => Promise<void>;
 
   // Accordion Expand/Collapse state
   expandedCategories: Record<string, boolean>;
@@ -53,9 +63,15 @@ interface NavigationContextType {
   updateAccordionSettingsInDraft: (updates: Partial<AccordionSettings>) => void;
 
   // Global Actions
-  saveChangesToSupabase: (operatorName?: string) => Promise<{ success: boolean; error?: string }>;
+  saveChangesToSupabase: (
+    operatorName?: string,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string; conflict?: GlobalConfigConflictDetails }>;
   cancelChanges: () => void;
-  resetToDefaultConfig: (operatorName?: string) => Promise<{ success: boolean; error?: string }>;
+  resetToDefaultConfig: (
+    operatorName?: string,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -84,6 +100,10 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'local_only' | 'syncing' | 'error'>('local_only');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [navVersion, setNavVersion] = useState<number>(1);
+  const navVersionRef = React.useRef<number>(1);
+  const [navConflict, setNavConflict] = useState<GlobalConfigConflictDetails | null>(null);
+  const pendingActionRef = React.useRef<{ type: 'save' | 'reset'; operatorName: string } | null>(null);
 
   // Accordion state: map of categoryId -> boolean (expanded / collapsed)
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
@@ -117,9 +137,12 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [navigationConfig]);
 
-  // Initial load from Supabase PostgreSQL and subscribe to real-time SSE updates
+  // Initial load from Supabase PostgreSQL and subscribe to real-time SSE updates (reacts to auth changes)
   useEffect(() => {
-    const hasSession = (() => {
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
+
+    const hasSessionToken = () => {
       try {
         const raw = localStorage.getItem('morajaws_auth_session');
         const parsed = raw ? JSON.parse(raw) : null;
@@ -127,37 +150,48 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } catch {
         return false;
       }
-    })();
-
-    if (!hasSession) {
-      setCloudSyncStatus('local_only');
-      return;
-    }
-
-    let isMounted = true;
-    let unsub: (() => void) | null = null;
+    };
 
     async function initCloudNavigation() {
+      if (unsub) {
+        unsub();
+        unsub = null;
+      }
+
+      if (!hasSessionToken()) {
+        if (isMounted) setCloudSyncStatus('local_only');
+        return;
+      }
+
       setIsCloudSyncing(true);
       try {
-        const cloudConfig = await loadNavigationConfigFromSupabase();
-        if (cloudConfig && isMounted) {
-          const normalized = normalizeNavigationConfig(cloudConfig);
+        const cloudRes = await getGlobalConfig<NavigationConfig>('navigation_config').catch(() => null);
+        const cloudVal = cloudRes?.value ?? (await loadNavigationConfigFromSupabase().catch(() => null));
+        if (cloudVal && isMounted) {
+          const normalized = normalizeNavigationConfig(cloudVal);
           setNavigationConfig(normalized);
-          setLastSyncTime(normalized.updatedAt);
+          const ver = cloudRes?.version || normalized.navigationVersion || 1;
+          navVersionRef.current = ver;
+          setNavVersion(ver);
+          setTrackedConfigVersion('navigation_config', ver);
+          setLastSyncTime(cloudRes?.updatedAt || normalized.updatedAt);
           setCloudSyncStatus('synced');
         } else if (isMounted) {
-          // Do not overwrite/auto-seed on mount when cloud record does not exist yet
           setCloudSyncStatus('local_only');
         }
 
-        // Attach real-time listener
-        unsub = subscribeToNavigationConfig(
-          (updated) => {
-            if (!isMounted || !updated) return;
-            const normalized = normalizeNavigationConfig(updated);
+        if (!isMounted) return;
+        unsub = subscribeToGlobalConfigUpdates(
+          (ev) => {
+            if (!isMounted || ev.key !== 'navigation_config' || !ev.value) return;
+            const normalized = normalizeNavigationConfig(ev.value);
             setNavigationConfig(normalized);
-            setLastSyncTime(normalized.updatedAt);
+            if (typeof ev.version === 'number') {
+              navVersionRef.current = ev.version;
+              setNavVersion(ev.version);
+              setTrackedConfigVersion('navigation_config', ev.version);
+            }
+            setLastSyncTime(ev.updatedAt || normalized.updatedAt);
             setCloudSyncStatus('synced');
           },
           (err) => {
@@ -173,10 +207,16 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
-    initCloudNavigation();
+    void initCloudNavigation();
+
+    const handleAuthChanged = () => {
+      void initCloudNavigation();
+    };
+    window.addEventListener('morajaws:auth-changed', handleAuthChanged);
 
     return () => {
       isMounted = false;
+      window.removeEventListener('morajaws:auth-changed', handleAuthChanged);
       if (unsub) unsub();
     };
   }, []);
@@ -486,8 +526,11 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   }, []);
 
-  // Save changes to Supabase PostgreSQL
-  const saveChangesToSupabase = useCallback(async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string }> => {
+  // Save changes to Supabase PostgreSQL (Database-First with OCC conflict protection)
+  const saveChangesToSupabase = useCallback(async (
+    operatorName: string = 'Super Admin',
+    options?: { forceOverwrite?: boolean }
+  ): Promise<{ success: boolean; error?: string; conflict?: GlobalConfigConflictDetails }> => {
     setIsSaving(true);
     setCloudSyncStatus('syncing');
 
@@ -500,7 +543,6 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, error: err };
     }
 
-    // Check for empty names
     for (const cat of draftConfig.categories) {
       if (!cat.name.trim()) {
         setIsSaving(false);
@@ -539,24 +581,44 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
+    pendingActionRef.current = { type: 'save', operatorName };
+
     try {
-      const res = await saveNavigationConfigToSupabase(draftConfig, operatorName);
-      if (res.success) {
-        setNavigationConfig(draftConfig);
-        setLastSyncTime(res.updatedAt);
-        setCloudSyncStatus('synced');
-        toast.success(
-          'Konfigurasi navigasi MoraJaws berhasil disimpan permanen ke Supabase PostgreSQL.',
-          'Berhasil Menyimpan'
-        );
-        return { success: true };
-      } else {
-        throw new Error('Gagal menyimpan konfigurasi');
-      }
+      const payload: NavigationConfig = {
+        ...draftConfig,
+        navigationVersion: (navVersionRef.current || 1) + 1,
+        updatedAt: new Date().toISOString(),
+        updatedBy: operatorName
+      };
+      const res = await saveGlobalConfig<NavigationConfig>('navigation_config', payload, {
+        module: 'navigation_config',
+        expectedVersion: navVersionRef.current,
+        forceOverwrite: Boolean(options?.forceOverwrite),
+        description: `MoraJaws navigation configuration updated by ${operatorName}`
+      });
+
+      const confirmed = normalizeNavigationConfig(res.value || payload);
+      navVersionRef.current = res.version;
+      setNavVersion(res.version);
+      setNavigationConfig(confirmed);
+      setLastSyncTime(res.updatedAt);
+      setCloudSyncStatus('synced');
+      setNavConflict(null);
+      pendingActionRef.current = null;
+      toast.success(
+        `Konfigurasi navigasi v${res.version} berhasil disimpan permanen dan disinkronkan global.`,
+        'Berhasil Menyimpan'
+      );
+      return { success: true };
     } catch (err: any) {
       console.error('[NavigationContext] Save to Supabase error:', err);
       setCloudSyncStatus('error');
-      const errMsg = err?.message || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.';
+      if (err instanceof ConfigConflictError) {
+        setNavConflict(err.conflict);
+        toast.warning(err.message, 'Konflik Versi Terdeteksi');
+        return { success: false, error: err.message, conflict: err.conflict };
+      }
+      const errMsg = err?.message || 'Gagal menyimpan konfigurasi navigasi ke database.';
       toast.error(errMsg, 'Gagal Menyimpan');
       return { success: false, error: errMsg };
     } finally {
@@ -571,30 +633,88 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [navigationConfig, toast]);
 
   // Reset to default config
-  const resetToDefaultConfig = useCallback(async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string }> => {
+  const resetToDefaultConfig = useCallback(async (
+    operatorName: string = 'Super Admin',
+    options?: { forceOverwrite?: boolean }
+  ): Promise<{ success: boolean; error?: string }> => {
     setIsSaving(true);
     setCloudSyncStatus('syncing');
+    pendingActionRef.current = { type: 'reset', operatorName };
     try {
-      const res = await saveNavigationConfigToSupabase(DEFAULT_NAVIGATION_CONFIG, operatorName + ' (Reset Default)');
-      if (res.success) {
-        setDraftConfig(DEFAULT_NAVIGATION_CONFIG);
-        setNavigationConfig(DEFAULT_NAVIGATION_CONFIG);
-        setLastSyncTime(res.updatedAt);
-        setCloudSyncStatus('synced');
-        toast.success('Konfigurasi navigasi berhasil dikembalikan ke standar bawaan MoraJaws.', 'Reset Berhasil');
-        return { success: true };
-      }
-      setCloudSyncStatus('error');
-      return { success: false, error: res.error || 'Gagal mereset ke Supabase PostgreSQL' };
+      const payload: NavigationConfig = {
+        ...DEFAULT_NAVIGATION_CONFIG,
+        navigationVersion: (navVersionRef.current || 1) + 1,
+        updatedAt: new Date().toISOString(),
+        updatedBy: `${operatorName} (Reset Default)`
+      };
+      const res = await saveGlobalConfig<NavigationConfig>('navigation_config', payload, {
+        module: 'navigation_config',
+        expectedVersion: navVersionRef.current,
+        forceOverwrite: Boolean(options?.forceOverwrite),
+        description: `Navigation reset to default by ${operatorName}`
+      });
+
+      const confirmed = normalizeNavigationConfig(res.value || payload);
+      navVersionRef.current = res.version;
+      setNavVersion(res.version);
+      setDraftConfig(confirmed);
+      setNavigationConfig(confirmed);
+      setLastSyncTime(res.updatedAt);
+      setCloudSyncStatus('synced');
+      setNavConflict(null);
+      pendingActionRef.current = null;
+      toast.success('Konfigurasi navigasi berhasil dikembalikan ke standar bawaan MoraJaws.', 'Reset Berhasil');
+      return { success: true };
     } catch (err: any) {
       const errMsg = err?.message || 'Gagal mereset konfigurasi navigasi.';
       setCloudSyncStatus('error');
+      if (err instanceof ConfigConflictError) {
+        setNavConflict(err.conflict);
+        toast.warning(err.message, 'Konflik Versi Terdeteksi');
+        return { success: false, error: errMsg };
+      }
       toast.error(errMsg, 'Reset Gagal');
       return { success: false, error: errMsg };
     } finally {
       setIsSaving(false);
     }
   }, [toast]);
+
+  const clearNavConflict = useCallback(() => {
+    setNavConflict(null);
+    pendingActionRef.current = null;
+  }, []);
+
+  const resolveNavConflict = useCallback(async (strategy: 'reload' | 'overwrite') => {
+    if (strategy === 'reload') {
+      try {
+        const res = await getGlobalConfig<NavigationConfig>('navigation_config');
+        if (res.value) {
+          const normalized = normalizeNavigationConfig(res.value);
+          setNavigationConfig(normalized);
+          setDraftConfig(normalized);
+          navVersionRef.current = res.version || 1;
+          setNavVersion(res.version || 1);
+          setLastSyncTime(res.updatedAt || normalized.updatedAt);
+          setCloudSyncStatus('synced');
+          toast.info(`Konfigurasi navigasi terbaru (v${res.version}) dimuat dari database.`, 'Versi Terbaru Dimuat');
+        }
+      } catch (err: any) {
+        toast.error(err?.message || 'Gagal memuat versi terbaru dari database.');
+      } finally {
+        setNavConflict(null);
+        pendingActionRef.current = null;
+      }
+      return;
+    }
+
+    const pending = pendingActionRef.current;
+    if (pending?.type === 'reset') {
+      await resetToDefaultConfig(pending.operatorName, { forceOverwrite: true });
+    } else {
+      await saveChangesToSupabase(pending?.operatorName || 'Super Admin', { forceOverwrite: true });
+    }
+  }, [resetToDefaultConfig, saveChangesToSupabase, toast]);
 
   return (
     <NavigationContext.Provider
@@ -606,6 +726,10 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isCloudSyncing,
         cloudSyncStatus,
         lastSyncTime,
+        navVersion,
+        navConflict,
+        clearNavConflict,
+        resolveNavConflict,
 
         expandedCategories,
         toggleCategory,

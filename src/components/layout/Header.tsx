@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
     lastSyncTime,
     refreshDatabaseData
   } = useApp();
-  const { config, setGlobalTheme } = useUIConfig();
+  const { config, setSidebarState } = useUIConfig();
   const { isOnline, isSyncing, pendingCount, setIsOfflineModalOpen, isSimulatedOffline } = useOfflineSync();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
@@ -371,11 +371,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
           type="button"
           onClick={() => {
             const current = config.global.sidebarState || 'expanded';
-            if (current === 'closed') {
-              setGlobalTheme({ sidebarState: 'expanded', sidebarCollapsed: false });
-            } else {
-              setGlobalTheme({ sidebarState: 'closed', sidebarCollapsed: true });
-            }
+            setSidebarState(current === 'closed' ? 'expanded' : 'closed');
           }}
           className="p-1.5 rounded-lg text-[#766B83] hover:bg-[#F4EAFF] hover:text-[#211A2E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] dark:hover:text-white transition-colors cursor-pointer shrink-0"
           title="Buka / Tutup Sidebar"

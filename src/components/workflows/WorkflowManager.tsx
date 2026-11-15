@@ -1,9 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { GitBranch, Play, Power, Check, AlertCircle, Clock } from 'lucide-react';
+import { GitBranch, Power, Lock, Loader2, AlertTriangle } from 'lucide-react';
 
 export const WorkflowManager: React.FC = () => {
-  const { workflowRules, toggleWorkflowRule } = useApp();
+  const { workflowRules, toggleWorkflowRule, currentUser } = useApp();
+  const isSuperAdmin = currentUser.role === 'super_admin';
+  const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleToggle = async (ruleId: string, nextEnabled: boolean) => {
+    if (!isSuperAdmin || savingRuleId) return;
+    setSavingRuleId(ruleId);
+    setSaveError(null);
+    const res = await toggleWorkflowRule(ruleId, nextEnabled);
+    if (!res.success && res.error) {
+      setSaveError(res.error);
+    }
+    setSavingRuleId(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -17,62 +31,83 @@ export const WorkflowManager: React.FC = () => {
               Workflow & Dispatch Automation Rules
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Otomatisasi pemicu sistem: penyiapan URL WhatsApp, validasi nomor, notifikasi saat slot berubah, dan logging audit.
+              Aturan otomatisasi global (Database-First) yang berlaku serentak di seluruh sistem setelah disimpan ke PostgreSQL.
             </p>
           </div>
         </div>
       </div>
 
+      {!isSuperAdmin && (
+        <div className="p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-200">
+          <Lock className="w-4 h-4 shrink-0 text-amber-600" />
+          <span>
+            <strong>Mode Baca Saja:</strong> Hanya Super Admin yang dapat mengaktifkan atau menonaktifkan Workflow Rules global.
+          </span>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="p-3.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-200">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span>{saveError}</span>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {workflowRules.map(rule => (
-          <div
-            key={rule.id}
-            className={`p-5 bg-white dark:bg-slate-900 rounded-lg border transition-all shadow-2xs space-y-3 text-xs ${
-              rule.enabled
-                ? 'border-slate-200 dark:border-slate-800'
-                : 'border-slate-200 dark:border-slate-800 opacity-60 bg-slate-50/50'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className={`w-2.5 h-2.5 rounded-full ${rule.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                <h4 className="font-bold text-slate-900 dark:text-white text-xs">
-                  {rule.name}
-                </h4>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded">
-                  trigger: {rule.trigger}
-                </span>
+        {workflowRules.map(rule => {
+          const isSaving = savingRuleId === rule.id;
+          return (
+            <div
+              key={rule.id}
+              className={`p-5 bg-white dark:bg-slate-900 rounded-lg border transition-all shadow-2xs space-y-3 text-xs ${
+                rule.enabled
+                  ? 'border-slate-200 dark:border-slate-800'
+                  : 'border-slate-200 dark:border-slate-800 opacity-75 bg-slate-50/50'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className={`w-2.5 h-2.5 rounded-full ${rule.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+                    {rule.name}
+                  </h4>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded">
+                    trigger: {rule.trigger}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    disabled={!isSuperAdmin || Boolean(savingRuleId)}
+                    onClick={() => handleToggle(rule.id, !rule.enabled)}
+                    className={`px-3 py-1.5 rounded font-semibold text-xs flex items-center gap-1.5 transition-colors ${
+                      rule.enabled
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-100 text-slate-500 border border-slate-200'
+                    } ${isSuperAdmin && !savingRuleId ? 'cursor-pointer hover:opacity-90' : 'opacity-60 cursor-not-allowed'}`}
+                  >
+                    {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Power className="w-3 h-3" />}
+                    <span>{isSaving ? 'SAVING...' : rule.enabled ? 'ACTIVE' : 'DISABLED'}</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleWorkflowRule(rule.id, !rule.enabled)}
-                  className={`px-3 py-1 rounded font-medium text-xs flex items-center gap-1.5 transition-colors ${
-                    rule.enabled
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-slate-100 text-slate-500 border border-slate-200'
-                  }`}
-                >
-                  <Power className="w-3 h-3" />
-                  <span>{rule.enabled ? 'ACTIVE' : 'DISABLED'}</span>
-                </button>
+              <p className="text-slate-600 dark:text-slate-400 text-xs">
+                {rule.description}
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 font-mono tabular-nums">
+                <div>
+                  Total Executed: <span className="font-semibold text-slate-700 dark:text-slate-300">{rule.executionCount}x</span>
+                </div>
+                <div>
+                  Last Run: {rule.lastExecutedAt ? new Date(rule.lastExecutedAt).toLocaleString() : 'Never'}
+                </div>
               </div>
             </div>
-
-            <p className="text-slate-600 dark:text-slate-400 text-xs">
-              {rule.description}
-            </p>
-
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 font-mono">
-              <div>
-                Total Executed: <span className="font-semibold text-slate-700 dark:text-slate-300">{rule.executionCount}x</span>
-              </div>
-              <div>
-                Last Run: {rule.lastExecutedAt ? new Date(rule.lastExecutedAt).toLocaleString() : 'Never'}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

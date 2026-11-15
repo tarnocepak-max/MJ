@@ -63,8 +63,11 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   const [activeTab, setActiveTab] = useState<
     'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings'
   >(initialTab);
+  const isSuperAdmin = currentUser.role === 'super_admin';
   const [operationalDateInput, setOperationalDateInput] = useState(operationalDate);
   const [notice, setNotice] = useState<string | null>(null);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Contractor Form State
   const [showAddContractor, setShowAddContractor] = useState(false);
@@ -111,66 +114,102 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   }
 
   const triggerNotice = (msg: string) => {
+    setErrorNotice(null);
     setNotice(msg);
     setTimeout(() => setNotice(null), 3500);
   };
 
+  const triggerError = (msg: string) => {
+    setNotice(null);
+    setErrorNotice(msg);
+  };
+
   // Handlers
-  const handleCreateContractor = (e: React.FormEvent) => {
+  const handleCreateContractor = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin) {
+      triggerError('Akses ditolak: hanya Super Admin yang dapat menambah master kontraktor.');
+      return;
+    }
     if (!newCName.trim() || !newCCode.trim()) {
-      triggerNotice('Nama dan kode kontraktor wajib diisi.');
+      triggerError('Nama dan kode kontraktor wajib diisi.');
       return;
     }
 
     const areas = newCAreas.split(',').map(s => s.trim()).filter(Boolean);
-    addContractor({
-      name: newCName.trim(),
-      code: newCCode.trim().toUpperCase(),
-      coverageAreas: areas.length > 0 ? areas : ['Jabodetabek'],
-      phone: newCPhone.trim(),
-      email: newCEmail.trim(),
-      active: true
-    });
-
-    setNewCName('');
-    setNewCCode('');
-    setNewCAreas('');
-    setNewCPhone('');
-    setNewCEmail('');
-    setShowAddContractor(false);
-    triggerNotice(`Kontraktor "${newCName}" berhasil ditambahkan.`);
+    setIsSaving(true);
+    try {
+      const res = await addContractor({
+        name: newCName.trim(),
+        code: newCCode.trim().toUpperCase(),
+        coverageAreas: areas.length > 0 ? areas : ['Jabodetabek'],
+        phone: newCPhone.trim(),
+        email: newCEmail.trim(),
+        active: true
+      });
+      if (!res.success) {
+        triggerError(res.error || 'Gagal menyimpan kontraktor ke database.');
+        return;
+      }
+      const createdName = newCName.trim();
+      setNewCName('');
+      setNewCCode('');
+      setNewCAreas('');
+      setNewCPhone('');
+      setNewCEmail('');
+      setShowAddContractor(false);
+      triggerNotice(`Kontraktor "${createdName}" berhasil disimpan ke database.`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleCreateArea = (e: React.FormEvent) => {
+  const handleCreateArea = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin) {
+      triggerError('Akses ditolak: hanya Super Admin yang dapat menambah coverage area.');
+      return;
+    }
     if (!newAreaName.trim()) {
-      triggerNotice('Nama coverage area wajib diisi.');
+      triggerError('Nama coverage area wajib diisi.');
       return;
     }
 
     const clusters = newAreaClusters.split(',').map(s => s.trim()).filter(Boolean);
-    addCoverageArea({
-      name: newAreaName.trim(),
-      clusters,
-      active: true
-    });
-
-    setNewAreaName('');
-    setNewAreaClusters('');
-    setShowAddArea(false);
-    triggerNotice(`Coverage Area "${newAreaName}" berhasil ditambahkan.`);
+    setIsSaving(true);
+    try {
+      const res = await addCoverageArea({
+        name: newAreaName.trim(),
+        clusters,
+        active: true
+      });
+      if (!res.success) {
+        triggerError(res.error || 'Gagal menyimpan coverage area ke database.');
+        return;
+      }
+      const createdArea = newAreaName.trim();
+      setNewAreaName('');
+      setNewAreaClusters('');
+      setShowAddArea(false);
+      triggerNotice(`Coverage Area "${createdArea}" berhasil disimpan ke database.`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleAddRootCause = (e: React.FormEvent) => {
+  const handleAddRootCause = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin) {
+      triggerError('Akses ditolak: hanya Super Admin yang dapat mengubah taksonomi root cause.');
+      return;
+    }
     if (!newRootCauseItem.trim()) return;
 
     const currentCat = rootCauseCategories[selectedCategoryIndex];
     if (!currentCat) return;
 
     if (currentCat.items.includes(newRootCauseItem.trim())) {
-      triggerNotice(`Item "${newRootCauseItem}" sudah ada dalam kategori.`);
+      triggerError(`Item "${newRootCauseItem}" sudah ada dalam kategori.`);
       return;
     }
 
@@ -182,12 +221,25 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       };
     });
 
-    updateRootCauseCategories(updatedCategories);
-    setNewRootCauseItem('');
-    triggerNotice(`Root cause baru berhasil ditambahkan ke "${currentCat.name}".`);
+    setIsSaving(true);
+    try {
+      const res = await updateRootCauseCategories(updatedCategories);
+      if (!res.success) {
+        triggerError(res.error || 'Gagal menyimpan root cause ke database.');
+        return;
+      }
+      setNewRootCauseItem('');
+      triggerNotice(`Root cause baru berhasil disimpan ke "${currentCat.name}".`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleRemoveRootCause = (categoryIdx: number, itemToRemove: string) => {
+  const handleRemoveRootCause = async (categoryIdx: number, itemToRemove: string) => {
+    if (!isSuperAdmin) {
+      triggerError('Akses ditolak: hanya Super Admin yang dapat menghapus root cause.');
+      return;
+    }
     const updatedCategories = rootCauseCategories.map((cat, idx) => {
       if (idx !== categoryIdx) return cat;
       return {
@@ -195,28 +247,63 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         items: cat.items.filter(it => it !== itemToRemove)
       };
     });
-    updateRootCauseCategories(updatedCategories);
-    triggerNotice(`Item "${itemToRemove}" dihapus.`);
+    setIsSaving(true);
+    try {
+      const res = await updateRootCauseCategories(updatedCategories);
+      if (!res.success) {
+        triggerError(res.error || 'Gagal menghapus root cause di database.');
+        return;
+      }
+      triggerNotice(`Item "${itemToRemove}" berhasil dihapus dari database.`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSaveAliases = (field: string) => {
+  const handleSaveAliases = async (field: string) => {
+    if (!isSuperAdmin) {
+      triggerError('Akses ditolak: hanya Super Admin yang dapat mengubah kamus alias header.');
+      return;
+    }
     const splitted = aliasInput
       .split(',')
       .map(s => s.trim().toLowerCase())
       .filter(s => s.length > 0);
 
-    updateHeaderMapping(field, splitted);
-    setEditingField(null);
-    triggerNotice(`Alias untuk ${field} berhasil diperbarui.`);
+    setIsSaving(true);
+    try {
+      const res = await updateHeaderMapping(field, splitted);
+      if (!res.success) {
+        triggerError(res.error || 'Gagal memperbarui alias header ke database.');
+        return;
+      }
+      setEditingField(null);
+      triggerNotice(`Alias untuk ${field} berhasil disimpan ke database.`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSaveBranding = (e: React.FormEvent) => {
+  const handleSaveBranding = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGlobalTheme({
-      appName: appNameInput.trim() || 'MoraJaws',
-      primaryColor: appPrimaryColor
-    });
-    triggerNotice('Pengaturan identitas aplikasi & branding berhasil disimpan.');
+    if (!isSuperAdmin) {
+      triggerError('Akses ditolak: hanya Super Admin yang dapat mengubah branding global.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await setGlobalTheme({
+        appName: appNameInput.trim() || 'MoraJaws',
+        primaryColor: appPrimaryColor
+      });
+      if (!res.success) {
+        triggerError(res.error || 'Gagal menyimpan branding ke database.');
+        return;
+      }
+      triggerNotice('Pengaturan identitas aplikasi & branding global berhasil disimpan ke database.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -237,6 +324,20 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {!isSuperAdmin && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-lg text-xs flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>Mode Hanya-Baca: Anda melihat konfigurasi global dalam mode read-only. Hanya <strong>Super Admin</strong> yang dapat mengubah dan menyimpan parameter global ke database.</span>
+        </div>
+      )}
+
+      {errorNotice && (
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 rounded text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorNotice}</span>
         </div>
       )}
 
@@ -366,15 +467,17 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </div>
 
             <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving}
               onClick={() => setShowAddContractor(!showAddContractor)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-1.5 self-start sm:self-auto"
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1.5 self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Kontraktor Baru</span>
             </button>
           </div>
 
-          {showAddContractor && (
+          {showAddContractor && isSuperAdmin && (
             <form onSubmit={handleCreateContractor} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
               <h5 className="font-bold text-slate-900 dark:text-white text-xs">Form Kontraktor Baru</h5>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -513,15 +616,17 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </div>
 
             <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving}
               onClick={() => setShowAddArea(!showAddArea)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-1.5 self-start sm:self-auto"
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1.5 self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Coverage Area Baru</span>
             </button>
           </div>
 
-          {showAddArea && (
+          {showAddArea && isSuperAdmin && (
             <form onSubmit={handleCreateArea} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
               <h5 className="font-bold text-slate-900 dark:text-white text-xs">Form Area Baru</h5>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -651,17 +756,19 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 <form onSubmit={handleAddRootCause} className="flex items-center gap-2">
                   <input
                     type="text"
+                    disabled={!isSuperAdmin || isSaving}
                     placeholder="Tambah penyebab masalah baru..."
                     value={newRootCauseItem}
                     onChange={e => setNewRootCauseItem(e.target.value)}
-                    className="flex-1 px-3 py-1.5 border rounded-lg bg-white dark:bg-slate-900 text-xs"
+                    className="flex-1 px-3 py-1.5 border rounded-lg bg-white dark:bg-slate-900 text-xs disabled:opacity-60"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-1 shrink-0"
+                    disabled={!isSuperAdmin || isSaving}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1 shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah</span>
+                    <span>{isSaving ? 'Menyimpan...' : 'Tambah'}</span>
                   </button>
                 </form>
 
@@ -675,8 +782,9 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                       <span className="font-medium text-slate-800 dark:text-slate-200">{item}</span>
                       <button
                         type="button"
+                        disabled={!isSuperAdmin || isSaving}
                         onClick={() => handleRemoveRootCause(selectedCategoryIndex, item)}
-                        className="text-slate-400 hover:text-rose-600 p-1"
+                        className="text-slate-400 hover:text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed p-1"
                         title="Hapus root cause"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -745,20 +853,24 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        {isEditing ? (
+                        {isEditing && isSuperAdmin ? (
                           <button
+                            type="button"
+                            disabled={isSaving}
                             onClick={() => handleSaveAliases(mapping.standardField)}
-                            className="px-2 py-1 bg-emerald-600 text-white rounded text-xs font-semibold"
+                            className="px-2 py-1 bg-emerald-600 disabled:opacity-50 text-white rounded text-xs font-semibold"
                           >
-                            Simpan
+                            {isSaving ? '...' : 'Simpan'}
                           </button>
                         ) : (
                           <button
+                            type="button"
+                            disabled={!isSuperAdmin || isSaving}
                             onClick={() => {
                               setEditingField(mapping.standardField);
                               setAliasInput(mapping.aliases.join(', '));
                             }}
-                            className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded border text-xs"
+                            className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 dark:text-slate-300 rounded border text-xs"
                           >
                             Edit
                           </button>
@@ -797,10 +909,11 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               </label>
               <input
                 type="text"
+                disabled={!isSuperAdmin || isSaving}
                 value={appNameInput}
                 onChange={e => setAppNameInput(e.target.value)}
                 placeholder="MoraJaws"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold text-slate-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold text-slate-900 dark:text-white text-sm disabled:opacity-60"
               />
             </div>
 
@@ -809,9 +922,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 Aksen Warna Utama (Brand Color)
               </label>
               <select
+                disabled={!isSuperAdmin || isSaving}
                 value={appPrimaryColor}
                 onChange={e => setAppPrimaryColor(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-medium"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-medium disabled:opacity-60"
               >
                 <option value="indigo">Indigo Modern (MoraJaws Default)</option>
                 <option value="blue">Deep Ocean Blue</option>
@@ -825,10 +939,11 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           <div className="flex items-center justify-end pt-2">
             <button
               type="submit"
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-1.5"
+              disabled={!isSuperAdmin || isSaving}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-1.5"
             >
               <Save className="w-4 h-4" />
-              <span>Simpan Konfigurasi Branding</span>
+              <span>{isSaving ? 'Menyimpan...' : 'Simpan Konfigurasi Branding'}</span>
             </button>
           </div>
         </form>
@@ -866,29 +981,52 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               <div className="flex items-center gap-2">
                 <input
                   type="date"
+                  disabled={!isSuperAdmin || isSaving}
                   value={operationalDateInput}
                   onChange={e => setOperationalDateInput(e.target.value)}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
+                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white disabled:opacity-60"
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    setOperationalDate(operationalDateInput);
-                    triggerNotice(`Tanggal operasional sistem diperbarui ke ${operationalDateInput} (WIB)`);
+                  disabled={!isSuperAdmin || isSaving}
+                  onClick={async () => {
+                    if (!isSuperAdmin) return;
+                    setIsSaving(true);
+                    try {
+                      const res = await setOperationalDate(operationalDateInput);
+                      if (!res.success) {
+                        triggerError(res.error || 'Gagal menyimpan tanggal operasional ke database.');
+                        return;
+                      }
+                      triggerNotice(`Tanggal operasional global diperbarui ke ${operationalDateInput} (WIB)`);
+                    } finally {
+                      setIsSaving(false);
+                    }
                   }}
-                  className="px-4 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
                 >
-                  Terapkan
+                  {isSaving ? 'Menyimpan...' : 'Terapkan'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  disabled={!isSuperAdmin || isSaving}
+                  onClick={async () => {
+                    if (!isSuperAdmin) return;
                     const realDate = getJakartaDateString(0);
-                    setOperationalDateInput(realDate);
-                    setOperationalDate(realDate);
-                    triggerNotice(`Tanggal operasional di-reset ke tanggal hari ini (WIB): ${realDate}`);
+                    setIsSaving(true);
+                    try {
+                      const res = await setOperationalDate(realDate);
+                      if (!res.success) {
+                        triggerError(res.error || 'Gagal mereset tanggal operasional ke database.');
+                        return;
+                      }
+                      setOperationalDateInput(realDate);
+                      triggerNotice(`Tanggal operasional di-reset ke tanggal hari ini (WIB): ${realDate}`);
+                    } finally {
+                      setIsSaving(false);
+                    }
                   }}
-                  className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                  className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
                 >
                   Reset Hari Ini (Aktual WIB)
                 </button>

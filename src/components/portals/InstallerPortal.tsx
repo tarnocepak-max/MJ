@@ -26,15 +26,11 @@ import {
   Radio,
   Wifi,
   Camera,
-  Calendar,
-  RotateCcw,
-  XCircle,
   Filter,
   Search,
   Eye,
   Check,
   X,
-  Layers,
   ArrowRight,
   ShieldAlert,
   Sparkles,
@@ -328,202 +324,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       </div>
 
       {/* ============================================================ */}
-      {/* ============================================================ */}
-      {/* 2. STATUS KPI COUNTERS: BUTUH APPROVAL, PENDING, DONE, ETC   */}
-      {/* ============================================================ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        {/* Total Card */}
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-            statusFilter === 'all'
-              ? 'bg-slate-900 text-white border-slate-900 dark:bg-indigo-950 dark:border-indigo-700 shadow-md ring-2 ring-indigo-500/50'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-xs font-semibold ${statusFilter === 'all' ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
-              Semua WO
-            </span>
-            <Layers className={`w-4 h-4 ${statusFilter === 'all' ? 'text-indigo-400' : 'text-slate-400'}`} />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono">
-              {counts.all}
-            </span>
-            <span className={`text-[11px] font-medium ${statusFilter === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>
-              Tiket
-            </span>
-          </div>
-          {statusFilter === 'all' && (
-            <div className="mt-2 text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> Filter Aktif
-            </div>
-          )}
-        </button>
-
-        {/* 1. BUTUH APPROVAL (Laporan tersimpan menunggu Dispatch) */}
-        <button
-          onClick={() => setStatusFilter('butuh_approval')}
-          className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-            statusFilter === 'butuh_approval'
-              ? 'bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-950/90 dark:to-[#1E1135] border-amber-500 shadow-md ring-2 ring-amber-500/50'
-              : 'bg-white dark:bg-slate-900 border-amber-300/80 dark:border-amber-900/60 hover:border-amber-400 shadow-2xs'
-          }`}
-        >
-          {counts.butuh_approval > 0 && (
-            <span className="absolute top-2 right-2 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-            </span>
-          )}
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>Butuh Approval</span>
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-800 dark:text-amber-300">
-              {counts.butuh_approval}
-            </span>
-            <span className="text-[11px] font-medium text-amber-700/80 dark:text-amber-400/80">
-              Menunggu Dispatch
-            </span>
-          </div>
-          {statusFilter === 'butuh_approval' && (
-            <div className="mt-2 text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Filter Aktif
-            </div>
-          )}
-        </button>
-
-        {/* 2. PENDING (Menunggu / Dalam Proses) */}
-        <button
-          onClick={() => setStatusFilter('pending')}
-          className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-            statusFilter === 'pending'
-              ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 shadow-md ring-2 ring-amber-500/50'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-800 shadow-2xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>Pending</span>
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-700 dark:text-amber-300">
-              {counts.pending}
-            </span>
-            <span className="text-[11px] font-medium text-amber-600/80 dark:text-amber-400/80">
-              Pengerjaan
-            </span>
-          </div>
-          {statusFilter === 'pending' && (
-            <div className="mt-2 text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Filter Aktif
-            </div>
-          )}
-        </button>
-
-        {/* 3. DONE (Selesai) */}
-        <button
-          onClick={() => setStatusFilter('done')}
-          className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-            statusFilter === 'done'
-              ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 shadow-md ring-2 ring-emerald-500/50'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 shadow-2xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Done (Selesai)</span>
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-700 dark:text-emerald-300">
-              {counts.done}
-            </span>
-            <span className="text-[11px] font-medium text-emerald-600/80 dark:text-emerald-400/80">
-              Disetujui
-            </span>
-          </div>
-          {statusFilter === 'done' && (
-            <div className="mt-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Filter Aktif
-            </div>
-          )}
-        </button>
-
-        {/* 4. RESCHEDULE (Jadwal Ulang) */}
-        <button
-          onClick={() => setStatusFilter('reschedule')}
-          className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-            statusFilter === 'reschedule'
-              ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-500 shadow-md ring-2 ring-blue-500/50'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 shadow-2xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-              <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span>Reschedule</span>
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono text-blue-700 dark:text-blue-300">
-              {counts.reschedule}
-            </span>
-            <span className="text-[11px] font-medium text-blue-600/80 dark:text-blue-400/80">
-              Jadwal Ulang
-            </span>
-          </div>
-          {statusFilter === 'reschedule' && (
-            <div className="mt-2 text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Filter Aktif
-            </div>
-          )}
-        </button>
-
-        {/* 5. CANCEL (Dibatalkan) */}
-        <button
-          onClick={() => setStatusFilter('cancel')}
-          className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-            statusFilter === 'cancel'
-              ? 'bg-rose-50 dark:bg-rose-950/80 border-rose-500 shadow-md ring-2 ring-rose-500/50'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-800 shadow-2xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
-              <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-              <span>Cancel</span>
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono text-rose-700 dark:text-rose-300">
-              {counts.cancel}
-            </span>
-            <span className="text-[11px] font-medium text-rose-600/80 dark:text-rose-400/80">
-              Dibatalkan
-            </span>
-          </div>
-          {statusFilter === 'cancel' && (
-            <div className="mt-2 text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Filter Aktif
-            </div>
-          )}
-        </button>
-      </div>
-
-      {/* ============================================================ */}
       {/* 3. SEARCH & ACTIVE FILTER BAR                                */}
       {/* ============================================================ */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -741,31 +541,16 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
                     {/* Column 3: Scheduled Date & Slot Time */}
                     <div className="space-y-1.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block">
-                        Jadwal Janji Temu
-                      </span>
-                      <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
-                        <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                        <span className="font-semibold">
-                          {ticket.appointmentDate || 'Tanggal Belum Ada'}
-                        </span>
-                      </div>
                       <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400">
                         <Clock className="w-3.5 h-3.5 shrink-0" />
                         <span className="font-bold text-xs">
                           {ticket.slotTime || '09:00 - 11:00 WIB'}
                         </span>
                       </div>
-                      <div className="text-[10.5px] text-slate-500">
-                        Vendor: <strong className="text-slate-700 dark:text-slate-300">{ticket.contactorName || 'Mitra'}</strong>
-                      </div>
                     </div>
 
                     {/* Column 4: Network & Hardware Info */}
                     <div className="space-y-1.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block">
-                        Infrastruktur OLT / FAT
-                      </span>
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-slate-400">Kode FDT:</span>
                         <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">

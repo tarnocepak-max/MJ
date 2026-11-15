@@ -1,9 +1,31 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { SoundSettings } from '../types';
+import {
+  getGlobalConfig,
+  saveGlobalConfig,
+  subscribeToGlobalConfigUpdates,
+  ConfigConflictError,
+  GlobalConfigConflictDetails
+} from '../services/globalConfigService';
+
+export interface SoundUpdateResult {
+  success: boolean;
+  error?: string;
+  conflict?: GlobalConfigConflictDetails;
+}
 
 export interface SoundContextType {
   soundSettings: SoundSettings;
-  updateSoundSettings: (updates: Partial<SoundSettings>) => void;
+  soundVersion: number;
+  isSoundSaving: boolean;
+  soundError: string | null;
+  soundConflict: GlobalConfigConflictDetails | null;
+  clearSoundConflict: () => void;
+  resolveSoundConflict: (strategy: 'reload' | 'overwrite') => Promise<void>;
+  updateSoundSettings: (
+    updates: Partial<SoundSettings>,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<SoundUpdateResult>;
   playLoadingSound: () => void;
   playReadySound: () => void;
   playReportSavedSound: () => void;
@@ -22,6 +44,20 @@ const DEFAULT_SETTINGS: SoundSettings = {
   soundSync: true
 };
 
+function getSessionAuth(): { token: string; role: string } {
+  try {
+    const raw = localStorage.getItem('morajaws_auth_session');
+    if (!raw) return { token: '', role: '' };
+    const parsed = JSON.parse(raw);
+    return {
+      token: String(parsed?.token || ''),
+      role: String(parsed?.role || '')
+    };
+  } catch {
+    return { token: '', role: '' };
+  }
+}
+
 const SoundContext = createContext<SoundContextType | undefined>(undefined);
 
 export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -37,21 +73,154 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
     return DEFAULT_SETTINGS;
   });
 
+  const [soundVersion, setSoundVersion] = useState<number>(1);
+  const soundVersionRef = useRef<number>(1);
+  const [isSoundSaving, setIsSoundSaving] = useState<boolean>(false);
+  const [soundError, setSoundError] = useState<string | null>(null);
+  const [soundConflict, setSoundConflict] = useState<GlobalConfigConflictDetails | null>(null);
+  const pendingSoundDraftRef = useRef<SoundSettings | null>(null);
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastSoundTimeRef = useRef<Record<string, number>>({});
 
-  // Save preferences to localStorage whenever changed
-  const updateSoundSettings = useCallback((updates: Partial<SoundSettings>) => {
-    setSoundSettings(prev => {
-      const next = { ...prev, ...updates };
-      try {
-        localStorage.setItem('morajaws_sound_preferences', JSON.stringify(next));
-      } catch {
-        // Safe catch
+  // Hydrate & subscribe to global sound_settings via Express SSE whenever authenticated
+  useEffect(() => {
+    let activeUnsub: (() => void) | null = null;
+    let cancelled = false;
+
+    const attachSoundSync = async () => {
+      if (activeUnsub) {
+        activeUnsub();
+        activeUnsub = null;
       }
-      return next;
-    });
+      const { token } = getSessionAuth();
+      if (!token) return;
+
+      try {
+        const res = await getGlobalConfig<SoundSettings>('sound_settings');
+        if (!cancelled && res.value && typeof res.value === 'object') {
+          const merged = { ...DEFAULT_SETTINGS, ...res.value };
+          setSoundSettings(merged);
+          soundVersionRef.current = res.version || 1;
+          setSoundVersion(res.version || 1);
+          try {
+            localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
+          } catch {}
+        }
+      } catch {
+        // Keep cached defaults if setting not yet seeded or transient offline
+      }
+
+      if (cancelled) return;
+      activeUnsub = subscribeToGlobalConfigUpdates((ev) => {
+        if (ev.key !== 'sound_settings' || !ev.value || typeof ev.value !== 'object') return;
+        const merged = { ...DEFAULT_SETTINGS, ...ev.value };
+        setSoundSettings(merged);
+        if (typeof ev.version === 'number') {
+          soundVersionRef.current = ev.version;
+          setSoundVersion(ev.version);
+        }
+        try {
+          localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
+        } catch {}
+      });
+    };
+
+    void attachSoundSync();
+
+    const handleAuthChanged = () => {
+      void attachSoundSync();
+    };
+    window.addEventListener('morajaws:auth-changed', handleAuthChanged);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('morajaws:auth-changed', handleAuthChanged);
+      if (activeUnsub) activeUnsub();
+    };
   }, []);
+
+  // Database-First global save (strict Super Admin only; no state commit until DB confirms)
+  const updateSoundSettings = useCallback(async (
+    updates: Partial<SoundSettings>,
+    options?: { forceOverwrite?: boolean }
+  ): Promise<SoundUpdateResult> => {
+    const { token, role } = getSessionAuth();
+    if (!token || role !== 'super_admin') {
+      const msg = 'Akses Ditolak: Hanya Super Admin yang dapat mengubah konfigurasi suara notifikasi global.';
+      setSoundError(msg);
+      return { success: false, error: msg };
+    }
+
+    const next = { ...soundSettings, ...updates };
+    pendingSoundDraftRef.current = next;
+    setIsSoundSaving(true);
+    setSoundError(null);
+
+    try {
+      const res = await saveGlobalConfig<SoundSettings>('sound_settings', next, {
+        module: 'sound_settings',
+        expectedVersion: soundVersionRef.current,
+        forceOverwrite: Boolean(options?.forceOverwrite),
+        description: 'Global notification sound configuration'
+      });
+
+      const confirmed = { ...DEFAULT_SETTINGS, ...(res.value || next) };
+      soundVersionRef.current = res.version;
+      setSoundVersion(res.version);
+      setSoundSettings(confirmed);
+      pendingSoundDraftRef.current = null;
+      setSoundConflict(null);
+      try {
+        localStorage.setItem('morajaws_sound_preferences', JSON.stringify(confirmed));
+      } catch {}
+      return { success: true };
+    } catch (err: any) {
+      if (err instanceof ConfigConflictError) {
+        setSoundConflict(err.conflict);
+        setSoundError(err.message);
+        return { success: false, error: err.message, conflict: err.conflict };
+      }
+      const errMsg = err?.message || 'Gagal menyimpan pengaturan notifikasi ke database.';
+      setSoundError(errMsg);
+      return { success: false, error: errMsg };
+    } finally {
+      setIsSoundSaving(false);
+    }
+  }, [soundSettings]);
+
+  const clearSoundConflict = useCallback(() => {
+    setSoundConflict(null);
+  }, []);
+
+  const resolveSoundConflict = useCallback(async (strategy: 'reload' | 'overwrite') => {
+    if (strategy === 'reload') {
+      try {
+        const res = await getGlobalConfig<SoundSettings>('sound_settings');
+        if (res.value) {
+          const merged = { ...DEFAULT_SETTINGS, ...res.value };
+          setSoundSettings(merged);
+          soundVersionRef.current = res.version || 1;
+          setSoundVersion(res.version || 1);
+          try {
+            localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
+          } catch {}
+        }
+        pendingSoundDraftRef.current = null;
+        setSoundConflict(null);
+        setSoundError(null);
+      } catch (err: any) {
+        setSoundError(err?.message || 'Gagal memuat ulang versi terbaru dari database.');
+      }
+      return;
+    }
+
+    if (pendingSoundDraftRef.current) {
+      await updateSoundSettings(pendingSoundDraftRef.current, { forceOverwrite: true });
+    } else {
+      setSoundConflict(null);
+    }
+  }, [updateSoundSettings]);
 
   // Initialize or get Web Audio Context safely
   const getAudioContext = useCallback((): AudioContext | null => {
@@ -368,6 +537,12 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
     <SoundContext.Provider
       value={{
         soundSettings,
+        soundVersion,
+        isSoundSaving,
+        soundError,
+        soundConflict,
+        clearSoundConflict,
+        resolveSoundConflict,
         updateSoundSettings,
         playLoadingSound,
         playReadySound,

@@ -76,7 +76,14 @@ import {
   deleteCoverageAreaInSupabase,
   deleteContractorInSupabase,
   assignTicketInSupabase,
-  reassignTicketInSupabase
+  reassignTicketInSupabase,
+  getAllAppSettingsFromSupabase,
+  getVersionedAppSettingFromSupabase,
+  saveVersionedAppSettingToSupabase,
+  getConfigVersionsFromSupabase,
+  getConfigVersionByIdFromSupabase,
+  getRolesFromSupabase,
+  updateRolePermissionsInSupabase
 } from './server/supabaseAdapter.ts';
 import {
   resolveLeaderForWorkOrder,
@@ -428,6 +435,9 @@ interface DatabaseSchema {
   attachments?: any[];
   storageMetadata?: StorageFileMetadata[];
   appSettings?: Record<string, any>;
+  appSettingVersions?: Record<string, { version: number; updatedAt?: string; updatedBy?: string }>;
+  globalConfigVersions?: any[];
+  rolePermissions?: Record<string, string[]>;
   userPreferences?: Record<string, any>;
   systemErrorLogs?: any[];
 }
@@ -897,6 +907,9 @@ export let db: DatabaseSchema = {
   },
   operationalDateOverride: null,
   appSettings: {},
+  appSettingVersions: {},
+  globalConfigVersions: [],
+  rolePermissions: undefined,
   userPreferences: {},
   systemErrorLogs: []
 };
@@ -1564,14 +1577,15 @@ function requireAuditLogViewer(req: AuthenticatedRequest, res: Response, next: N
   next();
 }
 
-function requireTemplateManager(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+async function requireTemplateManager(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi: Sesi login tidak ditemukan.', code: 'UNAUTHENTICATED' });
   }
-  if (req.user.role !== 'super_admin' && req.user.role !== 'dispatch') {
+  const allowed = await hasDynamicPermission(req.user.role, 'manage_whatsapp_templates');
+  if (!allowed) {
     logServerAudit('Access Denied (Template Manager Required)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) ditolak mengelola WhatsApp Templates`, req.user);
     return res.status(403).json({
-      error: 'Akses Ditolak: Pengelolaan WhatsApp Templates dibatasi untuk Super Admin dan Dispatch.',
+      error: 'Akses Ditolak: Anda tidak memiliki izin "manage_whatsapp_templates" untuk mengelola WhatsApp Templates.',
       code: 'REQUIRE_TEMPLATE_MANAGER'
     });
   }
@@ -1591,6 +1605,569 @@ function requireSettingsManager(req: AuthenticatedRequest, res: Response, next: 
     });
   }
   next();
+}
+
+// ---------------------------------------------------------------------------
+// CENTRALIZED GLOBAL CONFIG, DYNAMIC RBAC & VERSIONING ENGINE
+// ---------------------------------------------------------------------------
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  super_admin: [
+    'login',
+    'manage_users',
+    'create_user',
+    'create_installer',
+    'update_user',
+    'toggle_user_status',
+    'delete_user',
+    'import_data',
+    'manage_field_mapping',
+    'view_all_wo',
+    'view_contractor_wo',
+    'view_assigned_wo',
+    'distribute_wo',
+    'manage_leader_schedule',
+    'edit_technical_report',
+    'access_live_chat',
+    'manage_contractors',
+    'view_audit_logs',
+    'database_management',
+    'edit_wo_data',
+    'system_health',
+    'application_configuration',
+    'ui_configuration',
+    'setting_droplist',
+    'manage_whatsapp_templates'
+  ],
+  dispatch: [
+    'login',
+    'view_all_wo',
+    'view_contractor_wo',
+    'manage_leader_schedule',
+    'edit_technical_report',
+    'access_live_chat',
+    'edit_wo_data',
+    'application_configuration',
+    'setting_droplist',
+    'manage_whatsapp_templates'
+  ],
+  leader: [
+    'login',
+    'view_contractor_wo',
+    'access_live_chat',
+    'assign_technician',
+    'create_installer'
+  ],
+  installer: [
+    'login',
+    'view_assigned_wo',
+    'edit_technical_report',
+    'access_live_chat'
+  ],
+  management_data: [
+    'login',
+    'view_all_wo',
+    'view_contractor_wo',
+    'import_data',
+    'distribute_wo',
+    'manage_field_mapping',
+    'database_management',
+    'delete_wo_data',
+    'application_configuration',
+    'setting_droplist'
+  ],
+  it_support: [
+    'login',
+    'system_health',
+    'application_configuration',
+    'ui_configuration',
+    'setting_droplist',
+    'view_audit_logs'
+  ]
+};
+
+export const CORE_SUPER_ADMIN_PERMISSIONS = [
+  'login',
+  'manage_users',
+  'application_configuration',
+  'ui_configuration',
+  'view_audit_logs'
+];
+
+let SERVER_ROLE_PERMISSIONS_CACHE: {
+  permissions: Record<string, string[]>;
+  version: number;
+  updatedAt: string | null;
+  updatedBy: string | null;
+} | null = null;
+
+function cloneDefaultRolePermissions(): Record<string, string[]> {
+  const copy: Record<string, string[]> = {};
+  for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    copy[role] = [...perms];
+  }
+  return copy;
+}
+
+function normalizeRolePermissionsMatrix(raw: any): Record<string, string[]> {
+  const base = cloneDefaultRolePermissions();
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [role, perms] of Object.entries(raw)) {
+      if (Array.isArray(perms)) {
+        base[role] = Array.from(new Set(perms.map(String)));
+      }
+    }
+  }
+  // Hard safety guard: super_admin cannot lock itself out of core admin permissions
+  base.super_admin = Array.from(new Set([...(base.super_admin || []), ...CORE_SUPER_ADMIN_PERMISSIONS]));
+  return base;
+}
+
+export function invalidateGlobalConfigCache(key?: string) {
+  if (!key || key === 'role_permissions') {
+    SERVER_ROLE_PERMISSIONS_CACHE = null;
+  }
+}
+
+export async function getEffectiveRolePermissions(forceRefresh = false): Promise<{
+  permissions: Record<string, string[]>;
+  version: number;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}> {
+  if (!forceRefresh && SERVER_ROLE_PERMISSIONS_CACHE) {
+    return SERVER_ROLE_PERMISSIONS_CACHE;
+  }
+
+  let permissions = cloneDefaultRolePermissions();
+  let version = 1;
+  let updatedAt: string | null = null;
+  let updatedBy: string | null = null;
+
+  if (isSupabaseMode()) {
+    try {
+      const [settingRes, rolesRes] = await Promise.all([
+        getVersionedAppSettingFromSupabase('role_permissions'),
+        getRolesFromSupabase()
+      ]);
+
+      if (rolesRes.success && Array.isArray(rolesRes.data)) {
+        for (const roleRow of rolesRes.data) {
+          if (roleRow.code && Array.isArray(roleRow.permissions) && roleRow.permissions.length > 0) {
+            permissions[roleRow.code] = Array.from(new Set(roleRow.permissions.map(String)));
+          }
+        }
+      }
+
+      if (settingRes.success && settingRes.data && settingRes.data.value && typeof settingRes.data.value === 'object') {
+        permissions = normalizeRolePermissionsMatrix(settingRes.data.value);
+        version = settingRes.data.version || 1;
+        updatedAt = settingRes.data.updatedAt || null;
+        updatedBy = settingRes.data.updatedBy || null;
+      } else {
+        permissions = normalizeRolePermissionsMatrix(permissions);
+      }
+    } catch {
+      permissions = normalizeRolePermissionsMatrix(db.rolePermissions || db.appSettings?.role_permissions);
+    }
+  } else if (isLocalJsonModeAllowed()) {
+    const localVal = db.appSettings?.role_permissions || db.rolePermissions;
+    permissions = normalizeRolePermissionsMatrix(localVal);
+    version = db.appSettingVersions?.role_permissions?.version || 1;
+    updatedAt = db.appSettingVersions?.role_permissions?.updatedAt || null;
+    updatedBy = db.appSettingVersions?.role_permissions?.updatedBy || null;
+  }
+
+  SERVER_ROLE_PERMISSIONS_CACHE = { permissions, version, updatedAt, updatedBy };
+  return SERVER_ROLE_PERMISSIONS_CACHE;
+}
+
+export async function hasDynamicPermission(role: string, permission: string): Promise<boolean> {
+  const { permissions } = await getEffectiveRolePermissions();
+  const list = permissions[role];
+  return Array.isArray(list) ? list.includes(permission) : false;
+}
+
+export function requireDynamicPermission(permission: string) {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Tidak terautentikasi', code: 'UNAUTHENTICATED' });
+    }
+    const allowed = await hasDynamicPermission(req.user.role, permission);
+    if (!allowed) {
+      logServerAudit(
+        'Access Denied (Dynamic Permission)',
+        'rbac',
+        req.originalUrl,
+        `User ${req.user.name} (${req.user.role}) ditolak karena tidak memiliki izin "${permission}"`,
+        req.user
+      );
+      return res.status(403).json({
+        success: false,
+        error: `Akses Ditolak: Role ${req.user.role} tidak memiliki izin "${permission}" sesuai konfigurasi RBAC aktif.`,
+        code: 'DYNAMIC_PERMISSION_DENIED'
+      });
+    }
+    next();
+  };
+}
+
+function validateGlobalConfigPayload(key: string, value: any): { valid: boolean; code?: string; message?: string } {
+  if (value === undefined || value === null) {
+    return { valid: false, code: 'INVALID_PAYLOAD', message: 'Payload konfigurasi (value) wajib disertakan.' };
+  }
+  if (key === 'navigation_doc' || key === 'navigation_config') {
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      return { valid: false, code: 'INVALID_NAVIGATION_PAYLOAD', message: 'Payload konfigurasi navigasi harus berupa objek JSON yang valid.' };
+    }
+    if (!Array.isArray(value.categories) || value.categories.length === 0) {
+      return { valid: false, code: 'INVALID_NAVIGATION_CATEGORIES', message: 'Konfigurasi navigasi wajib memiliki minimal satu kategori navigasi (categories).' };
+    }
+    if (!Array.isArray(value.standaloneMenus) || value.standaloneMenus.length === 0) {
+      return { valid: false, code: 'INVALID_NAVIGATION_STANDALONE_MENUS', message: 'Konfigurasi navigasi wajib memiliki minimal satu menu mandiri (standaloneMenus).' };
+    }
+    if (!Array.isArray(value.submenuItems)) {
+      return { valid: false, code: 'INVALID_NAVIGATION_SUBMENUS', message: 'Field submenuItems pada konfigurasi navigasi harus berupa array.' };
+    }
+  }
+  if (key === 'role_permissions') {
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      return { valid: false, code: 'INVALID_ROLE_PERMISSIONS_PAYLOAD', message: 'Payload role_permissions harus berupa objek mapping role -> permissions[].' };
+    }
+  }
+  return { valid: true };
+}
+
+async function readGlobalConfigUnified(key: string): Promise<{
+  success: boolean;
+  status?: number;
+  code?: string;
+  message?: string;
+  value: any;
+  version: number;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}> {
+  if (!isSupabaseMode()) {
+    if (!isLocalJsonModeAllowed()) {
+      return {
+        success: false,
+        status: 503,
+        code: 'DATABASE_UNAVAILABLE',
+        message: 'Database authoritative Supabase tidak tersedia.',
+        value: null,
+        version: 0,
+        updatedAt: null,
+        updatedBy: null
+      };
+    }
+    const localVal = (db.appSettings || {})[key] ?? null;
+    const meta = (db.appSettingVersions || {})[key];
+    return {
+      success: true,
+      value: localVal,
+      version: meta?.version || (localVal !== null ? 1 : 0),
+      updatedAt: meta?.updatedAt || null,
+      updatedBy: meta?.updatedBy || null
+    };
+  }
+
+  const res = await getVersionedAppSettingFromSupabase(key);
+  if (!res.success) {
+    if (isLocalJsonModeAllowed()) {
+      const localVal = (db.appSettings || {})[key] ?? null;
+      const meta = (db.appSettingVersions || {})[key];
+      return {
+        success: true,
+        value: localVal,
+        version: meta?.version || (localVal !== null ? 1 : 0),
+        updatedAt: meta?.updatedAt || null,
+        updatedBy: meta?.updatedBy || null
+      };
+    }
+    return {
+      success: false,
+      status: res.error?.httpStatus || (res.error?.isUnavailable ? 503 : 500),
+      code: res.error?.code || 'DB_READ_ERROR',
+      message: res.error?.message || 'Gagal membaca konfigurasi dari Supabase PostgreSQL.',
+      value: null,
+      version: 0,
+      updatedAt: null,
+      updatedBy: null
+    };
+  }
+
+  return {
+    success: true,
+    value: res.data?.value ?? null,
+    version: res.data?.version ?? 0,
+    updatedAt: res.data?.updatedAt || null,
+    updatedBy: res.data?.updatedBy || null
+  };
+}
+
+async function saveGlobalConfigUnified(
+  key: string,
+  rawValue: any,
+  user: ServerUser,
+  options: {
+    expectedVersion?: number | null;
+    forceOverwrite?: boolean;
+    description?: string;
+    action?: 'CREATE' | 'UPDATE' | 'ROLLBACK' | 'RESET';
+    module?: string;
+    notes?: string;
+  } = {}
+): Promise<{
+  success: boolean;
+  status?: number;
+  code?: string;
+  message?: string;
+  conflict?: any;
+  errorDetails?: any;
+  data?: {
+    key: string;
+    value: any;
+    version: number;
+    previousValue: any;
+    updatedAt: string;
+    updatedBy: string;
+    versionRecordId?: string;
+  };
+  record?: any;
+}> {
+  if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+    return {
+      success: false,
+      status: 503,
+      code: 'DATABASE_UNAVAILABLE',
+      message: 'Database authoritative Supabase tidak tersedia.'
+    };
+  }
+
+  let value = rawValue;
+  if (key === 'role_permissions') {
+    value = normalizeRolePermissionsMatrix(rawValue);
+  }
+
+  const actorName = user.name || user.username || 'Super Admin';
+  const moduleName = options.module || key;
+  const nowIso = new Date().toISOString();
+
+  if (isSupabaseMode()) {
+    const supaRes = await saveVersionedAppSettingToSupabase(key, value, {
+      expectedVersion: options.expectedVersion,
+      forceOverwrite: options.forceOverwrite,
+      description: options.description,
+      actorId: user.id,
+      actorName,
+      actorRole: user.role,
+      action: options.action,
+      module: moduleName,
+      notes: options.notes
+    });
+
+    if (!supaRes.success) {
+      const status =
+        supaRes.error?.httpStatus ||
+        (supaRes.error?.code === 'VERSION_CONFLICT'
+          ? 409
+          : supaRes.error?.isUnavailable
+          ? 503
+          : supaRes.error?.isPermissionError
+          ? 403
+          : supaRes.error?.isValidationError
+          ? 400
+          : 500);
+      return {
+        success: false,
+        status,
+        code: supaRes.error?.code || 'DB_WRITE_ERROR',
+        message: supaRes.error?.message || 'Gagal menyimpan konfigurasi ke Supabase PostgreSQL.',
+        conflict: supaRes.error?.code === 'VERSION_CONFLICT' ? supaRes.error?.details : undefined,
+        errorDetails: supaRes.error
+      };
+    }
+
+    const saved = supaRes.data!;
+    // If role_permissions updated, mirror to public.roles rows as well
+    if (key === 'role_permissions' && value && typeof value === 'object') {
+      for (const [roleCode, perms] of Object.entries(value)) {
+        if (Array.isArray(perms)) {
+          await updateRolePermissionsInSupabase(roleCode, perms as string[], actorName).catch(() => {});
+        }
+      }
+    }
+
+    // Mirror into local caches if allowed
+    db.appSettings = db.appSettings || {};
+    db.appSettings[key] = saved.value;
+    db.appSettingVersions = db.appSettingVersions || {};
+    db.appSettingVersions[key] = { version: saved.version, updatedAt: saved.updatedAt, updatedBy: actorName };
+    if (key === 'global_config') db.globalConfig = saved.value;
+    if (key === 'session_config' || key === 'sessionConfig') db.sessionConfig = saved.value;
+    if (key === 'google_sheets_config') db.sheetsConfig = saved.value;
+    if (key === 'role_permissions') db.rolePermissions = saved.value;
+    if (isLocalJsonModeAllowed()) {
+      saveDatabaseToDisk();
+    }
+
+    invalidateGlobalConfigCache(key);
+
+    broadcastSupabaseChange('app_settings', 'GLOBAL_CONFIG_CHANGED', {
+      key,
+      value: saved.value,
+      version: saved.version,
+      updatedAt: saved.updatedAt,
+      updatedBy: actorName,
+      action: options.action || 'UPDATE',
+      module: moduleName
+    });
+    if (key === 'role_permissions') {
+      broadcastSupabaseChange('roles', 'UPDATE', {
+        rolePermissions: saved.value,
+        version: saved.version,
+        updatedAt: saved.updatedAt,
+        updatedBy: actorName
+      });
+    }
+
+    await logServerAuditAsync(
+      options.action === 'ROLLBACK' ? 'Global Config Rolled Back (Supabase)' : 'Global Config Saved (Supabase)',
+      'settings',
+      key,
+      `Konfigurasi global "${key}" (v${saved.version}) diperbarui oleh ${actorName}`,
+      user,
+      {
+        previousState: saved.previousValue,
+        newState: saved.value,
+        metadata: { version: saved.version, module: moduleName, action: options.action || 'UPDATE' }
+      }
+    );
+
+    return {
+      success: true,
+      data: {
+        key,
+        value: saved.value,
+        version: saved.version,
+        previousValue: saved.previousValue,
+        updatedAt: saved.updatedAt,
+        updatedBy: actorName,
+        versionRecordId: saved.versionRecordId
+      },
+      record: supaRes.record
+    };
+  }
+
+  // Local JSON mode (dev/test when Supabase is intentionally unconfigured)
+  db.appSettings = db.appSettings || {};
+  db.appSettingVersions = db.appSettingVersions || {};
+  db.globalConfigVersions = db.globalConfigVersions || [];
+
+  const hasExisting = Object.prototype.hasOwnProperty.call(db.appSettings, key);
+  const previousValue = hasExisting ? db.appSettings[key] : null;
+  const currentMeta = db.appSettingVersions[key];
+  const currentVersion = hasExisting ? currentMeta?.version || 1 : 0;
+
+  if (
+    !options.forceOverwrite &&
+    options.expectedVersion !== undefined &&
+    options.expectedVersion !== null &&
+    hasExisting &&
+    Number(options.expectedVersion) !== currentVersion
+  ) {
+    return {
+      success: false,
+      status: 409,
+      code: 'VERSION_CONFLICT',
+      message: `Konflik perubahan terdeteksi: konfigurasi "${key}" telah diperbarui ke versi v${currentVersion} oleh ${currentMeta?.updatedBy || 'Super Admin lain'}.`,
+      conflict: {
+        key,
+        expectedVersion: Number(options.expectedVersion),
+        currentVersion,
+        currentValue: previousValue,
+        updatedBy: currentMeta?.updatedBy || null,
+        updatedAt: currentMeta?.updatedAt || null
+      }
+    };
+  }
+
+  const nextVersion = hasExisting ? currentVersion + 1 : 1;
+  const cleanValue = JSON.parse(JSON.stringify(value));
+  const versionRecordId = `gcv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  db.appSettings[key] = cleanValue;
+  db.appSettingVersions[key] = { version: nextVersion, updatedAt: nowIso, updatedBy: actorName };
+  if (key === 'global_config') db.globalConfig = cleanValue;
+  if (key === 'session_config' || key === 'sessionConfig') db.sessionConfig = cleanValue;
+  if (key === 'google_sheets_config') db.sheetsConfig = cleanValue;
+  if (key === 'role_permissions') db.rolePermissions = cleanValue;
+
+  db.globalConfigVersions.unshift({
+    id: versionRecordId,
+    config_key: key,
+    version: nextVersion,
+    previous_value: previousValue,
+    new_value: cleanValue,
+    changed_by_id: user.id,
+    changed_by_name: actorName,
+    changed_by_role: user.role,
+    action: options.action || (hasExisting ? 'UPDATE' : 'CREATE'),
+    module: moduleName,
+    tx_status: 'COMMITTED',
+    notes: options.notes || null,
+    created_at: nowIso
+  });
+  if (db.globalConfigVersions.length > 500) {
+    db.globalConfigVersions.length = 500;
+  }
+
+  saveDatabaseToDisk();
+  invalidateGlobalConfigCache(key);
+
+  broadcastSupabaseChange('app_settings', 'GLOBAL_CONFIG_CHANGED', {
+    key,
+    value: cleanValue,
+    version: nextVersion,
+    updatedAt: nowIso,
+    updatedBy: actorName,
+    action: options.action || 'UPDATE',
+    module: moduleName
+  });
+  if (key === 'role_permissions') {
+    broadcastSupabaseChange('roles', 'UPDATE', {
+      rolePermissions: cleanValue,
+      version: nextVersion,
+      updatedAt: nowIso,
+      updatedBy: actorName
+    });
+  }
+
+  await logServerAuditAsync(
+    options.action === 'ROLLBACK' ? 'Global Config Rolled Back (Local Dev)' : 'Global Config Saved (Local Dev)',
+    'settings',
+    key,
+    `Konfigurasi global "${key}" (v${nextVersion}) diperbarui oleh ${actorName}`,
+    user,
+    {
+      previousState: previousValue,
+      newState: cleanValue,
+      metadata: { version: nextVersion, module: moduleName, action: options.action || 'UPDATE' }
+    }
+  );
+
+  return {
+    success: true,
+    data: {
+      key,
+      value: cleanValue,
+      version: nextVersion,
+      previousValue,
+      updatedAt: nowIso,
+      updatedBy: actorName,
+      versionRecordId
+    }
+  };
 }
 
 function requireBackupDownloadPermission(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -2133,6 +2710,7 @@ export async function createExpressApp(options?: {
             scopedWoNumbers.has(String(m.woNumber || '').trim().toUpperCase())
           )
         : [];
+      const rolePermBundle = user ? await getEffectiveRolePermissions() : null;
       return res.json({
         success: true,
         isAuthenticated: Boolean(user),
@@ -2154,8 +2732,9 @@ export async function createExpressApp(options?: {
         contractors: db.contractors,
         coverageAreas: db.coverageAreas,
         templates: db.templates,
-        globalConfig: db.globalConfig,
-        sheetsConfig: user?.role === 'super_admin' ? db.sheetsConfig : undefined,
+        globalConfig: db.appSettings?.global_config || db.globalConfig,
+        rolePermissions: rolePermBundle?.permissions,
+        sheetsConfig: user?.role === 'super_admin' ? (db.appSettings?.google_sheets_config || db.sheetsConfig) : undefined,
         operationalDate: todayWIB,
         operationalDateWIB: todayWIB,
         timezone: 'Asia/Jakarta',
@@ -2257,6 +2836,12 @@ export async function createExpressApp(options?: {
       };
     });
 
+    const [gcSupaRes, scSupaRes, rolePermBundle] = await Promise.all([
+      getVersionedAppSettingFromSupabase('global_config').catch(() => null),
+      user?.role === 'super_admin' ? getVersionedAppSettingFromSupabase('google_sheets_config').catch(() => null) : Promise.resolve(null),
+      user ? getEffectiveRolePermissions().catch(() => null) : Promise.resolve(null)
+    ]);
+
     res.json({
       success: true,
       isAuthenticated: Boolean(user),
@@ -2278,8 +2863,9 @@ export async function createExpressApp(options?: {
       contractors: safeContractors,
       coverageAreas: coverageAreasList,
       templates: templatesList,
-      globalConfig: db.globalConfig,
-      sheetsConfig: user?.role === 'super_admin' ? db.sheetsConfig : undefined,
+      globalConfig: (gcSupaRes?.success && gcSupaRes.data?.value) ? gcSupaRes.data.value : db.globalConfig,
+      rolePermissions: rolePermBundle?.permissions,
+      sheetsConfig: user?.role === 'super_admin' ? ((scSupaRes?.success && scSupaRes.data?.value) ? scSupaRes.data.value : db.sheetsConfig) : undefined,
       operationalDate: todayWIB,
       operationalDateWIB: todayWIB,
       timezone: 'Asia/Jakarta',
@@ -4729,11 +5315,8 @@ export async function createExpressApp(options?: {
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
   });
 
-  app.post('/api/contractors', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/contractors', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
     const user = req.user!;
-    if (user.role !== 'super_admin' && user.role !== 'dispatch') {
-      return res.status(403).json({ error: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat menambah kontraktor.' });
-    }
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
@@ -4775,6 +5358,7 @@ export async function createExpressApp(options?: {
       }
       if (!isLocalJsonModeAllowed()) {
         const allContractors = await getContractorsFromSupabase();
+        broadcastSupabaseChange('contractors', 'UPDATE', { contractors: allContractors.data || processedContractors, updatedBy: user.name });
         return res.json({ success: true, addedCount: added, contractors: allContractors.data || processedContractors });
       }
     }
@@ -4807,6 +5391,7 @@ export async function createExpressApp(options?: {
       });
 
       saveDatabaseToDisk();
+      broadcastSupabaseChange('contractors', 'UPDATE', { contractors: db.contractors, updatedBy: user.name });
       return res.json({ success: true, addedCount: added, contractors: db.contractors });
     }
 
@@ -4816,8 +5401,8 @@ export async function createExpressApp(options?: {
   const handleUpdateContractor = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const user = req.user!;
-    if (user.role !== 'super_admin' && user.role !== 'dispatch') {
-      return res.status(403).json({ error: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat mengubah data kontraktor.' });
+    if (user.role !== 'super_admin') {
+      return res.status(403).json({ success: false, error: 'Akses Ditolak: Hanya Super Admin yang dapat mengubah data kontraktor global.', code: 'REQUIRE_SUPER_ADMIN' });
     }
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
@@ -4840,6 +5425,7 @@ export async function createExpressApp(options?: {
       if (supaRes.success) {
         await logServerAuditAsync('Contractor Updated', 'master_data', id, `Kontraktor "${supaRes.data?.name || id}" diperbarui oleh ${user.name}`, user);
         if (!isLocalJsonModeAllowed()) {
+          broadcastSupabaseChange('contractors', 'UPDATE', { contractor: supaRes.data, updatedBy: user.name });
           return res.json({ success: true, contractor: supaRes.data, message: 'Data kontraktor berhasil diperbarui.' });
         }
       } else if (!isLocalJsonModeAllowed()) {
@@ -4857,6 +5443,7 @@ export async function createExpressApp(options?: {
 
       Object.assign(contractor, updates);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('contractors', 'UPDATE', { contractor, updatedBy: user.name });
       logServerAudit('Contractor Updated', 'master_data', contractor.id, `Kontraktor "${contractor.name}" diperbarui oleh ${user.name}`, user);
       return res.json({ success: true, contractor, message: 'Data kontraktor berhasil diperbarui.' });
     }
@@ -4924,11 +5511,8 @@ export async function createExpressApp(options?: {
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
   });
 
-  app.post('/api/coverage-areas', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/coverage-areas', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
     const user = req.user!;
-    if (user.role !== 'super_admin' && user.role !== 'dispatch') {
-      return res.status(403).json({ error: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat menambah coverage area.' });
-    }
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
@@ -4957,6 +5541,7 @@ export async function createExpressApp(options?: {
       }
       if (!isLocalJsonModeAllowed()) {
         const allAreas = await getCoverageAreasFromSupabase();
+        broadcastSupabaseChange('coverage_areas', 'UPDATE', { coverageAreas: allAreas.data || [], updatedBy: user.name });
         return res.json({ success: true, coverageAreas: allAreas.data || [] });
       }
     }
@@ -4975,6 +5560,7 @@ export async function createExpressApp(options?: {
         }
       });
       saveDatabaseToDisk();
+      broadcastSupabaseChange('coverage_areas', 'UPDATE', { coverageAreas: db.coverageAreas, updatedBy: user.name });
       return res.json({ success: true, coverageAreas: db.coverageAreas });
     }
 
@@ -4984,8 +5570,8 @@ export async function createExpressApp(options?: {
   const handleUpdateCoverageArea = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const user = req.user!;
-    if (user.role !== 'super_admin' && user.role !== 'dispatch') {
-      return res.status(403).json({ error: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat mengubah coverage area.' });
+    if (user.role !== 'super_admin') {
+      return res.status(403).json({ success: false, error: 'Akses Ditolak: Hanya Super Admin yang dapat mengubah coverage area global.', code: 'REQUIRE_SUPER_ADMIN' });
     }
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
@@ -5003,6 +5589,7 @@ export async function createExpressApp(options?: {
       if (supaRes.success) {
         await logServerAuditAsync('Coverage Area Updated', 'master_data', id, `Coverage Area "${supaRes.data?.name || id}" diperbarui oleh ${user.name}`, user);
         if (!isLocalJsonModeAllowed()) {
+          broadcastSupabaseChange('coverage_areas', 'UPDATE', { coverageArea: supaRes.data, updatedBy: user.name });
           return res.json({ success: true, coverageArea: supaRes.data, message: 'Coverage area berhasil diperbarui.' });
         }
       } else if (!isLocalJsonModeAllowed()) {
@@ -5019,6 +5606,7 @@ export async function createExpressApp(options?: {
       }
       Object.assign(area, updates);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('coverage_areas', 'UPDATE', { coverageArea: area, updatedBy: user.name });
       logServerAudit('Coverage Area Updated', 'master_data', area.id, `Coverage Area "${area.name}" diperbarui oleh ${user.name}`, user);
       return res.json({ success: true, coverageArea: area, message: 'Coverage area berhasil diperbarui.' });
     }
@@ -5587,20 +6175,46 @@ export async function createExpressApp(options?: {
     res.json({ success: true, message: 'Sesi berhasil dicabut.' });
   });
 
-  app.get('/api/sessions/config', requireSuperAdmin, (_req, res) => {
-    res.json({ success: true, config: db.sessionConfig });
+  app.get('/api/sessions/config', requireSuperAdmin, async (_req, res) => {
+    const readRes = await readGlobalConfigUnified('session_config');
+    if (!readRes.success) {
+      return res.status(readRes.status || 503).json({ success: false, error: readRes.message, code: readRes.code });
+    }
+    const config = readRes.value && typeof readRes.value === 'object' ? { ...db.sessionConfig, ...readRes.value } : db.sessionConfig;
+    res.json({ success: true, config, version: readRes.version });
   });
 
-  app.post('/api/sessions/config', requireSuperAdmin, (req: AuthenticatedRequest, res) => {
-    const updates = req.body || {};
-    db.sessionConfig = {
-      ...db.sessionConfig,
+  app.post('/api/sessions/config', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+    const { expectedVersion, forceOverwrite, ...updates } = req.body || {};
+    const existing = await readGlobalConfigUnified('session_config');
+    const baseConfig = existing.success && existing.value ? existing.value : db.sessionConfig;
+    const nextConfig = {
+      ...baseConfig,
       ...updates,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user!.name
     };
-    saveDatabaseToDisk();
-    logServerAudit('Session Config Updated', 'auth', 'sessions_config', `Konfigurasi sesi diperbarui oleh ${req.user!.name}`, req.user);
-    res.json({ success: true, config: db.sessionConfig, message: 'Konfigurasi sesi berhasil diperbarui.' });
+    const saveRes = await saveGlobalConfigUnified('session_config', nextConfig, req.user!, {
+      expectedVersion,
+      forceOverwrite,
+      module: 'session_config',
+      description: `Konfigurasi kebijakan sesi diperbarui oleh ${req.user!.name}`
+    });
+    if (!saveRes.success) {
+      return res.status(saveRes.status || 500).json({
+        success: false,
+        error: saveRes.message,
+        code: saveRes.code,
+        conflict: saveRes.conflict
+      });
+    }
+    db.sessionConfig = saveRes.data!.value;
+    res.json({
+      success: true,
+      config: db.sessionConfig,
+      version: saveRes.data!.version,
+      message: 'Konfigurasi sesi berhasil disimpan ke database.'
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -5684,39 +6298,26 @@ export async function createExpressApp(options?: {
   });
 
   // --- Global Configuration Storage ---
-  app.get('/api/config/global', async (_req, res) => {
-    if (isSupabaseMode()) {
-      try {
-        const supaRes = await getAppSettingFromSupabase('global_config');
-        if (supaRes.success && supaRes.data) {
-          return res.json({ success: true, config: supaRes.data });
-        } else if (!isLocalJsonModeAllowed()) {
-          const status = supaRes.error?.isUnavailable ? 503 : 500;
-          return res.status(status).json({
-            success: false,
-            error: supaRes.error?.message || 'Database authoritative Supabase tidak tersedia.',
-            code: supaRes.error?.code || 'DATABASE_UNAVAILABLE'
-          });
-        }
-      } catch (err: any) {
-        if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
-        }
-      }
-    }
-    res.json({ success: true, config: db.globalConfig });
-  });
-
-  app.post('/api/config/global', requireAuth, async (req: AuthenticatedRequest, res) => {
-    const allowedRoles = ['super_admin', 'management_data', 'dispatch', 'it_support'];
-    if (!allowedRoles.includes(req.user!.role)) {
-      return res.status(403).json({
+  app.get('/api/config/global', requireAuth, async (_req, res) => {
+    const readRes = await readGlobalConfigUnified('global_config');
+    if (!readRes.success) {
+      return res.status(readRes.status || 503).json({
         success: false,
-        error: 'Akses Ditolak: Leader dan Installer tidak memiliki wewenang mengubah Setup Terpusat.',
-        code: 'REQUIRE_CONFIG_PERMISSION'
+        error: readRes.message || 'Database authoritative Supabase tidak tersedia.',
+        code: readRes.code || 'DATABASE_UNAVAILABLE'
       });
     }
-    const { config } = req.body || {};
+    res.json({
+      success: true,
+      config: readRes.value ?? db.globalConfig,
+      version: readRes.version,
+      updatedAt: readRes.updatedAt,
+      updatedBy: readRes.updatedBy
+    });
+  });
+
+  app.post('/api/config/global', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+    const { config, expectedVersion, forceOverwrite } = req.body || {};
     if (!config || typeof config !== 'object' || Array.isArray(config)) {
       return res.status(400).json({
         success: false,
@@ -5725,49 +6326,91 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const existingRes = await readGlobalConfigUnified('global_config');
     const updatedConfig = {
-      ...(db.globalConfig || {}),
+      ...((existingRes.success && existingRes.value && typeof existingRes.value === 'object') ? existingRes.value : (db.globalConfig || {})),
       ...config,
       updatedAt: new Date().toISOString(),
       updatedBy: req.user!.name,
       updatedByRole: req.user!.role
     };
 
-    if (isSupabaseMode()) {
-      const supaRes = await saveAppSettingToSupabase('global_config', updatedConfig);
-      if (!supaRes.success && !isLocalJsonModeAllowed()) {
-        const status = supaRes.error?.isUnavailable ? 503 : 500;
-        return res.status(status).json({
-          success: false,
-          error: supaRes.error?.message || 'Gagal menyimpan konfigurasi ke Supabase.',
-          code: supaRes.error?.code || 'DATABASE_UNAVAILABLE'
-        });
-      }
+    const saveRes = await saveGlobalConfigUnified('global_config', updatedConfig, req.user!, {
+      expectedVersion,
+      forceOverwrite,
+      module: 'global_config',
+      description: `Global config updated by Super Admin ${req.user!.name}`
+    });
+
+    if (!saveRes.success) {
+      return res.status(saveRes.status || 500).json({
+        success: false,
+        error: saveRes.message || 'Gagal menyimpan konfigurasi ke Supabase.',
+        code: saveRes.code || 'DATABASE_UNAVAILABLE',
+        conflict: saveRes.conflict
+      });
     }
 
-    db.globalConfig = updatedConfig;
-    if (isLocalJsonModeAllowed()) {
-      saveDatabaseToDisk();
-    }
-    await logServerAuditAsync('Global Config Updated', 'ui_config', 'global', `${req.user!.role === 'super_admin' ? 'Super Admin' : 'IT Support'} ${req.user!.name} memperbarui konfigurasi global`, req.user);
-    res.json({ success: true, config: updatedConfig });
+    res.json({
+      success: true,
+      config: saveRes.data!.value,
+      version: saveRes.data!.version,
+      updatedAt: saveRes.data!.updatedAt
+    });
   });
 
   // --- Operational Date Engine (Asia/Jakarta) ---
-  app.get('/api/system/operational-date', (_req, res) => {
+  app.get('/api/system/operational-date', async (_req, res) => {
+    if (isSupabaseMode()) {
+      try {
+        const readRes = await getVersionedAppSettingFromSupabase('operational_date_config');
+        if (readRes.success && readRes.data?.value && typeof readRes.data.value === 'object') {
+          const val = readRes.data.value;
+          db.operationalDateOverride = val.isAuto || !val.operationalDate ? null : String(val.operationalDate).trim();
+        }
+      } catch {}
+    }
     res.json(getOperationalDate(getNow()));
   });
 
-  app.post('/api/system/operational-date', requireAuth, (req: AuthenticatedRequest, res) => {
-    if (req.user!.role !== 'super_admin' && req.user!.role !== 'dispatch' && req.user!.role !== 'management_data') {
-      return res.status(403).json({ error: 'Akses Ditolak: Perubahan tanggal operasional hanya dapat dilakukan oleh Super Admin, Management Data, atau Dispatch.' });
-    }
-    const { date, operationalDate, isAuto } = req.body;
+  app.post('/api/system/operational-date', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+    const { date, operationalDate, isAuto, expectedVersion, forceOverwrite } = req.body || {};
     const targetDate = operationalDate || date;
-    db.operationalDateOverride = isAuto || !targetDate ? null : String(targetDate).trim();
+    const nextOverride = isAuto || !targetDate ? null : String(targetDate).trim();
+
+    const payload = {
+      operationalDate: nextOverride,
+      isAuto: Boolean(isAuto || !targetDate),
+      timezone: 'Asia/Jakarta',
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user!.name
+    };
+
+    const saveRes = await saveGlobalConfigUnified('operational_date_config', payload, req.user!, {
+      expectedVersion,
+      forceOverwrite,
+      module: 'operational_date',
+      description: `Tanggal operasional diatur ke ${nextOverride || 'Otomatis (Hari Ini)'} oleh ${req.user!.name}`
+    });
+
+    if (!saveRes.success) {
+      return res.status(saveRes.status || 500).json({
+        success: false,
+        error: saveRes.message || 'Gagal menyimpan tanggal operasional ke database.',
+        code: saveRes.code,
+        conflict: saveRes.conflict
+      });
+    }
+
+    db.operationalDateOverride = nextOverride;
     saveDatabaseToDisk();
-    logServerAudit('Operational Date Changed', 'system', 'operational-date', `Tanggal operasional diatur ke ${db.operationalDateOverride || 'Otomatis (Hari Ini)'} oleh ${req.user!.name}`, req.user);
-    res.json({ success: true, operationalDate: getOperationalDate(getNow()).date });
+    const resolvedOp = getOperationalDate(getNow());
+    broadcastSupabaseChange('system_operational_date', 'UPDATE', {
+      operationalDate: resolvedOp.date,
+      isAuto: resolvedOp.isAuto,
+      updatedBy: req.user!.name
+    });
+    res.json({ success: true, operationalDate: resolvedOp.date, isAuto: resolvedOp.isAuto, version: saveRes.data!.version });
   });
 
   // Helper to extract clean Google Spreadsheet ID
@@ -5781,26 +6424,48 @@ export async function createExpressApp(options?: {
   }
 
   // --- Google Sheets Sync Configuration & Real Backend Integration ---
-  app.get(['/api/sheets/config', '/api/integrations/google-sheets/config'], requireSuperAdmin, (_req, res) => {
-    res.json({ config: db.sheetsConfig });
+  app.get(['/api/sheets/config', '/api/integrations/google-sheets/config'], requireSuperAdmin, async (_req, res) => {
+    const readRes = await readGlobalConfigUnified('google_sheets_config');
+    if (!readRes.success) {
+      return res.status(readRes.status || 503).json({ success: false, error: readRes.message, code: readRes.code });
+    }
+    const config = readRes.value && typeof readRes.value === 'object' ? { ...db.sheetsConfig, ...readRes.value } : db.sheetsConfig;
+    res.json({ config, version: readRes.version });
   });
 
-  app.post(['/api/sheets/config', '/api/integrations/google-sheets/config'], requireSuperAdmin, (req: AuthenticatedRequest, res) => {
-    const updates = req.body;
-    const cleanId = extractCleanSpreadsheetId(updates.spreadsheetId || updates.spreadsheetUrl || db.sheetsConfig.spreadsheetId);
+  app.post(['/api/sheets/config', '/api/integrations/google-sheets/config'], requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
+    const { expectedVersion, forceOverwrite, ...updates } = req.body || {};
+    const existing = await readGlobalConfigUnified('google_sheets_config');
+    const baseSheets = existing.success && existing.value ? existing.value : db.sheetsConfig;
+    const cleanId = extractCleanSpreadsheetId(updates.spreadsheetId || updates.spreadsheetUrl || baseSheets.spreadsheetId);
 
-    db.sheetsConfig = {
-      ...db.sheetsConfig,
+    const nextConfig = {
+      ...baseSheets,
       ...updates,
-      spreadsheetId: cleanId || db.sheetsConfig.spreadsheetId,
-      spreadsheetUrl: cleanId ? `https://docs.google.com/spreadsheets/d/${cleanId}/edit` : db.sheetsConfig.spreadsheetUrl,
+      spreadsheetId: cleanId || baseSheets.spreadsheetId,
+      spreadsheetUrl: cleanId ? `https://docs.google.com/spreadsheets/d/${cleanId}/edit` : baseSheets.spreadsheetUrl,
       updatedAt: new Date().toISOString(),
       updatedBy: req.user!.name
     };
 
-    saveDatabaseToDisk();
-    logServerAudit('Google Sheets Config Updated', 'ui_config', 'sheets', `Konfigurasi Google Sheets diperbarui oleh ${req.user!.name}`, req.user);
-    res.json({ success: true, config: db.sheetsConfig });
+    const saveRes = await saveGlobalConfigUnified('google_sheets_config', nextConfig, req.user!, {
+      expectedVersion,
+      forceOverwrite,
+      module: 'google_sheets_config',
+      description: `Konfigurasi Google Sheets diperbarui oleh ${req.user!.name}`
+    });
+
+    if (!saveRes.success) {
+      return res.status(saveRes.status || 500).json({
+        success: false,
+        error: saveRes.message || 'Gagal menyimpan konfigurasi Google Sheets ke database.',
+        code: saveRes.code,
+        conflict: saveRes.conflict
+      });
+    }
+
+    db.sheetsConfig = saveRes.data!.value;
+    res.json({ success: true, config: db.sheetsConfig, version: saveRes.data!.version });
   });
 
   // Google Sheets Real-Time Status Endpoint
@@ -8154,8 +8819,9 @@ export async function createExpressApp(options?: {
           id: req.body?.id || `c_${Date.now()}`,
           createdAt: req.body?.createdAt || new Date().toISOString()
         };
-        db.contractors.push(newContractor);
+        if (db.contractors) db.contractors.push(newContractor);
         saveDatabaseToDisk();
+        broadcastSupabaseChange('contractors', 'INSERT', newContractor);
         await logServerAuditAsync('Contractor Created (Local Dev)', 'contractor', newContractor.id, `Mitra ${newContractor.name} dibuat oleh ${user.name}`, user);
         return res.status(201).json({ success: true, data: newContractor });
       }
@@ -8167,6 +8833,7 @@ export async function createExpressApp(options?: {
 
       if (db.contractors) db.contractors.push(result.data);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('contractors', 'INSERT', result.data);
 
       await logServerAuditAsync('Contractor Created (Supabase)', 'contractor', result.data?.id || 'new', `Mitra ${result.data?.name} dibuat oleh ${user.name}`, user);
       return res.status(201).json({ success: true, data: result.data });
@@ -8190,6 +8857,7 @@ export async function createExpressApp(options?: {
         }
         Object.assign(c, req.body);
         saveDatabaseToDisk();
+        broadcastSupabaseChange('contractors', 'UPDATE', c);
         await logServerAuditAsync('Contractor Updated (Local Dev)', 'contractor', id, `Mitra ${id} diperbarui oleh ${user.name}`, user);
         return res.json({ success: true, data: c });
       }
@@ -8204,6 +8872,7 @@ export async function createExpressApp(options?: {
         if (c) Object.assign(c, req.body);
         saveDatabaseToDisk();
       }
+      broadcastSupabaseChange('contractors', 'UPDATE', result.data);
 
       await logServerAuditAsync('Contractor Updated (Supabase)', 'contractor', id, `Mitra ${id} diperbarui oleh ${user.name}`, user);
       return res.json({ success: true, data: result.data });
@@ -8223,6 +8892,7 @@ export async function createExpressApp(options?: {
         }
         db.contractors = db.contractors.filter(x => x.id !== id);
         saveDatabaseToDisk();
+        broadcastSupabaseChange('contractors', 'DELETE', { id });
         await logServerAuditAsync('Contractor Deleted (Local Dev)', 'contractor', id, `Mitra ${id} dihapus oleh ${user.name}`, user);
         return res.json({ success: true, data: true });
       }
@@ -8233,6 +8903,7 @@ export async function createExpressApp(options?: {
       }
       db.contractors = db.contractors.filter(x => x.id !== id);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('contractors', 'DELETE', { id });
       await logServerAuditAsync('Contractor Deleted (Supabase)', 'contractor', id, `Mitra ${id} diarsipkan/dihapus oleh ${user.name}`, user);
       return res.json({ success: true, data: true });
     } catch (err: any) {
@@ -8279,6 +8950,7 @@ export async function createExpressApp(options?: {
         };
         db.coverageAreas.push(newArea);
         saveDatabaseToDisk();
+        broadcastSupabaseChange('coverage_areas', 'INSERT', newArea);
         await logServerAuditAsync('Coverage Area Created (Local Dev)', 'coverage_area', newArea.id, `Area ${newArea.name} dibuat oleh ${user.name}`, user);
         return res.status(201).json({ success: true, data: newArea });
       }
@@ -8290,6 +8962,7 @@ export async function createExpressApp(options?: {
 
       if (db.coverageAreas) db.coverageAreas.push(result.data);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('coverage_areas', 'INSERT', result.data);
 
       await logServerAuditAsync('Coverage Area Created (Supabase)', 'coverage_area', result.data?.id || 'new', `Area ${result.data?.name} dibuat oleh ${user.name}`, user);
       return res.status(201).json({ success: true, data: result.data });
@@ -8313,6 +8986,7 @@ export async function createExpressApp(options?: {
         }
         Object.assign(area, req.body);
         saveDatabaseToDisk();
+        broadcastSupabaseChange('coverage_areas', 'UPDATE', area);
         await logServerAuditAsync('Coverage Area Updated (Local Dev)', 'coverage_area', id, `Area ${id} diperbarui oleh ${user.name}`, user);
         return res.json({ success: true, data: area });
       }
@@ -8324,6 +8998,7 @@ export async function createExpressApp(options?: {
       const area = db.coverageAreas.find(a => a.id === id);
       if (area) Object.assign(area, req.body);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('coverage_areas', 'UPDATE', result.data);
       await logServerAuditAsync('Coverage Area Updated (Supabase)', 'coverage_area', id, `Area ${id} diperbarui oleh ${user.name}`, user);
       return res.json({ success: true, data: result.data });
     } catch (err: any) {
@@ -8342,6 +9017,7 @@ export async function createExpressApp(options?: {
         }
         db.coverageAreas = db.coverageAreas.filter(a => a.id !== id);
         saveDatabaseToDisk();
+        broadcastSupabaseChange('coverage_areas', 'DELETE', { id });
         await logServerAuditAsync('Coverage Area Deleted (Local Dev)', 'coverage_area', id, `Area ${id} dihapus oleh ${user.name}`, user);
         return res.json({ success: true, data: true });
       }
@@ -8352,6 +9028,7 @@ export async function createExpressApp(options?: {
       }
       db.coverageAreas = db.coverageAreas.filter(a => a.id !== id);
       saveDatabaseToDisk();
+      broadcastSupabaseChange('coverage_areas', 'DELETE', { id });
       await logServerAuditAsync('Coverage Area Deleted (Supabase)', 'coverage_area', id, `Area ${id} dihapus oleh ${user.name}`, user);
       return res.json({ success: true, data: true });
     } catch (err: any) {
@@ -8524,42 +9201,28 @@ export async function createExpressApp(options?: {
         });
       }
 
-      if (!isSupabaseMode()) {
-        if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({
-            success: false,
-            error: {
-              code: 'DATABASE_UNAVAILABLE',
-              message: 'Database authoritative Supabase tidak tersedia.',
-              httpStatus: 503,
-              table: 'app_settings',
-              operation: 'SELECT'
-            }
-          });
-        }
-        return res.json({ success: true, data: (db.appSettings || {})[key] ?? null });
-      }
-
-      const result = await getAppSettingFromSupabase(key);
-      if (!result.success) {
-        if (isLocalJsonModeAllowed()) {
-          return res.json({ success: true, data: (db.appSettings || {})[key] ?? null });
-        }
-        const status = result.error?.httpStatus || (result.error?.isUnavailable ? 503 : result.error?.isPermissionError ? 403 : 500);
+      const readRes = await readGlobalConfigUnified(key);
+      if (!readRes.success) {
+        const status = readRes.status || 503;
         return res.status(status).json({
           success: false,
           error: {
-            code: result.error?.code || 'DB_READ_ERROR',
-            message: result.error?.message || 'Gagal membaca konfigurasi dari Supabase PostgreSQL.',
-            details: result.error?.details,
-            hint: result.error?.hint,
+            code: readRes.code || 'DB_READ_ERROR',
+            message: readRes.message || 'Gagal membaca konfigurasi dari Supabase PostgreSQL.',
             httpStatus: status,
             table: 'app_settings',
             operation: 'SELECT'
           }
         });
       }
-      return res.json({ success: true, data: result.data, updatedAt: result.updatedAt || null });
+
+      return res.json({
+        success: true,
+        data: readRes.value,
+        version: readRes.version,
+        updatedBy: readRes.updatedBy,
+        updatedAt: readRes.updatedAt
+      });
     } catch (err: any) {
       return res.status(500).json({
         success: false,
@@ -8574,12 +9237,12 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // 21. POST /api/supabase/settings/:key
-  app.post('/api/supabase/settings/:key', requireSettingsManager, async (req: AuthenticatedRequest, res: Response) => {
+  // 21. POST /api/supabase/settings/:key (Strictly Super Admin ONLY for Global Configs)
+  app.post('/api/supabase/settings/:key', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { key } = req.params;
       const user = req.user!;
-      const { value, description } = req.body || {};
+      const { value, description, expectedVersion, forceOverwrite, module, notes } = req.body || {};
 
       if (!/^[a-zA-Z0-9_.\-]{2,64}$/.test(key)) {
         return res.status(400).json({
@@ -8594,33 +9257,13 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // Strict RBAC for navigation configuration keys: only Super Admin may modify navigation
-      if ((key === 'navigation_doc' || key === 'navigation_config') && user.role !== 'super_admin') {
-        await logServerAuditAsync(
-          'Access Denied (Navigation Configuration Write)',
-          'rbac',
-          key,
-          `User ${user.name} (${user.role}) ditolak menyimpan konfigurasi navigasi (${key}).`,
-          user
-        );
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'NAVIGATION_WRITE_FORBIDDEN',
-            message: 'Akses Ditolak: Hanya Super Admin yang berwenang mengubah dan menyimpan konfigurasi menu navigasi.',
-            httpStatus: 403,
-            table: 'app_settings',
-            operation: 'UPSERT'
-          }
-        });
-      }
-
-      if (value === undefined || value === null) {
+      const validation = validateGlobalConfigPayload(key, value);
+      if (!validation.valid) {
         return res.status(400).json({
           success: false,
           error: {
-            code: 'INVALID_PAYLOAD',
-            message: 'Payload konfigurasi (value) wajib disertakan.',
+            code: validation.code || 'INVALID_PAYLOAD',
+            message: validation.message || 'Payload konfigurasi (value) wajib disertakan.',
             httpStatus: 400,
             table: 'app_settings',
             operation: 'UPSERT'
@@ -8628,116 +9271,40 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // Structural validation for canonical navigation documents to prevent accidental data loss
-      if (key === 'navigation_doc' || key === 'navigation_config') {
-        if (typeof value !== 'object' || Array.isArray(value)) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'INVALID_NAVIGATION_PAYLOAD',
-              message: 'Payload konfigurasi navigasi harus berupa objek JSON yang valid.',
-              httpStatus: 400,
-              table: 'app_settings',
-              operation: 'UPSERT'
-            }
-          });
-        }
-        if (!Array.isArray(value.categories) || value.categories.length === 0) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'INVALID_NAVIGATION_CATEGORIES',
-              message: 'Konfigurasi navigasi wajib memiliki minimal satu kategori navigasi (categories).',
-              httpStatus: 400,
-              table: 'app_settings',
-              operation: 'UPSERT'
-            }
-          });
-        }
-        if (!Array.isArray(value.standaloneMenus) || value.standaloneMenus.length === 0) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'INVALID_NAVIGATION_STANDALONE_MENUS',
-              message: 'Konfigurasi navigasi wajib memiliki minimal satu menu mandiri (standaloneMenus).',
-              httpStatus: 400,
-              table: 'app_settings',
-              operation: 'UPSERT'
-            }
-          });
-        }
-        if (!Array.isArray(value.submenuItems)) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'INVALID_NAVIGATION_SUBMENUS',
-              message: 'Field submenuItems pada konfigurasi navigasi harus berupa array.',
-              httpStatus: 400,
-              table: 'app_settings',
-              operation: 'UPSERT'
-            }
-          });
-        }
-      }
+      const saveRes = await saveGlobalConfigUnified(key, value, user, {
+        expectedVersion,
+        forceOverwrite,
+        description,
+        module: module || key,
+        notes
+      });
 
-      if (!isSupabaseMode()) {
-        if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({
-            success: false,
-            error: {
-              code: 'DATABASE_UNAVAILABLE',
-              message: 'Database authoritative Supabase tidak tersedia.',
-              httpStatus: 503,
-              table: 'app_settings',
-              operation: 'UPSERT'
-            }
-          });
-        }
-        const confirmedUpdatedAt = new Date().toISOString();
-        db.appSettings = db.appSettings || {};
-        db.appSettings[key] = value;
-        saveDatabaseToDisk();
-        broadcastSupabaseChange('app_settings', 'UPDATE', { key, value, updatedAt: confirmedUpdatedAt });
-        await logServerAuditAsync('App Setting Saved (Local Dev)', 'settings', key, `Pengaturan "${key}" disimpan oleh ${user.name}`, user);
-        return res.json({ success: true, data: true, key, updatedAt: confirmedUpdatedAt });
-      }
-
-      const result = await saveAppSettingToSupabase(key, value, description, user.name || user.username);
-      if (!result.success) {
-        const status =
-          result.error?.httpStatus ||
-          (result.error?.isUnavailable ? 503 : result.error?.isPermissionError ? 403 : result.error?.isValidationError ? 400 : 500);
-        console.error('[API /api/supabase/settings] Save failed:', {
-          httpStatus: status,
-          table: 'app_settings',
-          operation: result.error?.operation || 'UPSERT',
-          key,
-          code: result.error?.code,
-          message: result.error?.message
-        });
+      if (!saveRes.success) {
+        const status = saveRes.status || 500;
         return res.status(status).json({
           success: false,
+          conflict: saveRes.conflict,
           error: {
-            code: result.error?.code || 'DB_WRITE_ERROR',
-            message: result.error?.message || 'Gagal menyimpan konfigurasi ke Supabase PostgreSQL.',
-            details: result.error?.details,
-            hint: result.error?.hint,
+            code: saveRes.code || 'DB_WRITE_ERROR',
+            message: saveRes.message || 'Gagal menyimpan konfigurasi ke Supabase PostgreSQL.',
+            details: saveRes.errorDetails?.details || saveRes.conflict,
+            hint: saveRes.errorDetails?.hint,
             httpStatus: status,
             table: 'app_settings',
-            operation: result.error?.operation || 'UPSERT'
+            operation: saveRes.errorDetails?.operation || 'UPSERT'
           }
         });
       }
 
-      const confirmedUpdatedAt = result.updatedAt || new Date().toISOString();
-      broadcastSupabaseChange('app_settings', 'UPDATE', { key, value, updatedAt: confirmedUpdatedAt });
-      await logServerAuditAsync('App Setting Saved (Supabase)', 'settings', key, `Pengaturan "${key}" disimpan oleh ${user.name}`, user);
       return res.json({
         success: true,
         data: true,
         key,
-        updatedAt: confirmedUpdatedAt,
-        setting: result.record || null
+        version: saveRes.data!.version,
+        updatedAt: saveRes.data!.updatedAt,
+        updatedBy: saveRes.data!.updatedBy,
+        versionRecordId: saveRes.data!.versionRecordId,
+        setting: saveRes.record || null
       });
     } catch (err: any) {
       return res.status(500).json({
@@ -8750,6 +9317,349 @@ export async function createExpressApp(options?: {
           operation: 'UPSERT'
         }
       });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // GLOBAL SUPERADMIN CONTROL: CENTRALIZED CONFIG, VERSION HISTORY & ROLLBACK
+  // ---------------------------------------------------------------------------
+
+  // 21a. GET /api/global-config/bootstrap
+  app.get('/api/global-config/bootstrap', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          error: 'Database authoritative Supabase tidak tersedia.',
+          code: 'DATABASE_UNAVAILABLE'
+        });
+      }
+
+      const configs: Record<string, any> = {};
+      const versions: Record<string, number> = {};
+      const metadata: Record<string, { updatedAt: string | null; updatedBy: string | null }> = {};
+
+      if (isSupabaseMode()) {
+        const allRes = await getAllAppSettingsFromSupabase();
+        if (!allRes.success && !isLocalJsonModeAllowed()) {
+          return res.status(allRes.error?.httpStatus || 503).json({
+            success: false,
+            error: allRes.error?.message || 'Gagal memuat konfigurasi global dari Supabase.',
+            code: allRes.error?.code || 'DATABASE_UNAVAILABLE'
+          });
+        }
+        for (const row of allRes.data || []) {
+          if (row.key === 'google_sheets_config' && user.role !== 'super_admin') continue;
+          configs[row.key] = row.value;
+          versions[row.key] = row.version || 1;
+          metadata[row.key] = { updatedAt: row.updatedAt || null, updatedBy: row.updatedBy || null };
+        }
+      } else {
+        for (const [k, v] of Object.entries(db.appSettings || {})) {
+          if (k === 'google_sheets_config' && user.role !== 'super_admin') continue;
+          configs[k] = v;
+          const m = (db.appSettingVersions || {})[k];
+          versions[k] = m?.version || 1;
+          metadata[k] = { updatedAt: m?.updatedAt || null, updatedBy: m?.updatedBy || null };
+        }
+      }
+
+      if (!configs.global_config && db.globalConfig) {
+        configs.global_config = db.globalConfig;
+        versions.global_config = versions.global_config || 1;
+      }
+      if (user.role === 'super_admin' && !configs.google_sheets_config && db.sheetsConfig) {
+        configs.google_sheets_config = db.sheetsConfig;
+        versions.google_sheets_config = versions.google_sheets_config || 1;
+      }
+
+      const rolePermBundle = await getEffectiveRolePermissions();
+      configs.role_permissions = rolePermBundle.permissions;
+      versions.role_permissions = versions.role_permissions || rolePermBundle.version;
+
+      return res.json({
+        success: true,
+        configs,
+        versions,
+        metadata,
+        rolePermissions: rolePermBundle.permissions,
+        rolePermissionsVersion: rolePermBundle.version,
+        operationalDate: getOperationalDate(getNow()),
+        serverTime: new Date().toISOString()
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal bootstrap konfigurasi global.' });
+    }
+  });
+
+  // 21b. GET /api/global-config/versions/all
+  app.get('/api/global-config/versions/all', requireAuditLogViewer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const key = typeof req.query.key === 'string' ? req.query.key.trim() : undefined;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 100;
+
+      if (!isSupabaseMode()) {
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+        }
+        let rows = db.globalConfigVersions || [];
+        if (key && key !== 'ALL') {
+          rows = rows.filter(r => r.config_key === key);
+        }
+        return res.json({ success: true, data: rows.slice(0, Math.max(1, Math.min(500, limit))) });
+      }
+
+      const resVer = await getConfigVersionsFromSupabase(key, limit);
+      if (!resVer.success) {
+        return res.status(resVer.error?.httpStatus || 503).json({
+          success: false,
+          error: resVer.error?.message || 'Gagal memuat riwayat versi konfigurasi.',
+          code: resVer.error?.code || 'DATABASE_UNAVAILABLE'
+        });
+      }
+      return res.json({ success: true, data: resVer.data || [] });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat riwayat versi konfigurasi.' });
+    }
+  });
+
+  // 21c. GET /api/global-config/:key
+  app.get('/api/global-config/:key', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      if (!/^[a-zA-Z0-9_.\-]{2,64}$/.test(key)) {
+        return res.status(400).json({ success: false, error: 'Format kunci konfigurasi tidak valid.', code: 'INVALID_KEY_FORMAT' });
+      }
+      if (key === 'google_sheets_config' && req.user!.role !== 'super_admin') {
+        return res.status(403).json({ success: false, error: 'Akses Ditolak: Konfigurasi Google Sheets hanya untuk Super Admin.', code: 'REQUIRE_SUPER_ADMIN' });
+      }
+
+      const readRes = await readGlobalConfigUnified(key);
+      if (!readRes.success) {
+        return res.status(readRes.status || 503).json({ success: false, error: readRes.message, code: readRes.code });
+      }
+
+      return res.json({
+        success: true,
+        key,
+        value: readRes.value,
+        version: readRes.version,
+        updatedAt: readRes.updatedAt,
+        updatedBy: readRes.updatedBy
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal membaca konfigurasi global.' });
+    }
+  });
+
+  // 21d. PUT /api/global-config/:key (Strictly Super Admin ONLY)
+  app.put('/api/global-config/:key', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      if (!/^[a-zA-Z0-9_.\-]{2,64}$/.test(key)) {
+        return res.status(400).json({ success: false, error: 'Format kunci konfigurasi tidak valid.', code: 'INVALID_KEY_FORMAT' });
+      }
+      const { value, expectedVersion, forceOverwrite, description, module, notes } = req.body || {};
+      const validation = validateGlobalConfigPayload(key, value);
+      if (!validation.valid) {
+        return res.status(400).json({ success: false, error: validation.message, code: validation.code });
+      }
+
+      const saveRes = await saveGlobalConfigUnified(key, value, req.user!, {
+        expectedVersion,
+        forceOverwrite,
+        description,
+        module: module || key,
+        notes
+      });
+
+      if (!saveRes.success) {
+        return res.status(saveRes.status || 500).json({
+          success: false,
+          error: saveRes.message,
+          code: saveRes.code,
+          conflict: saveRes.conflict
+        });
+      }
+
+      return res.json({
+        success: true,
+        key,
+        value: saveRes.data!.value,
+        version: saveRes.data!.version,
+        updatedAt: saveRes.data!.updatedAt,
+        updatedBy: saveRes.data!.updatedBy,
+        versionRecordId: saveRes.data!.versionRecordId
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal menyimpan konfigurasi global.' });
+    }
+  });
+
+  // 21e. GET /api/global-config/:key/versions
+  app.get('/api/global-config/:key/versions', requireAuditLogViewer, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
+      if (!isSupabaseMode()) {
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+        }
+        const rows = (db.globalConfigVersions || []).filter(r => r.config_key === key).slice(0, limit);
+        return res.json({ success: true, key, data: rows });
+      }
+      const resVer = await getConfigVersionsFromSupabase(key, limit);
+      if (!resVer.success) {
+        return res.status(resVer.error?.httpStatus || 503).json({ success: false, error: resVer.error?.message, code: resVer.error?.code });
+      }
+      return res.json({ success: true, key, data: resVer.data || [] });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal membaca riwayat versi konfigurasi.' });
+    }
+  });
+
+  // 21f. POST /api/global-config/:key/rollback (Strictly Super Admin ONLY)
+  app.post('/api/global-config/:key/rollback', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { key } = req.params;
+      const { targetVersionId, targetVersion, expectedVersion, forceOverwrite, notes } = req.body || {};
+
+      if (!targetVersionId && (targetVersion === undefined || targetVersion === null)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parameter targetVersionId atau targetVersion wajib disertakan untuk melakukan rollback.',
+          code: 'MISSING_ROLLBACK_TARGET'
+        });
+      }
+
+      let targetRow: any = null;
+      if (isSupabaseMode()) {
+        if (targetVersionId) {
+          const verRes = await getConfigVersionByIdFromSupabase(String(targetVersionId));
+          if (!verRes.success) {
+            return res.status(verRes.error?.httpStatus || 503).json({ success: false, error: verRes.error?.message, code: verRes.error?.code });
+          }
+          targetRow = verRes.data;
+        } else {
+          const listRes = await getConfigVersionsFromSupabase(key, 200);
+          if (!listRes.success) {
+            return res.status(listRes.error?.httpStatus || 503).json({ success: false, error: listRes.error?.message, code: listRes.error?.code });
+          }
+          targetRow = (listRes.data || []).find(r => Number(r.version) === Number(targetVersion));
+        }
+      } else if (isLocalJsonModeAllowed()) {
+        const list = (db.globalConfigVersions || []).filter(r => r.config_key === key);
+        targetRow = targetVersionId
+          ? list.find(r => r.id === targetVersionId)
+          : list.find(r => Number(r.version) === Number(targetVersion));
+      } else {
+        return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+      }
+
+      if (!targetRow || targetRow.config_key !== key) {
+        return res.status(404).json({
+          success: false,
+          error: `Versi target rollback untuk "${key}" tidak ditemukan.`,
+          code: 'ROLLBACK_VERSION_NOT_FOUND'
+        });
+      }
+
+      const restoredValue = targetRow.new_value;
+      if (restoredValue === undefined || restoredValue === null) {
+        return res.status(400).json({
+          success: false,
+          error: 'Snapshot versi target kosong dan tidak dapat dipulihkan.',
+          code: 'EMPTY_ROLLBACK_SNAPSHOT'
+        });
+      }
+
+      const saveRes = await saveGlobalConfigUnified(key, restoredValue, req.user!, {
+        expectedVersion,
+        forceOverwrite: forceOverwrite !== undefined ? Boolean(forceOverwrite) : true,
+        action: 'ROLLBACK',
+        module: targetRow.module || key,
+        description: `Rollback "${key}" ke versi v${targetRow.version}`,
+        notes: notes || `Rollback dari versi v${targetRow.version} (${targetRow.id})`
+      });
+
+      if (!saveRes.success) {
+        return res.status(saveRes.status || 500).json({
+          success: false,
+          error: saveRes.message,
+          code: saveRes.code,
+          conflict: saveRes.conflict
+        });
+      }
+
+      return res.json({
+        success: true,
+        key,
+        value: saveRes.data!.value,
+        version: saveRes.data!.version,
+        restoredFromVersion: targetRow.version,
+        restoredFromId: targetRow.id,
+        updatedAt: saveRes.data!.updatedAt,
+        updatedBy: saveRes.data!.updatedBy
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal melakukan rollback konfigurasi global.' });
+    }
+  });
+
+  // 21g. GET /api/roles/permissions & PUT /api/roles/permissions
+  app.get('/api/roles/permissions', requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const bundle = await getEffectiveRolePermissions(true);
+      return res.json({
+        success: true,
+        rolePermissions: bundle.permissions,
+        version: bundle.version,
+        updatedAt: bundle.updatedAt,
+        updatedBy: bundle.updatedBy
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat matriks hak akses role.' });
+    }
+  });
+
+  app.put('/api/roles/permissions', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { rolePermissions, expectedVersion, forceOverwrite, notes } = req.body || {};
+      if (!rolePermissions || typeof rolePermissions !== 'object' || Array.isArray(rolePermissions)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Payload rolePermissions wajib berupa objek matriks role -> daftar izin.',
+          code: 'INVALID_ROLE_PERMISSIONS'
+        });
+      }
+
+      const saveRes = await saveGlobalConfigUnified('role_permissions', rolePermissions, req.user!, {
+        expectedVersion,
+        forceOverwrite,
+        module: 'role_permissions',
+        description: `Matriks Role & Permission diperbarui oleh ${req.user!.name}`,
+        notes
+      });
+
+      if (!saveRes.success) {
+        return res.status(saveRes.status || 500).json({
+          success: false,
+          error: saveRes.message,
+          code: saveRes.code,
+          conflict: saveRes.conflict
+        });
+      }
+
+      return res.json({
+        success: true,
+        rolePermissions: saveRes.data!.value,
+        version: saveRes.data!.version,
+        updatedAt: saveRes.data!.updatedAt,
+        updatedBy: saveRes.data!.updatedBy
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal menyimpan matriks hak akses role.' });
     }
   });
 

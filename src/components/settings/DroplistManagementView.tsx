@@ -30,11 +30,17 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { saveHierarchicalDroplistsToSupabase, subscribeToGeneralDroplists, saveGeneralDroplistsToSupabase } from '../../services/supabaseConfigService';
+import {
+  getGlobalConfig,
+  saveGlobalConfig,
+  subscribeToGlobalConfigUpdates
+} from '../../services/globalConfigService';
 
 export const DroplistManagementView: React.FC = () => {
   const {
+    currentUser,
     hierarchicalStatuses,
+    saveHierarchicalDroplistsDirect,
     addHierarchicalStatus,
     updateHierarchicalStatus,
     deleteHierarchicalStatus,
@@ -45,15 +51,24 @@ export const DroplistManagementView: React.FC = () => {
     addHierarchicalRemark,
     updateHierarchicalRemark,
     deleteHierarchicalRemark,
-    reconcileDroplistsNow,
-    reportDropdownCategories
+    reconcileDroplistsNow
   } = useApp();
   const { toast } = useToast();
+
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const [isSaving, setIsSaving] = useState(false);
 
   const [activeMainTab, setActiveMainTab] = useState<'hierarchy' | 'static_droplists'>('hierarchy');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActiveState, setFilterActiveState] = useState<'all' | 'active_only' | 'inactive_only'>('all');
   const [isReconciling, setIsReconciling] = useState(false);
+
+  // Confirm Delete Level 1 Status Modal (replaces window.confirm)
+  const [confirmDeleteStatus, setConfirmDeleteStatus] = useState<{
+    status: HierarchicalStatus;
+    totalReasons: number;
+    totalRemarks: number;
+  } | null>(null);
 
   // Expand / Collapse state for Level 1 (Status) & Level 2 (Reason)
   const [expandedStatusIds, setExpandedStatusIds] = useState<Record<string, boolean>>(() => {
@@ -111,11 +126,26 @@ export const DroplistManagementView: React.FC = () => {
   const [newGeneralLabel, setNewGeneralLabel] = useState('');
   const [newGeneralValue, setNewGeneralValue] = useState('');
 
-  // Subscribe to real-time Supabase updates for general droplists
+  // Load & subscribe to real-time Supabase PostgreSQL updates for general droplists
   React.useEffect(() => {
-    const unsub = subscribeToGeneralDroplists(
-      items => {
-        if (items && items.length > 0) {
+    let mounted = true;
+    getGlobalConfig<{ items?: DroplistItem[] } | DroplistItem[]>('general_droplists')
+      .then(res => {
+        if (!mounted || !res.value) return;
+        const items = Array.isArray(res.value) ? res.value : res.value.items;
+        if (Array.isArray(items) && items.length > 0) {
+          setGeneralDroplists(items);
+        }
+      })
+      .catch(err => {
+        console.warn('[Supabase] Error loading general droplists:', err?.message || err);
+      });
+
+    const unsub = subscribeToGlobalConfigUpdates(
+      ev => {
+        if (!mounted || ev.key !== 'general_droplists' || !ev.value) return;
+        const items = Array.isArray(ev.value) ? ev.value : ev.value.items;
+        if (Array.isArray(items)) {
           setGeneralDroplists(items);
         }
       },
@@ -123,7 +153,10 @@ export const DroplistManagementView: React.FC = () => {
         console.warn('[Supabase] Error subscribing to general droplists:', err);
       }
     );
-    return () => unsub();
+    return () => {
+      mounted = false;
+      unsub();
+    };
   }, []);
 
   // Compute Total Metrics across the entire hierarchy
@@ -187,8 +220,9 @@ export const DroplistManagementView: React.FC = () => {
     setExpandedReasonIds({});
   };
 
-  // Reorder Handlers with immediate Supabase PostgreSQL persistence
-  const handleMoveStatusOrder = (statusId: string, direction: 'up' | 'down') => {
+  // Reorder Handlers with Database-First OCC persistence via AppContext
+  const handleMoveStatusOrder = async (statusId: string, direction: 'up' | 'down') => {
+    if (!isSuperAdmin || isSaving) return;
     const idx = hierarchicalStatuses.findIndex(s => s.id === statusId);
     if (idx === -1) return;
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -197,13 +231,20 @@ export const DroplistManagementView: React.FC = () => {
     const temp = copy[idx];
     copy[idx] = copy[targetIdx];
     copy[targetIdx] = temp;
-    copy.forEach((s, i) => { s.order = i + 1; });
-    saveHierarchicalDroplistsToSupabase(copy)
-      .then(() => toast.success('Urutan Status WO berhasil diselaraskan ke Supabase PostgreSQL.'))
-      .catch(() => toast.error('Gagal memperbarui urutan di Supabase PostgreSQL.'));
+    const reordered = copy.map((s, i) => ({ ...s, order: i + 1 }));
+    setIsSaving(true);
+    try {
+      const res = await saveHierarchicalDroplistsDirect(reordered, `Reordered Status WO ${temp.name}`);
+      if (res.success) {
+        toast.success('Urutan Status WO berhasil disimpan ke database.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleMoveReasonOrder = (statusId: string, reasonId: string, direction: 'up' | 'down') => {
+  const handleMoveReasonOrder = async (statusId: string, reasonId: string, direction: 'up' | 'down') => {
+    if (!isSuperAdmin || isSaving) return;
     const status = hierarchicalStatuses.find(s => s.id === statusId);
     if (!status) return;
     const idx = status.reasons.findIndex(r => r.id === reasonId);
@@ -216,41 +257,62 @@ export const DroplistManagementView: React.FC = () => {
       const temp = reasonsCopy[idx];
       reasonsCopy[idx] = reasonsCopy[targetIdx];
       reasonsCopy[targetIdx] = temp;
-      reasonsCopy.forEach((r, i) => { r.order = i + 1; });
-      return { ...s, reasons: reasonsCopy };
+      return {
+        ...s,
+        reasons: reasonsCopy.map((r, i) => ({ ...r, order: i + 1 }))
+      };
     });
-    saveHierarchicalDroplistsToSupabase(updated)
-      .then(() => toast.success('Urutan Reason WO berhasil diselaraskan ke Supabase PostgreSQL.'))
-      .catch(() => toast.error('Gagal memperbarui urutan di Supabase PostgreSQL.'));
+    setIsSaving(true);
+    try {
+      const res = await saveHierarchicalDroplistsDirect(updated, `Reordered Reason WO ${reasonId}`);
+      if (res.success) {
+        toast.success('Urutan Reason WO berhasil disimpan ke database.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleMoveRemarkOrder = (statusId: string, reasonId: string, remarkId: string, direction: 'up' | 'down') => {
+  const handleMoveRemarkOrder = async (statusId: string, reasonId: string, remarkId: string, direction: 'up' | 'down') => {
+    if (!isSuperAdmin || isSaving) return;
+    const status = hierarchicalStatuses.find(s => s.id === statusId);
+    const reason = status?.reasons.find(r => r.id === reasonId);
+    if (!reason) return;
+    const idx = reason.remarks.findIndex(rm => rm.id === remarkId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= reason.remarks.length) return;
     const updated = hierarchicalStatuses.map(s => {
       if (s.id !== statusId) return s;
       return {
         ...s,
         reasons: s.reasons.map(r => {
           if (r.id !== reasonId) return r;
-          const idx = r.remarks.findIndex(rm => rm.id === remarkId);
-          if (idx === -1) return r;
-          const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-          if (targetIdx < 0 || targetIdx >= r.remarks.length) return r;
           const remarksCopy = [...r.remarks];
           const temp = remarksCopy[idx];
           remarksCopy[idx] = remarksCopy[targetIdx];
           remarksCopy[targetIdx] = temp;
-          remarksCopy.forEach((rm, i) => { rm.order = i + 1; });
-          return { ...r, remarks: remarksCopy };
+          return {
+            ...r,
+            remarks: remarksCopy.map((rm, i) => ({ ...rm, order: i + 1 }))
+          };
         })
       };
     });
-    saveHierarchicalDroplistsToSupabase(updated)
-      .then(() => toast.success('Urutan Remarks berhasil diselaraskan ke Supabase PostgreSQL.'))
-      .catch(() => toast.error('Gagal memperbarui urutan di Supabase PostgreSQL.'));
+    setIsSaving(true);
+    try {
+      const res = await saveHierarchicalDroplistsDirect(updated, `Reordered Remark ${remarkId}`);
+      if (res.success) {
+        toast.success('Urutan Remarks berhasil disimpan ke database.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Reconcile Data Action
   const handleTriggerReconcile = async () => {
+    if (!isSuperAdmin || isReconciling || isSaving) return;
     setIsReconciling(true);
     try {
       await reconcileDroplistsNow();
@@ -301,14 +363,14 @@ export const DroplistManagementView: React.FC = () => {
       .filter(Boolean) as HierarchicalStatus[];
   }, [hierarchicalStatuses, searchQuery, filterActiveState]);
 
-  // General Droplists Add & Delete Handlers
+  // General Droplists Add, Delete & Toggle Handlers (Database-First)
   const currentGeneralItems = generalDroplists
     .filter(d => d.category === activeGeneralCategory)
     .sort((a, b) => a.order - b.order);
 
-  const handleAddGeneralItem = (e: React.FormEvent) => {
+  const handleAddGeneralItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGeneralLabel.trim()) return;
+    if (!isSuperAdmin || isSaving || !newGeneralLabel.trim()) return;
     const val = newGeneralValue.trim() || newGeneralLabel.trim();
     const newItem: DroplistItem = {
       id: 'drop-' + Date.now(),
@@ -319,30 +381,74 @@ export const DroplistManagementView: React.FC = () => {
       active: true
     };
     const updated = [...generalDroplists, newItem];
-    setGeneralDroplists(updated);
-    setNewGeneralLabel('');
-    setNewGeneralValue('');
-    saveGeneralDroplistsToSupabase(updated)
-      .then(() => toast.success(`Item "${newItem.label}" berhasil disimpan.`))
-      .catch(err => toast.error('Gagal menyimpan: ' + (err?.message || err)));
+    setIsSaving(true);
+    try {
+      await saveGlobalConfig(
+        'general_droplists',
+        { items: updated, updatedAt: new Date().toISOString() },
+        { module: 'general_droplists', description: `Tambah item droplist statis: ${newItem.label}` }
+      );
+      setGeneralDroplists(updated);
+      setNewGeneralLabel('');
+      setNewGeneralValue('');
+      toast.success(`Item "${newItem.label}" berhasil disimpan ke database.`);
+    } catch (err: any) {
+      toast.error('Gagal menyimpan ke database: ' + (err?.message || String(err)));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteGeneralItem = (id: string) => {
+  const handleDeleteGeneralItem = async (id: string) => {
+    if (!isSuperAdmin || isSaving) return;
+    const target = generalDroplists.find(d => d.id === id);
     const updated = generalDroplists.filter(d => d.id !== id);
-    setGeneralDroplists(updated);
-    saveGeneralDroplistsToSupabase(updated)
-      .then(() => toast.info('Item berhasil dihapus.'))
-      .catch(err => toast.error('Gagal menghapus: ' + (err?.message || err)));
+    setIsSaving(true);
+    try {
+      await saveGlobalConfig(
+        'general_droplists',
+        { items: updated, updatedAt: new Date().toISOString() },
+        { module: 'general_droplists', description: `Hapus item droplist statis: ${target?.label || id}` }
+      );
+      setGeneralDroplists(updated);
+      toast.info('Item berhasil dihapus dari database.');
+    } catch (err: any) {
+      toast.error('Gagal menghapus dari database: ' + (err?.message || String(err)));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleToggleGeneralActive = (id: string) => {
+  const handleToggleGeneralActive = async (id: string) => {
+    if (!isSuperAdmin || isSaving) return;
     const updated = generalDroplists.map(d => d.id === id ? { ...d, active: !d.active } : d);
-    setGeneralDroplists(updated);
-    saveGeneralDroplistsToSupabase(updated).catch(() => {});
+    setIsSaving(true);
+    try {
+      await saveGlobalConfig(
+        'general_droplists',
+        { items: updated, updatedAt: new Date().toISOString() },
+        { module: 'general_droplists', description: `Ubah status aktif droplist statis ${id}` }
+      );
+      setGeneralDroplists(updated);
+      toast.success('Status item droplist statis diperbarui di database.');
+    } catch (err: any) {
+      toast.error('Gagal mengubah status di database: ' + (err?.message || String(err)));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="space-y-5">
+      {!isSuperAdmin && (
+        <div className="p-3.5 rounded-2xl bg-amber-950/50 border border-amber-500/40 text-amber-200 text-xs flex items-center gap-2.5">
+          <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>
+            <strong>Mode Baca (Read-Only):</strong> Perubahan droplist global (Status WO, Reason, Remarks, dan Droplist Statis) hanya dapat dilakukan oleh <strong>Super Admin</strong>.
+          </span>
+        </div>
+      )}
+
       {/* ============================================================ */}
       {/* TOP HEADER BANNER (MoraJaws Dark Purple Gloss + Lilac)        */}
       {/* ============================================================ */}
@@ -374,8 +480,8 @@ export const DroplistManagementView: React.FC = () => {
           <button
             type="button"
             onClick={handleTriggerReconcile}
-            disabled={isReconciling}
-            className="px-3 py-1.5 text-xs font-semibold text-[#D8B4FE] hover:text-white bg-[#35105E]/70 hover:bg-[#35105E] border border-[#D8B4FE]/30 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            disabled={!isSuperAdmin || isReconciling || isSaving}
+            className="px-3 py-1.5 text-xs font-semibold text-[#D8B4FE] hover:text-white bg-[#35105E]/70 hover:bg-[#35105E] border border-[#D8B4FE]/30 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Sinkronisasikan dan verifikasi rekonsiliasi data lama ke hierarki utama"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#A855F7] ${isReconciling ? 'animate-spin' : ''}`} />
@@ -384,13 +490,15 @@ export const DroplistManagementView: React.FC = () => {
 
           <button
             type="button"
+            disabled={!isSuperAdmin || isSaving}
             onClick={() => {
+              if (!isSuperAdmin) return;
               setNewStatusName('');
               setNewStatusCode('');
               setNewStatusColor('#7135B5');
               setIsAddStatusOpen(true);
             }}
-            className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] rounded-xl flex items-center justify-center gap-1.5 shadow-[0_0_18px_rgba(168,85,247,0.4)] border border-[#E9D5FF]/30 transition-all cursor-pointer"
+            className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] rounded-xl flex items-center justify-center gap-1.5 shadow-[0_0_18px_rgba(168,85,247,0.4)] border border-[#E9D5FF]/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             <span>+ Tambah Status WO (Level 1)</span>
@@ -596,12 +704,18 @@ export const DroplistManagementView: React.FC = () => {
                             {/* Active / Inactive Status Toggle Badge */}
                             <button
                               type="button"
-                              onClick={() => {
+                              disabled={!isSuperAdmin || isSaving}
+                              onClick={async () => {
+                                if (!isSuperAdmin || isSaving) return;
                                 const nextState = !isStatusActive;
-                                updateHierarchicalStatus(status.id, { active: nextState, isActive: nextState });
-                                toast.info(`Status "${status.name}" ${nextState ? 'diaktifkan' : 'dinonaktifkan'}.`);
+                                setIsSaving(true);
+                                try {
+                                  await updateHierarchicalStatus(status.id, { active: nextState, isActive: nextState });
+                                } finally {
+                                  setIsSaving(false);
+                                }
                               }}
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                                 isStatusActive
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 hover:bg-emerald-500/30'
                                   : 'bg-slate-700/50 text-slate-300 border border-slate-600/40 hover:bg-slate-700'
@@ -625,16 +739,18 @@ export const DroplistManagementView: React.FC = () => {
                         <div className="flex items-center border border-[#D8B4FE]/25 rounded-lg overflow-hidden bg-[#35105E]/40">
                           <button
                             type="button"
+                            disabled={!isSuperAdmin || isSaving}
                             onClick={() => handleMoveStatusOrder(status.id, 'up')}
-                            className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer"
+                            className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Geser Urutan Status ke Atas"
                           >
                             <ArrowUp className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
+                            disabled={!isSuperAdmin || isSaving}
                             onClick={() => handleMoveStatusOrder(status.id, 'down')}
-                            className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer border-l border-[#D8B4FE]/25"
+                            className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer border-l border-[#D8B4FE]/25 disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Geser Urutan Status ke Bawah"
                           >
                             <ArrowDown className="w-3 h-3" />
@@ -644,12 +760,14 @@ export const DroplistManagementView: React.FC = () => {
                         {/* Add Reason */}
                         <button
                           type="button"
+                          disabled={!isSuperAdmin || isSaving}
                           onClick={() => {
+                            if (!isSuperAdmin) return;
                             setTargetStatusIdForReason(status.id);
                             setNewReasonName('');
                             setNewReasonCode('');
                           }}
-                          className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded-lg text-[11px] font-bold flex items-center gap-1 border border-emerald-400/30 cursor-pointer transition-colors"
+                          className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded-lg text-[11px] font-bold flex items-center gap-1 border border-emerald-400/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Tambah Reason (Level 2) di bawah status ini"
                         >
                           <Plus className="w-3 h-3" />
@@ -659,7 +777,9 @@ export const DroplistManagementView: React.FC = () => {
                         {/* Edit Status */}
                         <button
                           type="button"
+                          disabled={!isSuperAdmin || isSaving}
                           onClick={() => {
+                            if (!isSuperAdmin) return;
                             setEditingItem({
                               type: 'status',
                               id: status.id,
@@ -668,7 +788,7 @@ export const DroplistManagementView: React.FC = () => {
                               color: status.color
                             });
                           }}
-                          className="p-1.5 text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E] rounded-lg cursor-pointer border border-[#D8B4FE]/20"
+                          className="p-1.5 text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E] rounded-lg cursor-pointer border border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Edit Status WO"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -677,16 +797,25 @@ export const DroplistManagementView: React.FC = () => {
                         {/* Delete Status */}
                         <button
                           type="button"
-                          onClick={() => {
+                          disabled={!isSuperAdmin || isSaving}
+                          onClick={async () => {
+                            if (!isSuperAdmin || isSaving) return;
                             if (totalStatusReasons > 0) {
-                              const confirmDel = window.confirm(
-                                `Status WO "${status.name}" memiliki ${totalStatusReasons} child reasons dan ${totalStatusRemarks} remarks.\n\nMenghapus status ini akan menghapus seluruh cabang di bawahnya. Lanjutkan?`
-                              );
-                              if (!confirmDel) return;
+                              setConfirmDeleteStatus({
+                                status,
+                                totalReasons: totalStatusReasons,
+                                totalRemarks: totalStatusRemarks
+                              });
+                              return;
                             }
-                            deleteHierarchicalStatus(status.id);
+                            setIsSaving(true);
+                            try {
+                              await deleteHierarchicalStatus(status.id);
+                            } finally {
+                              setIsSaving(false);
+                            }
                           }}
-                          className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg cursor-pointer border border-rose-500/30"
+                          className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg cursor-pointer border border-rose-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Hapus Status WO"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -745,12 +874,18 @@ export const DroplistManagementView: React.FC = () => {
                                     {/* Active / Inactive Reason Toggle */}
                                     <button
                                       type="button"
-                                      onClick={() => {
+                                      disabled={!isSuperAdmin || isSaving}
+                                      onClick={async () => {
+                                        if (!isSuperAdmin || isSaving) return;
                                         const nextState = !isReasonActive;
-                                        updateHierarchicalReason(status.id, reason.id, { active: nextState, isActive: nextState });
-                                        toast.info(`Reason "${reason.name}" ${nextState ? 'diaktifkan' : 'dinonaktifkan'}.`);
+                                        setIsSaving(true);
+                                        try {
+                                          await updateHierarchicalReason(status.id, reason.id, { active: nextState, isActive: nextState });
+                                        } finally {
+                                          setIsSaving(false);
+                                        }
                                       }}
-                                      className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold cursor-pointer transition-colors ${
+                                      className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                         isReasonActive
                                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
                                           : 'bg-slate-700/50 text-slate-300 border border-slate-600/40'
@@ -770,16 +905,18 @@ export const DroplistManagementView: React.FC = () => {
                                     <div className="flex items-center border border-[#D8B4FE]/20 rounded overflow-hidden bg-[#35105E]/40">
                                       <button
                                         type="button"
+                                        disabled={!isSuperAdmin || isSaving}
                                         onClick={() => handleMoveReasonOrder(status.id, reason.id, 'up')}
-                                        className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer"
+                                        className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Geser Reason ke Atas"
                                       >
                                         <ArrowUp className="w-2.5 h-2.5" />
                                       </button>
                                       <button
                                         type="button"
+                                        disabled={!isSuperAdmin || isSaving}
                                         onClick={() => handleMoveReasonOrder(status.id, reason.id, 'down')}
-                                        className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer border-l border-[#D8B4FE]/20"
+                                        className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer border-l border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Geser Reason ke Bawah"
                                       >
                                         <ArrowDown className="w-2.5 h-2.5" />
@@ -789,14 +926,16 @@ export const DroplistManagementView: React.FC = () => {
                                     {/* Add Remark */}
                                     <button
                                       type="button"
+                                      disabled={!isSuperAdmin || isSaving}
                                       onClick={() => {
+                                        if (!isSuperAdmin) return;
                                         setTargetReasonIdForRemark({
                                           statusId: status.id,
                                           reasonId: reason.id
                                         });
                                         setNewRemarkText('');
                                       }}
-                                      className="px-2 py-0.5 bg-[#7135B5]/30 hover:bg-[#7135B5]/60 text-[#E9D5FF] rounded text-[10.5px] font-semibold flex items-center gap-1 border border-[#D8B4FE]/20 cursor-pointer"
+                                      className="px-2 py-0.5 bg-[#7135B5]/30 hover:bg-[#7135B5]/60 text-[#E9D5FF] rounded text-[10.5px] font-semibold flex items-center gap-1 border border-[#D8B4FE]/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Tambah Remark (Level 3)"
                                     >
                                       <Plus className="w-3 h-3" />
@@ -806,14 +945,16 @@ export const DroplistManagementView: React.FC = () => {
                                     {/* Move to another status */}
                                     <button
                                       type="button"
+                                      disabled={!isSuperAdmin || isSaving}
                                       onClick={() => {
+                                        if (!isSuperAdmin) return;
                                         setMovingReason({
                                           reason,
                                           fromStatusId: status.id
                                         });
                                         setTargetMoveStatusId(status.id);
                                       }}
-                                      className="p-1 text-[#D8B4FE]/70 hover:text-amber-300 rounded cursor-pointer"
+                                      className="p-1 text-[#D8B4FE]/70 hover:text-amber-300 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Pindahkan Reason ke Status WO lain"
                                     >
                                       <MoveRight className="w-3.5 h-3.5" />
@@ -822,7 +963,9 @@ export const DroplistManagementView: React.FC = () => {
                                     {/* Edit Reason */}
                                     <button
                                       type="button"
+                                      disabled={!isSuperAdmin || isSaving}
                                       onClick={() => {
+                                        if (!isSuperAdmin) return;
                                         setEditingItem({
                                           type: 'reason',
                                           id: reason.id,
@@ -831,7 +974,7 @@ export const DroplistManagementView: React.FC = () => {
                                           code: reason.code
                                         });
                                       }}
-                                      className="p-1 text-[#D8B4FE]/70 hover:text-white rounded cursor-pointer"
+                                      className="p-1 text-[#D8B4FE]/70 hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Edit Reason WO"
                                     >
                                       <Edit2 className="w-3 h-3" />
@@ -840,10 +983,17 @@ export const DroplistManagementView: React.FC = () => {
                                     {/* Delete Reason */}
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        deleteHierarchicalReason(status.id, reason.id);
+                                      disabled={!isSuperAdmin || isSaving}
+                                      onClick={async () => {
+                                        if (!isSuperAdmin || isSaving) return;
+                                        setIsSaving(true);
+                                        try {
+                                          await deleteHierarchicalReason(status.id, reason.id);
+                                        } finally {
+                                          setIsSaving(false);
+                                        }
                                       }}
-                                      className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer"
+                                      className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Hapus Reason WO"
                                     >
                                       <Trash2 className="w-3 h-3" />
@@ -882,12 +1032,18 @@ export const DroplistManagementView: React.FC = () => {
                                               {/* Toggle Active Remark */}
                                               <button
                                                 type="button"
-                                                onClick={() => {
+                                                disabled={!isSuperAdmin || isSaving}
+                                                onClick={async () => {
+                                                  if (!isSuperAdmin || isSaving) return;
                                                   const nextState = !isRemActive;
-                                                  updateHierarchicalRemark(status.id, reason.id, rem.id, { active: nextState, isActive: nextState });
-                                                  toast.info(`Remark "${rem.name || rem.text}" ${nextState ? 'diaktifkan' : 'dinonaktifkan'}.`);
+                                                  setIsSaving(true);
+                                                  try {
+                                                    await updateHierarchicalRemark(status.id, reason.id, rem.id, { active: nextState, isActive: nextState });
+                                                  } finally {
+                                                    setIsSaving(false);
+                                                  }
                                                 }}
-                                                className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-bold cursor-pointer transition-colors ${
+                                                className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                                   isRemActive
                                                     ? 'bg-emerald-500/20 text-emerald-300'
                                                     : 'bg-slate-700/50 text-slate-400'
@@ -902,16 +1058,18 @@ export const DroplistManagementView: React.FC = () => {
                                               <div className="flex items-center border border-[#D8B4FE]/20 rounded overflow-hidden bg-[#35105E]/30">
                                                 <button
                                                   type="button"
+                                                  disabled={!isSuperAdmin || isSaving}
                                                   onClick={() => handleMoveRemarkOrder(status.id, reason.id, rem.id, 'up')}
-                                                  className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/60 hover:text-white cursor-pointer"
+                                                  className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/60 hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                   title="Geser Remark ke Atas"
                                                 >
                                                   <ArrowUp className="w-2.5 h-2.5" />
                                                 </button>
                                                 <button
                                                   type="button"
+                                                  disabled={!isSuperAdmin || isSaving}
                                                   onClick={() => handleMoveRemarkOrder(status.id, reason.id, rem.id, 'down')}
-                                                  className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/60 hover:text-white cursor-pointer border-l border-[#D8B4FE]/20"
+                                                  className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/60 hover:text-white cursor-pointer border-l border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                                   title="Geser Remark ke Bawah"
                                                 >
                                                   <ArrowDown className="w-2.5 h-2.5" />
@@ -921,7 +1079,9 @@ export const DroplistManagementView: React.FC = () => {
                                               {/* Edit Remark */}
                                               <button
                                                 type="button"
+                                                disabled={!isSuperAdmin || isSaving}
                                                 onClick={() => {
+                                                  if (!isSuperAdmin) return;
                                                   setEditingItem({
                                                     type: 'remark',
                                                     id: rem.id,
@@ -930,7 +1090,7 @@ export const DroplistManagementView: React.FC = () => {
                                                     name: rem.text || rem.name
                                                   });
                                                 }}
-                                                className="p-1 text-[#D8B4FE]/60 hover:text-white rounded cursor-pointer"
+                                                className="p-1 text-[#D8B4FE]/60 hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                 title="Edit Remark"
                                               >
                                                 <Edit2 className="w-3 h-3" />
@@ -939,10 +1099,17 @@ export const DroplistManagementView: React.FC = () => {
                                               {/* Delete Remark */}
                                               <button
                                                 type="button"
-                                                onClick={() => {
-                                                  deleteHierarchicalRemark(status.id, reason.id, rem.id);
+                                                disabled={!isSuperAdmin || isSaving}
+                                                onClick={async () => {
+                                                  if (!isSuperAdmin || isSaving) return;
+                                                  setIsSaving(true);
+                                                  try {
+                                                    await deleteHierarchicalRemark(status.id, reason.id, rem.id);
+                                                  } finally {
+                                                    setIsSaving(false);
+                                                  }
                                                 }}
-                                                className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer"
+                                                className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                 title="Hapus Remark"
                                               >
                                                 <Trash2 className="w-3 h-3" />
@@ -1027,24 +1194,27 @@ export const DroplistManagementView: React.FC = () => {
               <input
                 type="text"
                 required
+                disabled={!isSuperAdmin || isSaving}
                 placeholder="Label opsi baru..."
                 value={newGeneralLabel}
                 onChange={e => setNewGeneralLabel(e.target.value)}
-                className="flex-1 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+                className="flex-1 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none disabled:opacity-50"
               />
               <input
                 type="text"
+                disabled={!isSuperAdmin || isSaving}
                 placeholder="Nilai kode (opsional)..."
                 value={newGeneralValue}
                 onChange={e => setNewGeneralValue(e.target.value)}
-                className="w-48 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono"
+                className="w-48 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono disabled:opacity-50"
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md border border-[#E9D5FF]/30 cursor-pointer"
+                disabled={!isSuperAdmin || isSaving}
+                className="px-4 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md border border-[#E9D5FF]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
-                <span>Tambah</span>
+                <span>{isSaving ? 'Menyimpan...' : 'Tambah'}</span>
               </button>
             </form>
 
@@ -1071,8 +1241,9 @@ export const DroplistManagementView: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
+                        disabled={!isSuperAdmin || isSaving}
                         onClick={() => handleToggleGeneralActive(item.id)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           item.active
                             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
                             : 'bg-slate-700/50 text-slate-300 border border-slate-600/40'
@@ -1082,8 +1253,9 @@ export const DroplistManagementView: React.FC = () => {
                       </button>
                       <button
                         type="button"
+                        disabled={!isSuperAdmin || isSaving}
                         onClick={() => handleDeleteGeneralItem(item.id)}
-                        className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer"
+                        className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1150,24 +1322,33 @@ export const DroplistManagementView: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                disabled={!isSuperAdmin || isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin || isSaving) return;
                   if (!newStatusName.trim()) {
                     toast.error('Nama status tidak boleh kosong');
                     return;
                   }
-                  addHierarchicalStatus({
-                    name: newStatusName.trim(),
-                    code: newStatusCode.trim() || newStatusName.trim().toUpperCase().replace(/\s+/g, '_'),
-                    color: newStatusColor,
-                    order: hierarchicalStatuses.length + 1,
-                    active: true,
-                    isActive: true
-                  });
-                  setIsAddStatusOpen(false);
+                  setIsSaving(true);
+                  try {
+                    const res = await addHierarchicalStatus({
+                      name: newStatusName.trim(),
+                      code: newStatusCode.trim() || newStatusName.trim().toUpperCase().replace(/\s+/g, '_'),
+                      color: newStatusColor,
+                      order: hierarchicalStatuses.length + 1,
+                      active: true,
+                      isActive: true
+                    });
+                    if (res.success) {
+                      setIsAddStatusOpen(false);
+                    }
+                  } finally {
+                    setIsSaving(false);
+                  }
                 }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30"
+                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
               >
-                Simpan Status
+                {isSaving ? 'Menyimpan...' : 'Simpan Status'}
               </button>
             </div>
           </div>
@@ -1216,25 +1397,34 @@ export const DroplistManagementView: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                disabled={!isSuperAdmin || isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin || isSaving) return;
                   if (!newReasonName.trim()) {
                     toast.error('Nama reason tidak boleh kosong');
                     return;
                   }
                   const parentStatus = hierarchicalStatuses.find(s => s.id === targetStatusIdForReason);
                   const reasonCount = parentStatus?.reasons?.length || 0;
-                  addHierarchicalReason(targetStatusIdForReason, {
-                    name: newReasonName.trim(),
-                    code: newReasonCode.trim() || newReasonName.trim().toUpperCase().replace(/\s+/g, '_'),
-                    order: reasonCount + 1,
-                    active: true,
-                    isActive: true
-                  });
-                  setTargetStatusIdForReason(null);
+                  setIsSaving(true);
+                  try {
+                    const res = await addHierarchicalReason(targetStatusIdForReason, {
+                      name: newReasonName.trim(),
+                      code: newReasonCode.trim() || newReasonName.trim().toUpperCase().replace(/\s+/g, '_'),
+                      order: reasonCount + 1,
+                      active: true,
+                      isActive: true
+                    });
+                    if (res.success) {
+                      setTargetStatusIdForReason(null);
+                    }
+                  } finally {
+                    setIsSaving(false);
+                  }
                 }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30"
+                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
               >
-                Simpan Reason
+                {isSaving ? 'Menyimpan...' : 'Simpan Reason'}
               </button>
             </div>
           </div>
@@ -1273,7 +1463,9 @@ export const DroplistManagementView: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                disabled={!isSuperAdmin || isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin || isSaving) return;
                   if (!newRemarkText.trim()) {
                     toast.error('Teks remark tidak boleh kosong');
                     return;
@@ -1281,22 +1473,29 @@ export const DroplistManagementView: React.FC = () => {
                   const pStatus = hierarchicalStatuses.find(s => s.id === targetReasonIdForRemark.statusId);
                   const pReason = pStatus?.reasons?.find(r => r.id === targetReasonIdForRemark.reasonId);
                   const remCount = pReason?.remarks?.length || 0;
-                  addHierarchicalRemark(
-                    targetReasonIdForRemark.statusId,
-                    targetReasonIdForRemark.reasonId,
-                    {
-                      name: newRemarkText.trim(),
-                      text: newRemarkText.trim(),
-                      order: remCount + 1,
-                      active: true,
-                      isActive: true
+                  setIsSaving(true);
+                  try {
+                    const res = await addHierarchicalRemark(
+                      targetReasonIdForRemark.statusId,
+                      targetReasonIdForRemark.reasonId,
+                      {
+                        name: newRemarkText.trim(),
+                        text: newRemarkText.trim(),
+                        order: remCount + 1,
+                        active: true,
+                        isActive: true
+                      }
+                    );
+                    if (res.success) {
+                      setTargetReasonIdForRemark(null);
                     }
-                  );
-                  setTargetReasonIdForRemark(null);
+                  } finally {
+                    setIsSaving(false);
+                  }
                 }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30"
+                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
               >
-                Simpan Remark
+                {isSaving ? 'Menyimpan...' : 'Simpan Remark'}
               </button>
             </div>
           </div>
@@ -1341,18 +1540,27 @@ export const DroplistManagementView: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                disabled={!isSuperAdmin || isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin || isSaving) return;
                   if (targetMoveStatusId === movingReason.fromStatusId) {
                     toast.info('Status tujuan sama dengan status saat ini.');
                     setMovingReason(null);
                     return;
                   }
-                  moveHierarchicalReason(movingReason.fromStatusId, targetMoveStatusId, movingReason.reason.id);
-                  setMovingReason(null);
+                  setIsSaving(true);
+                  try {
+                    const res = await moveHierarchicalReason(movingReason.fromStatusId, targetMoveStatusId, movingReason.reason.id);
+                    if (res.success) {
+                      setMovingReason(null);
+                    }
+                  } finally {
+                    setIsSaving(false);
+                  }
                 }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30"
+                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
               >
-                Pindahkan
+                {isSaving ? 'Memindahkan...' : 'Pindahkan'}
               </button>
             </div>
           </div>
@@ -1417,33 +1625,97 @@ export const DroplistManagementView: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                disabled={!isSuperAdmin || isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin || isSaving) return;
                   if (!editingItem.name.trim()) {
                     toast.error('Nama tidak boleh kosong');
                     return;
                   }
-                  if (editingItem.type === 'status') {
-                    updateHierarchicalStatus(editingItem.id, {
-                      name: editingItem.name.trim(),
-                      code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_'),
-                      color: editingItem.color
-                    });
-                  } else if (editingItem.type === 'reason' && editingItem.parentStatusId) {
-                    updateHierarchicalReason(editingItem.parentStatusId, editingItem.id, {
-                      name: editingItem.name.trim(),
-                      code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_')
-                    });
-                  } else if (editingItem.type === 'remark' && editingItem.parentStatusId && editingItem.parentReasonId) {
-                    updateHierarchicalRemark(editingItem.parentStatusId, editingItem.parentReasonId, editingItem.id, {
-                      name: editingItem.name.trim(),
-                      text: editingItem.name.trim()
-                    });
+                  setIsSaving(true);
+                  try {
+                    let res: { success: boolean; error?: string } = { success: false };
+                    if (editingItem.type === 'status') {
+                      res = await updateHierarchicalStatus(editingItem.id, {
+                        name: editingItem.name.trim(),
+                        code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_'),
+                        color: editingItem.color
+                      });
+                    } else if (editingItem.type === 'reason' && editingItem.parentStatusId) {
+                      res = await updateHierarchicalReason(editingItem.parentStatusId, editingItem.id, {
+                        name: editingItem.name.trim(),
+                        code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_')
+                      });
+                    } else if (editingItem.type === 'remark' && editingItem.parentStatusId && editingItem.parentReasonId) {
+                      res = await updateHierarchicalRemark(editingItem.parentStatusId, editingItem.parentReasonId, editingItem.id, {
+                        name: editingItem.name.trim(),
+                        text: editingItem.name.trim()
+                      });
+                    }
+                    if (res.success) {
+                      setEditingItem(null);
+                    }
+                  } finally {
+                    setIsSaving(false);
                   }
-                  setEditingItem(null);
                 }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30"
+                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
               >
-                Simpan Perubahan
+                {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL: CONFIRM DELETE LEVEL 1 STATUS WITH CHILDREN           */}
+      {/* ============================================================ */}
+      {confirmDeleteStatus && (
+        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#160D29] border border-rose-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-rose-400 to-transparent" />
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-white">
+                  Hapus Status WO "{confirmDeleteStatus.status.name}"?
+                </h4>
+                <p className="text-xs text-[#D8B4FE]/80 mt-1 leading-relaxed">
+                  Status WO ini memiliki <strong className="text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons dan <strong className="text-white">{confirmDeleteStatus.totalRemarks}</strong> remarks. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => setConfirmDeleteStatus(null)}
+                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin || isSaving) return;
+                  const targetId = confirmDeleteStatus.status.id;
+                  setIsSaving(true);
+                  try {
+                    const res = await deleteHierarchicalStatus(targetId);
+                    if (res.success) {
+                      setConfirmDeleteStatus(null);
+                    }
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold border border-rose-300/30 disabled:opacity-50"
+              >
+                {isSaving ? 'Menghapus...' : 'Ya, Hapus Permanen'}
               </button>
             </div>
           </div>

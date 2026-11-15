@@ -108,7 +108,7 @@ export interface WorkOrderFilterOptions {
 }
 
 export interface RealtimeSubscriptionOptions {
-  table?: 'work_orders' | 'ticket_messages' | 'audit_logs' | 'users' | 'app_settings' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date';
+  table?: 'work_orders' | 'ticket_messages' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date';
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   filter?: string;
   onPayload: (payload: any) => void;
@@ -756,19 +756,33 @@ export class SupabaseRepository {
   // ---------------------------------------------------------------------------
   // SECURE REALTIME SUBSCRIPTION VIA BACKEND SERVER-SENT EVENTS (SSE)
   // ---------------------------------------------------------------------------
+  private sseListeners = new Set<RealtimeSubscriptionOptions>();
+  private sseAbortController: AbortController | null = null;
+  private sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private sseActiveToken: string | null = null;
+  private sseConnecting = false;
 
-  /**
-   * Subscribes to real-time events via backend SSE stream.
-   * Completely avoids browser direct connection to Supabase database.
-   * Backend enforces all authentication, role permissions, and scoped event filtering.
-   */
-  subscribeToChanges(options: RealtimeSubscriptionOptions): () => void {
-    let isAborted = false;
-    let abortController = new AbortController();
+  private ensureMultiplexedSse() {
+    if (this.sseListeners.size === 0) return;
 
-    const connectSse = async () => {
+    const authHeaders = getAuthHeaders();
+    const currentToken = authHeaders.Authorization || '';
+    if (!currentToken) return;
+
+    // If token changed, tear down old stream so new user gets clean scoped stream
+    if (this.sseActiveToken && this.sseActiveToken !== currentToken) {
+      this.teardownMultiplexedSse();
+    }
+
+    if (this.sseConnecting || this.sseAbortController) return;
+
+    this.sseConnecting = true;
+    this.sseActiveToken = currentToken;
+    const abortController = new AbortController();
+    this.sseAbortController = abortController;
+
+    const runStream = async () => {
       try {
-        const authHeaders = getAuthHeaders();
         const response = await fetch('/api/supabase/realtime/stream', {
           headers: {
             ...authHeaders,
@@ -778,53 +792,94 @@ export class SupabaseRepository {
         });
 
         if (!response.ok || !response.body) {
-          options.onError?.(new Error(`Koneksi SSE ditolak oleh server (Status: ${response.status})`));
-          return;
+          throw new Error(`Koneksi SSE ditolak oleh server (Status: ${response.status})`);
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
 
-        while (!isAborted) {
+        while (!abortController.signal.aborted && this.sseListeners.size > 0) {
           const { done, value } = await reader.read();
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop() || '';
+          const blocks = buffer.split('\n\n');
+          buffer = blocks.pop() || '';
 
-          for (const block of lines) {
-            const dataMatch = block.match(/data:\s*(.+)/);
-            if (dataMatch) {
-              try {
-                const eventPayload = JSON.parse(dataMatch[1]);
+          for (const block of blocks) {
+            const dataLines = block
+              .split('\n')
+              .filter(line => line.startsWith('data:'))
+              .map(line => line.slice(5).trim());
+            if (dataLines.length === 0) continue;
+            const rawJson = dataLines.join('\n');
+            try {
+              const eventPayload = JSON.parse(rawJson);
+              for (const sub of Array.from(this.sseListeners)) {
                 if (
-                  (!options.table || eventPayload.table === options.table || eventPayload.entity === options.table) &&
-                  (!options.event || options.event === '*' || eventPayload.eventType === options.event)
+                  (!sub.table || eventPayload.table === sub.table || eventPayload.entity === sub.table) &&
+                  (!sub.event || sub.event === '*' || eventPayload.eventType === sub.event)
                 ) {
-                  options.onPayload(eventPayload);
+                  try {
+                    sub.onPayload(eventPayload);
+                  } catch {}
                 }
-              } catch {}
-            }
+              }
+            } catch {}
           }
         }
       } catch (err: any) {
-        if (!isAborted) {
-          options.onError?.(err);
-          // Safe exponential backoff reconnection attempt
-          setTimeout(() => {
-            if (!isAborted) connectSse();
-          }, 5000);
+        if (!abortController.signal.aborted && this.sseListeners.size > 0) {
+          for (const sub of Array.from(this.sseListeners)) {
+            sub.onError?.(err instanceof Error ? err : new Error(String(err)));
+          }
+        }
+      } finally {
+        this.sseConnecting = false;
+        if (this.sseAbortController === abortController) {
+          this.sseAbortController = null;
+        }
+        if (!abortController.signal.aborted && this.sseListeners.size > 0) {
+          if (this.sseReconnectTimer) clearTimeout(this.sseReconnectTimer);
+          this.sseReconnectTimer = setTimeout(() => {
+            this.sseReconnectTimer = null;
+            this.ensureMultiplexedSse();
+          }, 3000);
         }
       }
     };
 
-    connectSse();
+    void runStream();
+  }
+
+  private teardownMultiplexedSse() {
+    if (this.sseReconnectTimer) {
+      clearTimeout(this.sseReconnectTimer);
+      this.sseReconnectTimer = null;
+    }
+    if (this.sseAbortController) {
+      this.sseAbortController.abort();
+      this.sseAbortController = null;
+    }
+    this.sseConnecting = false;
+    this.sseActiveToken = null;
+  }
+
+  /**
+   * Subscribes to real-time events via shared multiplexed backend SSE stream.
+   * Completely avoids browser direct connection to Supabase database.
+   * Backend enforces all authentication, role permissions, and scoped event filtering.
+   */
+  subscribeToChanges(options: RealtimeSubscriptionOptions): () => void {
+    this.sseListeners.add(options);
+    this.ensureMultiplexedSse();
 
     return () => {
-      isAborted = true;
-      abortController.abort();
+      this.sseListeners.delete(options);
+      if (this.sseListeners.size === 0) {
+        this.teardownMultiplexedSse();
+      }
     };
   }
 }

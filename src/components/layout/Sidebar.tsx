@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, todayWIB, logout, setIsSessionModalOpen } = useApp();
+  const { currentUser, tickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions } = useApp();
   const {
     isMobileView,
     config,
@@ -101,6 +101,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     submenuItems,
     accordionSettings
   } = useUIConfig();
+
+  const canAccessMenuId = (menuId: string): boolean => {
+    if (userRole === 'super_admin') return true;
+    const permMap: Record<string, any> = {
+      audit_logs: 'view_audit_logs',
+      templates: 'manage_whatsapp_templates',
+      database_management: 'database_management',
+      ui_builder: 'ui_configuration',
+      users: 'manage_users',
+      import: 'import_data',
+      import_excel: 'import_data',
+      droplist_management: 'setting_droplist',
+      setting_droplist: 'setting_droplist',
+      system_health: 'system_health'
+    };
+    const reqPerm = permMap[menuId];
+    return reqPerm ? hasPermission(reqPerm) : true;
+  };
 
   // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta, reactive 00:00 WIB)
   const todayActiveTickets = useMemo(() => {
@@ -148,10 +166,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (!item || item.visible === false) return false;
         if (item.id === 'templates' && userRole !== 'super_admin' && userRole !== 'dispatch') return false;
         if (Array.isArray(item.roles) && item.roles.length > 0 && (!userRole || !item.roles.includes(userRole))) return false;
+        if (!canAccessMenuId(item.id)) return false;
         return true;
       })
       .sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [isInstaller, standaloneMenus, userRole]);
+  }, [isInstaller, standaloneMenus, userRole, rolePermissions]);
 
   // =========================================================================
   // 2. KATEGORI ACCORDION (3 Kategori Utama: Contractor & Area, Installer, Menu Tambahan)
@@ -198,6 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return false;
             }
             if (Array.isArray(sub.roles) && sub.roles.length > 0 && (!userRole || !sub.roles.includes(userRole))) return false;
+            if (!canAccessMenuId(subId)) return false;
             return true;
           })
           .sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -208,7 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         };
       })
       .filter(cat => cat.submenus.length > 0); // Sembunyikan kategori jika tidak ada submenu yang dapat diakses
-  }, [isInstaller, navCategories, submenuItems, userRole]);
+  }, [isInstaller, navCategories, submenuItems, userRole, rolePermissions]);
 
   // =========================================================================
   // 3. ACCORDION STATE

@@ -45,48 +45,42 @@ export const UIConfigurationBuilder: React.FC = () => {
     config,
     draftConfig,
     isDrafting,
-    startDrafting,
     updateDraft,
-    saveDraft,
     cancelDraft,
     resetToDefaults,
-    setGlobalTheme,
-    setDeviceMode,
-    updateAndroidSettings,
-    updatePCSettings,
-    applyDevicePreset,
-    setColumnVisibility,
-    setColumnOrder,
-    updateColumnConfig,
     applyPreset,
     saveCurrentAsPreset,
     deletePreset,
-    updateToolbarButton,
-    toggleToolbarOption,
-    toggleDetailSection,
-    reorderDetailSections,
-    updateDetailField,
-    setShowEmptyFields,
     navigationItems,
     menuCategories,
     updateNavigationItem,
     moveNavigationItem,
-    setMenuCategories,
-    resetNavigationMenu,
+    addCategory,
+    deleteCategory,
+    moveCategory,
+    saveNavigationConfig,
+    resetNavigationConfig,
+    hasUnsavedNavChanges,
     exportConfigJson,
     importConfigJson,
     saveConfigToSupabase,
     loadConfigFromSupabase,
     isCloudSyncing,
     lastCloudSyncTime,
-    cloudSyncStatus
+    lastCloudSyncError,
+    cloudSyncStatus,
+    uiConfigVersion,
+    navDocVersion
   } = useUIConfig();
 
   const { currentUser } = useApp();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
 
   const [activeTab, setActiveTab] = useState<'supabase_config' | 'device_layout' | 'menu_layout' | 'table_columns' | 'toolbar' | 'detail_sections' | 'global_theme' | 'presets' | 'json'>('device_layout');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [confirmModal, setConfirmModal] = useState<'pull' | 'reset_ui' | 'reset_menu' | null>(null);
 
   // New preset modal state
   const [newPresetName, setNewPresetName] = useState('');
@@ -97,34 +91,69 @@ export const UIConfigurationBuilder: React.FC = () => {
   const [jsonInput, setJsonInput] = useState('');
 
   const triggerNotice = (msg: string) => {
+    setErrorMessage(null);
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(null), 3500);
   };
 
+  const triggerError = (msg: string) => {
+    setSuccessMessage(null);
+    setErrorMessage(msg);
+  };
+
   const handleMoveColumn = (index: number, direction: 'up' | 'down') => {
+    if (!isSuperAdmin) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= config.ticketsTable.columns.length) return;
-    setColumnOrder(index, targetIndex);
-    triggerNotice('Urutan kolom diperbarui.');
+    updateDraft(prev => {
+      const cols = [...prev.ticketsTable.columns];
+      const [moved] = cols.splice(index, 1);
+      cols.splice(targetIndex, 0, moved);
+      return {
+        ...prev,
+        ticketsTable: {
+          ...prev.ticketsTable,
+          columns: cols.map((c, idx) => ({ ...c, order: idx + 1 }))
+        }
+      };
+    });
+    triggerNotice('Urutan kolom diperbarui di draft. Klik "Simpan & Upload ke Supabase" untuk menerapkan secara global.');
   };
 
   const handleMoveSection = (index: number, direction: 'up' | 'down') => {
+    if (!isSuperAdmin) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= config.ticketDetail.sections.length) return;
-    reorderDetailSections(index, targetIndex);
-    triggerNotice('Urutan section detail diperbarui.');
+    updateDraft(prev => {
+      const sections = [...prev.ticketDetail.sections];
+      const [moved] = sections.splice(index, 1);
+      sections.splice(targetIndex, 0, moved);
+      return {
+        ...prev,
+        ticketDetail: {
+          ...prev.ticketDetail,
+          sections: sections.map((sec, idx) => ({ ...sec, order: idx + 1 }))
+        }
+      };
+    });
+    triggerNotice('Urutan section detail diperbarui di draft.');
   };
 
-  const handleSavePreset = () => {
+  const handleSavePreset = async () => {
+    if (!isSuperAdmin) return;
     if (!newPresetName.trim()) {
-      triggerNotice('Nama preset wajib diisi.');
+      triggerError('Nama preset wajib diisi.');
       return;
     }
-    saveCurrentAsPreset(newPresetName.trim(), newPresetDesc.trim() || 'Custom view preset');
-    setNewPresetName('');
-    setNewPresetDesc('');
-    setShowPresetModal(false);
-    triggerNotice('Preset tampilan baru berhasil disimpan!');
+    const res = await saveCurrentAsPreset(newPresetName.trim(), newPresetDesc.trim() || 'Custom view preset');
+    if (res.success) {
+      setNewPresetName('');
+      setNewPresetDesc('');
+      setShowPresetModal(false);
+      triggerNotice('Preset tampilan baru berhasil disimpan permanen ke Supabase PostgreSQL!');
+    } else {
+      triggerError(res.error || 'Gagal menyimpan preset ke database.');
+    }
   };
 
   const handleExport = () => {
@@ -139,48 +168,80 @@ export const UIConfigurationBuilder: React.FC = () => {
     triggerNotice('Konfigurasi UI berhasil diekspor.');
   };
 
-  const handleImport = () => {
-    if (!jsonInput.trim()) return;
-    const ok = importConfigJson(jsonInput);
-    if (ok) {
+  const handleImport = async () => {
+    if (!isSuperAdmin || !jsonInput.trim()) return;
+    const res = await importConfigJson(jsonInput);
+    if (res.success) {
       setJsonInput('');
-      triggerNotice('Konfigurasi UI berhasil diimpor & diterapkan!');
+      triggerNotice('Konfigurasi UI berhasil diimpor & disimpan ke Supabase PostgreSQL!');
     } else {
-      alert('Format JSON konfigurasi tidak valid.');
+      triggerError(res.error || 'Format JSON konfigurasi tidak valid atau gagal disimpan ke database.');
     }
   };
 
   const handleUploadToSupabase = async () => {
+    if (!isSuperAdmin) {
+      triggerError('Akses Ditolak: Hanya Super Admin yang dapat menyimpan konfigurasi UI global.');
+      return;
+    }
     try {
       const res = await saveConfigToSupabase(currentUser?.name || 'Super Admin');
       if (res.success) {
         triggerNotice(
-          `Konfigurasi UI berhasil di-upload ke Supabase PostgreSQL sebagai Database Configuration App! (${res.updatedAt ? new Date(res.updatedAt).toLocaleTimeString('id-ID') : ''})`
+          `Konfigurasi UI berhasil disimpan ke Supabase PostgreSQL sebagai Database Configuration App! (${res.updatedAt ? new Date(res.updatedAt).toLocaleTimeString('id-ID') : ''})`
         );
       } else {
-        alert('Gagal mengupload konfigurasi ke Supabase PostgreSQL: ' + (res.error || 'Terjadi kesalahan'));
+        triggerError('Gagal menyimpan konfigurasi ke Supabase PostgreSQL: ' + (res.error || 'Terjadi kesalahan'));
       }
     } catch (e: any) {
-      alert('Gagal mengupload: ' + e?.message);
+      triggerError('Gagal mengupload: ' + (e?.message || String(e)));
     }
   };
 
-  const handlePullFromSupabase = async () => {
-    if (!confirm('Tarik konfigurasi master dari Supabase PostgreSQL dan terapkan pada tampilan Anda?')) return;
-    try {
-      const res = await loadConfigFromSupabase();
-      if (res.success) {
-        triggerNotice('Konfigurasi UI berhasil ditarik dan disinkronkan dari Supabase PostgreSQL!');
-      } else {
-        alert('Gagal memuat konfigurasi dari Supabase PostgreSQL: ' + (res.error || 'Data belum tersedia'));
+  const executeConfirmAction = async () => {
+    const action = confirmModal;
+    setConfirmModal(null);
+    if (action === 'pull') {
+      try {
+        const res = await loadConfigFromSupabase();
+        if (res.success) {
+          triggerNotice('Konfigurasi UI berhasil ditarik dan disinkronkan dari Supabase PostgreSQL!');
+        } else {
+          triggerError('Gagal memuat konfigurasi dari Supabase PostgreSQL: ' + (res.error || 'Data belum tersedia'));
+        }
+      } catch (e: any) {
+        triggerError('Gagal memuat: ' + (e?.message || String(e)));
       }
-    } catch (e: any) {
-      alert('Gagal memuat: ' + e?.message);
+    } else if (action === 'reset_ui') {
+      if (!isSuperAdmin) return;
+      const res = await resetToDefaults();
+      if (res.success) {
+        triggerNotice('Konfigurasi berhasil direset dan disimpan ke standar sistem di database.');
+      } else {
+        triggerError(res.error || 'Gagal mereset konfigurasi UI di database.');
+      }
+    } else if (action === 'reset_menu') {
+      if (!isSuperAdmin) return;
+      const res = await resetNavigationConfig(currentUser?.name || 'Super Admin');
+      if (res.success) {
+        triggerNotice('Susunan menu berhasil dikembalikan ke standar bawaan dan disimpan ke database.');
+      } else {
+        triggerError(res.error || 'Gagal mereset susunan menu di database.');
+      }
     }
   };
 
   return (
     <div className="space-y-6">
+      {!isSuperAdmin && (
+        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2.5">
+          <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>
+            <strong>Mode Baca (Read-Only):</strong> Perubahan UI & Layout Configuration Global hanya dapat disimpan oleh <strong>Super Admin</strong>.
+          </span>
+        </div>
+      )}
+
       {/* Top Banner */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -192,6 +253,9 @@ export const UIConfigurationBuilder: React.FC = () => {
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Dynamic UI & Layout Configuration Builder
               </h3>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono tabular-nums font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                v{uiConfigVersion}
+              </span>
               {/* Supabase PostgreSQL Sync Status Badge */}
               <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                 {isCloudSyncing ? (
@@ -230,8 +294,8 @@ export const UIConfigurationBuilder: React.FC = () => {
           {/* Supabase Save / Upload Primary Button */}
           <button
             onClick={handleUploadToSupabase}
-            disabled={isCloudSyncing}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 rounded-md flex items-center gap-1.5 shadow-sm transition-all"
+            disabled={!isSuperAdmin || isCloudSyncing}
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed rounded-md flex items-center gap-1.5 shadow-sm transition-all"
             title="Upload dan jadikan konfigurasi ini sebagai Database Configuration App di Supabase PostgreSQL"
           >
             {isCloudSyncing ? (
@@ -244,9 +308,9 @@ export const UIConfigurationBuilder: React.FC = () => {
 
           {/* Supabase Pull / Sync Button */}
           <button
-            onClick={handlePullFromSupabase}
+            onClick={() => setConfirmModal('pull')}
             disabled={isCloudSyncing}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50"
             title="Tarik konfigurasi master dari Supabase PostgreSQL"
           >
             <CloudDownload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -254,13 +318,9 @@ export const UIConfigurationBuilder: React.FC = () => {
           </button>
 
           <button
-            onClick={() => {
-              if (confirm('Kembalikan seluruh layout dan pengaturan UI ke standar sistem (Default)?')) {
-                resetToDefaults();
-                triggerNotice('Konfigurasi berhasil direset ke standar sistem.');
-              }
-            }}
-            className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors"
+            onClick={() => setConfirmModal('reset_ui')}
+            disabled={!isSuperAdmin || isCloudSyncing}
+            className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
             <span>Reset</span>
@@ -275,6 +335,55 @@ export const UIConfigurationBuilder: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {isDrafting && isSuperAdmin && (
+        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Draft Builder Belum Tersimpan ke Database:</strong> Klik <em>Simpan &amp; Upload ke Supabase</em> untuk memberlakukan perubahan secara global kepada seluruh pengguna.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={cancelDraft}
+              disabled={isCloudSyncing}
+              className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+            >
+              Batalkan Draft
+            </button>
+            <button
+              type="button"
+              onClick={handleUploadToSupabase}
+              disabled={isCloudSyncing}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Simpan ke Database</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(errorMessage || lastCloudSyncError) && (
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 rounded text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage || lastCloudSyncError}</span>
+          </div>
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={handleUploadToSupabase}
+              disabled={isCloudSyncing}
+              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold shrink-0"
+            >
+              Coba Simpan Ulang
+            </button>
+          )}
+        </div>
+      )}
 
       {successMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded text-xs flex items-center gap-2">
@@ -422,8 +531,8 @@ export const UIConfigurationBuilder: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                 <button
                   onClick={handleUploadToSupabase}
-                  disabled={isCloudSyncing}
-                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                  disabled={!isSuperAdmin || isCloudSyncing}
+                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isCloudSyncing ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -434,7 +543,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={handlePullFromSupabase}
+                  onClick={() => setConfirmModal('pull')}
                   disabled={isCloudSyncing}
                   className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-60"
                 >
@@ -449,8 +558,8 @@ export const UIConfigurationBuilder: React.FC = () => {
               <div>
                 <p className="text-slate-400 text-[11px]">Status Sinkronisasi:</p>
                 <p className="font-semibold text-emerald-400 flex items-center gap-1.5 mt-0.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  {cloudSyncStatus === 'synced' ? 'Tersimpan & Aktif di Supabase' : cloudSyncStatus === 'syncing' ? 'Sedang Sinkronisasi...' : cloudSyncStatus === 'error' ? 'Gagal Terhubung' : 'Konfigurasi Lokal'}
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  {cloudSyncStatus === 'synced' ? `Tersimpan & Aktif (v${uiConfigVersion})` : cloudSyncStatus === 'syncing' ? 'Sedang Sinkronisasi...' : cloudSyncStatus === 'error' ? 'Gagal Terhubung' : 'Konfigurasi Lokal'}
                 </p>
               </div>
 
@@ -564,8 +673,8 @@ export const UIConfigurationBuilder: React.FC = () => {
 
               <button
                 onClick={handleUploadToSupabase}
-                disabled={isCloudSyncing}
-                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all"
+                disabled={!isSuperAdmin || isCloudSyncing}
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all"
               >
                 {isCloudSyncing ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -603,7 +712,7 @@ export const UIConfigurationBuilder: React.FC = () => {
               </div>
 
               <button
-                onClick={handlePullFromSupabase}
+                onClick={() => setConfirmModal('pull')}
                 disabled={isCloudSyncing}
                 className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 disabled:opacity-60 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-2 transition-all"
               >
@@ -673,33 +782,76 @@ export const UIConfigurationBuilder: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-2.5">
                 <button
+                  disabled={!isSuperAdmin || isCloudSyncing}
                   onClick={() => {
-                    applyDevicePreset('comfortable_android');
-                    triggerNotice('Profil kenyamanan Android (Kartu sentuh & navigasi bawah) berhasil diterapkan!');
+                    if (!isSuperAdmin) return;
+                    updateDraft(prev => ({
+                      ...prev,
+                      global: { ...prev.global, contentWidth: 'full', density: 'comfortable', sidebarState: 'closed', sidebarCollapsed: true },
+                      device: {
+                        ...prev.device,
+                        mode: 'android',
+                        android: {
+                          ...prev.device.android,
+                          layoutType: 'cards',
+                          touchTargetSize: 'comfortable',
+                          showBottomNavigation: true,
+                          cardDensity: 'comfortable',
+                          highContrastBadges: true,
+                          showQuickCall: true,
+                          showQuickWhatsApp: true,
+                          showQuickDetail: true,
+                          autoCloseSidebarOnNavigate: true
+                        }
+                      },
+                      ticketsTable: { ...prev.ticketsTable, rowsPerPage: 10, density: 'comfortable' }
+                    }));
+                    triggerNotice('Profil kenyamanan Android diterapkan di draft. Klik "Simpan & Upload ke Supabase" untuk menyimpan ke database.');
                   }}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50"
                 >
                   <Smartphone className="w-4 h-4" />
                   <span>Terapkan Preset Android / HP</span>
                 </button>
 
                 <button
+                  disabled={!isSuperAdmin || isCloudSyncing}
                   onClick={() => {
-                    applyDevicePreset('high_productivity_pc');
-                    triggerNotice('Profil produktivitas PC (Tabel grid kompak & kolom sticky) berhasil diterapkan!');
+                    if (!isSuperAdmin) return;
+                    updateDraft(prev => ({
+                      ...prev,
+                      global: { ...prev.global, contentWidth: 'full', density: 'compact', sidebarState: 'expanded', sidebarCollapsed: false },
+                      device: {
+                        ...prev.device,
+                        mode: 'pc',
+                        pc: {
+                          ...prev.device.pc,
+                          tableDensity: 'compact',
+                          stickyColumns: true,
+                          wideScreenFullWidth: true,
+                          showInlineFilters: true,
+                          showBulkToolbar: true,
+                          multiColumnDetail: true
+                        }
+                      },
+                      ticketsTable: { ...prev.ticketsTable, rowsPerPage: 20, density: 'compact' }
+                    }));
+                    triggerNotice('Profil produktivitas PC diterapkan di draft. Klik "Simpan & Upload ke Supabase" untuk menyimpan ke database.');
                   }}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50"
                 >
                   <Monitor className="w-4 h-4" />
                   <span>Terapkan Preset PC / Desktop</span>
                 </button>
 
                 <button
+                  disabled={!isSuperAdmin || isCloudSyncing}
                   onClick={() => {
-                    applyDevicePreset('auto');
-                    triggerNotice('Mode adaptif otomatis diaktifkan.');
+                    if (!isSuperAdmin) return;
+                    updateDraft(prev => ({ ...prev, device: { ...prev.device, mode: 'auto' } }));
+                    triggerNotice('Mode adaptif otomatis diterapkan di draft.');
                   }}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium transition-colors"
+                  className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   <span>Reset ke Auto</span>
                 </button>
@@ -723,8 +875,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                 <input
                   type="radio"
                   name="device_mode"
+                  disabled={!isSuperAdmin}
                   checked={config.device?.mode === 'auto'}
-                  onChange={() => setDeviceMode('auto')}
+                  onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, mode: 'auto' } }))}
                   className="mt-0.5 text-indigo-600 focus:ring-indigo-500"
                 />
                 <div>
@@ -748,8 +901,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                 <input
                   type="radio"
                   name="device_mode"
+                  disabled={!isSuperAdmin}
                   checked={config.device?.mode === 'android'}
-                  onChange={() => setDeviceMode('android')}
+                  onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, mode: 'android' } }))}
                   className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
                 />
                 <div>
@@ -773,8 +927,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                 <input
                   type="radio"
                   name="device_mode"
+                  disabled={!isSuperAdmin}
                   checked={config.device?.mode === 'pc'}
-                  onChange={() => setDeviceMode('pc')}
+                  onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, mode: 'pc' } }))}
                   className="mt-0.5 text-blue-600 focus:ring-blue-500"
                 />
                 <div>
@@ -820,8 +975,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="android_layoutType"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.layoutType === 'cards'}
-                      onChange={() => updateAndroidSettings({ layoutType: 'cards' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, layoutType: 'cards' } } }))}
                       className="text-emerald-600"
                     />
                     <span className="font-medium text-slate-800 dark:text-slate-200">
@@ -832,8 +988,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="android_layoutType"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.layoutType === 'compact_table'}
-                      onChange={() => updateAndroidSettings({ layoutType: 'compact_table' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, layoutType: 'compact_table' } } }))}
                       className="text-emerald-600"
                     />
                     <span className="text-slate-700 dark:text-slate-300">
@@ -856,8 +1013,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="android_touchTargetSize"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.touchTargetSize === 'comfortable'}
-                      onChange={() => updateAndroidSettings({ touchTargetSize: 'comfortable' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, touchTargetSize: 'comfortable' } } }))}
                       className="text-emerald-600"
                     />
                     <span>Standar Nyaman (48px - Standar Android Material)</span>
@@ -866,8 +1024,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="android_touchTargetSize"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.touchTargetSize === 'large'}
-                      onChange={() => updateAndroidSettings({ touchTargetSize: 'large' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, touchTargetSize: 'large' } } }))}
                       className="text-emerald-600"
                     />
                     <span>Ekstra Besar (54px - Sangat Mudah Ditekan di Lapangan)</span>
@@ -876,8 +1035,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="android_touchTargetSize"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.touchTargetSize === 'compact'}
-                      onChange={() => updateAndroidSettings({ touchTargetSize: 'compact' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, touchTargetSize: 'compact' } } }))}
                       className="text-emerald-600"
                     />
                     <span>Ringkas (40px)</span>
@@ -893,8 +1053,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.android?.showBottomNavigation !== false}
-                    onChange={e => updateAndroidSettings({ showBottomNavigation: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, showBottomNavigation: e.target.checked } } }))}
                     className="rounded text-emerald-600 w-4 h-4"
                   />
                 </div>
@@ -912,8 +1073,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.showQuickWhatsApp !== false}
-                      onChange={e => updateAndroidSettings({ showQuickWhatsApp: e.target.checked })}
+                      onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, showQuickWhatsApp: e.target.checked } } }))}
                       className="rounded text-emerald-600"
                     />
                     <span>Tombol WhatsApp URL Langsung (1-Sentuhan)</span>
@@ -921,8 +1083,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.showQuickCall !== false}
-                      onChange={e => updateAndroidSettings({ showQuickCall: e.target.checked })}
+                      onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, showQuickCall: e.target.checked } } }))}
                       className="rounded text-emerald-600"
                     />
                     <span>Tombol Panggil Telepon Langsung (tel:)</span>
@@ -930,8 +1093,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.android?.showQuickDetail !== false}
-                      onChange={e => updateAndroidSettings({ showQuickDetail: e.target.checked })}
+                      onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, showQuickDetail: e.target.checked } } }))}
                       className="rounded text-emerald-600"
                     />
                     <span>Tombol Buka Detail & Penugasan</span>
@@ -947,8 +1111,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.android?.highContrastBadges !== false}
-                    onChange={e => updateAndroidSettings({ highContrastBadges: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, highContrastBadges: e.target.checked } } }))}
                     className="rounded text-emerald-600 w-4 h-4"
                   />
                 </div>
@@ -965,8 +1130,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.android?.autoCloseSidebarOnNavigate !== false}
-                    onChange={e => updateAndroidSettings({ autoCloseSidebarOnNavigate: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, android: { ...prev.device.android, autoCloseSidebarOnNavigate: e.target.checked } } }))}
                     className="rounded text-emerald-600 w-4 h-4"
                   />
                 </div>
@@ -1004,8 +1170,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="pc_tableDensity"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.pc?.tableDensity === 'compact'}
-                      onChange={() => updatePCSettings({ tableDensity: 'compact' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, tableDensity: 'compact' } } }))}
                       className="text-blue-600"
                     />
                     <span>Ringkas / Compact (24px - Menampilkan data maksimal per halaman)</span>
@@ -1014,8 +1181,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="pc_tableDensity"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.pc?.tableDensity === 'comfortable'}
-                      onChange={() => updatePCSettings({ tableDensity: 'comfortable' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, tableDensity: 'comfortable' } } }))}
                       className="text-blue-600"
                     />
                     <span>Standar Seimbang (36px)</span>
@@ -1024,8 +1192,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <input
                       type="radio"
                       name="pc_tableDensity"
+                      disabled={!isSuperAdmin}
                       checked={config.device?.pc?.tableDensity === 'spacious'}
-                      onChange={() => updatePCSettings({ tableDensity: 'spacious' })}
+                      onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, tableDensity: 'spacious' } } }))}
                       className="text-blue-600"
                     />
                     <span>Luas (48px)</span>
@@ -1041,8 +1210,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.pc?.stickyColumns !== false}
-                    onChange={e => updatePCSettings({ stickyColumns: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, stickyColumns: e.target.checked } } }))}
                     className="rounded text-blue-600 w-4 h-4"
                   />
                 </div>
@@ -1059,11 +1229,13 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.pc?.wideScreenFullWidth !== false}
-                    onChange={e => {
-                      updatePCSettings({ wideScreenFullWidth: e.target.checked });
-                      setGlobalTheme({ contentWidth: e.target.checked ? 'full' : 'contained' });
-                    }}
+                    onChange={e => updateDraft(prev => ({
+                      ...prev,
+                      global: { ...prev.global, contentWidth: e.target.checked ? 'full' : 'contained' },
+                      device: { ...prev.device, pc: { ...prev.device.pc, wideScreenFullWidth: e.target.checked } }
+                    }))}
                     className="rounded text-blue-600 w-4 h-4"
                   />
                 </div>
@@ -1080,8 +1252,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.pc?.showBulkToolbar !== false}
-                    onChange={e => updatePCSettings({ showBulkToolbar: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, showBulkToolbar: e.target.checked } } }))}
                     className="rounded text-blue-600 w-4 h-4"
                   />
                 </div>
@@ -1098,8 +1271,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.pc?.showInlineFilters !== false}
-                    onChange={e => updatePCSettings({ showInlineFilters: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, showInlineFilters: e.target.checked } } }))}
                     className="rounded text-blue-600 w-4 h-4"
                   />
                 </div>
@@ -1116,8 +1290,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                   </label>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin}
                     checked={config.device?.pc?.multiColumnDetail !== false}
-                    onChange={e => updatePCSettings({ multiColumnDetail: e.target.checked })}
+                    onChange={e => updateDraft(prev => ({ ...prev, device: { ...prev.device, pc: { ...prev.device.pc, multiColumnDetail: e.target.checked } } }))}
                     className="rounded text-blue-600 w-4 h-4"
                   />
                 </div>
@@ -1144,7 +1319,8 @@ export const UIConfigurationBuilder: React.FC = () => {
             </div>
             <button
               onClick={() => setShowPresetModal(true)}
-              className="px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5"
+              disabled={!isSuperAdmin || isCloudSyncing}
+              className="px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Simpan Kolom Saat Ini Sebagai Preset</span>
@@ -1174,8 +1350,15 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <td className="py-2 px-3 text-center">
                       <input
                         type="checkbox"
+                        disabled={!isSuperAdmin}
                         checked={col.visible}
-                        onChange={e => setColumnVisibility(col.key, e.target.checked)}
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketsTable: {
+                            ...prev.ticketsTable,
+                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, visible: e.target.checked } : c)
+                          }
+                        }))}
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
@@ -1187,26 +1370,47 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <td className="py-2 px-3">
                       <input
                         type="text"
+                        disabled={!isSuperAdmin}
                         value={col.label}
-                        onChange={e => updateColumnConfig(col.key, { label: e.target.value })}
-                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200"
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketsTable: {
+                            ...prev.ticketsTable,
+                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, label: e.target.value } : c)
+                          }
+                        }))}
+                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 disabled:opacity-60"
                       />
                     </td>
 
                     <td className="py-2 px-3">
                       <input
                         type="number"
+                        disabled={!isSuperAdmin}
                         value={col.width || 120}
-                        onChange={e => updateColumnConfig(col.key, { width: parseInt(e.target.value) || 100 })}
-                        className="w-20 px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 font-mono"
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketsTable: {
+                            ...prev.ticketsTable,
+                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, width: parseInt(e.target.value) || 100 } : c)
+                          }
+                        }))}
+                        className="w-20 px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 font-mono disabled:opacity-60"
                       />
                     </td>
 
                     <td className="py-2 px-3">
                       <select
+                        disabled={!isSuperAdmin}
                         value={col.align || 'left'}
-                        onChange={e => updateColumnConfig(col.key, { align: e.target.value as any })}
-                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded"
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketsTable: {
+                            ...prev.ticketsTable,
+                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, align: e.target.value as any } : c)
+                          }
+                        }))}
+                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded disabled:opacity-60"
                       >
                         <option value="left">Left</option>
                         <option value="center">Center</option>
@@ -1216,9 +1420,16 @@ export const UIConfigurationBuilder: React.FC = () => {
 
                     <td className="py-2 px-3">
                       <select
+                        disabled={!isSuperAdmin}
                         value={col.sticky || 'none'}
-                        onChange={e => updateColumnConfig(col.key, { sticky: e.target.value as any })}
-                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded"
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketsTable: {
+                            ...prev.ticketsTable,
+                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, sticky: e.target.value as any } : c)
+                          }
+                        }))}
+                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded disabled:opacity-60"
                       >
                         <option value="none">None</option>
                         <option value="left">Sticky Left</option>
@@ -1229,8 +1440,15 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <td className="py-2 px-3 text-center">
                       <input
                         type="checkbox"
+                        disabled={!isSuperAdmin}
                         checked={Boolean(col.wrapText)}
-                        onChange={e => updateColumnConfig(col.key, { wrapText: e.target.checked })}
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketsTable: {
+                            ...prev.ticketsTable,
+                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, wrapText: e.target.checked } : c)
+                          }
+                        }))}
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
@@ -1238,7 +1456,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <td className="py-2 px-3 text-center whitespace-nowrap">
                       <button
                         onClick={() => handleMoveColumn(idx, 'up')}
-                        disabled={idx === 0}
+                        disabled={!isSuperAdmin || idx === 0}
                         className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20"
                         title="Pindah ke Atas"
                       >
@@ -1246,7 +1464,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleMoveColumn(idx, 'down')}
-                        disabled={idx === config.ticketsTable.columns.length - 1}
+                        disabled={!isSuperAdmin || idx === config.ticketsTable.columns.length - 1}
                         className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20"
                         title="Pindah ke Bawah"
                       >
@@ -1277,8 +1495,9 @@ export const UIConfigurationBuilder: React.FC = () => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
+                disabled={!isSuperAdmin}
                 checked={config.toolbar.showSearch}
-                onChange={e => toggleToolbarOption('showSearch', e.target.checked)}
+                onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showSearch: e.target.checked } }))}
                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span className="font-medium text-slate-700 dark:text-slate-300">Tampilkan Kotak Pencarian</span>
@@ -1287,8 +1506,9 @@ export const UIConfigurationBuilder: React.FC = () => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
+                disabled={!isSuperAdmin}
                 checked={config.toolbar.showFilters}
-                onChange={e => toggleToolbarOption('showFilters', e.target.checked)}
+                onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showFilters: e.target.checked } }))}
                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span className="font-medium text-slate-700 dark:text-slate-300">Tampilkan Baris Filter Area/Status</span>
@@ -1297,8 +1517,9 @@ export const UIConfigurationBuilder: React.FC = () => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
+                disabled={!isSuperAdmin}
                 checked={config.toolbar.showExport}
-                onChange={e => toggleToolbarOption('showExport', e.target.checked)}
+                onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showExport: e.target.checked } }))}
                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span className="font-medium text-slate-700 dark:text-slate-300">Tampilkan Tombol Export CSV</span>
@@ -1307,8 +1528,9 @@ export const UIConfigurationBuilder: React.FC = () => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
+                disabled={!isSuperAdmin}
                 checked={config.toolbar.showArchiveToggle}
-                onChange={e => toggleToolbarOption('showArchiveToggle', e.target.checked)}
+                onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showArchiveToggle: e.target.checked } }))}
                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span className="font-medium text-slate-700 dark:text-slate-300">Tampilkan Tombol Filter Arsip</span>
@@ -1326,8 +1548,15 @@ export const UIConfigurationBuilder: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <input
                       type="checkbox"
+                      disabled={!isSuperAdmin}
                       checked={btn.visible}
-                      onChange={e => updateToolbarButton(btn.id, { visible: e.target.checked })}
+                      onChange={e => updateDraft(prev => ({
+                        ...prev,
+                        toolbar: {
+                          ...prev.toolbar,
+                          buttons: prev.toolbar.buttons.map(b => b.id === btn.id ? { ...b, visible: e.target.checked } : b)
+                        }
+                      }))}
                       className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                     />
                     <div>
@@ -1338,9 +1567,16 @@ export const UIConfigurationBuilder: React.FC = () => {
 
                   <div className="flex items-center gap-3">
                     <select
+                      disabled={!isSuperAdmin}
                       value={btn.group}
-                      onChange={e => updateToolbarButton(btn.id, { group: e.target.value as any })}
-                      className="px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-xs"
+                      onChange={e => updateDraft(prev => ({
+                        ...prev,
+                        toolbar: {
+                          ...prev.toolbar,
+                          buttons: prev.toolbar.buttons.map(b => b.id === btn.id ? { ...b, group: e.target.value as any } : b)
+                        }
+                      }))}
+                      className="px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-xs disabled:opacity-60"
                     >
                       <option value="primary">Primary Action</option>
                       <option value="secondary">Secondary Action</option>
@@ -1371,8 +1607,12 @@ export const UIConfigurationBuilder: React.FC = () => {
             <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
               <span className="text-slate-600 dark:text-slate-300 font-medium">Show Empty Fields:</span>
               <button
-                onClick={() => setShowEmptyFields(!config.ticketDetail.showEmptyFields)}
-                className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                disabled={!isSuperAdmin}
+                onClick={() => updateDraft(prev => ({
+                  ...prev,
+                  ticketDetail: { ...prev.ticketDetail, showEmptyFields: !prev.ticketDetail.showEmptyFields }
+                }))}
+                className={`px-2.5 py-1 text-xs rounded font-medium transition-colors disabled:opacity-50 ${
                   config.ticketDetail.showEmptyFields
                     ? 'bg-indigo-600 text-white'
                     : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -1393,8 +1633,15 @@ export const UIConfigurationBuilder: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
+                      disabled={!isSuperAdmin}
                       checked={section.visible}
-                      onChange={e => toggleDetailSection(section.id, e.target.checked)}
+                      onChange={e => updateDraft(prev => ({
+                        ...prev,
+                        ticketDetail: {
+                          ...prev.ticketDetail,
+                          sections: prev.ticketDetail.sections.map(s => s.id === section.id ? { ...s, visible: e.target.checked } : s)
+                        }
+                      }))}
                       className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                     />
                     <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">{section.title}</span>
@@ -1404,7 +1651,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleMoveSection(secIdx, 'up')}
-                      disabled={secIdx === 0}
+                      disabled={!isSuperAdmin || secIdx === 0}
                       className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20"
                       title="Pindah Section ke Atas"
                     >
@@ -1412,7 +1659,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleMoveSection(secIdx, 'down')}
-                      disabled={secIdx === config.ticketDetail.sections.length - 1}
+                      disabled={!isSuperAdmin || secIdx === config.ticketDetail.sections.length - 1}
                       className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20"
                       title="Pindah Section ke Bawah"
                     >
@@ -1431,16 +1678,34 @@ export const UIConfigurationBuilder: React.FC = () => {
                       <div className="flex items-center gap-2 truncate">
                         <input
                           type="checkbox"
+                          disabled={!isSuperAdmin}
                           checked={field.visible}
-                          onChange={e => updateDetailField(section.id, field.key, { visible: e.target.checked })}
+                          onChange={e => updateDraft(prev => ({
+                            ...prev,
+                            ticketDetail: {
+                              ...prev.ticketDetail,
+                              sections: prev.ticketDetail.sections.map(s => s.id === section.id
+                                ? { ...s, fields: s.fields.map(f => f.key === field.key ? { ...f, visible: e.target.checked } : f) }
+                                : s)
+                            }
+                          }))}
                           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
                         <span className="truncate text-slate-700 dark:text-slate-300">{field.label}</span>
                       </div>
                       <select
+                        disabled={!isSuperAdmin}
                         value={field.width}
-                        onChange={e => updateDetailField(section.id, field.key, { width: e.target.value as any })}
-                        className="text-[11px] px-1 py-0.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded"
+                        onChange={e => updateDraft(prev => ({
+                          ...prev,
+                          ticketDetail: {
+                            ...prev.ticketDetail,
+                            sections: prev.ticketDetail.sections.map(s => s.id === section.id
+                              ? { ...s, fields: s.fields.map(f => f.key === field.key ? { ...f, width: e.target.value as any } : f) }
+                              : s)
+                          }
+                        }))}
+                        className="text-[11px] px-1 py-0.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded disabled:opacity-60"
                       >
                         <option value="third">1/3</option>
                         <option value="half">1/2</option>
@@ -1472,18 +1737,20 @@ export const UIConfigurationBuilder: React.FC = () => {
               <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Nama Aplikasi</label>
               <input
                 type="text"
+                disabled={!isSuperAdmin}
                 value={config.global.appName}
-                onChange={e => setGlobalTheme({ appName: e.target.value })}
-                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded"
+                onChange={e => updateDraft(prev => ({ ...prev, global: { ...prev.global, appName: e.target.value } }))}
+                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded disabled:opacity-60"
               />
             </div>
 
             <div>
               <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Tema Mode</label>
               <select
+                disabled={!isSuperAdmin}
                 value={config.global.themeMode}
-                onChange={e => setGlobalTheme({ themeMode: e.target.value as any })}
-                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded"
+                onChange={e => updateDraft(prev => ({ ...prev, global: { ...prev.global, themeMode: e.target.value as any } }))}
+                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded disabled:opacity-60"
               >
                 <option value="light">Light Mode</option>
                 <option value="dark">Dark Mode</option>
@@ -1493,16 +1760,16 @@ export const UIConfigurationBuilder: React.FC = () => {
             <div>
               <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Kepadatan Grid / Tabel (Density)</label>
               <select
+                disabled={!isSuperAdmin}
                 value={config.ticketsTable.density}
                 onChange={e => {
+                  const nextDensity = e.target.value as any;
                   updateDraft(prev => ({
                     ...prev,
-                    ticketsTable: { ...prev.ticketsTable, density: e.target.value as any }
+                    ticketsTable: { ...prev.ticketsTable, density: nextDensity }
                   }));
-                  // also update direct
-                  config.ticketsTable.density = e.target.value as any;
                 }}
-                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded"
+                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded disabled:opacity-60"
               >
                 <option value="compact">Compact (Maksimal data)</option>
                 <option value="comfortable">Comfortable (Standar)</option>
@@ -1513,13 +1780,16 @@ export const UIConfigurationBuilder: React.FC = () => {
             <div>
               <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Jumlah Baris per Halaman</label>
               <select
+                disabled={!isSuperAdmin}
                 value={config.ticketsTable.rowsPerPage}
                 onChange={e => {
-                  const val = parseInt(e.target.value);
-                  config.ticketsTable.rowsPerPage = val;
-                  triggerNotice(`Baris per halaman diset ke ${val}`);
+                  const val = parseInt(e.target.value) || 10;
+                  updateDraft(prev => ({
+                    ...prev,
+                    ticketsTable: { ...prev.ticketsTable, rowsPerPage: val }
+                  }));
                 }}
-                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded"
+                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded disabled:opacity-60"
               >
                 <option value={5}>5 baris</option>
                 <option value={10}>10 baris</option>
@@ -1532,16 +1802,16 @@ export const UIConfigurationBuilder: React.FC = () => {
             <div>
               <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Status Menu Sidebar (Default)</label>
               <select
+                disabled={!isSuperAdmin}
                 value={config.global.sidebarState || 'expanded'}
                 onChange={e => {
                   const state = e.target.value as any;
-                  setGlobalTheme({
-                    sidebarState: state,
-                    sidebarCollapsed: state === 'minimized'
-                  });
-                  triggerNotice(`Status Menu Sidebar diubah ke ${state}`);
+                  updateDraft(prev => ({
+                    ...prev,
+                    global: { ...prev.global, sidebarState: state, sidebarCollapsed: state === 'minimized' }
+                  }));
                 }}
-                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded"
+                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded disabled:opacity-60"
               >
                 <option value="expanded">Expanded (Terbuka Penuh - Lebar)</option>
                 <option value="minimized">Minimized (Di-minimize - Hanya Ikon)</option>
@@ -1565,8 +1835,9 @@ export const UIConfigurationBuilder: React.FC = () => {
               </p>
             </div>
             <button
+              disabled={!isSuperAdmin || isCloudSyncing}
               onClick={() => setShowPresetModal(true)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded shadow-sm flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded shadow-sm flex items-center gap-1.5 disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Simpan Konfigurasi Saat Ini Sebagai Preset</span>
@@ -1599,19 +1870,32 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <div className="flex items-center gap-1">
                       {!isActive && (
                         <button
-                          onClick={() => {
-                            applyPreset(p.id);
-                            triggerNotice(`Preset "${p.name}" diterapkan.`);
+                          disabled={!isSuperAdmin || isCloudSyncing}
+                          onClick={async () => {
+                            const res = await applyPreset(p.id);
+                            if (res.success) {
+                              triggerNotice(`Preset "${p.name}" diterapkan & disimpan ke database.`);
+                            } else {
+                              triggerError(res.error || 'Gagal menerapkan preset ke database.');
+                            }
                           }}
-                          className="px-2.5 py-1 bg-indigo-600 text-white rounded text-[11px] font-medium"
+                          className="px-2.5 py-1 bg-indigo-600 text-white rounded text-[11px] font-medium disabled:opacity-50"
                         >
                           Terapkan
                         </button>
                       )}
                       {config.ticketsTable.presets.length > 1 && !p.id.startsWith('preset_default') && (
                         <button
-                          onClick={() => deletePreset(p.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          disabled={!isSuperAdmin || isCloudSyncing}
+                          onClick={async () => {
+                            const res = await deletePreset(p.id);
+                            if (res.success) {
+                              triggerNotice(`Preset "${p.name}" dihapus dari database.`);
+                            } else {
+                              triggerError(res.error || 'Gagal menghapus preset dari database.');
+                            }
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded disabled:opacity-40"
                           title="Hapus Preset"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1645,10 +1929,11 @@ export const UIConfigurationBuilder: React.FC = () => {
 
           <textarea
             rows={10}
+            disabled={!isSuperAdmin}
             placeholder="Paste string JSON konfigurasi UI di sini..."
             value={jsonInput}
             onChange={e => setJsonInput(e.target.value)}
-            className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200"
+            className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200 disabled:opacity-60"
           />
 
           <div className="flex items-center justify-between">
@@ -1660,10 +1945,10 @@ export const UIConfigurationBuilder: React.FC = () => {
             </button>
             <button
               onClick={handleImport}
-              disabled={!jsonInput.trim()}
+              disabled={!isSuperAdmin || !jsonInput.trim() || isCloudSyncing}
               className="px-4 py-2 font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 rounded shadow-sm"
             >
-              Terapkan JSON Konfigurasi
+              {isCloudSyncing ? 'Menyimpan...' : 'Terapkan JSON Konfigurasi'}
             </button>
           </div>
         </div>
@@ -1676,24 +1961,40 @@ export const UIConfigurationBuilder: React.FC = () => {
             <div>
               <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                 <FolderTree className="w-4 h-4 text-indigo-600" />
-                Pengaturan Susunan Menu & Kategori Navigasi
+                <span>Pengaturan Susunan Menu & Kategori Navigasi</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  nav v{navDocVersion}
+                </span>
               </h4>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Atur urutan menu, ubah kategori induk menu, sembunyikan/tampilkan menu tertentu, atau tambahkan kategori menu baru.
+                Atur urutan menu, ubah kategori induk menu, sembunyikan/tampilkan menu tertentu, lalu simpan ke database agar berlaku global.
               </p>
             </div>
-            <button
-              onClick={() => {
-                if (confirm('Kembalikan susunan menu dan kategori ke standar bawaan?')) {
-                  resetNavigationMenu();
-                  triggerNotice('Susunan menu berhasil dikembalikan ke standar bawaan.');
-                }
-              }}
-              className="px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded flex items-center gap-1.5 shrink-0"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Susunan Menu</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                disabled={!isSuperAdmin || isCloudSyncing}
+                onClick={async () => {
+                  const res = await saveNavigationConfig(currentUser?.name || 'Super Admin');
+                  if (res.success) {
+                    triggerNotice('Susunan menu & kategori berhasil disimpan ke Supabase PostgreSQL!');
+                  } else {
+                    triggerError(res.error || 'Gagal menyimpan susunan menu ke database.');
+                  }
+                }}
+                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{hasUnsavedNavChanges ? 'Simpan Susunan Menu*' : 'Simpan Susunan Menu'}</span>
+              </button>
+              <button
+                disabled={!isSuperAdmin || isCloudSyncing}
+                onClick={() => setConfirmModal('reset_menu')}
+                className="px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Susunan Menu</span>
+              </button>
+            </div>
           </div>
 
           {/* Add Category Section */}
@@ -1704,27 +2005,29 @@ export const UIConfigurationBuilder: React.FC = () => {
               </label>
               <input
                 type="text"
+                disabled={!isSuperAdmin}
                 placeholder="misal: Operasional Khusus, Laporan & Statistik..."
                 value={newCategoryName}
                 onChange={e => setNewCategoryName(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 disabled:opacity-60"
               />
             </div>
             <button
+              disabled={!isSuperAdmin}
               onClick={() => {
                 if (!newCategoryName.trim()) {
-                  triggerNotice('Nama kategori tidak boleh kosong.');
+                  triggerError('Nama kategori tidak boleh kosong.');
                   return;
                 }
                 if (menuCategories.includes(newCategoryName.trim())) {
-                  triggerNotice('Kategori sudah ada.');
+                  triggerError('Kategori sudah ada.');
                   return;
                 }
-                setMenuCategories([...menuCategories, newCategoryName.trim()]);
+                addCategory({ name: newCategoryName.trim(), mode: 'accordion' });
+                triggerNotice(`Kategori "${newCategoryName.trim()}" ditambahkan di draft. Klik "Simpan Susunan Menu" untuk menyimpan ke database.`);
                 setNewCategoryName('');
-                triggerNotice(`Kategori "${newCategoryName.trim()}" berhasil ditambahkan.`);
               }}
-              className="self-end sm:self-auto mt-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded shadow-xs flex items-center gap-1.5"
+              className="self-end sm:self-auto mt-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded shadow-xs flex items-center gap-1.5 disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Kategori</span>
@@ -1739,23 +2042,19 @@ export const UIConfigurationBuilder: React.FC = () => {
                 .sort((a, b) => a.order - b.order);
 
               const handleMoveCategory = (direction: 'up' | 'down') => {
-                const targetIdx = direction === 'up' ? catIndex - 1 : catIndex + 1;
-                if (targetIdx < 0 || targetIdx >= menuCategories.length) return;
-                const newCats = [...menuCategories];
-                const temp = newCats[catIndex];
-                newCats[catIndex] = newCats[targetIdx];
-                newCats[targetIdx] = temp;
-                setMenuCategories(newCats);
-                triggerNotice(`Urutan kategori diperbarui.`);
+                if (!isSuperAdmin) return;
+                moveCategory(category, direction);
+                triggerNotice('Urutan kategori diperbarui di draft.');
               };
 
               const handleDeleteCategory = () => {
+                if (!isSuperAdmin) return;
                 if (itemsInCategory.length > 0) {
-                  alert(`Kategori "${category}" masih memiliki ${itemsInCategory.length} menu. Pindahkan item menu ke kategori lain terlebih dahulu sebelum menghapus.`);
+                  triggerError(`Kategori "${category}" masih memiliki ${itemsInCategory.length} menu. Pindahkan item menu ke kategori lain terlebih dahulu sebelum menghapus.`);
                   return;
                 }
-                setMenuCategories(menuCategories.filter(c => c !== category));
-                triggerNotice(`Kategori "${category}" dihapus.`);
+                deleteCategory(category, 'disable');
+                triggerNotice(`Kategori "${category}" dihapus dari draft.`);
               };
 
               return (
@@ -1778,7 +2077,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => handleMoveCategory('up')}
-                        disabled={catIndex === 0}
+                        disabled={!isSuperAdmin || catIndex === 0}
                         title="Geser Kategori Naik"
                         className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-500 disabled:opacity-30"
                       >
@@ -1786,7 +2085,7 @@ export const UIConfigurationBuilder: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleMoveCategory('down')}
-                        disabled={catIndex === menuCategories.length - 1}
+                        disabled={!isSuperAdmin || catIndex === menuCategories.length - 1}
                         title="Geser Kategori Turun"
                         className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-500 disabled:opacity-30"
                       >
@@ -1794,9 +2093,10 @@ export const UIConfigurationBuilder: React.FC = () => {
                       </button>
                       {itemsInCategory.length === 0 && (
                         <button
+                          disabled={!isSuperAdmin}
                           onClick={handleDeleteCategory}
                           title="Hapus Kategori Kosong"
-                          className="p-1 hover:bg-rose-100 text-rose-500 rounded ml-1"
+                          className="p-1 hover:bg-rose-100 text-rose-500 rounded ml-1 disabled:opacity-30"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1843,12 +2143,13 @@ export const UIConfigurationBuilder: React.FC = () => {
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-slate-400">Pindah ke:</span>
                                 <select
+                                  disabled={!isSuperAdmin}
                                   value={item.category}
                                   onChange={e => {
                                     updateNavigationItem(item.id, { category: e.target.value });
-                                    triggerNotice(`Menu "${item.label}" dipindahkan ke "${e.target.value}".`);
+                                    triggerNotice(`Menu "${item.label}" dipindahkan ke "${e.target.value}" di draft.`);
                                   }}
-                                  className="text-xs px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200"
+                                  className="text-xs px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-slate-700 dark:text-slate-200 disabled:opacity-60"
                                 >
                                   {menuCategories.map(c => (
                                     <option key={c} value={c}>{c}</option>
@@ -1860,9 +2161,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                               <button
                                 onClick={() => {
                                   moveNavigationItem(item.id, 'up');
-                                  triggerNotice(`Urutan menu "${item.label}" dinaikkan.`);
+                                  triggerNotice(`Urutan menu "${item.label}" dinaikkan di draft.`);
                                 }}
-                                disabled={itemIdx === 0}
+                                disabled={!isSuperAdmin || itemIdx === 0}
                                 title="Pindah Naik"
                                 className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 disabled:opacity-30 border border-slate-200 dark:border-slate-700"
                               >
@@ -1872,9 +2173,9 @@ export const UIConfigurationBuilder: React.FC = () => {
                               <button
                                 onClick={() => {
                                   moveNavigationItem(item.id, 'down');
-                                  triggerNotice(`Urutan menu "${item.label}" diturunkan.`);
+                                  triggerNotice(`Urutan menu "${item.label}" diturunkan di draft.`);
                                 }}
-                                disabled={itemIdx === itemsInCategory.length - 1}
+                                disabled={!isSuperAdmin || itemIdx === itemsInCategory.length - 1}
                                 title="Pindah Turun"
                                 className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 disabled:opacity-30 border border-slate-200 dark:border-slate-700"
                               >
@@ -1883,16 +2184,17 @@ export const UIConfigurationBuilder: React.FC = () => {
 
                               {/* Toggle Visibility */}
                               <button
+                                disabled={!isSuperAdmin}
                                 onClick={() => {
                                   updateNavigationItem(item.id, { visible: !item.visible });
                                   triggerNotice(
                                     item.visible
-                                      ? `Menu "${item.label}" disembunyikan dari sidebar.`
-                                      : `Menu "${item.label}" ditampilkan di sidebar.`
+                                      ? `Menu "${item.label}" disembunyikan di draft.`
+                                      : `Menu "${item.label}" ditampilkan di draft.`
                                   );
                                 }}
                                 title={item.visible ? 'Sembunyikan Menu' : 'Tampilkan Menu'}
-                                className={`p-1.5 rounded border ${
+                                className={`p-1.5 rounded border disabled:opacity-40 ${
                                   item.visible
                                     ? 'border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
                                     : 'border-slate-300 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1943,15 +2245,67 @@ export const UIConfigurationBuilder: React.FC = () => {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowPresetModal(false)}
+                disabled={isCloudSyncing}
                 className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded"
               >
                 Batal
               </button>
               <button
                 onClick={handleSavePreset}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded shadow-sm"
+                disabled={!isSuperAdmin || isCloudSyncing}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded shadow-sm disabled:opacity-50"
               >
-                Simpan Preset
+                {isCloudSyncing ? 'Menyimpan...' : 'Simpan Preset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal (Replaces native window.confirm) */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 w-full max-w-md space-y-4 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                  {confirmModal === 'pull'
+                    ? 'Tarik Konfigurasi Master dari Supabase?'
+                    : confirmModal === 'reset_ui'
+                    ? 'Reset Seluruh Layout UI ke Standar Sistem?'
+                    : 'Reset Susunan Menu & Kategori ke Bawaan?'}
+                </h4>
+                <p className="text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                  {confirmModal === 'pull'
+                    ? 'Tindakan ini akan memuat konfigurasi terbaru dari tabel app_settings Supabase PostgreSQL dan membuang draft lokal yang belum disimpan.'
+                    : confirmModal === 'reset_ui'
+                    ? 'Seluruh pengaturan layout, tema, dan kolom tabel akan dikembalikan ke standar default sistem dan langsung disimpan ke database global.'
+                    : 'Seluruh susunan kategori dan menu navigasi akan dikembalikan ke konfigurasi bawaan dan disimpan ke database global.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="px-3.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeConfirmAction}
+                disabled={isCloudSyncing}
+                className={`px-4 py-1.5 text-white font-semibold rounded-lg shadow-sm disabled:opacity-50 ${
+                  confirmModal === 'pull'
+                    ? 'bg-indigo-600 hover:bg-indigo-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                Ya, Lanjutkan
               </button>
             </div>
           </div>

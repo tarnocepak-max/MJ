@@ -13,7 +13,8 @@ import {
   StandaloneMenuItem,
   NavSubmenuItem,
   NavigationConfigDoc,
-  CategoryAccordionConfig
+  CategoryAccordionConfig,
+  UserRole
 } from '../types';
 import {
   DEFAULT_UI_CONFIG,
@@ -24,15 +25,18 @@ import {
   DEFAULT_SUBMENU_ITEMS,
   DEFAULT_NAVIGATION_DOC
 } from '../constants/defaultConfig';
-import { getAuthHeaders } from '../services/authService';
 import {
-  saveUIConfigurationToSupabase,
   loadUIConfigurationFromSupabase,
-  subscribeToUIConfiguration,
-  saveNavigationDocToSupabase,
-  loadNavigationDocFromSupabase,
-  subscribeToNavigationDoc
+  loadNavigationDocFromSupabase
 } from '../services/supabaseConfigService';
+import {
+  getGlobalConfig,
+  saveGlobalConfig,
+  subscribeToGlobalConfigUpdates,
+  ConfigConflictError,
+  GlobalConfigConflictDetails,
+  setTrackedConfigVersion
+} from '../services/globalConfigService';
 import { useApp } from './AppContext';
 
 interface UIConfigContextType {
@@ -41,37 +45,37 @@ interface UIConfigContextType {
   isDrafting: boolean;
   startDrafting: () => void;
   updateDraft: (updater: (prev: UIConfiguration) => UIConfiguration) => void;
-  saveDraft: () => void;
+  saveDraft: () => Promise<{ success: boolean; error?: string }>;
   cancelDraft: () => void;
-  resetToDefaults: () => void;
+  resetToDefaults: () => Promise<{ success: boolean; error?: string }>;
   
-  // Quick Direct Actions (applied directly)
-  setGlobalTheme: (updates: Partial<UIConfiguration['global']>) => void;
-  setColumnVisibility: (columnKey: string, visible: boolean) => void;
-  setColumnOrder: (sourceIndex: number, destinationIndex: number) => void;
-  updateColumnConfig: (columnKey: string, updates: Partial<ColumnConfig>) => void;
-  applyPreset: (presetId: string) => void;
-  saveCurrentAsPreset: (name: string, description: string) => void;
-  deletePreset: (presetId: string) => void;
+  // Quick Direct Actions (Database-First for Super Admin)
+  setGlobalTheme: (updates: Partial<UIConfiguration['global']>) => Promise<{ success: boolean; error?: string }>;
+  setColumnVisibility: (columnKey: string, visible: boolean) => Promise<{ success: boolean; error?: string }>;
+  setColumnOrder: (sourceIndex: number, destinationIndex: number) => Promise<{ success: boolean; error?: string }>;
+  updateColumnConfig: (columnKey: string, updates: Partial<ColumnConfig>) => Promise<{ success: boolean; error?: string }>;
+  applyPreset: (presetId: string) => Promise<{ success: boolean; error?: string }>;
+  saveCurrentAsPreset: (name: string, description: string) => Promise<{ success: boolean; error?: string }>;
+  deletePreset: (presetId: string) => Promise<{ success: boolean; error?: string }>;
   
   // Toolbar settings
-  updateToolbarButton: (buttonId: string, updates: Partial<ToolbarButtonConfig>) => void;
-  toggleToolbarOption: (key: keyof UIConfiguration['toolbar'], value: boolean) => void;
+  updateToolbarButton: (buttonId: string, updates: Partial<ToolbarButtonConfig>) => Promise<{ success: boolean; error?: string }>;
+  toggleToolbarOption: (key: keyof UIConfiguration['toolbar'], value: boolean) => Promise<{ success: boolean; error?: string }>;
 
   // Ticket Detail settings
-  toggleDetailSection: (sectionId: string, visible: boolean) => void;
-  reorderDetailSections: (sourceIndex: number, destinationIndex: number) => void;
-  updateDetailField: (sectionId: string, fieldKey: string, updates: any) => void;
-  setShowEmptyFields: (show: boolean) => void;
+  toggleDetailSection: (sectionId: string, visible: boolean) => Promise<{ success: boolean; error?: string }>;
+  reorderDetailSections: (sourceIndex: number, destinationIndex: number) => Promise<{ success: boolean; error?: string }>;
+  updateDetailField: (sectionId: string, fieldKey: string, updates: any) => Promise<{ success: boolean; error?: string }>;
+  setShowEmptyFields: (show: boolean) => Promise<{ success: boolean; error?: string }>;
 
   // Device profile & ergonomic settings (Android vs PC)
   isMobileView: boolean;
-  setDeviceMode: (mode: 'auto' | 'pc' | 'android') => void;
-  updateAndroidSettings: (updates: Partial<UIConfiguration['device']['android']>) => void;
-  updatePCSettings: (updates: Partial<UIConfiguration['device']['pc']>) => void;
-  applyDevicePreset: (preset: 'comfortable_android' | 'high_productivity_pc' | 'auto') => void;
+  setDeviceMode: (mode: 'auto' | 'pc' | 'android') => Promise<{ success: boolean; error?: string }>;
+  updateAndroidSettings: (updates: Partial<UIConfiguration['device']['android']>) => Promise<{ success: boolean; error?: string }>;
+  updatePCSettings: (updates: Partial<UIConfiguration['device']['pc']>) => Promise<{ success: boolean; error?: string }>;
+  applyDevicePreset: (preset: 'comfortable_android' | 'high_productivity_pc' | 'auto') => Promise<{ success: boolean; error?: string }>;
 
-  // Sidebar controls
+  // Sidebar controls (personal viewport state)
   setSidebarState: (state: 'expanded' | 'minimized' | 'closed') => void;
 
   // Canonical Navigation System
@@ -109,8 +113,14 @@ interface UIConfigContextType {
   setAllowMultipleOpenGroups: (allow: boolean) => void;
 
   // Save / Reset Navigation to Supabase PostgreSQL
-  saveNavigationConfig: (operatorName?: string) => Promise<{ success: boolean; error?: string; updatedAt?: string }>;
-  resetNavigationConfig: (operatorName?: string) => Promise<{ success: boolean; error?: string }>;
+  saveNavigationConfig: (
+    operatorName?: string,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string; updatedAt?: string }>;
+  resetNavigationConfig: (
+    operatorName?: string,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string }>;
 
   // Navigation Display Mode Settings (Legacy / Category-based ON/OFF Accordion)
   navigationSettings: NavigationSettings;
@@ -134,10 +144,13 @@ interface UIConfigContextType {
 
   // Import / Export JSON
   exportConfigJson: () => string;
-  importConfigJson: (jsonString: string) => boolean;
+  importConfigJson: (jsonString: string) => Promise<{ success: boolean; error?: string }>;
 
   // Cloud Database Configuration (Supabase PostgreSQL)
-  saveConfigToSupabase: (operatorName?: string) => Promise<{ success: boolean; error?: string; updatedAt?: string }>;
+  saveConfigToSupabase: (
+    operatorName?: string,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string; updatedAt?: string }>;
   loadConfigFromSupabase: () => Promise<{ success: boolean; error?: string }>;
   reloadNavigationFromSupabase: () => Promise<{ success: boolean; error?: string }>;
   isCloudSyncing: boolean;
@@ -145,6 +158,11 @@ interface UIConfigContextType {
   lastCloudSyncError: string | null;
   hasUnsavedNavChanges: boolean;
   cloudSyncStatus: 'synced' | 'local_only' | 'syncing' | 'error';
+  uiConfigVersion: number;
+  navDocVersion: number;
+  uiConflict: GlobalConfigConflictDetails | null;
+  clearUiConflict: () => void;
+  resolveUiConflict: (strategy: 'reload' | 'overwrite') => Promise<void>;
 }
 
 export interface NavigationMenuItem {
@@ -293,7 +311,7 @@ const CAT_STORAGE_KEY = 'morajaws_navigation_categories_v4';
 const UIConfigContext = createContext<UIConfigContextType | undefined>(undefined);
 
 export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isLoggedIn, currentUser } = useApp();
+  const { isLoggedIn, currentUser, toast } = useApp();
   const [windowWidth, setWindowWidth] = useState<number>(() => {
     return typeof window !== 'undefined' ? window.innerWidth : 1200;
   });
@@ -304,20 +322,18 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const sanitizeToolbarButtons = (toolbarCfg: UIConfiguration['toolbar']) => ({
+  const sanitizeToolbarButtons = (toolbarCfg: UIConfiguration['toolbar']): UIConfiguration['toolbar'] => ({
     ...toolbarCfg,
     buttons: (toolbarCfg?.buttons || DEFAULT_UI_CONFIG.toolbar.buttons).map(btn => {
       if (btn.id === 'btn_import_wo') {
-        return { ...btn, roleRequired: ['super_admin', 'management_data'] };
+        return { ...btn, roleRequired: ['super_admin', 'management_data'] as UserRole[] };
       }
       if (btn.id === 'btn_bulk_assign') {
-        return { ...btn, roleRequired: ['leader'] };
+        return { ...btn, roleRequired: ['leader'] as UserRole[] };
       }
       return btn;
     })
   });
-
-  const isFirstConfigMountRef = useRef(true);
 
   const [config, setConfig] = useState<UIConfiguration>(() => {
     try {
@@ -352,30 +368,18 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [draftConfig, setDraftConfig] = useState<UIConfiguration | null>(null);
 
-  // Load global configuration from backend server on mount
-  useEffect(() => {
-    fetch('/api/config/global')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.success && data.config) {
-          setConfig(prev => ({
-            ...prev,
-            ...data.config,
-            global: { ...prev.global, ...(data.config.global || {}) },
-            toolbar: sanitizeToolbarButtons({ ...prev.toolbar, ...(data.config.toolbar || {}) }),
-            device: {
-              ...prev.device,
-              ...(data.config.device || {}),
-              android: { ...prev.device.android, ...(data.config.device?.android || {}) },
-              pc: { ...prev.device.pc, ...(data.config.device?.pc || {}) }
-            }
-          }));
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const uiVersionRef = useRef<number>(1);
+  const [uiConfigVersion, setUiConfigVersion] = useState<number>(1);
+  const [navDocVersion, setNavDocVersion] = useState<number>(1);
+  const [uiConflict, setUiConflict] = useState<GlobalConfigConflictDetails | null>(null);
+  const pendingUiActionRef = useRef<
+    | { type: 'ui'; nextConfig: UIConfiguration; operatorName: string }
+    | { type: 'nav_save'; operatorName: string }
+    | { type: 'nav_reset'; operatorName: string }
+    | null
+  >(null);
 
-  // Sync to localStorage and backend (only persist to backend if user is authorized to manage settings)
+  // Sync confirmed UI config to local cache & dark theme class (never triggers background DB writes)
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
@@ -383,27 +387,6 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to save UI configuration to localStorage', e);
     }
 
-    if (isFirstConfigMountRef.current) {
-      isFirstConfigMountRef.current = false;
-    } else {
-      try {
-        const sessionStr = localStorage.getItem('morajaws_auth_session');
-        const sess = sessionStr ? JSON.parse(sessionStr) : null;
-        const role = sess?.user?.role;
-        if (sess?.token && ['super_admin', 'management_data', 'dispatch', 'it_support'].includes(role)) {
-          fetch('/api/config/global', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeaders()
-            },
-            body: JSON.stringify({ config })
-          }).catch(() => {});
-        }
-      } catch {}
-    }
-
-    // Apply document theme class if dark mode
     if (config.global.themeMode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -897,7 +880,22 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCloudSyncStatus('synced');
   };
 
-  // Load from Supabase PostgreSQL whenever authenticated session is ready & subscribe to real-time updates
+  const mergeServerUiConfig = (incoming: Partial<UIConfiguration>) => {
+    setConfig(prev => ({
+      ...prev,
+      ...incoming,
+      global: { ...prev.global, ...(incoming.global || {}) },
+      toolbar: sanitizeToolbarButtons({ ...prev.toolbar, ...(incoming.toolbar || {}) }),
+      device: {
+        ...prev.device,
+        ...(incoming.device || {}),
+        android: { ...prev.device.android, ...(incoming.device?.android || {}) },
+        pc: { ...prev.device.pc, ...(incoming.device?.pc || {}) }
+      }
+    }));
+  };
+
+  // Load from Supabase PostgreSQL whenever authenticated session is ready & subscribe to real-time SSE updates
   useEffect(() => {
     if (!isLoggedIn || !currentUser?.id) {
       setCloudSyncStatus('local_only');
@@ -906,8 +904,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     let isMounted = true;
-    let unsubNav: (() => void) | null = null;
-    let unsubUI: (() => void) | null = null;
+    let unsubGlobal: (() => void) | null = null;
 
     async function initCloudConfig() {
       setIsCloudSyncing(true);
@@ -917,12 +914,16 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         // 1. Load navigation_doc from Supabase PostgreSQL (authoritative persisted source)
         try {
-          const navDoc = await loadNavigationDocFromSupabase();
+          const navRes = await getGlobalConfig<NavigationConfigDoc>('navigation_doc').catch(() => null);
+          const navDoc = navRes?.value ?? (await loadNavigationDocFromSupabase());
           if (isMounted) {
             if (navDoc) {
+              const ver = navRes?.version || navDoc.navigationVersion || 1;
+              navVersionRef.current = ver;
+              setNavDocVersion(ver);
+              setTrackedConfigVersion('navigation_doc', ver);
               applyLoadedNavigationDoc(navDoc);
             } else {
-              // Belum ada record di Supabase: pertahankan data lokal tanpa menimpa/menghapus
               setCloudSyncStatus('local_only');
             }
           }
@@ -934,60 +935,60 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
 
-        // Attach real-time listener for app_settings/navigation_doc
-        if (isMounted) {
-          unsubNav = subscribeToNavigationDoc(
-            (data) => {
-              if (!isMounted || !data) return;
-              applyLoadedNavigationDoc(data);
-            },
-            (err) => {
-              console.warn('[UIConfig] Navigation subscription notice:', err?.message || err);
-              if (isMounted) {
-                setCloudSyncStatus('error');
-                setLastCloudSyncError(err?.message || 'Koneksi real-time navigasi terputus.');
-              }
-            }
-          );
-        }
-
         // 2. Load general UI configuration (tables, theme, devices)
         try {
-          const cloudData = await loadUIConfigurationFromSupabase();
+          const uiRes = await getGlobalConfig<any>('ui_configuration').catch(() => null);
+          const cloudData = uiRes?.value ?? (await loadUIConfigurationFromSupabase());
           if (cloudData && isMounted && cloudData.config) {
-            setConfig(prev => ({
-              ...prev,
-              ...cloudData.config,
-              global: { ...prev.global, ...(cloudData.config.global || {}) },
-              device: {
-                ...prev.device,
-                ...(cloudData.config.device || {}),
-                android: { ...prev.device.android, ...(cloudData.config.device?.android || {}) },
-                pc: { ...prev.device.pc, ...(cloudData.config.device?.pc || {}) }
-              }
-            }));
+            const ver = uiRes?.version || 1;
+            uiVersionRef.current = ver;
+            setUiConfigVersion(ver);
+            setTrackedConfigVersion('ui_configuration', ver);
+            mergeServerUiConfig(cloudData.config);
+            if (uiRes?.updatedAt || cloudData.updatedAt) {
+              setLastCloudSyncTime(uiRes?.updatedAt || cloudData.updatedAt);
+            }
+            setCloudSyncStatus('synced');
           }
         } catch (uiErr: any) {
           console.warn('[UIConfig] Could not load ui_configuration:', uiErr?.message || uiErr);
         }
 
+        // 3. Single shared SSE subscription for both navigation_doc and ui_configuration
         if (isMounted) {
-          unsubUI = subscribeToUIConfiguration((data) => {
-            if (!isMounted || !data) return;
-            if (data.config) {
-              setConfig(prev => ({
-                ...prev,
-                ...data.config,
-                global: { ...prev.global, ...(data.config.global || {}) },
-                device: {
-                  ...prev.device,
-                  ...(data.config.device || {}),
-                  android: { ...prev.device.android, ...(data.config.device?.android || {}) },
-                  pc: { ...prev.device.pc, ...(data.config.device?.pc || {}) }
+          unsubGlobal = subscribeToGlobalConfigUpdates(
+            (ev) => {
+              if (!isMounted || !ev.value) return;
+              if (ev.key === 'navigation_doc') {
+                if (typeof ev.version === 'number') {
+                  navVersionRef.current = ev.version;
+                  setNavDocVersion(ev.version);
+                  setTrackedConfigVersion('navigation_doc', ev.version);
                 }
-              }));
+                applyLoadedNavigationDoc(ev.value as NavigationConfigDoc);
+              } else if (ev.key === 'ui_configuration') {
+                if (typeof ev.version === 'number') {
+                  uiVersionRef.current = ev.version;
+                  setUiConfigVersion(ev.version);
+                  setTrackedConfigVersion('ui_configuration', ev.version);
+                }
+                const nextCfg = ev.value?.config || ev.value;
+                if (nextCfg && typeof nextCfg === 'object') {
+                  mergeServerUiConfig(nextCfg);
+                }
+                if (ev.updatedAt) {
+                  setLastCloudSyncTime(ev.updatedAt);
+                  try {
+                    localStorage.setItem('morajaws_ui_cloud_sync_time', ev.updatedAt);
+                  } catch {}
+                }
+                setCloudSyncStatus('synced');
+              }
+            },
+            (err) => {
+              console.warn('[UIConfig] Realtime SSE notice:', err?.message || err);
             }
-          });
+          );
         }
       } finally {
         if (isMounted) {
@@ -996,12 +997,11 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
-    initCloudConfig();
+    void initCloudConfig();
 
     return () => {
       isMounted = false;
-      if (unsubNav) unsubNav();
-      if (unsubUI) unsubUI();
+      if (unsubGlobal) unsubGlobal();
     };
   }, [isLoggedIn, currentUser?.id, currentUser?.role]);
 
@@ -1010,13 +1010,18 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCloudSyncStatus('syncing');
     setLastCloudSyncError(null);
     try {
-      const navDoc = await loadNavigationDocFromSupabase();
+      const navRes = await getGlobalConfig<NavigationConfigDoc>('navigation_doc').catch(() => null);
+      const navDoc = navRes?.value ?? (await loadNavigationDocFromSupabase());
       if (!navDoc) {
         setCloudSyncStatus('local_only');
         return {
           success: false,
           error: 'Belum ada konfigurasi navigasi tersimpan di tabel app_settings Supabase PostgreSQL.'
         };
+      }
+      if (navRes?.version) {
+        navVersionRef.current = navRes.version;
+        setNavDocVersion(navRes.version);
       }
       applyLoadedNavigationDoc(navDoc);
       return { success: true };
@@ -1030,8 +1035,18 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Save Canonical Navigation Configuration to Supabase PostgreSQL
-  const saveNavigationConfig = async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string; updatedAt?: string }> => {
+  // Save Canonical Navigation Configuration to Supabase PostgreSQL (Database-First + OCC)
+  const saveNavigationConfig = async (
+    operatorName: string = 'Super Admin',
+    options?: { forceOverwrite?: boolean }
+  ): Promise<{ success: boolean; error?: string; updatedAt?: string }> => {
+    if (currentUser?.role !== 'super_admin') {
+      const msg = 'Akses Ditolak: Hanya Super Admin yang dapat menyimpan konfigurasi navigasi global.';
+      setCloudSyncStatus('error');
+      setLastCloudSyncError(msg);
+      toast.error(msg, 'Akses Ditolak');
+      return { success: false, error: msg };
+    }
     if (!Array.isArray(navCategories) || navCategories.length === 0) {
       const msg = 'Validasi gagal: minimal harus ada 1 kategori navigasi sebelum menyimpan.';
       setCloudSyncStatus('error');
@@ -1048,6 +1063,8 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsCloudSyncing(true);
     setCloudSyncStatus('syncing');
     setLastCloudSyncError(null);
+    pendingUiActionRef.current = { type: 'nav_save', operatorName };
+
     try {
       const nextVersion = (navVersionRef.current || 1) + 1;
       const docData: NavigationConfigDoc = {
@@ -1059,8 +1076,14 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updatedAt: new Date().toISOString(),
         updatedBy: operatorName
       };
-      const res = await saveNavigationDocToSupabase(docData);
-      navVersionRef.current = nextVersion;
+      const res = await saveGlobalConfig<NavigationConfigDoc>('navigation_doc', docData, {
+        module: 'navigation_doc',
+        expectedVersion: navVersionRef.current,
+        forceOverwrite: Boolean(options?.forceOverwrite),
+        description: `Navigation doc updated by ${operatorName}`
+      });
+      navVersionRef.current = res.version;
+      setNavDocVersion(res.version);
       committedNavSnapshotRef.current = JSON.stringify({
         navCategories,
         standaloneMenus,
@@ -1072,13 +1095,20 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLastCloudSyncTime(res.updatedAt);
       setLastCloudSyncError(null);
       setCloudSyncStatus('synced');
+      setUiConflict(null);
+      pendingUiActionRef.current = null;
       try {
         localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
       } catch {}
       return { success: true, updatedAt: res.updatedAt };
     } catch (err: any) {
-      const msg = err?.message || 'Gagal menyimpan konfigurasi navigasi ke Supabase PostgreSQL.';
       setCloudSyncStatus('error');
+      if (err instanceof ConfigConflictError) {
+        setUiConflict(err.conflict);
+        setLastCloudSyncError(err.message);
+        return { success: false, error: err.message };
+      }
+      const msg = err?.message || 'Gagal menyimpan konfigurasi navigasi ke database.';
       setLastCloudSyncError(msg);
       return { success: false, error: msg };
     } finally {
@@ -1086,10 +1116,19 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const resetNavigationConfig = async (operatorName: string = 'Super Admin'): Promise<{ success: boolean; error?: string }> => {
+  const resetNavigationConfig = async (
+    operatorName: string = 'Super Admin',
+    options?: { forceOverwrite?: boolean }
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (currentUser?.role !== 'super_admin') {
+      const msg = 'Akses Ditolak: Hanya Super Admin yang dapat mereset konfigurasi navigasi global.';
+      toast.error(msg, 'Akses Ditolak');
+      return { success: false, error: msg };
+    }
     setIsCloudSyncing(true);
     setCloudSyncStatus('syncing');
     setLastCloudSyncError(null);
+    pendingUiActionRef.current = { type: 'nav_reset', operatorName };
     try {
       const nextVersion = (navVersionRef.current || 1) + 1;
       const defaultCats = DEFAULT_CANONICAL_CATEGORIES;
@@ -1105,9 +1144,15 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updatedAt: new Date().toISOString(),
         updatedBy: operatorName
       };
-      const res = await saveNavigationDocToSupabase(docData);
-      // Only mutate React state & localStorage after Supabase confirms persistence
-      navVersionRef.current = nextVersion;
+      const res = await saveGlobalConfig<NavigationConfigDoc>('navigation_doc', docData, {
+        module: 'navigation_doc',
+        expectedVersion: navVersionRef.current,
+        forceOverwrite: Boolean(options?.forceOverwrite),
+        description: `Navigation doc reset by ${operatorName}`
+      });
+      // Only mutate React state & localStorage after DB confirms persistence
+      navVersionRef.current = res.version;
+      setNavDocVersion(res.version);
       committedNavSnapshotRef.current = JSON.stringify({
         navCategories: defaultCats,
         standaloneMenus: defaultStandalone,
@@ -1123,13 +1168,20 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLastCloudSyncTime(res.updatedAt);
       setLastCloudSyncError(null);
       setCloudSyncStatus('synced');
+      setUiConflict(null);
+      pendingUiActionRef.current = null;
       try {
         localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
       } catch {}
       return { success: true };
     } catch (err: any) {
-      const msg = err?.message || 'Gagal mereset konfigurasi navigasi di Supabase PostgreSQL.';
       setCloudSyncStatus('error');
+      if (err instanceof ConfigConflictError) {
+        setUiConflict(err.conflict);
+        setLastCloudSyncError(err.message);
+        return { success: false, error: err.message };
+      }
+      const msg = err?.message || 'Gagal mereset konfigurasi navigasi di database.';
       setLastCloudSyncError(msg);
       return { success: false, error: msg };
     } finally {
@@ -1137,57 +1189,112 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const saveConfigToSupabase = async (operatorName?: string): Promise<{ success: boolean; error?: string; updatedAt?: string }> => {
+  // Database-First shared persistence helper for UI Configuration
+  const persistUiConfigurationGlobal = async (
+    nextConfig: UIConfiguration,
+    options?: { operatorName?: string; forceOverwrite?: boolean }
+  ): Promise<{ success: boolean; error?: string; updatedAt?: string }> => {
+    if (currentUser?.role !== 'super_admin') {
+      const msg = 'Akses Ditolak: Hanya Super Admin yang berwenang mengubah konfigurasi UI global.';
+      setLastCloudSyncError(msg);
+      toast.error(msg, 'Akses Ditolak');
+      return { success: false, error: msg };
+    }
+
+    const operatorName = options?.operatorName || currentUser?.name || 'Super Admin';
+    const stampedConfig: UIConfiguration = {
+      ...nextConfig,
+      updatedAt: new Date().toISOString()
+    };
+
+    pendingUiActionRef.current = { type: 'ui', nextConfig: stampedConfig, operatorName };
     setIsCloudSyncing(true);
     setCloudSyncStatus('syncing');
+    setLastCloudSyncError(null);
+
     try {
-      const activeCfg = draftConfig || config;
-      const res = await saveUIConfigurationToSupabase({
-        config: activeCfg,
-        navigationItems,
-        menuCategories,
-        updatedBy: operatorName || 'Super Admin'
-      });
+      const res = await saveGlobalConfig<any>(
+        'ui_configuration',
+        {
+          config: stampedConfig,
+          navigationItems,
+          menuCategories,
+          updatedBy: operatorName,
+          updatedAt: stampedConfig.updatedAt
+        },
+        {
+          module: 'ui_configuration',
+          expectedVersion: uiVersionRef.current,
+          forceOverwrite: Boolean(options?.forceOverwrite),
+          description: `UI configuration updated by ${operatorName}`
+        }
+      );
+
+      uiVersionRef.current = res.version;
+      setUiConfigVersion(res.version);
+      const confirmedCfg = res.value?.config || stampedConfig;
+      setConfig(confirmedCfg);
+      setDraftConfig(null);
       setLastCloudSyncTime(res.updatedAt);
+      setLastCloudSyncError(null);
       setCloudSyncStatus('synced');
+      setUiConflict(null);
+      pendingUiActionRef.current = null;
       try {
         localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
       } catch {}
       return { success: true, updatedAt: res.updatedAt };
     } catch (err: any) {
       setCloudSyncStatus('error');
-      return { success: false, error: err?.message || 'Gagal menyimpan ke Supabase PostgreSQL' };
+      if (err instanceof ConfigConflictError) {
+        setUiConflict(err.conflict);
+        setLastCloudSyncError(err.message);
+        toast.warning(err.message, 'Konflik Versi Konfigurasi UI');
+        return { success: false, error: err.message };
+      }
+      const msg = err?.message || 'Gagal menyimpan konfigurasi UI ke database.';
+      setLastCloudSyncError(msg);
+      toast.error(msg, 'Gagal Menyimpan');
+      return { success: false, error: msg };
     } finally {
       setIsCloudSyncing(false);
     }
+  };
+
+  const saveConfigToSupabase = async (
+    operatorName?: string,
+    options?: { forceOverwrite?: boolean }
+  ): Promise<{ success: boolean; error?: string; updatedAt?: string }> => {
+    const activeCfg = draftConfig || config;
+    return persistUiConfigurationGlobal(activeCfg, {
+      operatorName: operatorName || currentUser?.name || 'Super Admin',
+      forceOverwrite: options?.forceOverwrite
+    });
   };
 
   const loadConfigFromSupabase = async (): Promise<{ success: boolean; error?: string }> => {
     setIsCloudSyncing(true);
     setCloudSyncStatus('syncing');
     try {
-      const cloudData = await loadUIConfigurationFromSupabase();
+      const uiRes = await getGlobalConfig<any>('ui_configuration').catch(() => null);
+      const cloudData = uiRes?.value ?? (await loadUIConfigurationFromSupabase());
       if (!cloudData) {
         setCloudSyncStatus('local_only');
         return { success: false, error: 'Belum ada data konfigurasi tersimpan di Supabase PostgreSQL.' };
       }
-      if (cloudData.config) {
-        setConfig(prev => ({
-          ...prev,
-          ...cloudData.config,
-          global: { ...prev.global, ...(cloudData.config.global || {}) },
-          device: {
-            ...prev.device,
-            ...(cloudData.config.device || {}),
-            android: { ...prev.device.android, ...(cloudData.config.device?.android || {}) },
-            pc: { ...prev.device.pc, ...(cloudData.config.device?.pc || {}) }
-          }
-        }));
+      if (uiRes?.version) {
+        uiVersionRef.current = uiRes.version;
+        setUiConfigVersion(uiRes.version);
       }
-      if (cloudData.updatedAt) {
-        setLastCloudSyncTime(cloudData.updatedAt);
+      if (cloudData.config) {
+        mergeServerUiConfig(cloudData.config);
+      }
+      setDraftConfig(null);
+      if (uiRes?.updatedAt || cloudData.updatedAt) {
+        const ts = uiRes?.updatedAt || cloudData.updatedAt;
+        setLastCloudSyncTime(ts);
         try {
-          localStorage.setItem('morajaws_ui_cloud_sync_time', cloudData.updatedAt);
+          localStorage.setItem('morajaws_ui_cloud_sync_time', ts);
         } catch {}
       }
       setCloudSyncStatus('synced');
@@ -1213,36 +1320,38 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
-  const saveDraft = () => {
-    if (draftConfig) {
-      const finalized = {
-        ...draftConfig,
-        version: (draftConfig.version || 1) + 1,
-        updatedAt: new Date().toISOString()
-      };
-      setConfig(finalized);
-      setDraftConfig(null);
-    }
+  const saveDraft = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!draftConfig) return { success: true };
+    const finalized: UIConfiguration = {
+      ...draftConfig,
+      version: (draftConfig.version || 1) + 1,
+      updatedAt: new Date().toISOString()
+    };
+    return persistUiConfigurationGlobal(finalized);
   };
 
   const cancelDraft = () => {
     setDraftConfig(null);
   };
 
-  const resetToDefaults = () => {
-    setConfig(DEFAULT_UI_CONFIG);
-    setDraftConfig(null);
-    localStorage.removeItem(STORAGE_KEY);
+  const resetToDefaults = async (): Promise<{ success: boolean; error?: string }> => {
+    const res = await persistUiConfigurationGlobal(DEFAULT_UI_CONFIG);
+    if (res.success) {
+      setDraftConfig(null);
+    }
+    return res;
   };
 
-  const setGlobalTheme = (updates: Partial<UIConfiguration['global']>) => {
-    setConfig(prev => ({
-      ...prev,
-      global: { ...prev.global, ...updates },
+  const setGlobalTheme = async (updates: Partial<UIConfiguration['global']>) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
+      global: { ...config.global, ...updates },
       updatedAt: new Date().toISOString()
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
+  // Personal sidebar viewport collapse state (never mutates global DB config)
   const setSidebarState = (state: 'expanded' | 'minimized' | 'closed') => {
     setConfig(prev => ({
       ...prev,
@@ -1250,171 +1359,177 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         ...prev.global,
         sidebarState: state,
         sidebarCollapsed: state === 'minimized'
-      },
-      updatedAt: new Date().toISOString()
+      }
     }));
   };
 
-  const setColumnVisibility = (columnKey: string, visible: boolean) => {
-    setConfig(prev => ({
-      ...prev,
+  const setColumnVisibility = async (columnKey: string, visible: boolean) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       ticketsTable: {
-        ...prev.ticketsTable,
-        columns: prev.ticketsTable.columns.map(col =>
+        ...config.ticketsTable,
+        columns: config.ticketsTable.columns.map(col =>
           col.key === columnKey ? { ...col, visible } : col
         )
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const setColumnOrder = (sourceIndex: number, destinationIndex: number) => {
-    setConfig(prev => {
-      const cols = [...prev.ticketsTable.columns];
-      const [moved] = cols.splice(sourceIndex, 1);
-      cols.splice(destinationIndex, 0, moved);
-      const reordered = cols.map((col, idx) => ({ ...col, order: idx + 1 }));
-      return {
-        ...prev,
-        ticketsTable: {
-          ...prev.ticketsTable,
-          columns: reordered
-        }
-      };
-    });
-  };
-
-  const updateColumnConfig = (columnKey: string, updates: Partial<ColumnConfig>) => {
-    setConfig(prev => ({
-      ...prev,
+  const setColumnOrder = async (sourceIndex: number, destinationIndex: number) => {
+    const cols = [...config.ticketsTable.columns];
+    const [moved] = cols.splice(sourceIndex, 1);
+    cols.splice(destinationIndex, 0, moved);
+    const reordered = cols.map((col, idx) => ({ ...col, order: idx + 1 }));
+    const nextConfig: UIConfiguration = {
+      ...config,
       ticketsTable: {
-        ...prev.ticketsTable,
-        columns: prev.ticketsTable.columns.map(col =>
+        ...config.ticketsTable,
+        columns: reordered
+      }
+    };
+    return persistUiConfigurationGlobal(nextConfig);
+  };
+
+  const updateColumnConfig = async (columnKey: string, updates: Partial<ColumnConfig>) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
+      ticketsTable: {
+        ...config.ticketsTable,
+        columns: config.ticketsTable.columns.map(col =>
           col.key === columnKey ? { ...col, ...updates } : col
         )
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const applyPreset = (presetId: string) => {
-    setConfig(prev => {
-      const preset = prev.ticketsTable.presets.find(p => p.id === presetId);
-      if (!preset) return prev;
-      return {
-        ...prev,
-        ticketsTable: {
-          ...prev.ticketsTable,
-          activePresetId: presetId,
-          columns: preset.columns,
-          density: preset.density,
-          rowsPerPage: preset.rowsPerPage
-        }
-      };
-    });
+  const applyPreset = async (presetId: string) => {
+    const preset = config.ticketsTable.presets.find(p => p.id === presetId);
+    if (!preset) return { success: false, error: 'Preset tidak ditemukan.' };
+    const nextConfig: UIConfiguration = {
+      ...config,
+      ticketsTable: {
+        ...config.ticketsTable,
+        activePresetId: presetId,
+        columns: preset.columns,
+        density: preset.density,
+        rowsPerPage: preset.rowsPerPage
+      }
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const saveCurrentAsPreset = (name: string, description: string) => {
+  const saveCurrentAsPreset = async (name: string, description: string) => {
+    const base = draftConfig || config;
     const newPreset: TablePreset = {
       id: 'preset_custom_' + Date.now(),
       name,
       description,
-      columns: config.ticketsTable.columns,
-      density: config.ticketsTable.density,
-      rowsPerPage: config.ticketsTable.rowsPerPage
+      columns: base.ticketsTable.columns,
+      density: base.ticketsTable.density,
+      rowsPerPage: base.ticketsTable.rowsPerPage
     };
-    setConfig(prev => ({
-      ...prev,
+    const nextConfig: UIConfiguration = {
+      ...base,
       ticketsTable: {
-        ...prev.ticketsTable,
-        presets: [...prev.ticketsTable.presets, newPreset],
+        ...base.ticketsTable,
+        presets: [...base.ticketsTable.presets, newPreset],
         activePresetId: newPreset.id
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const deletePreset = (presetId: string) => {
-    setConfig(prev => ({
-      ...prev,
+  const deletePreset = async (presetId: string) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       ticketsTable: {
-        ...prev.ticketsTable,
-        presets: prev.ticketsTable.presets.filter(p => p.id !== presetId)
+        ...config.ticketsTable,
+        presets: config.ticketsTable.presets.filter(p => p.id !== presetId)
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const updateToolbarButton = (buttonId: string, updates: Partial<ToolbarButtonConfig>) => {
-    setConfig(prev => ({
-      ...prev,
+  const updateToolbarButton = async (buttonId: string, updates: Partial<ToolbarButtonConfig>) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       toolbar: {
-        ...prev.toolbar,
-        buttons: prev.toolbar.buttons.map(btn =>
+        ...config.toolbar,
+        buttons: config.toolbar.buttons.map(btn =>
           btn.id === buttonId ? { ...btn, ...updates } : btn
         )
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const toggleToolbarOption = (key: keyof UIConfiguration['toolbar'], value: boolean) => {
-    setConfig(prev => ({
-      ...prev,
+  const toggleToolbarOption = async (key: keyof UIConfiguration['toolbar'], value: boolean) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       toolbar: {
-        ...prev.toolbar,
+        ...config.toolbar,
         [key]: value
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const toggleDetailSection = (sectionId: string, visible: boolean) => {
-    setConfig(prev => ({
-      ...prev,
+  const toggleDetailSection = async (sectionId: string, visible: boolean) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       ticketDetail: {
-        ...prev.ticketDetail,
-        sections: prev.ticketDetail.sections.map(sec =>
+        ...config.ticketDetail,
+        sections: config.ticketDetail.sections.map(sec =>
           sec.id === sectionId ? { ...sec, visible } : sec
         )
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const reorderDetailSections = (sourceIndex: number, destinationIndex: number) => {
-    setConfig(prev => {
-      const sections = [...prev.ticketDetail.sections];
-      const [moved] = sections.splice(sourceIndex, 1);
-      sections.splice(destinationIndex, 0, moved);
-      const reordered = sections.map((sec, idx) => ({ ...sec, order: idx + 1 }));
-      return {
-        ...prev,
-        ticketDetail: {
-          ...prev.ticketDetail,
-          sections: reordered
-        }
-      };
-    });
-  };
-
-  const updateDetailField = (sectionId: string, fieldKey: string, updates: any) => {
-    setConfig(prev => ({
-      ...prev,
+  const reorderDetailSections = async (sourceIndex: number, destinationIndex: number) => {
+    const sections = [...config.ticketDetail.sections];
+    const [moved] = sections.splice(sourceIndex, 1);
+    sections.splice(destinationIndex, 0, moved);
+    const reordered = sections.map((sec, idx) => ({ ...sec, order: idx + 1 }));
+    const nextConfig: UIConfiguration = {
+      ...config,
       ticketDetail: {
-        ...prev.ticketDetail,
-        sections: prev.ticketDetail.sections.map(sec => {
+        ...config.ticketDetail,
+        sections: reordered
+      }
+    };
+    return persistUiConfigurationGlobal(nextConfig);
+  };
+
+  const updateDetailField = async (sectionId: string, fieldKey: string, updates: any) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
+      ticketDetail: {
+        ...config.ticketDetail,
+        sections: config.ticketDetail.sections.map(sec => {
           if (sec.id !== sectionId) return sec;
           return {
             ...sec,
-            fields: sec.fields.map(f => f.key === fieldKey ? { ...f, ...updates } : f)
+            fields: sec.fields.map(f => (f.key === fieldKey ? { ...f, ...updates } : f))
           };
         })
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const setShowEmptyFields = (show: boolean) => {
-    setConfig(prev => ({
-      ...prev,
+  const setShowEmptyFields = async (show: boolean) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       ticketDetail: {
-        ...prev.ticketDetail,
+        ...config.ticketDetail,
         showEmptyFields: show
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
   // Device mode & ergonomic adjustments
@@ -1424,138 +1539,172 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ? false 
     : windowWidth < 768;
 
-  const setDeviceMode = (mode: 'auto' | 'pc' | 'android') => {
-    setConfig(prev => ({
-      ...prev,
+  const setDeviceMode = async (mode: 'auto' | 'pc' | 'android') => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       device: {
-        ...prev.device,
+        ...config.device,
         mode
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const updateAndroidSettings = (updates: Partial<UIConfiguration['device']['android']>) => {
-    setConfig(prev => ({
-      ...prev,
+  const updateAndroidSettings = async (updates: Partial<UIConfiguration['device']['android']>) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       device: {
-        ...prev.device,
+        ...config.device,
         android: {
-          ...prev.device.android,
+          ...config.device.android,
           ...updates
         }
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const updatePCSettings = (updates: Partial<UIConfiguration['device']['pc']>) => {
-    setConfig(prev => ({
-      ...prev,
+  const updatePCSettings = async (updates: Partial<UIConfiguration['device']['pc']>) => {
+    const nextConfig: UIConfiguration = {
+      ...config,
       device: {
-        ...prev.device,
+        ...config.device,
         pc: {
-          ...prev.device.pc,
+          ...config.device.pc,
           ...updates
         }
       }
-    }));
+    };
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
-  const applyDevicePreset = (preset: 'comfortable_android' | 'high_productivity_pc' | 'auto') => {
-    setConfig(prev => {
-      if (preset === 'comfortable_android') {
-        return {
-          ...prev,
-          global: {
-            ...prev.global,
-            contentWidth: 'full',
-            density: 'comfortable',
-            sidebarState: 'closed',
-            sidebarCollapsed: true
-          },
-          device: {
-            ...prev.device,
-            mode: 'android',
-            android: {
-              ...prev.device.android,
-              layoutType: 'cards',
-              touchTargetSize: 'comfortable',
-              showBottomNavigation: true,
-              cardDensity: 'comfortable',
-              highContrastBadges: true,
-              showQuickCall: true,
-              showQuickWhatsApp: true,
-              showQuickDetail: true,
-              autoCloseSidebarOnNavigate: true
-            }
-          },
-          ticketsTable: {
-            ...prev.ticketsTable,
-            rowsPerPage: 10,
-            density: 'comfortable'
+  const applyDevicePreset = async (preset: 'comfortable_android' | 'high_productivity_pc' | 'auto') => {
+    let nextConfig: UIConfiguration;
+    if (preset === 'comfortable_android') {
+      nextConfig = {
+        ...config,
+        global: {
+          ...config.global,
+          contentWidth: 'full',
+          density: 'comfortable',
+          sidebarState: 'closed',
+          sidebarCollapsed: true
+        },
+        device: {
+          ...config.device,
+          mode: 'android',
+          android: {
+            ...config.device.android,
+            layoutType: 'cards',
+            touchTargetSize: 'comfortable',
+            showBottomNavigation: true,
+            cardDensity: 'comfortable',
+            highContrastBadges: true,
+            showQuickCall: true,
+            showQuickWhatsApp: true,
+            showQuickDetail: true,
+            autoCloseSidebarOnNavigate: true
           }
-        };
-      } else if (preset === 'high_productivity_pc') {
-        return {
-          ...prev,
-          global: {
-            ...prev.global,
-            contentWidth: 'full',
-            density: 'compact',
-            sidebarState: 'expanded',
-            sidebarCollapsed: false
-          },
-          device: {
-            ...prev.device,
-            mode: 'pc',
-            pc: {
-              ...prev.device.pc,
-              tableDensity: 'compact',
-              stickyColumns: true,
-              wideScreenFullWidth: true,
-              showInlineFilters: true,
-              showBulkToolbar: true,
-              multiColumnDetail: true
-            }
-          },
-          ticketsTable: {
-            ...prev.ticketsTable,
-            rowsPerPage: 20,
-            density: 'compact'
+        },
+        ticketsTable: {
+          ...config.ticketsTable,
+          rowsPerPage: 10,
+          density: 'comfortable'
+        }
+      };
+    } else if (preset === 'high_productivity_pc') {
+      nextConfig = {
+        ...config,
+        global: {
+          ...config.global,
+          contentWidth: 'full',
+          density: 'compact',
+          sidebarState: 'expanded',
+          sidebarCollapsed: false
+        },
+        device: {
+          ...config.device,
+          mode: 'pc',
+          pc: {
+            ...config.device.pc,
+            tableDensity: 'compact',
+            stickyColumns: true,
+            wideScreenFullWidth: true,
+            showInlineFilters: true,
+            showBulkToolbar: true,
+            multiColumnDetail: true
           }
-        };
-      } else {
-        // Auto mode
-        return {
-          ...prev,
-          device: {
-            ...prev.device,
-            mode: 'auto'
-          }
-        };
-      }
-    });
+        },
+        ticketsTable: {
+          ...config.ticketsTable,
+          rowsPerPage: 20,
+          density: 'compact'
+        }
+      };
+    } else {
+      nextConfig = {
+        ...config,
+        device: {
+          ...config.device,
+          mode: 'auto'
+        }
+      };
+    }
+    return persistUiConfigurationGlobal(nextConfig);
   };
 
   const exportConfigJson = () => {
     return JSON.stringify(config, null, 2);
   };
 
-  const importConfigJson = (jsonString: string): boolean => {
+  const importConfigJson = async (jsonString: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const parsed = JSON.parse(jsonString);
       if (parsed.global && parsed.ticketsTable) {
-        setConfig({
+        const nextConfig: UIConfiguration = {
           ...DEFAULT_UI_CONFIG,
           ...parsed,
           version: (parsed.version || 1) + 1,
           updatedAt: new Date().toISOString()
-        });
-        return true;
+        };
+        return persistUiConfigurationGlobal(nextConfig);
       }
-    } catch (e) {
-      console.error('Invalid configuration JSON', e);
+      return { success: false, error: 'Struktur JSON konfigurasi UI tidak valid.' };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Format JSON konfigurasi tidak valid.' };
     }
-    return false;
+  };
+
+  const clearUiConflict = () => {
+    setUiConflict(null);
+    pendingUiActionRef.current = null;
+  };
+
+  const resolveUiConflict = async (strategy: 'reload' | 'overwrite') => {
+    const pending = pendingUiActionRef.current;
+    if (strategy === 'reload') {
+      if (pending?.type === 'nav_save' || pending?.type === 'nav_reset') {
+        await reloadNavigationFromSupabase();
+      } else {
+        await loadConfigFromSupabase();
+      }
+      setUiConflict(null);
+      pendingUiActionRef.current = null;
+      return;
+    }
+
+    if (pending?.type === 'nav_save') {
+      await saveNavigationConfig(pending.operatorName, { forceOverwrite: true });
+    } else if (pending?.type === 'nav_reset') {
+      await resetNavigationConfig(pending.operatorName, { forceOverwrite: true });
+    } else if (pending?.type === 'ui') {
+      await persistUiConfigurationGlobal(pending.nextConfig, {
+        operatorName: pending.operatorName,
+        forceOverwrite: true
+      });
+    } else {
+      setUiConflict(null);
+    }
   };
 
   const navigationSettings: NavigationSettings = {
@@ -1689,7 +1838,12 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lastCloudSyncTime,
         lastCloudSyncError,
         hasUnsavedNavChanges,
-        cloudSyncStatus
+        cloudSyncStatus,
+        uiConfigVersion,
+        navDocVersion,
+        uiConflict,
+        clearUiConflict,
+        resolveUiConflict
       }}
     >
       {children}

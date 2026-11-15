@@ -29,6 +29,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
 
   const isOpen = propIsOpen !== undefined ? propIsOpen : isSessionModalOpen;
   const onClose = propOnClose || (() => setIsSessionModalOpen(false));
+  const isSuperAdmin = currentUser?.role === 'super_admin';
 
   const [activeTab, setActiveTab] = useState<'monitoring' | 'config'>('monitoring');
   const [sessions, setSessions] = useState<SessionMetadata[]>([]);
@@ -114,6 +115,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin) {
+      toast.error('Akses Ditolak: Hanya Super Admin yang dapat mengubah kebijakan sesi global.', 'Akses Ditolak');
+      return;
+    }
     setIsSavingConfig(true);
     try {
       const res = await fetch('/api/sessions/config', {
@@ -319,6 +324,13 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
 
           {activeTab === 'config' && (
             <form onSubmit={handleSaveConfig} className="space-y-4 max-w-xl">
+              {!isSuperAdmin && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Mode Hanya-Baca: Hanya <strong>Super Admin</strong> yang dapat mengubah kebijakan sesi global aplikasi.</span>
+                </div>
+              )}
+
               <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <h5 className="font-bold text-slate-900 dark:text-white text-xs">
                   Kebijakan Waktu Sesi (Duration & Timeout)
@@ -331,9 +343,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                       type="number"
                       min={1}
                       max={72}
+                      disabled={!isSuperAdmin || isSavingConfig}
                       value={sessionConfig.sessionMaxDurationHours}
                       onChange={e => setSessionConfig({ ...sessionConfig, sessionMaxDurationHours: parseInt(e.target.value) || 8 })}
-                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
                     />
                   </div>
 
@@ -343,9 +356,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                       type="number"
                       min={5}
                       max={480}
+                      disabled={!isSuperAdmin || isSavingConfig}
                       value={sessionConfig.idleTimeoutMinutes}
                       onChange={e => setSessionConfig({ ...sessionConfig, idleTimeoutMinutes: parseInt(e.target.value) || 60 })}
-                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
                     />
                   </div>
                 </div>
@@ -356,9 +370,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                     type="number"
                     min={1}
                     max={10}
+                    disabled={!isSuperAdmin || isSavingConfig}
                     value={sessionConfig.maxActiveSessionsPerUser}
                     onChange={e => setSessionConfig({ ...sessionConfig, maxActiveSessionsPerUser: parseInt(e.target.value) || 3 })}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs"
+                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -368,9 +383,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   Otomatisasi Pembatalan Sesi
                 </h5>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                <label className={`flex items-center gap-2 text-xs ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin || isSavingConfig}
                     checked={sessionConfig.extendOnActivity}
                     onChange={e => setSessionConfig({ ...sessionConfig, extendOnActivity: e.target.checked })}
                     className="rounded text-[#5B35B1]"
@@ -378,9 +394,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   <span>Perpanjang sesi otomatis saat pengguna aktif mengerjakan tiket</span>
                 </label>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                <label className={`flex items-center gap-2 text-xs ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin || isSavingConfig}
                     checked={sessionConfig.revokeOnDeactivate}
                     onChange={e => setSessionConfig({ ...sessionConfig, revokeOnDeactivate: e.target.checked })}
                     className="rounded text-[#5B35B1]"
@@ -388,9 +405,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   <span>Cabut seluruh sesi aktif saat akun dinonaktifkan oleh administrator</span>
                 </label>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                <label className={`flex items-center gap-2 text-xs ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                   <input
                     type="checkbox"
+                    disabled={!isSuperAdmin || isSavingConfig}
                     checked={sessionConfig.revokeOnPasswordChange}
                     onChange={e => setSessionConfig({ ...sessionConfig, revokeOnPasswordChange: e.target.checked })}
                     className="rounded text-[#5B35B1]"
@@ -402,8 +420,8 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  disabled={isSavingConfig}
-                  className="px-5 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={!isSuperAdmin || isSavingConfig}
+                  className="px-5 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSavingConfig ? 'Menyimpan...' : 'Simpan Kebijakan Sesi'}
                 </button>

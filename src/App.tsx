@@ -4,7 +4,8 @@ import { UIConfigProvider, useUIConfig } from './context/UIConfigContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { AnimationProvider } from './context/AnimationContext';
 import { OfflineSyncProvider } from './context/OfflineSyncContext';
-import { MoraJawsSoundProvider } from './context/SoundContext';
+import { MoraJawsSoundProvider, useMoraJawsSound } from './context/SoundContext';
+import { ConfigConflictModal } from './components/common/ConfigConflictModal';
 
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -50,8 +51,21 @@ import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
 
 const MainLayout: React.FC = () => {
-  const { currentUser, isLoggedIn, tickets, todayWIB, openOfflineSyncCenter, getTicketUnreadCount } = useApp();
-  const { config, setSidebarState, isMobileView } = useUIConfig();
+  const {
+    currentUser,
+    isLoggedIn,
+    tickets,
+    todayWIB,
+    openOfflineSyncCenter,
+    getTicketUnreadCount,
+    rolePermissions,
+    hasPermission,
+    globalConflict,
+    resolveGlobalConflict,
+    clearGlobalConflict
+  } = useApp();
+  const { config, setSidebarState, isMobileView, uiConflict, resolveUiConflict, clearUiConflict } = useUIConfig();
+  const { soundConflict, resolveSoundConflict, clearSoundConflict } = useMoraJawsSound();
   const { toast } = useToast();
 
   const isInstaller = Boolean(isLoggedIn && currentUser?.role === 'installer');
@@ -110,6 +124,40 @@ const MainLayout: React.FC = () => {
       } catch (e) {}
     }
   }, [isInstaller, activeTab, installerAllowedTabs, currentUser]);
+
+  // Dynamic RBAC enforcement when Super Admin updates role permissions live via SSE
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser?.role || currentUser.role === 'super_admin') return;
+    const tabPermMap: Record<string, any> = {
+      audit_logs: 'view_audit_logs',
+      templates: 'manage_whatsapp_templates',
+      database_management: 'database_management',
+      ui_builder: 'ui_configuration',
+      import: 'import_data',
+      import_excel: 'import_data',
+      droplist_management: 'setting_droplist',
+      setting_droplist: 'setting_droplist',
+      system_health: 'system_health'
+    };
+    const reqPerm = tabPermMap[activeTab];
+    if (reqPerm && !hasPermission(reqPerm)) {
+      const safeHome =
+        currentUser.role === 'installer'
+          ? 'installer_dashboard'
+          : currentUser.role === 'leader'
+          ? 'wo_assignment'
+          : currentUser.role === 'management_data'
+          ? 'management_data_portal'
+          : currentUser.role === 'dispatch'
+          ? 'tickets'
+          : 'dashboard';
+      setActiveTab(safeHome);
+      toast.warning(
+        'Hak akses untuk halaman ini baru saja dicabut oleh Super Admin. Dialihkan ke beranda aman.',
+        'Hak Akses Diperbarui'
+      );
+    }
+  }, [rolePermissions, isLoggedIn, currentUser?.role, activeTab]);
 
   const getInitialLeaderSubTab = (): LeaderTabType => {
     if (['wo_assignment', 'progress_dashboard', 'contractor_recap', 'quota_settings'].includes(activeTab)) {
@@ -843,6 +891,32 @@ const MainLayout: React.FC = () => {
       <SessionManagementModal />
       <OfflineSyncModal />
       <OfflineBanner />
+      <ConfigConflictModal
+        conflict={globalConflict || uiConflict || soundConflict}
+        onReloadLatest={async () => {
+          if (globalConflict) {
+            await resolveGlobalConflict('reload');
+          } else if (uiConflict) {
+            await resolveUiConflict('reload');
+          } else if (soundConflict) {
+            await resolveSoundConflict('reload');
+          }
+        }}
+        onForceOverwrite={async () => {
+          if (globalConflict) {
+            await resolveGlobalConflict('overwrite');
+          } else if (uiConflict) {
+            await resolveUiConflict('overwrite');
+          } else if (soundConflict) {
+            await resolveSoundConflict('overwrite');
+          }
+        }}
+        onClose={() => {
+          if (globalConflict) clearGlobalConflict();
+          else if (uiConflict) clearUiConflict();
+          else if (soundConflict) clearSoundConflict();
+        }}
+      />
 
       <TicketDetailModal
         ticket={selectedTicket}

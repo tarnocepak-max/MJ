@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Ticket,
   WhatsAppTemplate,
@@ -50,7 +50,15 @@ import {
   processRawImportWithEngine,
   reassignWOTechnician
 } from '../services/woFieldMappingEngine';
-import { DEFAULT_PASSWORD_HASH, quickHash, Permission, hasPermission as checkPermission } from '../services/authService';
+import {
+  DEFAULT_PASSWORD_HASH,
+  quickHash,
+  Permission,
+  hasPermission as checkPermission,
+  DEFAULT_ROLE_PERMISSIONS,
+  setDynamicRolePermissions,
+  getRolePermissionsSnapshot
+} from '../services/authService';
 import { GoogleSheetsConfig, SheetSyncResult, DEFAULT_SHEETS_CONFIG } from '../types/sheets.ts';
 import {
   pullRowsFromSheet,
@@ -83,6 +91,18 @@ import {
   reconcileDroplistData
 } from '../services/supabaseConfigService';
 import { supabaseDb } from '../services/supabaseDb';
+import {
+  bootstrapGlobalConfigs,
+  getGlobalConfig,
+  saveGlobalConfig,
+  getRolePermissionsFromServer,
+  saveRolePermissionsToServer,
+  subscribeToGlobalConfigUpdates,
+  ConfigConflictError,
+  GlobalConfigConflictDetails,
+  getTrackedConfigVersion,
+  setTrackedConfigVersion
+} from '../services/globalConfigService';
 import { auditAndCleanDuplicates, DuplicateAuditReport } from '../services/woDeduplicationService';
 
 import { getJakartaDateString, getJakartaDateParts, getTicketAppointmentDate } from '../services/appointmentDateParser';
@@ -104,12 +124,24 @@ interface AppContextType {
   refreshAuthSession: () => Promise<boolean>;
   users: User[];
   hasPermission: (permission: Permission) => boolean;
+  rolePermissions: Record<UserRole, string[]>;
+  rolePermissionsVersion: number;
+  updateRolePermissions: (
+    matrix: Record<string, string[]>,
+    options?: { forceOverwrite?: boolean; notes?: string }
+  ) => Promise<{ success: boolean; error?: string }>;
+  globalConflict: GlobalConfigConflictDetails | null;
+  clearGlobalConflict: () => void;
+  resolveGlobalConflict: (strategy: 'reload' | 'overwrite') => Promise<void>;
   canDelete: boolean;
   canImport: boolean;
   canEditWOData: boolean;
   operationalDate: string;
   todayWIB: string;
-  setOperationalDate: (date: string) => void;
+  setOperationalDate: (
+    date: string,
+    options?: { isAuto?: boolean; forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string }>;
   isSessionModalOpen: boolean;
   setIsSessionModalOpen: (open: boolean) => void;
 
@@ -136,19 +168,22 @@ interface AppContextType {
 
   // Contractors & Coverage Areas
   contractors: Contractor[];
-  addContractor: (data: Omit<Contractor, 'id' | 'createdAt'>) => void;
-  updateContractor: (id: string, updates: Partial<Contractor>) => void;
+  addContractor: (data: Omit<Contractor, 'id' | 'createdAt'>) => Promise<{ success: boolean; contractor?: Contractor; error?: string }>;
+  updateContractor: (id: string, updates: Partial<Contractor>) => Promise<{ success: boolean; error?: string }>;
   deleteContractor: (contractorId: string) => Promise<{ success: boolean; error?: string }>;
   autoRegisterContractors: (contractorsToRegister: Contractor[], newCoverageAreas?: CoverageArea[]) => { addedCount: number; updatedCount: number };
   coverageAreas: CoverageArea[];
-  addCoverageArea: (data: Omit<CoverageArea, 'id'>) => void;
-  updateCoverageArea: (id: string, updates: Partial<CoverageArea>) => void;
+  addCoverageArea: (data: Omit<CoverageArea, 'id'>) => Promise<{ success: boolean; area?: CoverageArea; error?: string }>;
+  updateCoverageArea: (id: string, updates: Partial<CoverageArea>) => Promise<{ success: boolean; error?: string }>;
   deleteCoverageArea: (areaId: string) => Promise<{ success: boolean; error?: string }>;
 
   // Root Causes & Technical Reports
   rootCauseCategories: RootCauseCategory[];
   workResultsList: string[];
-  updateRootCauseCategories: (categories: RootCauseCategory[]) => void;
+  updateRootCauseCategories: (
+    categories: RootCauseCategory[],
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string }>;
   saveTechnicalReport: (
     ticketId: string,
     reportData: Omit<TechnicalReport, 'id' | 'ticketId' | 'submittedAt' | 'submittedBy'>
@@ -217,27 +252,32 @@ interface AppContextType {
 
   // Contact Center Chat Categories
   chatCategories: ChatCategoryConfig[];
-  addChatCategory: (category: Omit<ChatCategoryConfig, 'id' | 'createdAt'>) => Promise<void>;
-  updateChatCategory: (id: string, updates: Partial<ChatCategoryConfig>) => Promise<void>;
-  deleteChatCategory: (id: string) => Promise<void>;
-  toggleChatCategoryActive: (id: string) => Promise<void>;
+  addChatCategory: (category: Omit<ChatCategoryConfig, 'id' | 'createdAt'>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  updateChatCategory: (id: string, updates: Partial<ChatCategoryConfig>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  deleteChatCategory: (id: string, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  toggleChatCategoryActive: (id: string, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
   setTicketChatCategory: (ticketId: string, category: string) => Promise<void>;
 
   // Hierarchical Droplist Management (Level 1: Status WO -> Level 2: Reason WO -> Level 3: Remarks)
   hierarchicalStatuses: HierarchicalStatus[];
-  addHierarchicalStatus: (status: Omit<HierarchicalStatus, 'id' | 'reasons'>) => Promise<void>;
-  updateHierarchicalStatus: (id: string, updates: Partial<HierarchicalStatus>) => Promise<void>;
-  deleteHierarchicalStatus: (id: string) => Promise<void>;
-  addHierarchicalReason: (statusId: string, reason: Omit<HierarchicalReason, 'id' | 'statusId' | 'remarks'>) => Promise<void>;
-  updateHierarchicalReason: (statusId: string, reasonId: string, updates: Partial<HierarchicalReason>) => Promise<void>;
-  deleteHierarchicalReason: (statusId: string, reasonId: string) => Promise<void>;
-  moveHierarchicalReason: (fromStatusId: string, toStatusId: string, reasonId: string) => Promise<void>;
-  addHierarchicalRemark: (statusId: string, reasonId: string, remark: Omit<HierarchicalRemark, 'id' | 'reasonId'>) => Promise<void>;
-  updateHierarchicalRemark: (statusId: string, reasonId: string, remarkId: string, updates: Partial<HierarchicalRemark>) => Promise<void>;
-  deleteHierarchicalRemark: (statusId: string, reasonId: string, remarkId: string) => Promise<void>;
+  saveHierarchicalDroplistsDirect: (
+    statuses: HierarchicalStatus[],
+    actionLabel?: string,
+    options?: { forceOverwrite?: boolean }
+  ) => Promise<{ success: boolean; error?: string }>;
+  addHierarchicalStatus: (status: Omit<HierarchicalStatus, 'id' | 'reasons'>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  updateHierarchicalStatus: (id: string, updates: Partial<HierarchicalStatus>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  deleteHierarchicalStatus: (id: string, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  addHierarchicalReason: (statusId: string, reason: Omit<HierarchicalReason, 'id' | 'statusId' | 'remarks'>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  updateHierarchicalReason: (statusId: string, reasonId: string, updates: Partial<HierarchicalReason>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  deleteHierarchicalReason: (statusId: string, reasonId: string, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  moveHierarchicalReason: (fromStatusId: string, toStatusId: string, reasonId: string, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  addHierarchicalRemark: (statusId: string, reasonId: string, remark: Omit<HierarchicalRemark, 'id' | 'reasonId'>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  updateHierarchicalRemark: (statusId: string, reasonId: string, remarkId: string, updates: Partial<HierarchicalRemark>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  deleteHierarchicalRemark: (statusId: string, reasonId: string, remarkId: string, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
   getReasonsForStatus: (statusName: string) => HierarchicalReason[];
   getRemarksForReason: (statusName: string, reasonName: string) => HierarchicalRemark[];
-  reconcileDroplistsNow: () => Promise<{ success: boolean; changedCount: number; message: string }>;
+  reconcileDroplistsNow: (options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; changedCount: number; message: string }>;
 
 
   // WhatsApp Operations
@@ -253,14 +293,14 @@ interface AppContextType {
 
   // Workflows
   workflowRules: WorkflowRule[];
-  toggleWorkflowRule: (ruleId: string, enabled: boolean) => void;
-  updateWorkflowRule: (ruleId: string, updates: Partial<WorkflowRule>) => void;
+  toggleWorkflowRule: (ruleId: string, enabled: boolean, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  updateWorkflowRule: (ruleId: string, updates: Partial<WorkflowRule>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
 
   // Header Mappings & Central Canonical Field Engine
   headerMappings: HeaderMapping[];
-  updateHeaderMapping: (field: string, aliases: string[]) => void;
+  updateHeaderMapping: (field: string, aliases: string[], options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
   canonicalFields: CanonicalFieldConfig[];
-  updateCanonicalFieldConfig: (field: string, updates: Partial<CanonicalFieldConfig>) => void;
+  updateCanonicalFieldConfig: (field: string, updates: Partial<CanonicalFieldConfig>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
 
   // Audit Logs & Activity
   auditLogs: AuditLog[];
@@ -270,7 +310,7 @@ interface AppContextType {
 
   // Google Sheets Auto-Sync
   googleSheetsConfig: GoogleSheetsConfig;
-  updateGoogleSheetsConfig: (updates: Partial<GoogleSheetsConfig>) => void;
+  updateGoogleSheetsConfig: (updates: Partial<GoogleSheetsConfig>, options?: { forceOverwrite?: boolean }) => Promise<{ success: boolean; error?: string }>;
   syncGoogleSheetsNow: (direction?: 'both' | 'export_only' | 'import_only') => Promise<SheetSyncResult>;
 
   // Helpers
@@ -408,6 +448,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [syncStatus, setSyncStatus] = useState<DataSyncStatus>(navigator.onLine ? 'LOADING' : 'OFFLINE');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Global Super Admin Configs: Dynamic RBAC & 409 OCC Conflict State
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(() => getRolePermissionsSnapshot());
+  const [rolePermissionsVersion, setRolePermissionsVersion] = useState<number>(1);
+  const [globalConflict, setGlobalConflict] = useState<GlobalConfigConflictDetails | null>(null);
+  const pendingGlobalMutationRef = useRef<{
+    key: string;
+    retry: () => Promise<{ success: boolean; error?: string }>;
+  } | null>(null);
 
   const [users, setUsers] = useState<User[]>(() => {
     try {
@@ -671,12 +720,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromIndexedDb();
   }, []);
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('morajaws_logged_in');
+      const session = localStorage.getItem('morajaws_auth_session');
+      if (stored === 'true' && session) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  });
+
   // Supabase Express SSE Subscriptions & Master Sync
   useEffect(() => {
     let unsubWorkOrders: (() => void) | null = null;
     let unsubMessages: (() => void) | null = null;
     let unsubUsers: (() => void) | null = null;
-    let unsubSettings: (() => void) | null = null;
+    let unsubGlobalConfigs: (() => void) | null = null;
+    let unsubRoles: (() => void) | null = null;
+    let unsubContractors: (() => void) | null = null;
+    let unsubCoverageAreas: (() => void) | null = null;
+    let unsubOperationalDate: (() => void) | null = null;
     let isCancelled = false;
 
     const handleOnline = () => {
@@ -692,116 +756,176 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    try {
-      unsubWorkOrders = supabaseDb.subscribeToChanges({
-        table: 'work_orders',
-        onPayload: (payload) => {
-          if (isCancelled || !payload) return;
-          if (payload.eventType === 'DELETE' && payload.new?.id) {
-            setTickets(prev => prev.map(t => (t.id === payload.new.id ? { ...t, ...payload.new } : t)));
-          } else if (payload.new && payload.new.id) {
-            setTickets(prev => {
-              const idx = prev.findIndex(t => t.id === payload.new.id);
-              if (idx >= 0) {
-                const copy = [...prev];
-                copy[idx] = payload.new;
-                return copy;
-              }
-              return [payload.new, ...prev];
-            });
-          } else {
-            refreshDatabaseData().catch(() => {});
-          }
-        },
-        onError: () => {
-          // Non-fatal SSE fallback; periodic polling remains active
-        }
-      });
-
-      unsubMessages = supabaseDb.subscribeToChanges({
-        table: 'ticket_messages',
-        onPayload: (payload) => {
-          if (isCancelled || !payload) return;
-          if (payload.eventType === 'READ_RECEIPT' && payload.ticketId && payload.userId) {
-            const readerId = String(payload.userId);
-            const targetTicketId = String(payload.ticketId);
-            setTicketMessages(prev =>
-              prev.map(m => {
-                if (m.ticketId !== targetTicketId) return m;
-                const readers = Array.isArray(m.readBy) ? m.readBy : [];
-                if (readers.includes(readerId)) return m;
-                return { ...m, readBy: [...readers, readerId] };
-              })
-            );
-            return;
-          }
-          if (payload.new && payload.new.id) {
-            const incomingMsg: TicketMessage = payload.new;
-            setTicketMessages(prev => {
-              if (prev.some(m => m.id === incomingMsg.id)) {
-                return prev.map(m => (m.id === incomingMsg.id ? { ...m, ...incomingMsg } : m));
-              }
-              return [...prev, incomingMsg].sort(
-                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              );
-            });
-          }
-        },
-        onError: () => {}
-      });
-
-      unsubUsers = supabaseDb.subscribeToChanges({
-        table: 'users',
-        onPayload: () => {
-          if (isCancelled) return;
-          supabaseDb.getUsers().then((res) => {
-            if (!isCancelled && res.success && Array.isArray(res.data)) {
-              setUsers(res.data);
+    const headers = getAuthHeaders();
+    if (headers['Authorization']) {
+      try {
+        unsubWorkOrders = supabaseDb.subscribeToChanges({
+          table: 'work_orders',
+          onPayload: (payload) => {
+            if (isCancelled || !payload) return;
+            if (payload.eventType === 'DELETE' && payload.new?.id) {
+              setTickets(prev => prev.map(t => (t.id === payload.new.id ? { ...t, ...payload.new } : t)));
+            } else if (payload.new && payload.new.id) {
+              setTickets(prev => {
+                const idx = prev.findIndex(t => t.id === payload.new.id);
+                if (idx >= 0) {
+                  const copy = [...prev];
+                  copy[idx] = payload.new;
+                  return copy;
+                }
+                return [payload.new, ...prev];
+              });
+            } else {
+              refreshDatabaseData().catch(() => {});
             }
-          }).catch(() => {});
-        }
-      });
+          },
+          onError: () => {}
+        });
 
-      unsubSettings = supabaseDb.subscribeToChanges({
-        table: 'app_settings',
-        onPayload: (payload) => {
-          if (isCancelled || !payload) return;
-          const key = payload.key || payload.new?.setting_key;
-          const val = payload.value ?? payload.new?.setting_value;
-          if (key === 'hierarchical_droplists' && val) {
+        unsubMessages = supabaseDb.subscribeToChanges({
+          table: 'ticket_messages',
+          onPayload: (payload) => {
+            if (isCancelled || !payload) return;
+            if (payload.eventType === 'READ_RECEIPT' && payload.ticketId && payload.userId) {
+              const readerId = String(payload.userId);
+              const targetTicketId = String(payload.ticketId);
+              setTicketMessages(prev =>
+                prev.map(m => {
+                  if (m.ticketId !== targetTicketId) return m;
+                  const readers = Array.isArray(m.readBy) ? m.readBy : [];
+                  if (readers.includes(readerId)) return m;
+                  return { ...m, readBy: [...readers, readerId] };
+                })
+              );
+              return;
+            }
+            if (payload.new && payload.new.id) {
+              const incomingMsg: TicketMessage = payload.new;
+              setTicketMessages(prev => {
+                if (prev.some(m => m.id === incomingMsg.id)) {
+                  return prev.map(m => (m.id === incomingMsg.id ? { ...m, ...incomingMsg } : m));
+                }
+                return [...prev, incomingMsg].sort(
+                  (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                );
+              });
+            }
+          },
+          onError: () => {}
+        });
+
+        unsubUsers = supabaseDb.subscribeToChanges({
+          table: 'users',
+          onPayload: () => {
+            if (isCancelled) return;
+            supabaseDb.getUsers().then((res) => {
+              if (!isCancelled && res.success && Array.isArray(res.data)) {
+                setUsers(res.data);
+              }
+            }).catch(() => {});
+          }
+        });
+
+        unsubGlobalConfigs = subscribeToGlobalConfigUpdates((evt) => {
+          if (isCancelled || !evt?.key) return;
+          const val = evt.value;
+          if (evt.key === 'hierarchical_droplists' && val) {
             const list = Array.isArray(val) ? val : val.statuses;
             if (Array.isArray(list)) setHierarchicalStatuses(list);
-          } else if (key === 'chat_categories' && val) {
+          } else if (evt.key === 'chat_categories' && val) {
             const list = Array.isArray(val) ? val : val.categories;
             if (Array.isArray(list)) setChatCategories(list);
-          } else if (key === 'report_dropdown_categories' && val) {
+          } else if (evt.key === 'report_dropdown_categories' && val) {
             const list = Array.isArray(val) ? val : val.categories;
             if (Array.isArray(list)) setReportDropdownCategories(list);
+          } else if (evt.key === 'workflow_rules' && val) {
+            const list = Array.isArray(val) ? val : val.rules;
+            if (Array.isArray(list)) setWorkflowRules(list);
+          } else if (evt.key === 'header_mappings' && val) {
+            const list = Array.isArray(val) ? val : val.mappings;
+            if (Array.isArray(list)) setHeaderMappings(list);
+          } else if (evt.key === 'canonical_fields' && val) {
+            const list = Array.isArray(val) ? val : val.fields;
+            if (Array.isArray(list)) setCanonicalFields(list);
+          } else if (evt.key === 'root_cause_categories' && val) {
+            const list = Array.isArray(val) ? val : val.categories;
+            if (Array.isArray(list)) setRootCauseCategories(list);
+          } else if (evt.key === 'google_sheets_config' && val && typeof val === 'object') {
+            setGoogleSheetsConfig(prev => ({ ...prev, ...val }));
+          } else if (evt.key === 'operational_date_config' && val && typeof val === 'object') {
+            const nextDate = val.isAuto || !val.operationalDate ? getJakartaDateString(0) : String(val.operationalDate);
+            setTodayWIB(nextDate);
+            setOperationalDateState(nextDate);
+            try {
+              localStorage.setItem('morajaws_operational_date', nextDate);
+            } catch {}
+          } else if (evt.key === 'role_permissions' && val && typeof val === 'object') {
+            setDynamicRolePermissions(val);
+            setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...val });
+            if (typeof evt.version === 'number') {
+              setRolePermissionsVersion(evt.version);
+            }
           }
-        }
-      });
+        });
 
-      const unsubOperationalDate = supabaseDb.subscribeToChanges({
-        table: 'system_operational_date',
-        onPayload: (payload) => {
-          if (isCancelled || !payload) return;
-          const nextWIB = payload.record?.operationalDateWIB || getJakartaDateString(0);
-          setTodayWIB(nextWIB);
-          setOperationalDateState(nextWIB);
-          try {
-            localStorage.setItem('morajaws_operational_date', nextWIB);
-          } catch {}
-          loadCentralData().catch(() => {});
-        }
-      });
+        unsubRoles = supabaseDb.subscribeToChanges({
+          table: 'roles',
+          onPayload: () => {
+            if (isCancelled) return;
+            getRolePermissionsFromServer()
+              .then((res) => {
+                if (isCancelled) return;
+                setDynamicRolePermissions(res.rolePermissions);
+                setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...res.rolePermissions } as Record<UserRole, string[]>);
+                setRolePermissionsVersion(res.version || 1);
+              })
+              .catch(() => {});
+          }
+        });
 
-      const origUnsubSettings = unsubSettings;
-      unsubSettings = () => {
-        origUnsubSettings?.();
-        unsubOperationalDate?.();
-      };
-    } catch (sseErr) {
-      console.warn('[Realtime SSE] Notice attaching Supabase SSE:', sseErr);
+        unsubContractors = supabaseDb.subscribeToChanges({
+          table: 'contractors',
+          onPayload: () => {
+            if (isCancelled) return;
+            supabaseDb.getContractors().then((res) => {
+              if (!isCancelled && res.success && Array.isArray(res.data)) {
+                setContractors(deduplicateContractors(res.data));
+              }
+            }).catch(() => {});
+          }
+        });
+
+        unsubCoverageAreas = supabaseDb.subscribeToChanges({
+          table: 'coverage_areas',
+          onPayload: () => {
+            if (isCancelled) return;
+            supabaseDb.getCoverageAreas().then((res) => {
+              if (!isCancelled && res.success && Array.isArray(res.data)) {
+                setCoverageAreas(res.data);
+              }
+            }).catch(() => {});
+          }
+        });
+
+        unsubOperationalDate = supabaseDb.subscribeToChanges({
+          table: 'system_operational_date',
+          onPayload: (payload) => {
+            if (isCancelled || !payload) return;
+            const nextWIB =
+              payload.record?.operationalDate ||
+              payload.record?.operationalDateWIB ||
+              getJakartaDateString(0);
+            setTodayWIB(nextWIB);
+            setOperationalDateState(nextWIB);
+            try {
+              localStorage.setItem('morajaws_operational_date', nextWIB);
+            } catch {}
+            loadCentralData().catch(() => {});
+          }
+        });
+      } catch (sseErr) {
+        console.warn('[Realtime SSE] Notice attaching Supabase SSE:', sseErr);
+      }
     }
 
     // Targeted polling fallback every 45s on Free Plan when tab is active
@@ -816,12 +940,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       clearInterval(pollInterval);
-      if (unsubWorkOrders) unsubWorkOrders();
-      if (unsubMessages) unsubMessages();
-      if (unsubUsers) unsubUsers();
-      if (unsubSettings) unsubSettings();
+      unsubWorkOrders?.();
+      unsubMessages?.();
+      unsubUsers?.();
+      unsubGlobalConfigs?.();
+      unsubRoles?.();
+      unsubContractors?.();
+      unsubCoverageAreas?.();
+      unsubOperationalDate?.();
     };
-  }, []);
+  }, [isLoggedIn]);
 
   // Explicit Supabase PostgreSQL data refresh via Express proxy
   const refreshDatabaseData = async () => {
@@ -842,6 +970,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDataLoadError(null);
     try {
       const headers = getAuthHeaders();
+      let resolvedRole: UserRole = currentUser.role;
+      let resolvedUserId: string = currentUser.id;
+      let resolvedActive: boolean = currentUser.active;
+
       const res = await fetch('/api/bootstrap', { headers });
       if (!res.ok) {
         if (res.status === 503) {
@@ -861,13 +993,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } catch {}
           if (data.currentUser && data.isAuthenticated) {
             setCurrentUser(prev => ({ ...prev, ...data.currentUser }));
+            resolvedRole = data.currentUser.role || resolvedRole;
+            resolvedUserId = data.currentUser.id || resolvedUserId;
+            resolvedActive = data.currentUser.active !== false;
           } else if (data.isAuthenticated === false && headers['Authorization']) {
             setIsLoggedIn(false);
             setCurrentUser(UNAUTHENTICATED_USER);
             try {
               localStorage.setItem('morajaws_logged_in', 'false');
               localStorage.removeItem('morajaws_auth_session');
+              window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
             } catch (e) {}
+          }
+          if (data.rolePermissions && typeof data.rolePermissions === 'object') {
+            setDynamicRolePermissions(data.rolePermissions);
+            setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...data.rolePermissions });
           }
           if (Array.isArray(data.tickets)) {
             setTickets(data.tickets);
@@ -900,12 +1040,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Load authenticated collections & configurations from Supabase PostgreSQL proxy
+      // Load authenticated collections & global configurations from Supabase PostgreSQL proxy
       if (headers['Authorization']) {
         const canViewAudit = Boolean(
-          currentUser.id &&
-          currentUser.active &&
-          (currentUser.role === 'super_admin' || currentUser.role === 'it_support')
+          resolvedUserId &&
+          resolvedActive &&
+          (resolvedRole === 'super_admin' || resolvedRole === 'it_support')
         );
         if (canViewAudit) {
           try {
@@ -927,27 +1067,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         } catch {}
 
-        // Load droplists & chat categories from Supabase app_settings
+        // Hydrate ALL versioned global configs + dynamic RBAC matrix from /api/global-config/bootstrap
         try {
-          const [hierData, chatCatsData, reportCatsData, globalSettings] = await Promise.all([
-            loadHierarchicalDroplistsFromSupabase().catch(() => null),
-            loadChatCategoriesFromSupabase().catch(() => null),
-            loadReportDropdownCategoriesFromSupabase().catch(() => null),
-            loadGlobalAppSettingsFromSupabase().catch(() => null)
-          ]);
-          if (Array.isArray(hierData) && hierData.length > 0) {
-            setHierarchicalStatuses(hierData);
+          const globalBoot = await bootstrapGlobalConfigs().catch(() => null);
+          if (globalBoot) {
+            if (globalBoot.rolePermissions && typeof globalBoot.rolePermissions === 'object') {
+              setDynamicRolePermissions(globalBoot.rolePermissions);
+              setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...globalBoot.rolePermissions });
+              setRolePermissionsVersion(globalBoot.rolePermissionsVersion || 1);
+            }
+            const cfgs = globalBoot.configs || {};
+            if (cfgs.hierarchical_droplists) {
+              const list = Array.isArray(cfgs.hierarchical_droplists)
+                ? cfgs.hierarchical_droplists
+                : cfgs.hierarchical_droplists.statuses;
+              if (Array.isArray(list) && list.length > 0) setHierarchicalStatuses(list);
+            }
+            if (cfgs.chat_categories) {
+              const list = Array.isArray(cfgs.chat_categories)
+                ? cfgs.chat_categories
+                : cfgs.chat_categories.categories;
+              if (Array.isArray(list) && list.length > 0) setChatCategories(list);
+            }
+            if (cfgs.report_dropdown_categories) {
+              const list = Array.isArray(cfgs.report_dropdown_categories)
+                ? cfgs.report_dropdown_categories
+                : cfgs.report_dropdown_categories.categories;
+              if (Array.isArray(list) && list.length > 0) setReportDropdownCategories(list);
+            }
+            if (cfgs.workflow_rules) {
+              const list = Array.isArray(cfgs.workflow_rules)
+                ? cfgs.workflow_rules
+                : cfgs.workflow_rules.rules;
+              if (Array.isArray(list) && list.length > 0) setWorkflowRules(list);
+            }
+            if (cfgs.header_mappings) {
+              const list = Array.isArray(cfgs.header_mappings)
+                ? cfgs.header_mappings
+                : cfgs.header_mappings.mappings;
+              if (Array.isArray(list) && list.length > 0) setHeaderMappings(list);
+            }
+            if (cfgs.canonical_fields) {
+              const list = Array.isArray(cfgs.canonical_fields)
+                ? cfgs.canonical_fields
+                : cfgs.canonical_fields.fields;
+              if (Array.isArray(list) && list.length > 0) setCanonicalFields(list);
+            }
+            if (cfgs.root_cause_categories) {
+              const list = Array.isArray(cfgs.root_cause_categories)
+                ? cfgs.root_cause_categories
+                : cfgs.root_cause_categories.categories;
+              if (Array.isArray(list) && list.length > 0) setRootCauseCategories(list);
+            }
+            if (cfgs.google_sheets_config && typeof cfgs.google_sheets_config === 'object') {
+              setGoogleSheetsConfig(prev => ({ ...prev, ...cfgs.google_sheets_config }));
+            }
+            if (globalBoot.operationalDate?.date) {
+              setTodayWIB(globalBoot.operationalDate.date);
+              setOperationalDateState(globalBoot.operationalDate.date);
+              try {
+                localStorage.setItem('morajaws_operational_date', globalBoot.operationalDate.date);
+              } catch {}
+            }
+          } else {
+            const [hierData, chatCatsData, reportCatsData] = await Promise.all([
+              loadHierarchicalDroplistsFromSupabase().catch(() => null),
+              loadChatCategoriesFromSupabase().catch(() => null),
+              loadReportDropdownCategoriesFromSupabase().catch(() => null)
+            ]);
+            if (Array.isArray(hierData) && hierData.length > 0) setHierarchicalStatuses(hierData);
+            if (Array.isArray(chatCatsData) && chatCatsData.length > 0) setChatCategories(chatCatsData);
+            if (Array.isArray(reportCatsData) && reportCatsData.length > 0) setReportDropdownCategories(reportCatsData);
           }
-          if (Array.isArray(chatCatsData) && chatCatsData.length > 0) {
-            setChatCategories(chatCatsData);
-          }
-          if (Array.isArray(reportCatsData) && reportCatsData.length > 0) {
-            setReportDropdownCategories(reportCatsData);
-          }
-          // Auto Reset 00:00 WIB: Keep active operationalDate synchronized with live Asia/Jakarta calendar date
-          const liveWIB = getJakartaDateString(0);
-          setTodayWIB(liveWIB);
-          setOperationalDateState(liveWIB);
         } catch {}
       } else {
         setAuditLogs([]);
@@ -1085,9 +1276,188 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.SHEETS_CONFIG, JSON.stringify(googleSheetsConfig));
   }, [googleSheetsConfig]);
 
-  const updateGoogleSheetsConfig = (updates: Partial<GoogleSheetsConfig>) => {
-    setGoogleSheetsConfig(prev => ({ ...prev, ...updates }));
-    addAuditLog('Google Sheets Config Updated', 'ui_config', 'sheets', 'Pengaturan sinkronisasi otomatis Google Sheet diperbarui');
+  const assertSuperAdminConfigWrite = (moduleLabel: string): string | null => {
+    if (currentUser.role !== 'super_admin') {
+      const err = `Akses Ditolak: Hanya Super Admin yang berwenang mengubah konfigurasi global (${moduleLabel}).`;
+      addAuditLog(
+        'Unauthorized Global Config Attempt',
+        'global_config',
+        moduleLabel,
+        `${currentUser.name} (${currentUser.role}) ditolak mengubah ${moduleLabel}`
+      );
+      toast.error(err, 'Otorisasi Ditolak');
+      return err;
+    }
+    return null;
+  };
+
+  const saveAppConfigDbFirst = async <T,>(
+    key: string,
+    nextValue: T,
+    options: {
+      module: string;
+      description: string;
+      forceOverwrite?: boolean;
+      onSuccess: (savedValue: T, version: number) => void;
+      retryFactory: () => Promise<{ success: boolean; error?: string }>;
+    }
+  ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite(options.module);
+    if (authErr) return { success: false, error: authErr };
+    try {
+      setSyncStatus('SYNCING');
+      const res = await saveGlobalConfig<T>(key, nextValue, {
+        module: options.module,
+        description: options.description,
+        expectedVersion: getTrackedConfigVersion(key),
+        forceOverwrite: Boolean(options.forceOverwrite)
+      });
+      options.onSuccess(res.value ?? nextValue, res.version);
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      setSyncError(null);
+      addAuditLog(`Global Config Saved (${options.module})`, 'global_config', key, `${options.description} (v${res.version})`);
+      return { success: true };
+    } catch (err: any) {
+      if (err instanceof ConfigConflictError) {
+        pendingGlobalMutationRef.current = { key, retry: options.retryFactory };
+        setGlobalConflict(err.conflict);
+        setSyncStatus('ERROR');
+        toast.warning(
+          `Konflik versi terdeteksi pada ${options.module}. Silakan pilih muat versi terbaru atau timpa perubahan.`,
+          'Konflik Konfigurasi (409)'
+        );
+        return { success: false, error: err.message };
+      }
+      const msg = err?.message || `Gagal menyimpan ${options.module} ke database.`;
+      setSyncStatus('ERROR');
+      setSyncError(msg);
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
+  };
+
+  const clearGlobalConflict = () => {
+    setGlobalConflict(null);
+    pendingGlobalMutationRef.current = null;
+  };
+
+  const resolveGlobalConflict = async (strategy: 'reload' | 'overwrite') => {
+    const conflict = globalConflict;
+    if (!conflict) return;
+    if (strategy === 'reload') {
+      try {
+        if (conflict.key === 'role_permissions') {
+          const res = await getRolePermissionsFromServer();
+          setDynamicRolePermissions(res.rolePermissions);
+          setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...res.rolePermissions } as Record<UserRole, string[]>);
+          setRolePermissionsVersion(res.version || 1);
+        } else {
+          await loadCentralData();
+        }
+        toast.info(`Konfigurasi "${conflict.key}" diperbarui dari versi terbaru di database.`, 'Versi Terbaru Dimuat');
+      } catch (err: any) {
+        toast.error(err?.message || 'Gagal memuat versi terbaru dari database.');
+      } finally {
+        clearGlobalConflict();
+      }
+      return;
+    }
+
+    const pending = pendingGlobalMutationRef.current;
+    setGlobalConflict(null);
+    if (pending) {
+      pendingGlobalMutationRef.current = null;
+      await pending.retry();
+    }
+  };
+
+  const updateRolePermissions = async (
+    matrix: Record<string, string[]>,
+    options: { forceOverwrite?: boolean; notes?: string } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Role & Permission');
+    if (authErr) return { success: false, error: authErr };
+    try {
+      setSyncStatus('SYNCING');
+      const res = await saveRolePermissionsToServer(matrix, {
+        expectedVersion: getTrackedConfigVersion('role_permissions') ?? rolePermissionsVersion,
+        forceOverwrite: Boolean(options.forceOverwrite),
+        notes: options.notes
+      });
+      const merged = { ...DEFAULT_ROLE_PERMISSIONS, ...res.rolePermissions } as Record<UserRole, string[]>;
+      setDynamicRolePermissions(merged);
+      setRolePermissions(merged);
+      setRolePermissionsVersion(res.version || 1);
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Role Permissions Updated', 'global_config', 'role_permissions', `Matriks Role & Permission diperbarui (v${res.version})`);
+      toast.success(`Matriks Role & Permission berhasil disimpan ke database (v${res.version}).`, 'Hak Akses Diperbarui');
+      return { success: true };
+    } catch (err: any) {
+      if (err instanceof ConfigConflictError) {
+        pendingGlobalMutationRef.current = {
+          key: 'role_permissions',
+          retry: () => updateRolePermissions(matrix, { ...options, forceOverwrite: true })
+        };
+        setGlobalConflict(err.conflict);
+        setSyncStatus('ERROR');
+        toast.warning('Konflik versi matriks Role & Permission terdeteksi.', 'Konflik Konfigurasi (409)');
+        return { success: false, error: err.message };
+      }
+      const msg = err?.message || 'Gagal menyimpan matriks Role & Permission ke database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
+  };
+
+  const updateGoogleSheetsConfig = async (
+    updates: Partial<GoogleSheetsConfig>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Google Sheets Sync');
+    if (authErr) return { success: false, error: authErr };
+    try {
+      setSyncStatus('SYNCING');
+      const res = await fetch('/api/sheets/config', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          ...updates,
+          expectedVersion: getTrackedConfigVersion('google_sheets_config'),
+          forceOverwrite: Boolean(options.forceOverwrite)
+        })
+      });
+      const json = await res.json().catch(() => null);
+      if (res.status === 409 && json?.conflict) {
+        pendingGlobalMutationRef.current = {
+          key: 'google_sheets_config',
+          retry: () => updateGoogleSheetsConfig(updates, { forceOverwrite: true })
+        };
+        setGlobalConflict(json.conflict);
+        setSyncStatus('ERROR');
+        toast.warning('Konflik versi Google Sheets Config terdeteksi.', 'Konflik Konfigurasi (409)');
+        return { success: false, error: json.error || 'Version conflict' };
+      }
+      if (!res.ok || !json || json.success !== true) {
+        throw new Error(json?.error || `Gagal menyimpan konfigurasi Google Sheets (HTTP ${res.status}).`);
+      }
+      if (typeof json.version === 'number') {
+        setTrackedConfigVersion('google_sheets_config', json.version);
+      }
+      setGoogleSheetsConfig(prev => ({ ...prev, ...(json.config || updates) }));
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Google Sheets Config Updated', 'global_config', 'sheets', 'Pengaturan sinkronisasi Google Sheet disimpan ke database');
+      toast.success('Pengaturan Google Sheets berhasil disimpan ke database.', 'Tersimpan');
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menyimpan konfigurasi Google Sheets ke database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
   };
 
   const addAuditLog = (action: string, entity: AuditLog['entity'], entityId: string, details: string) => {
@@ -1104,17 +1474,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs(prev => [entry, ...prev.slice(0, 499)]);
   };
 
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('morajaws_logged_in');
-      const session = localStorage.getItem('morajaws_auth_session');
-      if (stored === 'true' && session) {
-        return true;
-      }
-    } catch (e) {}
-    return false;
-  });
-
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
   // Live Asia/Jakarta (WIB) calendar date for automatic 00:00 WIB active WO reset
@@ -1123,20 +1482,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Operational schedule reference date (Asia/Jakarta WIB — always initializes to live todayWIB)
   const [operationalDate, setOperationalDateState] = useState<string>(() => getJakartaDateString(0));
 
-  const setOperationalDate = (date: string) => {
-    setOperationalDateState(date);
+  const setOperationalDate = async (
+    date: string,
+    options: { isAuto?: boolean; forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Tanggal Operasional');
+    if (authErr) return { success: false, error: authErr };
     try {
-      localStorage.setItem('morajaws_operational_date', date);
-    } catch (e) {}
-    saveGlobalAppSettingsToSupabase({ operationalDate: date }).catch(() => {});
-    fetch('/api/system/operational-date', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      },
-      body: JSON.stringify({ operationalDate: date })
-    }).catch(() => {});
+      setSyncStatus('SYNCING');
+      const res = await fetch('/api/system/operational-date', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          operationalDate: date,
+          isAuto: Boolean(options.isAuto),
+          expectedVersion: getTrackedConfigVersion('operational_date_config'),
+          forceOverwrite: Boolean(options.forceOverwrite)
+        })
+      });
+      const json = await res.json().catch(() => null);
+      if (res.status === 409 && json?.conflict) {
+        pendingGlobalMutationRef.current = {
+          key: 'operational_date_config',
+          retry: () => setOperationalDate(date, { ...options, forceOverwrite: true })
+        };
+        setGlobalConflict(json.conflict);
+        setSyncStatus('ERROR');
+        toast.warning('Konflik versi Tanggal Operasional terdeteksi.', 'Konflik Konfigurasi (409)');
+        return { success: false, error: json.error || 'Version conflict' };
+      }
+      if (!res.ok || !json || json.success !== true) {
+        throw new Error(json?.error || `Gagal menyimpan tanggal operasional (HTTP ${res.status}).`);
+      }
+      if (typeof json.version === 'number') {
+        setTrackedConfigVersion('operational_date_config', json.version);
+      }
+      const committedDate = json.operationalDate || date;
+      setTodayWIB(committedDate);
+      setOperationalDateState(committedDate);
+      try {
+        localStorage.setItem('morajaws_operational_date', committedDate);
+      } catch (e) {}
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Operational Date Updated', 'global_config', 'operational_date_config', `Tanggal operasional diatur ke ${committedDate} (v${json.version || 1})`);
+      toast.success(`Tanggal operasional global diperbarui ke ${committedDate}.`, 'Tersimpan ke Database');
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menyimpan tanggal operasional ke database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
   };
 
   // Authoritative backend sync for today's active WOs (GET /api/tickets)
@@ -1302,6 +1699,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sessionVersion: data.sessionVersion || (authedUser as any).sessionVersion || 1,
           expiresAt
         }));
+        window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
       } catch (e) {}
 
       addAuditLog('Login Success', 'auth', authedUser.id, `Pengguna ${authedUser.name} (${authedUser.role}) berhasil login ke sistem via MoraJaws Custom Auth`);
@@ -1359,6 +1757,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.setItem('morajaws_logged_in', 'false');
       localStorage.removeItem('morajaws_auth_session');
+      window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
     } catch (e) {}
 
     // Invoke MoraJaws Custom Auth logout on Express backend
@@ -1935,57 +2334,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, newPassword: '12345678' };
   };
 
-  // Master Contractors & Coverage Areas
-  const addContractor = (data: Omit<Contractor, 'id' | 'createdAt'>) => {
+  // Master Contractors & Coverage Areas (Strict Super Admin DB-First)
+  const addContractor = async (
+    data: Omit<Contractor, 'id' | 'createdAt'>
+  ): Promise<{ success: boolean; contractor?: Contractor; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Master Kontraktor');
+    if (authErr) return { success: false, error: authErr };
     const newContractor: Contractor = {
       ...data,
       id: 'c-' + Date.now(),
       createdAt: new Date().toISOString()
     };
-    setContractors(prev => [...prev, newContractor]);
-    supabaseDb.createContractor(newContractor).catch(e => console.warn('[Supabase] Error saving contractor:', e));
-    addAuditLog('Contractor Added', 'ui_config', newContractor.id, `Added contractor vendor: ${newContractor.name}`);
+    try {
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.createContractor(newContractor);
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Gagal menyimpan kontraktor ke database.');
+      }
+      const saved = normalizeContractor(res.data || newContractor);
+      setContractors(prev => deduplicateContractors([...prev, saved]));
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Contractor Added', 'global_config', saved.id, `Added contractor vendor: ${saved.name}`);
+      toast.success(`Mitra kontraktor "${saved.name}" berhasil disimpan ke database.`, 'Kontraktor Ditambahkan');
+      return { success: true, contractor: saved };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menyimpan kontraktor ke database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
   };
 
-  const updateContractor = (id: string, updates: Partial<Contractor>) => {
-    setContractors(prev =>
-      prev.map(c => {
-        if (c.id === id) {
-          const updated = { ...c, ...updates };
-          supabaseDb.updateContractor(id, updated).catch(e => console.warn('[Supabase] Error updating contractor:', e));
-          return updated;
-        }
-        return c;
-      })
-    );
-    addAuditLog('Contractor Updated', 'ui_config', id, `Updated contractor: ${updates.name || id}`);
+  const updateContractor = async (
+    id: string,
+    updates: Partial<Contractor>
+  ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Master Kontraktor');
+    if (authErr) return { success: false, error: authErr };
+    const existing = contractors.find(c => c.id === id);
+    if (!existing) return { success: false, error: 'Kontraktor tidak ditemukan.' };
+    const updatedPayload = { ...existing, ...updates };
+    try {
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.updateContractor(id, updatedPayload);
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Gagal memperbarui kontraktor di database.');
+      }
+      const saved = normalizeContractor(res.data || updatedPayload);
+      setContractors(prev => prev.map(c => (c.id === id ? saved : c)));
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Contractor Updated', 'global_config', id, `Updated contractor: ${saved.name}`);
+      toast.success(`Data kontraktor "${saved.name}" diperbarui di database.`, 'Kontraktor Diperbarui');
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal memperbarui kontraktor di database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
   };
 
   const deleteContractor = async (contractorId: string): Promise<{ success: boolean; error?: string }> => {
-    if (currentUser.role !== 'super_admin') {
-      const err = 'Akses Ditolak: Hanya Super Admin yang berwenang menghapus mitra kontraktor.';
-      toast.error(err, 'Akses Ditolak');
-      return { success: false, error: err };
-    }
+    const authErr = assertSuperAdminConfigWrite('Master Kontraktor');
+    if (authErr) return { success: false, error: authErr };
     const target = contractors.find(c => c.id === contractorId);
     if (!target) return { success: false, error: 'Kontraktor tidak ditemukan.' };
 
-    setContractors(prev => prev.filter(c => c.id !== contractorId));
     try {
       setSyncStatus('SYNCING');
       const res = await supabaseDb.deleteContractor(contractorId);
       if (!res.success) {
         throw new Error(res.error?.message || 'Gagal menghapus kontraktor');
       }
+      setContractors(prev => prev.filter(c => c.id !== contractorId));
       setSyncStatus('SAVED');
       setLastSyncTime(new Date().toISOString());
-      addAuditLog('Contractor Deleted', 'ui_config', contractorId, `Super Admin ${currentUser.name} menghapus kontraktor ${target.name}`);
+      addAuditLog('Contractor Deleted', 'global_config', contractorId, `Super Admin ${currentUser.name} menghapus kontraktor ${target.name}`);
       toast.warning(`Kontraktor ${target.name} berhasil dihapus dari Supabase PostgreSQL.`, 'Kontraktor Dihapus');
       return { success: true };
     } catch (err: any) {
+      const msg = err?.message || 'Gagal menghapus kontraktor di database.';
       setSyncStatus('ERROR');
-      toast.error('Gagal menghapus kontraktor di Supabase PostgreSQL: ' + (err?.message || err));
-      return { success: false, error: err?.message };
+      toast.error('Gagal menghapus kontraktor di Supabase PostgreSQL: ' + msg, 'Gagal Menghapus');
+      return { success: false, error: msg };
     }
   };
 
@@ -2019,11 +2452,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             phone: ex.phone || incoming.phone
           };
           updated[existingIdx] = merged;
-          supabaseDb.updateContractor(merged.id, merged).catch(() => {});
+          if (currentUser.role === 'super_admin') {
+            supabaseDb.updateContractor(merged.id, merged).catch(() => {});
+          }
           updatedCount++;
         } else {
           updated.push(incoming);
-          supabaseDb.createContractor(incoming).catch(() => {});
+          if (currentUser.role === 'super_admin') {
+            supabaseDb.createContractor(incoming).catch(() => {});
+          }
           addedCount++;
         }
       });
@@ -2036,7 +2473,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         newCoverageAreasList.forEach(na => {
           if (!merged.some(a => a.name.toLowerCase().trim() === na.name.toLowerCase().trim())) {
             merged.push(na);
-            supabaseDb.createCoverageArea(na).catch(() => {});
+            if (currentUser.role === 'super_admin') {
+              supabaseDb.createCoverageArea(na).catch(() => {});
+            }
           }
         });
         return merged;
@@ -2053,62 +2492,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { addedCount, updatedCount };
   };
 
-  const addCoverageArea = (data: Omit<CoverageArea, 'id'>) => {
+  const addCoverageArea = async (
+    data: Omit<CoverageArea, 'id'>
+  ): Promise<{ success: boolean; area?: CoverageArea; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Master Coverage Area');
+    if (authErr) return { success: false, error: authErr };
     const newArea: CoverageArea = {
       ...data,
       id: 'area-' + Date.now()
     };
-    setCoverageAreas(prev => [...prev, newArea]);
-    supabaseDb.createCoverageArea(newArea).catch(e => console.warn('[Supabase] Error saving coverage area:', e));
-    addAuditLog('Coverage Area Added', 'ui_config', newArea.id, `Added coverage area: ${newArea.name}`);
+    try {
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.createCoverageArea(newArea);
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Gagal menyimpan coverage area ke database.');
+      }
+      const saved = (res.data || newArea) as CoverageArea;
+      setCoverageAreas(prev => [...prev, saved]);
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Coverage Area Added', 'global_config', saved.id, `Added coverage area: ${saved.name}`);
+      toast.success(`Area coverage "${saved.name}" berhasil disimpan ke database.`, 'Area Ditambahkan');
+      return { success: true, area: saved };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menyimpan coverage area ke database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
   };
 
-  const updateCoverageArea = (id: string, updates: Partial<CoverageArea>) => {
-    setCoverageAreas(prev =>
-      prev.map(a => {
-        if (a.id === id) {
-          const updated = { ...a, ...updates };
-          supabaseDb.updateCoverageArea(id, updated).catch(e => console.warn('[Supabase] Error updating coverage area:', e));
-          return updated;
-        }
-        return a;
-      })
-    );
-    addAuditLog('Coverage Area Updated', 'ui_config', id, `Updated coverage area: ${updates.name || id}`);
+  const updateCoverageArea = async (
+    id: string,
+    updates: Partial<CoverageArea>
+  ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Master Coverage Area');
+    if (authErr) return { success: false, error: authErr };
+    const existing = coverageAreas.find(a => a.id === id);
+    if (!existing) return { success: false, error: 'Area coverage tidak ditemukan.' };
+    const updatedPayload = { ...existing, ...updates };
+    try {
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.updateCoverageArea(id, updatedPayload);
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Gagal memperbarui area coverage di database.');
+      }
+      const saved = (res.data || updatedPayload) as CoverageArea;
+      setCoverageAreas(prev => prev.map(a => (a.id === id ? saved : a)));
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog('Coverage Area Updated', 'global_config', id, `Updated coverage area: ${saved.name}`);
+      toast.success(`Area coverage "${saved.name}" diperbarui di database.`, 'Area Diperbarui');
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal memperbarui area coverage di database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal Menyimpan ke Database');
+      return { success: false, error: msg };
+    }
   };
 
   const deleteCoverageArea = async (areaId: string): Promise<{ success: boolean; error?: string }> => {
-    if (currentUser.role !== 'super_admin') {
-      const err = 'Akses Ditolak: Hanya Super Admin yang berwenang menghapus area coverage.';
-      toast.error(err, 'Akses Ditolak');
-      return { success: false, error: err };
-    }
+    const authErr = assertSuperAdminConfigWrite('Master Coverage Area');
+    if (authErr) return { success: false, error: authErr };
     const target = coverageAreas.find(a => a.id === areaId);
     if (!target) return { success: false, error: 'Area coverage tidak ditemukan.' };
 
-    setCoverageAreas(prev => prev.filter(a => a.id !== areaId));
     try {
       setSyncStatus('SYNCING');
       const res = await supabaseDb.deleteCoverageArea(areaId);
       if (!res.success) {
         throw new Error(res.error?.message || 'Gagal menghapus area coverage');
       }
+      setCoverageAreas(prev => prev.filter(a => a.id !== areaId));
       setSyncStatus('SAVED');
       setLastSyncTime(new Date().toISOString());
-      addAuditLog('Coverage Area Deleted', 'ui_config', areaId, `Super Admin ${currentUser.name} menghapus area ${target.name}`);
+      addAuditLog('Coverage Area Deleted', 'global_config', areaId, `Super Admin ${currentUser.name} menghapus area ${target.name}`);
       toast.warning(`Area coverage ${target.name} berhasil dihapus dari Supabase PostgreSQL.`, 'Area Dihapus');
       return { success: true };
     } catch (err: any) {
+      const msg = err?.message || 'Gagal menghapus area coverage di database.';
       setSyncStatus('ERROR');
-      toast.error('Gagal menghapus area coverage di Supabase PostgreSQL: ' + (err?.message || err));
-      return { success: false, error: err?.message };
+      toast.error('Gagal menghapus area coverage di Supabase PostgreSQL: ' + msg, 'Gagal Menghapus');
+      return { success: false, error: msg };
     }
   };
 
-  // Root Cause Management
-  const updateRootCauseCategories = (categories: RootCauseCategory[]) => {
-    setRootCauseCategories(categories);
-    addAuditLog('Root Causes Updated', 'ui_config', 'root_causes', 'Updated Wi-Fi root cause taxonomy catalog');
+  // Root Cause Management (DB-First Global Config)
+  const updateRootCauseCategories = async (
+    categories: RootCauseCategory[],
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const result = await saveAppConfigDbFirst(
+      'root_cause_categories',
+      { categories, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'root_cause_categories',
+        description: `Wi-Fi Root Cause taxonomy diperbarui (${categories.length} kategori)`,
+        forceOverwrite: options.forceOverwrite,
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.categories || categories;
+          setRootCauseCategories(list);
+        },
+        retryFactory: () => updateRootCauseCategories(categories, { forceOverwrite: true })
+      }
+    );
+    if (result.success) {
+      toast.success('Katalog Root Cause berhasil disimpan ke database.', 'Root Cause Diperbarui');
+    }
+    return result;
   };
 
   // Technical Report Submission
@@ -2939,18 +3431,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // -------------------------------------------------------------
-  // Report Dropdown Categories CRUD (Report Status, Reason Report, Rootcause)
+  // Report Dropdown Categories CRUD (DB-First Super Admin Exclusive)
   // -------------------------------------------------------------
+  const saveReportDropdownCategoriesDbFirst = async (
+    nextList: ReportDropdownCategory[],
+    actionLabel: string,
+    entityId: string,
+    forceOverwrite = false
+  ): Promise<{ success: boolean; error?: string }> => {
+    return saveAppConfigDbFirst(
+      'report_dropdown_categories',
+      { categories: nextList, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'report_dropdown_categories',
+        description: actionLabel,
+        forceOverwrite,
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.categories || nextList;
+          setReportDropdownCategories(list);
+          addAuditLog('Dropdown Categories Updated', 'global_config', entityId, actionLabel);
+        },
+        retryFactory: () => saveReportDropdownCategoriesDbFirst(nextList, actionLabel, entityId, true)
+      }
+    );
+  };
+
   const addReportDropdownCategory = async (
     data: Omit<ReportDropdownCategory, 'id' | 'createdAt'>
   ): Promise<{ success: boolean; category?: ReportDropdownCategory; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Report Dropdown Categories');
+    if (authErr) return { success: false, error: authErr };
     if (!data.name || !data.name.trim()) {
       return { success: false, error: 'Nama kategori wajib diisi.' };
     }
 
     const cleanName = data.name.trim();
-
-    // Check duplicate within same categoryType
     const duplicate = reportDropdownCategories.some(
       c => c.categoryType === data.categoryType && !c.isDeleted && c.name.toLowerCase().trim() === cleanName.toLowerCase()
     );
@@ -2977,28 +3492,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isDeleted: false
     };
 
-    setReportDropdownCategories(prev => [...prev, newCategory]);
-
-    try {
-      await saveReportDropdownCategoryToSupabase(newCategory);
-      addAuditLog(
-        'Dropdown Category Added',
-        'global_config',
-        newCategory.id,
-        `Menambahkan kategori ${newCategory.categoryType}: "${newCategory.name}"`
-      );
-      toast.success(`Kategori "${newCategory.name}" berhasil disimpan ke Supabase PostgreSQL.`, 'Kategori Ditambahkan');
-      return { success: true, category: newCategory };
-    } catch (err: any) {
-      console.error('[Supabase] Error saving category:', err);
-      return { success: false, error: err?.message || 'Gagal menyimpan kategori ke Supabase PostgreSQL.' };
-    }
+    const nextList = [...reportDropdownCategories, newCategory];
+    const saveRes = await saveReportDropdownCategoriesDbFirst(
+      nextList,
+      `Menambahkan kategori ${newCategory.categoryType}: "${newCategory.name}"`,
+      newCategory.id
+    );
+    if (!saveRes.success) return { success: false, error: saveRes.error };
+    toast.success(`Kategori "${newCategory.name}" berhasil disimpan ke Supabase PostgreSQL.`, 'Kategori Ditambahkan');
+    return { success: true, category: newCategory };
   };
 
   const updateReportDropdownCategory = async (
     id: string,
     updates: Partial<ReportDropdownCategory>
   ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Report Dropdown Categories');
+    if (authErr) return { success: false, error: authErr };
     const existing = reportDropdownCategories.find(c => c.id === id);
     if (!existing) {
       return { success: false, error: 'Kategori tidak ditemukan.' };
@@ -3008,7 +3518,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Nama kategori tidak boleh kosong.' };
     }
 
-    // Check duplicate if name changed
     if (updates.name && updates.name.trim().toLowerCase() !== existing.name.toLowerCase()) {
       const duplicate = reportDropdownCategories.some(
         c => c.id !== id && c.categoryType === existing.categoryType && !c.isDeleted && c.name.toLowerCase().trim() === updates.name!.trim().toLowerCase()
@@ -3028,51 +3537,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedBy: currentUser.name
     };
 
-    setReportDropdownCategories(prev => prev.map(c => c.id === id ? updatedCategory : c));
-
-    try {
-      await saveReportDropdownCategoryToSupabase(updatedCategory);
-      addAuditLog(
-        'Dropdown Category Updated',
-        'global_config',
-        id,
-        `Memperbarui kategori ${existing.categoryType}: "${updatedCategory.name}"`
-      );
-      toast.success(`Kategori "${updatedCategory.name}" berhasil diperbarui di Supabase PostgreSQL.`, 'Kategori Diperbarui');
-      return { success: true };
-    } catch (err: any) {
-      console.error('[Supabase] Error updating category:', err);
-      return { success: false, error: err?.message || 'Gagal memperbarui kategori di Supabase PostgreSQL.' };
-    }
+    const nextList = reportDropdownCategories.map(c => c.id === id ? updatedCategory : c);
+    const saveRes = await saveReportDropdownCategoriesDbFirst(
+      nextList,
+      `Memperbarui kategori ${existing.categoryType}: "${updatedCategory.name}"`,
+      id
+    );
+    if (!saveRes.success) return { success: false, error: saveRes.error };
+    toast.success(`Kategori "${updatedCategory.name}" berhasil diperbarui di Supabase PostgreSQL.`, 'Kategori Diperbarui');
+    return { success: true };
   };
 
   const deleteReportDropdownCategory = async (
     id: string,
     permanent: boolean = false
   ): Promise<{ success: boolean; error?: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Report Dropdown Categories');
+    if (authErr) return { success: false, error: authErr };
     const existing = reportDropdownCategories.find(c => c.id === id);
     if (!existing) {
       return { success: false, error: 'Kategori tidak ditemukan.' };
     }
 
-    // Soft delete to protect historical tickets that used this category
     if (permanent) {
-      setReportDropdownCategories(prev => prev.filter(c => c.id !== id));
-      try {
-        await deleteReportDropdownCategoryFromSupabase(id);
-        addAuditLog(
-          'Dropdown Category Permanently Deleted',
-          'global_config',
-          id,
-          `Menghapus permanen kategori ${existing.categoryType}: "${existing.name}"`
-        );
-        toast.warning(`Kategori "${existing.name}" dihapus permanen dari Supabase PostgreSQL.`, 'Kategori Dihapus');
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err?.message || 'Gagal menghapus kategori dari Supabase PostgreSQL.' };
-      }
+      const nextList = reportDropdownCategories.filter(c => c.id !== id);
+      const saveRes = await saveReportDropdownCategoriesDbFirst(
+        nextList,
+        `Menghapus permanen kategori ${existing.categoryType}: "${existing.name}"`,
+        id
+      );
+      if (!saveRes.success) return { success: false, error: saveRes.error };
+      toast.warning(`Kategori "${existing.name}" dihapus permanen dari Supabase PostgreSQL.`, 'Kategori Dihapus');
+      return { success: true };
     } else {
-      // Soft Delete
       const now = new Date().toISOString();
       const softDeleted: ReportDropdownCategory = {
         ...existing,
@@ -3081,28 +3578,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: now,
         updatedBy: currentUser.name
       };
-
-      setReportDropdownCategories(prev => prev.map(c => c.id === id ? softDeleted : c));
-      try {
-        await softDeleteReportDropdownCategoryInSupabase(id, currentUser.name);
-        addAuditLog(
-          'Dropdown Category Soft Deleted',
-          'global_config',
-          id,
-          `Menonaktifkan & menandai terhapus kategori ${existing.categoryType}: "${existing.name}"`
-        );
-        toast.info(`Kategori "${existing.name}" dinonaktifkan (laporan lama tetap aman).`, 'Kategori Dinonaktifkan');
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err?.message || 'Gagal soft-delete kategori di Supabase PostgreSQL.' };
-      }
+      const nextList = reportDropdownCategories.map(c => c.id === id ? softDeleted : c);
+      const saveRes = await saveReportDropdownCategoriesDbFirst(
+        nextList,
+        `Menonaktifkan & menandai terhapus kategori ${existing.categoryType}: "${existing.name}"`,
+        id
+      );
+      if (!saveRes.success) return { success: false, error: saveRes.error };
+      toast.info(`Kategori "${existing.name}" dinonaktifkan (laporan lama tetap aman).`, 'Kategori Dinonaktifkan');
+      return { success: true };
     }
   };
 
   const toggleReportDropdownCategoryActive = async (id: string): Promise<{ success: boolean; error?: string }> => {
     const existing = reportDropdownCategories.find(c => c.id === id);
     if (!existing) return { success: false, error: 'Kategori tidak ditemukan.' };
-
     return updateReportDropdownCategory(id, { isActive: !existing.isActive });
   };
 
@@ -4697,59 +5187,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // -------------------------------------------------------------
-  // Contact Center Chat Category Operations
+  // Contact Center Chat Category Operations (DB-First Super Admin)
   // -------------------------------------------------------------
-  const addChatCategory = async (categoryData: Omit<ChatCategoryConfig, 'id' | 'createdAt'>) => {
+  const saveChatCategoriesDbFirst = async (
+    updated: ChatCategoryConfig[],
+    description: string,
+    forceOverwrite = false
+  ): Promise<{ success: boolean; error?: string }> => {
+    return saveAppConfigDbFirst(
+      'chat_categories',
+      { categories: updated, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'chat_categories',
+        description,
+        forceOverwrite,
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.categories || updated;
+          setChatCategories(list);
+        },
+        retryFactory: () => saveChatCategoriesDbFirst(updated, description, true)
+      }
+    );
+  };
+
+  const addChatCategory = async (
+    categoryData: Omit<ChatCategoryConfig, 'id' | 'createdAt'>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const newCat: ChatCategoryConfig = {
       ...categoryData,
       id: 'cat-' + Date.now(),
       createdAt: new Date().toISOString()
     };
     const updated = [...chatCategories, newCat];
-    setChatCategories(updated);
-    try {
-      await saveChatCategoriesToSupabase(updated);
+    const res = await saveChatCategoriesDbFirst(updated, `Created chat category ${newCat.name}`, Boolean(options.forceOverwrite));
+    if (res.success) {
       toast.success(`Kategori chat "${newCat.name}" berhasil disimpan ke Supabase PostgreSQL.`);
-      addAuditLog('Chat Category Created', 'global_config', newCat.id, `Created chat category ${newCat.name}`);
-    } catch (e: any) {
-      toast.error('Gagal menyimpan kategori chat: ' + (e?.message || e));
     }
+    return res;
   };
 
-  const updateChatCategory = async (id: string, updates: Partial<ChatCategoryConfig>) => {
+  const updateChatCategory = async (
+    id: string,
+    updates: Partial<ChatCategoryConfig>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = chatCategories.map(c => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c));
-    setChatCategories(updated);
-    try {
-      await saveChatCategoriesToSupabase(updated);
-      toast.success('Kategori chat diperbarui.');
-      addAuditLog('Chat Category Updated', 'global_config', id, `Updated chat category ${id}`);
-    } catch (e: any) {
-      toast.error('Gagal memperbarui kategori chat: ' + (e?.message || e));
+    const res = await saveChatCategoriesDbFirst(updated, `Updated chat category ${id}`, Boolean(options.forceOverwrite));
+    if (res.success) {
+      toast.success('Kategori chat diperbarui di database.');
     }
+    return res;
   };
 
-  const deleteChatCategory = async (id: string) => {
+  const deleteChatCategory = async (
+    id: string,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const target = chatCategories.find(c => c.id === id);
-    if (!target) return;
+    if (!target) return { success: false, error: 'Kategori chat tidak ditemukan.' };
     const updated = chatCategories.filter(c => c.id !== id);
-    setChatCategories(updated);
-    try {
-      await saveChatCategoriesToSupabase(updated);
-      toast.info(`Kategori chat "${target.name}" telah dihapus.`);
-      addAuditLog('Chat Category Deleted', 'global_config', id, `Deleted chat category ${target.name}`);
-    } catch (e: any) {
-      toast.error('Gagal menghapus kategori chat: ' + (e?.message || e));
+    const res = await saveChatCategoriesDbFirst(updated, `Deleted chat category ${target.name}`, Boolean(options.forceOverwrite));
+    if (res.success) {
+      toast.info(`Kategori chat "${target.name}" telah dihapus dari database.`);
     }
+    return res;
   };
 
-  const toggleChatCategoryActive = async (id: string) => {
+  const toggleChatCategoryActive = async (
+    id: string,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = chatCategories.map(c => (c.id === id ? { ...c, active: !c.active, updatedAt: new Date().toISOString() } : c));
-    setChatCategories(updated);
-    try {
-      await saveChatCategoriesToSupabase(updated);
-    } catch (e) {
-      console.warn('[Supabase] Error toggling chat category:', e);
-    }
+    return saveChatCategoriesDbFirst(updated, `Toggled chat category ${id}`, Boolean(options.forceOverwrite));
   };
 
   const setTicketChatCategory = async (ticketId: string, category: string) => {
@@ -4768,52 +5278,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // -------------------------------------------------------------
-  // Hierarchical Droplist Operations (Status WO -> Reason WO -> Remarks)
+  // Hierarchical Droplist Operations (DB-First Super Admin)
   // -------------------------------------------------------------
-  const addHierarchicalStatus = async (statusData: Omit<HierarchicalStatus, 'id' | 'reasons'>) => {
+  const saveHierarchicalDroplistsDirect = async (
+    updated: HierarchicalStatus[],
+    actionLabel: string = 'Hierarchical droplists updated',
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    return saveAppConfigDbFirst(
+      'hierarchical_droplists',
+      { statuses: updated, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'hierarchical_droplists',
+        description: actionLabel,
+        forceOverwrite: Boolean(options.forceOverwrite),
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.statuses || updated;
+          setHierarchicalStatuses(list);
+        },
+        retryFactory: () => saveHierarchicalDroplistsDirect(updated, actionLabel, { forceOverwrite: true })
+      }
+    );
+  };
+
+  const addHierarchicalStatus = async (
+    statusData: Omit<HierarchicalStatus, 'id' | 'reasons'>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const newStatus: HierarchicalStatus = {
       ...statusData,
       id: 'hs-' + Date.now(),
       reasons: []
     };
     const updated = [...hierarchicalStatuses, newStatus];
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success(`Status WO "${newStatus.name}" berhasil ditambahkan.`);
-      addAuditLog('Status WO Created', 'global_config', newStatus.id, `Created Status WO ${newStatus.name}`);
-    } catch (e: any) {
-      toast.error('Gagal menyimpan Status WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Created Status WO ${newStatus.name}`, options);
+    if (res.success) toast.success(`Status WO "${newStatus.name}" berhasil disimpan ke database.`);
+    return res;
   };
 
-  const updateHierarchicalStatus = async (id: string, updates: Partial<HierarchicalStatus>) => {
+  const updateHierarchicalStatus = async (
+    id: string,
+    updates: Partial<HierarchicalStatus>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = hierarchicalStatuses.map(s => (s.id === id ? { ...s, ...updates } : s));
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success('Status WO diperbarui.');
-      addAuditLog('Status WO Updated', 'global_config', id, `Updated Status WO ${id}`);
-    } catch (e: any) {
-      toast.error('Gagal memperbarui Status WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Updated Status WO ${id}`, options);
+    if (res.success) toast.success('Status WO diperbarui di database.');
+    return res;
   };
 
-  const deleteHierarchicalStatus = async (id: string) => {
+  const deleteHierarchicalStatus = async (
+    id: string,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const target = hierarchicalStatuses.find(s => s.id === id);
-    if (!target) return;
+    if (!target) return { success: false, error: 'Status WO tidak ditemukan.' };
     const updated = hierarchicalStatuses.filter(s => s.id !== id);
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.info(`Status WO "${target.name}" telah dihapus.`);
-      addAuditLog('Status WO Deleted', 'global_config', id, `Deleted Status WO ${target.name}`);
-    } catch (e: any) {
-      toast.error('Gagal menghapus Status WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Deleted Status WO ${target.name}`, options);
+    if (res.success) toast.info(`Status WO "${target.name}" telah dihapus dari database.`);
+    return res;
   };
 
-  const addHierarchicalReason = async (statusId: string, reasonData: Omit<HierarchicalReason, 'id' | 'statusId' | 'remarks'>) => {
+  const addHierarchicalReason = async (
+    statusId: string,
+    reasonData: Omit<HierarchicalReason, 'id' | 'statusId' | 'remarks'>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const newReason: HierarchicalReason = {
       ...reasonData,
       id: 'hr-' + Date.now(),
@@ -4822,22 +5352,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     const updated = hierarchicalStatuses.map(s => {
       if (s.id !== statusId) return s;
-      return {
-        ...s,
-        reasons: [...s.reasons, newReason]
-      };
+      return { ...s, reasons: [...s.reasons, newReason] };
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success(`Reason WO "${newReason.name}" berhasil ditambahkan.`);
-      addAuditLog('Reason WO Created', 'global_config', newReason.id, `Created Reason WO ${newReason.name}`);
-    } catch (e: any) {
-      toast.error('Gagal menyimpan Reason WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Created Reason WO ${newReason.name}`, options);
+    if (res.success) toast.success(`Reason WO "${newReason.name}" berhasil disimpan ke database.`);
+    return res;
   };
 
-  const updateHierarchicalReason = async (statusId: string, reasonId: string, updates: Partial<HierarchicalReason>) => {
+  const updateHierarchicalReason = async (
+    statusId: string,
+    reasonId: string,
+    updates: Partial<HierarchicalReason>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = hierarchicalStatuses.map(s => {
       if (s.id !== statusId) return s;
       return {
@@ -4845,35 +5372,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reasons: s.reasons.map(r => (r.id === reasonId ? { ...r, ...updates } : r))
       };
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success('Reason WO diperbarui.');
-      addAuditLog('Reason WO Updated', 'global_config', reasonId, `Updated Reason WO ${reasonId}`);
-    } catch (e: any) {
-      toast.error('Gagal memperbarui Reason WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Updated Reason WO ${reasonId}`, options);
+    if (res.success) toast.success('Reason WO diperbarui di database.');
+    return res;
   };
 
-  const deleteHierarchicalReason = async (statusId: string, reasonId: string) => {
+  const deleteHierarchicalReason = async (
+    statusId: string,
+    reasonId: string,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = hierarchicalStatuses.map(s => {
       if (s.id !== statusId) return s;
-      return {
-        ...s,
-        reasons: s.reasons.filter(r => r.id !== reasonId)
-      };
+      return { ...s, reasons: s.reasons.filter(r => r.id !== reasonId) };
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.info('Reason WO telah dihapus.');
-      addAuditLog('Reason WO Deleted', 'global_config', reasonId, `Deleted Reason WO ${reasonId}`);
-    } catch (e: any) {
-      toast.error('Gagal menghapus Reason WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Deleted Reason WO ${reasonId}`, options);
+    if (res.success) toast.info('Reason WO telah dihapus dari database.');
+    return res;
   };
 
-  const moveHierarchicalReason = async (fromStatusId: string, toStatusId: string, reasonId: string) => {
+  const moveHierarchicalReason = async (
+    fromStatusId: string,
+    toStatusId: string,
+    reasonId: string,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     let movedReason: HierarchicalReason | null = null;
     hierarchicalStatuses.forEach(s => {
       if (s.id === fromStatusId) {
@@ -4881,7 +5404,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (found) movedReason = { ...found, statusId: toStatusId };
       }
     });
-    if (!movedReason) return;
+    if (!movedReason) return { success: false, error: 'Reason WO tidak ditemukan.' };
 
     const updated = hierarchicalStatuses.map(s => {
       if (s.id === fromStatusId) {
@@ -4892,16 +5415,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return s;
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success('Reason WO dipindahkan.');
-    } catch (e: any) {
-      toast.error('Gagal memindahkan Reason WO: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Moved Reason WO ${reasonId}`, options);
+    if (res.success) toast.success('Reason WO dipindahkan dan disimpan ke database.');
+    return res;
   };
 
-  const addHierarchicalRemark = async (statusId: string, reasonId: string, remarkData: Omit<HierarchicalRemark, 'id' | 'reasonId'>) => {
+  const addHierarchicalRemark = async (
+    statusId: string,
+    reasonId: string,
+    remarkData: Omit<HierarchicalRemark, 'id' | 'reasonId'>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const newRemark: HierarchicalRemark = {
       ...remarkData,
       id: 'hrm-' + Date.now(),
@@ -4913,24 +5437,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...s,
         reasons: s.reasons.map(r => {
           if (r.id !== reasonId) return r;
-          return {
-            ...r,
-            remarks: [...r.remarks, newRemark]
-          };
+          return { ...r, remarks: [...r.remarks, newRemark] };
         })
       };
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success(`Remarks "${newRemark.name}" berhasil ditambahkan.`);
-      addAuditLog('Remark Created', 'global_config', newRemark.id, `Created Remark ${newRemark.name}`);
-    } catch (e: any) {
-      toast.error('Gagal menyimpan Remarks: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Created Remark ${newRemark.name}`, options);
+    if (res.success) toast.success(`Remarks "${newRemark.name}" berhasil disimpan ke database.`);
+    return res;
   };
 
-  const updateHierarchicalRemark = async (statusId: string, reasonId: string, remarkId: string, updates: Partial<HierarchicalRemark>) => {
+  const updateHierarchicalRemark = async (
+    statusId: string,
+    reasonId: string,
+    remarkId: string,
+    updates: Partial<HierarchicalRemark>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = hierarchicalStatuses.map(s => {
       if (s.id !== statusId) return s;
       return {
@@ -4944,17 +5466,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       };
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.success('Remarks diperbarui.');
-      addAuditLog('Remark Updated', 'global_config', remarkId, `Updated Remark ${remarkId}`);
-    } catch (e: any) {
-      toast.error('Gagal memperbarui Remarks: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Updated Remark ${remarkId}`, options);
+    if (res.success) toast.success('Remarks diperbarui di database.');
+    return res;
   };
 
-  const deleteHierarchicalRemark = async (statusId: string, reasonId: string, remarkId: string) => {
+  const deleteHierarchicalRemark = async (
+    statusId: string,
+    reasonId: string,
+    remarkId: string,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
     const updated = hierarchicalStatuses.map(s => {
       if (s.id !== statusId) return s;
       return {
@@ -4968,14 +5490,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       };
     });
-    setHierarchicalStatuses(updated);
-    try {
-      await saveHierarchicalDroplistsToSupabase(updated);
-      toast.info('Remarks telah dihapus.');
-      addAuditLog('Remark Deleted', 'global_config', remarkId, `Deleted Remark ${remarkId}`);
-    } catch (e: any) {
-      toast.error('Gagal menghapus Remarks: ' + (e?.message || e));
-    }
+    const res = await saveHierarchicalDroplistsDirect(updated, `Deleted Remark ${remarkId}`, options);
+    if (res.success) toast.info('Remarks telah dihapus dari database.');
+    return res;
   };
 
   const getReasonsForStatus = (statusNameOrId: string): HierarchicalReason[] => {
@@ -4997,29 +5514,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (matchedR.remarks || []).filter(rm => rm.active !== false && (rm as any).isActive !== false);
   };
 
-  const reconcileDroplistsNow = async (): Promise<{ success: boolean; changedCount: number; message: string }> => {
-    try {
-      const { reconciled, changedCount } = reconcileDroplistData(hierarchicalStatuses, reportDropdownCategories);
-      if (changedCount > 0) {
-        setHierarchicalStatuses(reconciled);
-        await saveHierarchicalDroplistsToSupabase(reconciled);
-        addAuditLog(
-          'Droplist Data Reconciled',
-          'global_config',
-          'hierarchical_droplists',
-          `Rekonsiliasi data droplist: ${changedCount} opsi lama berhasil diselaraskan ke struktur hierarki Supabase PostgreSQL.`
-        );
-        toast.success(`Rekonsiliasi selesai: ${changedCount} opsi lama berhasil diselaraskan ke hierarki Supabase PostgreSQL.`, 'Rekonsiliasi Berhasil');
-        return { success: true, changedCount, message: `${changedCount} opsi berhasil direkonsiliasi ke struktur hierarki.` };
-      } else {
-        toast.info('Seluruh konfigurasi droplist sudah selaras dan tidak ada data yang tumpang tindih.', 'Data Terverifikasi');
-        return { success: true, changedCount: 0, message: 'Seluruh konfigurasi sudah selaras dan terhubung.' };
+  const reconcileDroplistsNow = async (
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; changedCount: number; message: string }> => {
+    const authErr = assertSuperAdminConfigWrite('Rekonsiliasi Droplist');
+    if (authErr) return { success: false, changedCount: 0, message: authErr };
+    const { reconciled, changedCount } = reconcileDroplistData(hierarchicalStatuses, reportDropdownCategories);
+    if (changedCount > 0) {
+      const saveRes = await saveHierarchicalDroplistsDirect(
+        reconciled,
+        `Rekonsiliasi data droplist: ${changedCount} opsi diselaraskan`,
+        options
+      );
+      if (!saveRes.success) {
+        return { success: false, changedCount: 0, message: saveRes.error || 'Gagal rekonsiliasi droplist.' };
       }
-    } catch (err: any) {
-      console.error('[Reconciliation] Error reconciling droplists:', err);
-      toast.error('Gagal melakukan rekonsiliasi data: ' + (err?.message || err));
-      return { success: false, changedCount: 0, message: err?.message || 'Gagal rekonsiliasi' };
+      toast.success(`Rekonsiliasi selesai: ${changedCount} opsi lama berhasil diselaraskan ke hierarki Supabase PostgreSQL.`, 'Rekonsiliasi Berhasil');
+      return { success: true, changedCount, message: `${changedCount} opsi berhasil direkonsiliasi ke struktur hierarki.` };
     }
+    toast.info('Seluruh konfigurasi droplist sudah selaras dan tidak ada data yang tumpang tindih.', 'Data Terverifikasi');
+    return { success: true, changedCount: 0, message: 'Seluruh konfigurasi sudah selaras dan terhubung.' };
   };
 
 
@@ -5118,32 +5632,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addAuditLog('Customer Unreachable', 'ticket', ticketId, `Customer unreachable. Notes: ${notes}`);
   };
 
-  const toggleWorkflowRule = (ruleId: string, enabled: boolean) => {
-    setWorkflowRules(prev =>
-      prev.map(r => (r.id === ruleId ? { ...r, enabled } : r))
+  const toggleWorkflowRule = async (
+    ruleId: string,
+    enabled: boolean,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const nextRules = workflowRules.map(r => (r.id === ruleId ? { ...r, enabled } : r));
+    const res = await saveAppConfigDbFirst(
+      'workflow_rules',
+      { rules: nextRules, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'workflow_rules',
+        description: `Workflow rule ${ruleId} set to ${enabled ? 'ACTIVE' : 'INACTIVE'}`,
+        forceOverwrite: Boolean(options.forceOverwrite),
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.rules || nextRules;
+          setWorkflowRules(list);
+          addAuditLog('Workflow Toggled', 'workflow', ruleId, `Workflow rule ${ruleId} set to ${enabled ? 'ACTIVE' : 'INACTIVE'}`);
+        },
+        retryFactory: () => toggleWorkflowRule(ruleId, enabled, { forceOverwrite: true })
+      }
     );
-    addAuditLog('Workflow Toggled', 'workflow', ruleId, `Workflow rule ${ruleId} set to ${enabled ? 'ACTIVE' : 'INACTIVE'}`);
+    if (res.success) {
+      toast.success(`Workflow rule ${enabled ? 'diaktifkan' : 'dinonaktifkan'} dan disimpan ke database.`);
+    }
+    return res;
   };
 
-  const updateWorkflowRule = (ruleId: string, updates: Partial<WorkflowRule>) => {
-    setWorkflowRules(prev =>
-      prev.map(r => (r.id === ruleId ? { ...r, ...updates } : r))
+  const updateWorkflowRule = async (
+    ruleId: string,
+    updates: Partial<WorkflowRule>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const nextRules = workflowRules.map(r => (r.id === ruleId ? { ...r, ...updates } : r));
+    const res = await saveAppConfigDbFirst(
+      'workflow_rules',
+      { rules: nextRules, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'workflow_rules',
+        description: `Updated workflow ${ruleId}`,
+        forceOverwrite: Boolean(options.forceOverwrite),
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.rules || nextRules;
+          setWorkflowRules(list);
+          addAuditLog('Workflow Updated', 'workflow', ruleId, `Updated workflow ${ruleId}`);
+        },
+        retryFactory: () => updateWorkflowRule(ruleId, updates, { forceOverwrite: true })
+      }
     );
-    addAuditLog('Workflow Updated', 'workflow', ruleId, `Updated workflow ${ruleId}`);
+    if (res.success) {
+      toast.success('Workflow rule berhasil diperbarui di database.');
+    }
+    return res;
   };
 
-  const updateHeaderMapping = (field: string, aliases: string[]) => {
-    setHeaderMappings(prev =>
-      prev.map(m => (m.standardField === field ? { ...m, aliases } : m))
+  const updateHeaderMapping = async (
+    field: string,
+    aliases: string[],
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const nextMappings = headerMappings.map(m => (m.standardField === field ? { ...m, aliases } : m));
+    const res = await saveAppConfigDbFirst(
+      'header_mappings',
+      { mappings: nextMappings, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'header_mappings',
+        description: `Updated alias dictionary for ${field}`,
+        forceOverwrite: Boolean(options.forceOverwrite),
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.mappings || nextMappings;
+          setHeaderMappings(list);
+          addAuditLog('Header Mapping Updated', 'global_config', field, `Updated alias dictionary for ${field}`);
+        },
+        retryFactory: () => updateHeaderMapping(field, aliases, { forceOverwrite: true })
+      }
     );
-    addAuditLog('Header Mapping Updated', 'ui_config', field, `Updated alias dictionary for ${field}`);
+    if (res.success) {
+      toast.success(`Mapping header "${field}" disimpan ke database.`);
+    }
+    return res;
   };
 
-  const updateCanonicalFieldConfig = (field: string, updates: Partial<CanonicalFieldConfig>) => {
-    setCanonicalFields(prev =>
-      prev.map(f => (f.canonicalField === field ? { ...f, ...updates } : f))
+  const updateCanonicalFieldConfig = async (
+    field: string,
+    updates: Partial<CanonicalFieldConfig>,
+    options: { forceOverwrite?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> => {
+    const nextFields = canonicalFields.map(f => (f.canonicalField === field ? { ...f, ...updates } : f));
+    const res = await saveAppConfigDbFirst(
+      'canonical_fields',
+      { fields: nextFields, updatedAt: new Date().toISOString(), updatedBy: currentUser.name },
+      {
+        module: 'canonical_fields',
+        description: `Updated canonical config for ${field}`,
+        forceOverwrite: Boolean(options.forceOverwrite),
+        onSuccess: (saved) => {
+          const list = Array.isArray(saved) ? saved : (saved as any)?.fields || nextFields;
+          setCanonicalFields(list);
+          addAuditLog('Canonical Field Config Updated', 'global_config', field, `Updated canonical config for ${field}`);
+        },
+        retryFactory: () => updateCanonicalFieldConfig(field, updates, { forceOverwrite: true })
+      }
     );
-    addAuditLog('Canonical Field Config Updated', 'ui_config', field, `Updated canonical config for ${field}`);
+    if (res.success) {
+      toast.success(`Canonical field "${field}" disimpan ke database.`);
+    }
+    return res;
   };
 
   // Dynamic Options
@@ -5186,6 +5780,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshAuthSession,
         users,
         hasPermission,
+        rolePermissions,
+        rolePermissionsVersion,
+        updateRolePermissions,
+        globalConflict,
+        clearGlobalConflict,
+        resolveGlobalConflict,
         canDelete,
         canImport,
         canEditWOData,
@@ -5299,6 +5899,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleChatCategoryActive,
         setTicketChatCategory,
         hierarchicalStatuses,
+        saveHierarchicalDroplistsDirect,
         addHierarchicalStatus,
         updateHierarchicalStatus,
         deleteHierarchicalStatus,

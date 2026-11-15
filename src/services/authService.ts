@@ -37,7 +37,7 @@ export type Permission =
  * - Penghapusan WO: management_data ONLY. super_admin and all other roles DENY.
  * - WhatsApp Templates: super_admin & dispatch ALLOW. All other roles DENY.
  */
-export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   super_admin: [
     'login',
     'manage_users',
@@ -111,6 +111,36 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_audit_logs'
   ]
 };
+
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  super_admin: [...DEFAULT_ROLE_PERMISSIONS.super_admin],
+  dispatch: [...DEFAULT_ROLE_PERMISSIONS.dispatch],
+  leader: [...DEFAULT_ROLE_PERMISSIONS.leader],
+  installer: [...DEFAULT_ROLE_PERMISSIONS.installer],
+  management_data: [...DEFAULT_ROLE_PERMISSIONS.management_data],
+  it_support: [...DEFAULT_ROLE_PERMISSIONS.it_support]
+};
+
+export function setDynamicRolePermissions(matrix: Record<string, string[]>) {
+  if (!matrix || typeof matrix !== 'object') return;
+  const roles: UserRole[] = ['super_admin', 'dispatch', 'leader', 'installer', 'management_data', 'it_support'];
+  for (const r of roles) {
+    if (Array.isArray(matrix[r])) {
+      ROLE_PERMISSIONS[r] = Array.from(new Set(matrix[r])) as Permission[];
+    }
+  }
+}
+
+export function getRolePermissionsSnapshot(): Record<UserRole, Permission[]> {
+  return {
+    super_admin: [...ROLE_PERMISSIONS.super_admin],
+    dispatch: [...ROLE_PERMISSIONS.dispatch],
+    leader: [...ROLE_PERMISSIONS.leader],
+    installer: [...ROLE_PERMISSIONS.installer],
+    management_data: [...ROLE_PERMISSIONS.management_data],
+    it_support: [...ROLE_PERMISSIONS.it_support]
+  };
+}
 
 export function hasPermission(role: UserRole, permission: Permission): boolean {
   const permissions = ROLE_PERMISSIONS[role];

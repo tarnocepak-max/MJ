@@ -467,7 +467,7 @@ async function run() {
         rlsMsg.includes('HTTP 403') &&
         rlsMsg.includes('42501') &&
         rlsMsg.includes('app_settings') &&
-        rlsMsg.includes('UPSERT') &&
+        (rlsMsg.includes('UPSERT') || rlsMsg.includes('SELECT')) &&
         !rlsMsg.includes('tok_superadmin_test_123') &&
         !rlsMsg.includes('SERVICE_ROLE');
     }

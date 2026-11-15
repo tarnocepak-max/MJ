@@ -4212,3 +4212,521 @@ export async function reassignTicketInSupabase(
     }
   };
 }
+
+// ------------------------------------------------------------------------------
+// DATA ACCESS LAYER: VERSIONED GLOBAL CONFIG, VERSION HISTORY & DYNAMIC RBAC
+// ------------------------------------------------------------------------------
+
+export interface VersionedSaveOptions {
+  expectedVersion?: number | null;
+  forceOverwrite?: boolean;
+  description?: string;
+  actorId?: string;
+  actorName?: string;
+  actorRole?: string;
+  action?: 'CREATE' | 'UPDATE' | 'ROLLBACK' | 'RESET';
+  module?: string;
+  notes?: string;
+}
+
+export interface GlobalConfigVersionRecord {
+  id: string;
+  config_key: string;
+  version: number;
+  previous_value: any;
+  new_value: any;
+  changed_by_id?: string | null;
+  changed_by_name?: string | null;
+  changed_by_role?: string | null;
+  action: string;
+  module: string;
+  tx_status: string;
+  notes?: string | null;
+  created_at: string;
+}
+
+function unwrapSettingJsonValue(raw: any): any {
+  if (raw && typeof raw === 'object' && 'value' in raw && Object.keys(raw).length === 1) {
+    return raw.value;
+  }
+  return raw;
+}
+
+function isMissingSchemaObjectError(err: any): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    code === '42703' ||
+    code === '42P01' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    msg.includes('could not find the') ||
+    msg.includes('does not exist')
+  );
+}
+
+export async function getAllAppSettingsFromSupabase(): Promise<
+  SupabaseOpResult<Array<{ key: string; value: any; version: number; updatedBy?: string | null; updatedAt?: string | null }>>
+> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Supabase client belum dikonfigurasi pada server.',
+        httpStatus: 503,
+        table: 'app_settings',
+        operation: 'SELECT',
+        isUnavailable: true
+      }
+    };
+  }
+
+  try {
+    let { data, error } = await client
+      .from('app_settings')
+      .select('setting_key, setting_value, version, description, updated_by, updated_by_id, created_at, updated_at')
+      .order('updated_at', { ascending: false });
+
+    if (error && isMissingSchemaObjectError(error)) {
+      const fallback = await client
+        .from('app_settings')
+        .select('setting_key, setting_value, description, updated_by, created_at, updated_at')
+        .order('updated_at', { ascending: false });
+      data = fallback.data as any;
+      error = fallback.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error, { table: 'app_settings', operation: 'SELECT' }) };
+    }
+
+    const mapped = (data || []).map((row: any) => ({
+      key: row.setting_key,
+      value: unwrapSettingJsonValue(row.setting_value),
+      version: typeof row.version === 'number' && Number.isFinite(row.version) ? Number(row.version) : 1,
+      updatedBy: row.updated_by || null,
+      updatedAt: row.updated_at || null
+    }));
+
+    return { success: true, data: mapped };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'app_settings', operation: 'SELECT' }) };
+  }
+}
+
+export async function getVersionedAppSettingFromSupabase(
+  key: string
+): Promise<SupabaseOpResult<{ value: any; version: number; updatedBy?: string | null; updatedAt?: string | null }>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Supabase client belum dikonfigurasi pada server.',
+        httpStatus: 503,
+        table: 'app_settings',
+        operation: 'SELECT',
+        isUnavailable: true
+      }
+    };
+  }
+
+  const cleanKey = String(key || '').trim();
+  if (!cleanKey) {
+    return {
+      success: false,
+      error: { code: 'INVALID_KEY', message: 'Kunci setting wajib diisi.', httpStatus: 400, isValidationError: true }
+    };
+  }
+
+  try {
+    let { data, error } = await client
+      .from('app_settings')
+      .select('setting_key, setting_value, version, description, updated_by, updated_by_id, created_at, updated_at')
+      .eq('setting_key', cleanKey)
+      .maybeSingle();
+
+    if (error && isMissingSchemaObjectError(error)) {
+      const fallback = await client
+        .from('app_settings')
+        .select('setting_key, setting_value, description, updated_by, created_at, updated_at')
+        .eq('setting_key', cleanKey)
+        .maybeSingle();
+      data = fallback.data as any;
+      error = fallback.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error, { table: 'app_settings', operation: 'SELECT' }) };
+    }
+
+    if (!data) {
+      return { success: true, data: { value: null, version: 0, updatedBy: null, updatedAt: null }, record: null };
+    }
+
+    const val = unwrapSettingJsonValue(data.setting_value);
+    const ver =
+      typeof (data as any).version === 'number' && Number.isFinite((data as any).version)
+        ? Number((data as any).version)
+        : typeof val?._configVersion === 'number'
+        ? Number(val._configVersion)
+        : 1;
+
+    return {
+      success: true,
+      data: {
+        value: val,
+        version: ver,
+        updatedBy: data.updated_by || null,
+        updatedAt: data.updated_at || null
+      },
+      record: data,
+      updatedAt: data.updated_at
+    };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'app_settings', operation: 'SELECT' }) };
+  }
+}
+
+export async function saveVersionedAppSettingToSupabase(
+  key: string,
+  value: any,
+  options: VersionedSaveOptions = {}
+): Promise<SupabaseOpResult<{ value: any; version: number; previousValue: any; updatedAt: string; updatedBy: string; versionRecordId?: string }>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message: 'Supabase client belum dikonfigurasi pada server.',
+        httpStatus: 503,
+        table: 'app_settings',
+        operation: 'UPSERT',
+        isUnavailable: true
+      }
+    };
+  }
+
+  const cleanKey = String(key || '').trim();
+  if (!cleanKey) {
+    return {
+      success: false,
+      error: { code: 'INVALID_KEY', message: 'Kunci setting wajib diisi.', httpStatus: 400, isValidationError: true }
+    };
+  }
+  if (value === undefined) {
+    return {
+      success: false,
+      error: { code: 'INVALID_PAYLOAD', message: 'Nilai konfigurasi (value) wajib disertakan.', httpStatus: 400, isValidationError: true }
+    };
+  }
+
+  let normalizedJsonValue: any;
+  let cleanComparableValue: any;
+  try {
+    cleanComparableValue = JSON.parse(JSON.stringify(value));
+    const wrapped = value !== null && typeof value === 'object' ? value : { value };
+    normalizedJsonValue = JSON.parse(JSON.stringify(wrapped));
+  } catch (err: any) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_JSON_PAYLOAD',
+        message: `Payload konfigurasi tidak valid untuk serialisasi JSONB: ${err?.message || 'Invalid JSON'}`,
+        httpStatus: 400,
+        isValidationError: true
+      }
+    };
+  }
+
+  // 1. Read existing row to inspect version & previous value
+  const existingRes = await getVersionedAppSettingFromSupabase(cleanKey);
+  if (!existingRes.success) {
+    return { success: false, error: existingRes.error };
+  }
+
+  const existingRecord = existingRes.record;
+  const previousValue = existingRes.data?.value ?? null;
+  const currentVersion = existingRecord ? existingRes.data?.version || 1 : 0;
+
+  // 2. Optimistic Concurrency Control check
+  if (
+    !options.forceOverwrite &&
+    options.expectedVersion !== undefined &&
+    options.expectedVersion !== null &&
+    existingRecord !== null &&
+    Number(options.expectedVersion) !== currentVersion
+  ) {
+    return {
+      success: false,
+      error: {
+        code: 'VERSION_CONFLICT',
+        message: `Konflik perubahan terdeteksi: konfigurasi "${cleanKey}" telah diperbarui ke versi v${currentVersion} oleh ${existingRes.data?.updatedBy || 'Super Admin lain'}.`,
+        httpStatus: 409,
+        table: 'app_settings',
+        operation: 'OCC_CHECK',
+        details: {
+          key: cleanKey,
+          expectedVersion: Number(options.expectedVersion),
+          currentVersion,
+          currentValue: previousValue,
+          updatedBy: existingRes.data?.updatedBy || null,
+          updatedAt: existingRes.data?.updatedAt || null
+        }
+      }
+    };
+  }
+
+  const nextVersion = existingRecord ? currentVersion + 1 : 1;
+  const nowIso = new Date().toISOString();
+  const actorName = options.actorName || 'Super Admin';
+  const actorId = options.actorId || null;
+  const actorRole = options.actorRole || 'super_admin';
+  const action = options.action || (existingRecord ? 'UPDATE' : 'CREATE');
+  const moduleName = options.module || cleanKey;
+
+  try {
+    const fullPayload: any = {
+      setting_key: cleanKey,
+      setting_value: normalizedJsonValue,
+      description: options.description || `Global config "${cleanKey}" v${nextVersion} by ${actorName}`,
+      updated_by: actorName,
+      updated_by_id: actorId,
+      version: nextVersion,
+      updated_at: nowIso
+    };
+
+    let { data, error } = await client
+      .from('app_settings')
+      .upsert([fullPayload], { onConflict: 'setting_key' })
+      .select('setting_key, setting_value, version, description, updated_by, updated_by_id, created_at, updated_at')
+      .maybeSingle();
+
+    if (error && isMissingSchemaObjectError(error)) {
+      const legacyPayload = {
+        setting_key: cleanKey,
+        setting_value: normalizedJsonValue,
+        description: options.description || `Global config "${cleanKey}" v${nextVersion} by ${actorName}`,
+        updated_by: actorName,
+        updated_at: nowIso
+      };
+      const retry = await client
+        .from('app_settings')
+        .upsert([legacyPayload], { onConflict: 'setting_key' })
+        .select('setting_key, setting_value, description, updated_by, created_at, updated_at')
+        .maybeSingle();
+      data = retry.data as any;
+      error = retry.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error, { table: 'app_settings', operation: 'UPSERT' }) };
+    }
+
+    if (!data) {
+      return {
+        success: false,
+        error: {
+          code: 'UPSERT_NO_CONFIRMATION',
+          message: `Database tidak mengonfirmasi penyimpanan "${cleanKey}" ke app_settings.`,
+          httpStatus: 500,
+          table: 'app_settings',
+          operation: 'UPSERT'
+        }
+      };
+    }
+
+    // 3. Record immutable snapshot in global_config_versions
+    const versionRecordId = `gcv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const versionRow: GlobalConfigVersionRecord = {
+        id: versionRecordId,
+        config_key: cleanKey,
+        version: nextVersion,
+        previous_value: previousValue,
+        new_value: cleanComparableValue,
+        changed_by_id: actorId,
+        changed_by_name: actorName,
+        changed_by_role: actorRole,
+        action,
+        module: moduleName,
+        tx_status: 'COMMITTED',
+        notes: options.notes || null,
+        created_at: nowIso
+      };
+
+      const { error: verErr } = await client.from('global_config_versions').insert([versionRow]);
+      if (verErr && !isMissingSchemaObjectError(verErr)) {
+        console.warn('[Supabase DAL] Warning recording global_config_versions:', verErr.message || verErr);
+      }
+    } catch (verCatchErr: any) {
+      console.warn('[Supabase DAL] Notice global_config_versions insert:', verCatchErr?.message || verCatchErr);
+    }
+
+    return {
+      success: true,
+      data: {
+        value: cleanComparableValue,
+        version: nextVersion,
+        previousValue,
+        updatedAt: data.updated_at || nowIso,
+        updatedBy: actorName,
+        versionRecordId
+      },
+      record: data,
+      updatedAt: data.updated_at || nowIso
+    };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'app_settings', operation: 'UPSERT' }) };
+  }
+}
+
+export async function getConfigVersionsFromSupabase(
+  configKey?: string,
+  limit: number = 100
+): Promise<SupabaseOpResult<GlobalConfigVersionRecord[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', httpStatus: 503, isUnavailable: true }
+    };
+  }
+
+  try {
+    let query = client
+      .from('global_config_versions')
+      .select('id, config_key, version, previous_value, new_value, changed_by_id, changed_by_name, changed_by_role, action, module, tx_status, notes, created_at')
+      .order('created_at', { ascending: false })
+      .limit(Math.max(1, Math.min(500, limit)));
+
+    if (configKey && configKey.trim() && configKey !== 'ALL') {
+      query = query.eq('config_key', configKey.trim());
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { success: true, data: [] };
+      }
+      return { success: false, error: classifySupabaseError(error, { table: 'global_config_versions', operation: 'SELECT' }) };
+    }
+    return { success: true, data: (data || []) as GlobalConfigVersionRecord[] };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'global_config_versions', operation: 'SELECT' }) };
+  }
+}
+
+export async function getConfigVersionByIdFromSupabase(
+  versionId: string
+): Promise<SupabaseOpResult<GlobalConfigVersionRecord | null>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', httpStatus: 503, isUnavailable: true }
+    };
+  }
+
+  try {
+    const { data, error } = await client
+      .from('global_config_versions')
+      .select('id, config_key, version, previous_value, new_value, changed_by_id, changed_by_name, changed_by_role, action, module, tx_status, notes, created_at')
+      .eq('id', versionId.trim())
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { success: true, data: null };
+      }
+      return { success: false, error: classifySupabaseError(error, { table: 'global_config_versions', operation: 'SELECT' }) };
+    }
+    return { success: true, data: (data as GlobalConfigVersionRecord) || null };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'global_config_versions', operation: 'SELECT' }) };
+  }
+}
+
+export async function getRolesFromSupabase(): Promise<
+  SupabaseOpResult<Array<{ id: string; code: string; name: string; permissions: string[]; version?: number; updatedAt?: string }>>
+> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', httpStatus: 503, isUnavailable: true }
+    };
+  }
+
+  try {
+    let { data, error } = await client
+      .from('roles')
+      .select('id, code, name, permissions, version, updated_at');
+
+    if (error && isMissingSchemaObjectError(error)) {
+      const fallback = await client.from('roles').select('id, code, name, permissions, updated_at');
+      data = fallback.data as any;
+      error = fallback.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error, { table: 'roles', operation: 'SELECT' }) };
+    }
+    return {
+      success: true,
+      data: (data || []).map((r: any) => ({
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        permissions: Array.isArray(r.permissions) ? r.permissions : [],
+        version: typeof r.version === 'number' ? r.version : 1,
+        updatedAt: r.updated_at
+      }))
+    };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'roles', operation: 'SELECT' }) };
+  }
+}
+
+export async function updateRolePermissionsInSupabase(
+  roleCode: string,
+  permissions: string[],
+  updatedBy?: string
+): Promise<SupabaseOpResult<boolean>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return {
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', httpStatus: 503, isUnavailable: true }
+    };
+  }
+
+  try {
+    const cleanPerms = Array.from(new Set(permissions.map(String)));
+    const nowIso = new Date().toISOString();
+    let { error } = await client
+      .from('roles')
+      .update({ permissions: cleanPerms, updated_by: updatedBy || 'Super Admin', updated_at: nowIso })
+      .eq('code', roleCode);
+
+    if (error && isMissingSchemaObjectError(error)) {
+      const retry = await client
+        .from('roles')
+        .update({ permissions: cleanPerms, updated_at: nowIso })
+        .eq('code', roleCode);
+      error = retry.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error, { table: 'roles', operation: 'UPDATE' }) };
+    }
+    return { success: true, data: true };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err, { table: 'roles', operation: 'UPDATE' }) };
+  }
+}
+

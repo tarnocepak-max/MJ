@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
-import { ROLE_PERMISSIONS, Permission } from '../../services/authService';
+import { Permission } from '../../services/authService';
 import {
   ShieldCheck,
   Shield,
@@ -12,17 +12,36 @@ import {
   Check,
   X,
   Lock,
-  Info
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 
+const CORE_SUPER_ADMIN_PERMISSIONS: Permission[] = [
+  'login',
+  'manage_users',
+  'ui_configuration',
+  'application_configuration',
+  'view_audit_logs',
+  'system_health'
+];
+
 export const ManagementRoleView: React.FC = () => {
-  const { currentUser } = useApp();
+  const {
+    currentUser,
+    rolePermissions,
+    rolePermissionsVersion,
+    updateRolePermissions
+  } = useApp();
+
+  const isSuperAdmin = currentUser.role === 'super_admin';
+  const [savingCell, setSavingCell] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const roles: { role: UserRole; label: string; desc: string; icon: any; color: string }[] = [
     {
       role: 'super_admin',
       label: 'Super Admin (Super Agent)',
-      desc: 'Akses administratif sentral, konfigurasi global, manajemen akun, Google Sheets, dan supervisi operasional (Penghapusan WO dikhususkan untuk Management Data).',
+      desc: 'Pemegang kendali konfigurasi global aplikasi, manajemen RBAC, manajemen akun, Google Sheets, dan supervisi operasional.',
       icon: ShieldCheck,
       color: 'text-purple-600 bg-purple-100 dark:bg-purple-950/60'
     },
@@ -57,7 +76,7 @@ export const ManagementRoleView: React.FC = () => {
     {
       role: 'it_support',
       label: 'IT Support Application',
-      desc: 'Pengaturan UI, konfigurasi menu, setting droplist, system health. TIDAK memiliki akses ke data pelanggan/tiket.',
+      desc: 'Pemantauan System Health & Audit Log (Read-Only). Pengubahan konfigurasi global aplikasi dikunci eksklusif untuk Super Admin.',
       icon: Sliders,
       color: 'text-teal-600 bg-teal-100 dark:bg-teal-950/60'
     }
@@ -82,40 +101,103 @@ export const ManagementRoleView: React.FC = () => {
     { key: 'delete_wo_data', label: 'Menghapus Data Work Order (Eksklusif Management Data)', category: 'Keamanan' },
     { key: 'manage_whatsapp_templates', label: 'Kelola Template WhatsApp (Super Admin & Dispatch)', category: 'Komunikasi' },
     { key: 'ui_configuration', label: 'Konfigurasi Layout & UI Builder', category: 'Teknis & Sistem' },
+    { key: 'application_configuration', label: 'Konfigurasi Global Aplikasi & Menu', category: 'Teknis & Sistem' },
     { key: 'system_health', label: 'Monitoring System Health & Diagnostik', category: 'Teknis & Sistem' },
     { key: 'setting_droplist', label: 'Mengatur Droplist Kamus Pilihan', category: 'Teknis & Sistem' }
   ];
 
+  const handleTogglePermission = async (role: UserRole, permKey: Permission) => {
+    if (!isSuperAdmin || savingCell) return;
+    if (role === 'super_admin' && CORE_SUPER_ADMIN_PERMISSIONS.includes(permKey)) {
+      return;
+    }
+
+    const cellId = `${role}:${permKey}`;
+    setSavingCell(cellId);
+    setLastError(null);
+
+    const currentList = Array.isArray(rolePermissions[role]) ? rolePermissions[role] : [];
+    const exists = currentList.includes(permKey);
+    const nextRolePerms = exists
+      ? currentList.filter(p => p !== permKey)
+      : [...currentList, permKey];
+
+    const nextMatrix: Record<string, string[]> = {
+      ...rolePermissions,
+      [role]: nextRolePerms
+    };
+
+    const res = await updateRolePermissions(nextMatrix, {
+      notes: `${exists ? 'Revoke' : 'Grant'} ${permKey} pada role ${role}`
+    });
+
+    if (!res.success && res.error) {
+      setLastError(res.error);
+    }
+    setSavingCell(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex items-center gap-2">
+            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex flex-wrap items-center gap-2">
               <span>Manajemen Role & Matriks Hak Akses (RBAC)</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
                 6 Peran Resmi
               </span>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+                v{rolePermissionsVersion} • DB-First
+              </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Matriks otorisasi hak akses berdasarkan Master Konstitusi Keamanan MoraJaws. Ditegakkan pada level server dan UI.
+              Setiap perubahan permission oleh Super Admin langsung disimpan ke PostgreSQL dan disinkronkan secara real-time ke semua sesi pengguna aktif.
             </p>
           </div>
         </div>
       </div>
 
+      {/* Non-Super Admin Read-Only Lock Notice */}
+      {!isSuperAdmin && (
+        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center gap-3 text-xs text-amber-800 dark:text-amber-200">
+          <Lock className="w-4 h-4 shrink-0 text-amber-600" />
+          <span>
+            <strong>Mode Baca Saja:</strong> Hanya akun dengan role <strong>Super Admin</strong> yang berwenang mengubah matriks hak akses global (RBAC). Perubahan akan ditolak oleh server.
+          </span>
+        </div>
+      )}
+
+      {/* Database Error Notice */}
+      {lastError && (
+        <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-200">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{lastError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLastError(null)}
+            className="text-[11px] font-bold underline cursor-pointer shrink-0"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
+
       {/* Role Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {roles.map(r => {
           const Icon = r.icon;
+          const permsCount = Array.isArray(rolePermissions[r.role]) ? rolePermissions[r.role].length : 0;
           return (
             <div
               key={r.role}
-              className="p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 space-y-2 text-xs flex flex-col justify-between shadow-2xs"
+              className="p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 space-y-2 text-xs flex flex-col justify-between shadow-2xs"
             >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -128,9 +210,9 @@ export const ManagementRoleView: React.FC = () => {
                   {r.desc}
                 </p>
               </div>
-              <div className="pt-2 border-t text-[10.5px] font-mono text-slate-400 flex items-center justify-between">
-                <span>Total Izin: {ROLE_PERMISSIONS[r.role]?.length || 0}</span>
-                <span className="capitalize text-[#5B35B1] font-semibold">{r.role}</span>
+              <div className="pt-2 border-t border-slate-100 dark:border-purple-900/40 text-[10.5px] font-mono tabular-nums text-slate-400 flex items-center justify-between">
+                <span>Total Izin: {permsCount}</span>
+                <span className="capitalize text-[#5B35B1] dark:text-purple-300 font-semibold">{r.role}</span>
               </div>
             </div>
           );
@@ -138,19 +220,21 @@ export const ManagementRoleView: React.FC = () => {
       </div>
 
       {/* Full Permission Matrix Table */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden">
-        <div className="px-5 py-3.5 border-b text-xs flex items-center justify-between">
+      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100 dark:border-purple-900/50 text-xs flex flex-wrap items-center justify-between gap-2">
           <span className="font-bold text-slate-800 dark:text-slate-200">
             Matriks Hak Akses & Permission Granular
           </span>
-          <span className="text-slate-400 font-mono text-[11px]">Backend Enforced</span>
+          <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+            {isSuperAdmin ? 'Klik badge izin untuk menyimpan langsung ke Database' : 'Read-Only Backend Enforced'}
+          </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
               <tr>
-                <th className="py-2.5 px-3 min-w-[220px]">Kemampuan / Permission</th>
+                <th className="py-2.5 px-3 min-w-[230px]">Kemampuan / Permission</th>
                 <th className="py-2.5 px-3 text-center">Super Admin</th>
                 <th className="py-2.5 px-3 text-center">Dispatch</th>
                 <th className="py-2.5 px-3 text-center">Leader</th>
@@ -160,26 +244,51 @@ export const ManagementRoleView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {permissionsList.map((perm, idx) => (
+              {permissionsList.map(perm => (
                 <tr key={perm.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <td className="py-2.5 px-3">
                     <div className="font-bold text-slate-800 dark:text-slate-200">{perm.label}</div>
                     <div className="text-[10px] text-slate-400 font-mono">{perm.key} ({perm.category})</div>
                   </td>
                   {roles.map(r => {
-                    const perms = ROLE_PERMISSIONS[r.role];
+                    const perms = rolePermissions[r.role];
                     const has = Array.isArray(perms) ? perms.includes(perm.key) : false;
+                    const isCoreLocked = r.role === 'super_admin' && CORE_SUPER_ADMIN_PERMISSIONS.includes(perm.key);
+                    const cellId = `${r.role}:${perm.key}`;
+                    const isSaving = savingCell === cellId;
+                    const canClick = isSuperAdmin && !isCoreLocked && !savingCell;
+
                     return (
                       <td key={r.role} className="py-2.5 px-3 text-center">
-                        {has ? (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
+                        <button
+                          type="button"
+                          disabled={!canClick}
+                          onClick={() => handleTogglePermission(r.role, perm.key)}
+                          title={
+                            isCoreLocked
+                              ? 'Izin inti Super Admin terkunci untuk keamanan sistem'
+                              : !isSuperAdmin
+                              ? 'Hanya Super Admin yang dapat mengubah hak akses'
+                              : has
+                              ? `Cabut izin ${perm.key} dari ${r.role}`
+                              : `Berikan izin ${perm.key} ke ${r.role}`
+                          }
+                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full border transition-all ${
+                            isSaving
+                              ? 'bg-purple-100 border-purple-300 text-purple-700 cursor-wait'
+                              : has
+                              ? 'bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300'
+                              : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                          } ${canClick ? 'hover:scale-110 cursor-pointer' : 'opacity-80 cursor-not-allowed'}`}
+                        >
+                          {isSaving ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : has ? (
+                            isCoreLocked ? <Lock className="w-3 h-3" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          ) : (
                             <X className="w-3.5 h-3.5" />
-                          </span>
-                        )}
+                          )}
+                        </button>
                       </td>
                     );
                   })}
