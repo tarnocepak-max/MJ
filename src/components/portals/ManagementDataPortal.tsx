@@ -44,6 +44,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     tickets,
     contractors,
     currentUser,
+    todayWIB,
     headerMappings,
     canonicalFields,
     updateTicket
@@ -52,13 +53,13 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'wo_data' | 'import_validation' | 'quality_monitoring'>('dashboard');
 
-  // Search & Filter state for WO Data tab
+  // Search & Filter state for WO Data tab (Defaults to active today WIB)
   const [searchWo, setSearchWo] = useState('');
   const [searchCustomerId, setSearchCustomerId] = useState('');
   const [searchCustomerName, setSearchCustomerName] = useState('');
   const [selectedContractor, setSelectedContractor] = useState('ALL');
   const [selectedArea, setSelectedArea] = useState('ALL');
-  const [dateFilterMode, setDateFilterMode] = useState<ScheduleDateFilterMode>('all');
+  const [dateFilterMode, setDateFilterMode] = useState<ScheduleDateFilterMode>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -87,8 +88,8 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     }
   };
 
-  // Operational Date from system
-  const operationalDate = getOperationalTodayDate();
+  // Operational Date from reactive Asia/Jakarta todayWIB (auto-resets at 00:00 WIB)
+  const operationalDate = todayWIB || getOperationalTodayDate();
 
   // Metrics computation for Dashboard Data
   const metrics = useMemo(() => {

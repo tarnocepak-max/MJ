@@ -47,9 +47,10 @@ import { WhatsAppSendModal } from './components/whatsapp/WhatsAppSendModal';
 import { Ticket } from './types';
 import { Menu, Database } from 'lucide-react';
 import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary';
+import { getTicketAppointmentDate } from './services/appointmentDateParser';
 
 const MainLayout: React.FC = () => {
-  const { currentUser, isLoggedIn, tickets, openOfflineSyncCenter, getTicketUnreadCount } = useApp();
+  const { currentUser, isLoggedIn, tickets, todayWIB, openOfflineSyncCenter, getTicketUnreadCount } = useApp();
   const { config, setSidebarState, isMobileView } = useUIConfig();
   const { toast } = useToast();
 
@@ -178,18 +179,19 @@ const MainLayout: React.FC = () => {
     return 'wo_assignment';
   }, [activeTab, leaderSubTab]);
 
-  // Scoped unassigned tickets count for Leader's contractor
+  // Scoped unassigned tickets count for Leader's contractor (strictly today WIB)
   const leaderUnassignedCount = useMemo(() => {
     if (!isLoggedIn || currentUser?.role !== 'leader') return 0;
     const myContractor = String(currentUser?.contractor || '').toLowerCase().trim();
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
+      if (getTicketAppointmentDate(t) !== todayWIB) return false;
       if (t.installerName) return false;
       if (!myContractor) return true;
       const tContractor = String(t.contactorName || t.contractorName || '').toLowerCase().trim();
       return (tContractor && myContractor && (tContractor.includes(myContractor) || myContractor.includes(tContractor)));
     }).length;
-  }, [isLoggedIn, tickets, currentUser]);
+  }, [isLoggedIn, tickets, currentUser, todayWIB]);
 
   // Helper matching for logged-in technician
   const isInstallerMatch = (ticketInstaller: string | undefined, installerName: string) => {
@@ -204,7 +206,7 @@ const MainLayout: React.FC = () => {
     return false;
   };
 
-  // Scoped pending tickets count for logged-in Installer
+  // Scoped pending tickets count for logged-in Installer (strictly today WIB)
   const installerPendingCount = useMemo(() => {
     if (!isLoggedIn || !isInstaller) return 0;
     const myName = (currentUser?.name || '').toLowerCase().trim();
@@ -213,6 +215,7 @@ const MainLayout: React.FC = () => {
 
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
+      if (getTicketAppointmentDate(t) !== todayWIB) return false;
       const assigned = (myId && t.assignedTo === myId) || (myUsername && t.assignedTo === myUsername);
       const tInst = (t.installerName || '').toLowerCase().trim();
       const nameMatch =
@@ -223,9 +226,9 @@ const MainLayout: React.FC = () => {
       const cat = classifyInstallerStatus(t);
       return cat === 'pending';
     }).length;
-  }, [isLoggedIn, isInstaller, tickets, currentUser]);
+  }, [isLoggedIn, isInstaller, tickets, currentUser, todayWIB]);
 
-  // Scoped unread chat count for logged-in Installer
+  // Scoped unread chat count for logged-in Installer (strictly today WIB)
   const installerUnreadChatCount = useMemo(() => {
     if (!isLoggedIn || !isInstaller) return 0;
     const myName = (currentUser?.name || '').toLowerCase().trim();
@@ -234,6 +237,7 @@ const MainLayout: React.FC = () => {
 
     return tickets.reduce((total, t) => {
       if (t.isArchived || t.isDeleted) return total;
+      if (getTicketAppointmentDate(t) !== todayWIB) return total;
       const assigned = (myId && t.assignedTo === myId) || (myUsername && t.assignedTo === myUsername);
       const tInst = (t.installerName || '').toLowerCase().trim();
       const nameMatch =
@@ -243,7 +247,7 @@ const MainLayout: React.FC = () => {
 
       return total + (getTicketUnreadCount(t.id) > 0 ? 1 : 0);
     }, 0);
-  }, [isLoggedIn, isInstaller, tickets, currentUser, getTicketUnreadCount]);
+  }, [isLoggedIn, isInstaller, tickets, currentUser, getTicketUnreadCount, todayWIB]);
 
   // Unauthenticated Staff Protection: Render dedicated Staff Login Portal
   if (!isLoggedIn) {

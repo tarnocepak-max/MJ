@@ -86,6 +86,7 @@ import { supabaseDb } from '../services/supabaseDb';
 import { auditAndCleanDuplicates, DuplicateAuditReport } from '../services/woDeduplicationService';
 
 import { getJakartaDateString, getJakartaDateParts, getTicketAppointmentDate } from '../services/appointmentDateParser';
+import { getMsUntilNextJakartaMidnight } from '../services/woDateFilterEngine';
 import {
   normalizeWoNumber,
   isValidWoNumber,
@@ -107,6 +108,7 @@ interface AppContextType {
   canImport: boolean;
   canEditWOData: boolean;
   operationalDate: string;
+  todayWIB: string;
   setOperationalDate: (date: string) => void;
   isSessionModalOpen: boolean;
   setIsSessionModalOpen: (open: boolean) => void;
@@ -183,6 +185,9 @@ interface AppContextType {
   // Ticket Operations
   tickets: Ticket[];
   scopedTickets: Ticket[];
+  activeTodayTickets: Ticket[];
+  scopedActiveTickets: Ticket[];
+  refreshActiveTickets: () => Promise<void>;
   getTicketById: (id: string) => Ticket | undefined;
   createTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>) => Ticket;
   updateTicket: (id: string, updates: Partial<Ticket>, reason?: string) => { success: boolean; error?: string };
@@ -775,6 +780,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       });
+
+      const unsubOperationalDate = supabaseDb.subscribeToChanges({
+        table: 'system_operational_date',
+        onPayload: (payload) => {
+          if (isCancelled || !payload) return;
+          const nextWIB = payload.record?.operationalDateWIB || getJakartaDateString(0);
+          setTodayWIB(nextWIB);
+          setOperationalDateState(nextWIB);
+          try {
+            localStorage.setItem('morajaws_operational_date', nextWIB);
+          } catch {}
+          loadCentralData().catch(() => {});
+        }
+      });
+
+      const origUnsubSettings = unsubSettings;
+      unsubSettings = () => {
+        origUnsubSettings?.();
+        unsubOperationalDate?.();
+      };
     } catch (sseErr) {
       console.warn('[Realtime SSE] Notice attaching Supabase SSE:', sseErr);
     }
@@ -828,9 +853,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         const data = await res.json();
         if (data && data.success) {
-          if (data.operationalDate) {
-            setOperationalDateState(data.operationalDate);
-          }
+          const liveWIB = data.operationalDateWIB || getJakartaDateString(0);
+          setTodayWIB(liveWIB);
+          setOperationalDateState(liveWIB);
+          try {
+            localStorage.setItem('morajaws_operational_date', liveWIB);
+          } catch {}
           if (data.currentUser && data.isAuthenticated) {
             setCurrentUser(prev => ({ ...prev, ...data.currentUser }));
           } else if (data.isAuthenticated === false && headers['Authorization']) {
@@ -916,9 +944,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(reportCatsData) && reportCatsData.length > 0) {
             setReportDropdownCategories(reportCatsData);
           }
-          if (globalSettings && globalSettings.operationalDate) {
-            setOperationalDateState(globalSettings.operationalDate);
-          }
+          // Auto Reset 00:00 WIB: Keep active operationalDate synchronized with live Asia/Jakarta calendar date
+          const liveWIB = getJakartaDateString(0);
+          setTodayWIB(liveWIB);
+          setOperationalDateState(liveWIB);
         } catch {}
       } else {
         setAuditLogs([]);
@@ -1088,14 +1117,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
-  // Operational schedule reference date (Asia/Jakarta WIB)
-  const [operationalDate, setOperationalDateState] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('morajaws_operational_date');
-      if (saved) return saved;
-    } catch (e) {}
-    return getJakartaDateString(0);
-  });
+  // Live Asia/Jakarta (WIB) calendar date for automatic 00:00 WIB active WO reset
+  const [todayWIB, setTodayWIB] = useState<string>(() => getJakartaDateString(0));
+
+  // Operational schedule reference date (Asia/Jakarta WIB — always initializes to live todayWIB)
+  const [operationalDate, setOperationalDateState] = useState<string>(() => getJakartaDateString(0));
 
   const setOperationalDate = (date: string) => {
     setOperationalDateState(date);
@@ -1113,16 +1139,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(() => {});
   };
 
-  useEffect(() => {
-    fetch('/api/system/operational-date')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.success && data.operationalDate) {
-          setOperationalDateState(data.operationalDate);
-          localStorage.setItem('morajaws_operational_date', data.operationalDate);
+  // Authoritative backend sync for today's active WOs (GET /api/tickets)
+  const refreshActiveTickets = async () => {
+    try {
+      const headers = getAuthHeaders();
+      if (!headers['Authorization']) return;
+      const res = await fetch('/api/tickets', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.operationalDateWIB) {
+          setTodayWIB(data.operationalDateWIB);
+          setOperationalDateState(data.operationalDateWIB);
         }
-      })
-      .catch(() => {});
+      }
+      await loadCentralData();
+    } catch {}
+  };
+
+  // Multi-layer 00:00 WIB Midnight Auto-Reset Watcher (Exact Midnight Timeout + 15s Drift Check + Focus/Visibility)
+  useEffect(() => {
+    let cancelled = false;
+    let midnightTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const checkAndApplyJakartaRollover = () => {
+      if (cancelled) return;
+      const liveNowWIB = getJakartaDateString(0);
+      setTodayWIB(prev => {
+        if (prev !== liveNowWIB) {
+          setOperationalDateState(liveNowWIB);
+          try {
+            localStorage.setItem('morajaws_operational_date', liveNowWIB);
+          } catch {}
+          if (navigator.onLine) {
+            refreshActiveTickets().catch(() => {});
+          }
+          toast.info(`Tanggal berganti ke ${liveNowWIB} (00:00 WIB). Daftar WO aktif diperbarui otomatis.`, 'Auto Reset 00:00 WIB');
+          return liveNowWIB;
+        }
+        return prev;
+      });
+    };
+
+    const scheduleMidnightTimeout = () => {
+      if (midnightTimer) clearTimeout(midnightTimer);
+      const msUntilMidnight = getMsUntilNextJakartaMidnight();
+      midnightTimer = setTimeout(() => {
+        checkAndApplyJakartaRollover();
+        scheduleMidnightTimeout();
+      }, Math.min(msUntilMidnight, 2147483647));
+    };
+
+    scheduleMidnightTimeout();
+
+    const driftInterval = setInterval(checkAndApplyJakartaRollover, 15000);
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndApplyJakartaRollover();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      cancelled = true;
+      if (midnightTimer) clearTimeout(midnightTimer);
+      clearInterval(driftInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
   }, []);
 
   // Authentication & Session (Phase 13E: Supabase Auth as Sole Production Mechanism)
@@ -1350,6 +1434,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     });
   }, [tickets, currentUser]);
+
+  // Active today's Work Orders (Strict Asia/Jakarta appointmentDate === todayWIB; never createdAt)
+  const activeTodayTickets = React.useMemo(() => {
+    return (tickets || []).filter(t => {
+      if (!t || t.isArchived || t.isDeleted) return false;
+      return getTicketAppointmentDate(t) === todayWIB;
+    });
+  }, [tickets, todayWIB]);
+
+  // Role-scoped AND active-today Work Orders (Auto-reset at 00:00 WIB for all staff roles)
+  const scopedActiveTickets = React.useMemo(() => {
+    return (scopedTickets || []).filter(t => {
+      if (!t || t.isArchived || t.isDeleted) return false;
+      return getTicketAppointmentDate(t) === todayWIB;
+    });
+  }, [scopedTickets, todayWIB]);
 
 
 
@@ -5044,6 +5144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canImport,
         canEditWOData,
         operationalDate,
+        todayWIB,
         setOperationalDate,
         isSessionModalOpen,
         setIsSessionModalOpen,
@@ -5075,6 +5176,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectProgressReport,
         tickets,
         scopedTickets,
+        activeTodayTickets,
+        scopedActiveTickets,
+        refreshActiveTickets,
         getTicketById,
         createTicket,
         updateTicket,

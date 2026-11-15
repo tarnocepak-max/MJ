@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -91,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, logout, setIsSessionModalOpen } = useApp();
+  const { currentUser, tickets, todayWIB, logout, setIsSessionModalOpen } = useApp();
   const {
     isMobileView,
     config,
@@ -101,27 +102,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     accordionSettings
   } = useUIConfig();
 
-  // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta)
-  const todayWIB = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Jakarta',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).format(new Date());
-    } catch {
-      return new Date().toISOString().split('T')[0];
-    }
-  }, []);
-
+  // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta, reactive 00:00 WIB)
   const todayActiveTickets = useMemo(() => {
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
-      const raw = t.appointmentDate;
-      if (!raw) return false;
-      const clean = String(raw).slice(0, 10);
-      return clean === todayWIB || (String(raw).includes('T') && String(raw).split('T')[0] === todayWIB);
+      return getTicketAppointmentDate(t) === todayWIB;
     });
   }, [tickets, todayWIB]);
 

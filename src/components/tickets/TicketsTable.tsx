@@ -71,7 +71,7 @@ interface TicketsTableProps {
 }
 
 export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOpenWhatsApp, onNavigate }) => {
-  const { tickets, currentUser, archiveTicket, restoreTicket, assignTicketPersonnel, leadersList, installersList, bulkDeleteTickets, getTicketUnreadCount } = useApp();
+  const { tickets, currentUser, archiveTicket, restoreTicket, assignTicketPersonnel, leadersList, installersList, bulkDeleteTickets, getTicketUnreadCount, todayWIB, refreshActiveTickets } = useApp();
   const { config, setColumnVisibility, applyPreset, isMobileView, updateAndroidSettings } = useUIConfig();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
@@ -94,10 +94,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('ALL');
   const [showArchived, setShowArchived] = useState(false);
 
-  // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta)
-  const todayWIB = useMemo(() => getJakartaDateString(0), []);
-
-  // Approval status counts across today's tickets
+  // Approval status counts across today's tickets (reactively follows 00:00 WIB rollover)
   const approvalCounts = useMemo(() => {
     let butuhApproval = 0;
     let approved = 0;
@@ -127,24 +124,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     });
     return Array.from(cats).sort();
   }, [tickets]);
-
-  // Today's Date in Asia/Jakarta (WIB) with automatic midnight 00:00 rollover
-  const [currentDateKey, setCurrentDateKey] = useState<string>(() => getTodayWORange());
-
-  // Automatic midnight rollover listener (checks every 15 seconds)
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      const liveToday = getTodayWORange();
-      if (liveToday !== currentDateKey) {
-        setCurrentDateKey(liveToday);
-        triggerRefresh(undefined, 'PERGANTIAN HARI (00:00 WIB)', 'Memperbarui otomatis daftar Work Order hari ini');
-      }
-    }, 15000);
-    return () => clearInterval(timer);
-  }, [currentDateKey, triggerRefresh]);
-
-  // Leader tab: 'today' (Hari Ini) or 'tomorrow' (Besok)
-  const [leaderDateTab, setLeaderDateTab] = useState<'today' | 'tomorrow'>('today');
 
   // Cross-date search for Superadmin and Dispatch (strictly by woNumber or idCustomer)
   const isCrossDateSearchEligible = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
@@ -223,39 +202,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     return Array.from(set).sort();
   }, [tickets]);
 
-  // Leader counts for today and tomorrow WOs
-  const { todayLeaderCount, tomorrowLeaderCount } = useMemo(() => {
-    if (currentUser?.role !== 'leader') return { todayLeaderCount: 0, tomorrowLeaderCount: 0 };
-    const todayStr = currentDateKey || getTodayWORange();
-    const leaderDates = getLeaderWORange();
-
-    const currentLeaderName = (currentUser.name || '').trim().toLowerCase();
-    const currentLeaderArea = (currentUser.area || '').trim().toLowerCase();
-    const currentLeaderContractor = (currentUser.contractor || '').trim().toLowerCase();
-
-    let tCount = 0;
-    let tmrCount = 0;
-
-    (tickets || []).forEach(t => {
-      if (!t || t.isArchived || t.isDeleted) return;
-      const tLeader = (t.leaderName || '').trim().toLowerCase();
-      if (tLeader && currentLeaderName && tLeader !== currentLeaderName) return;
-      if (currentLeaderArea && t.area && t.area.trim().toLowerCase() !== currentLeaderArea) return;
-      const tCont = (t.contactorName || t.contractorName || '').trim().toLowerCase();
-      if (currentLeaderContractor && tCont && tCont !== currentLeaderContractor) return;
-
-      const wDate = getTicketWODate(t);
-      if (wDate === todayStr) tCount++;
-      else if (wDate === leaderDates.tomorrow) tmrCount++;
-    });
-
-    return { todayLeaderCount: tCount, tomorrowLeaderCount: tmrCount };
-  }, [tickets, currentUser, currentDateKey]);
-
-  // Filtering based on strict WO Date rules per role
+  // Filtering based on strict Appointment Date === todayWIB rules uniformly across all roles
   const filteredTickets = useMemo(() => {
-    const todayStr = currentDateKey || getTodayWORange();
-    const leaderDates = getLeaderWORange();
+    const todayStr = todayWIB || getJakartaDateString(0);
 
     // 1. Cross-Date Search Active for Superadmin or Dispatch
     // Allows searching past, today, and future dates ONLY by woNumber or idCustomer
@@ -272,29 +221,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       });
     }
 
-    // 2. Default View: STRICT WO DATE per role (NOT Appointment Date)
+    // 2. Default View: STRICT APPOINTMENT DATE === TODAY WIB across ALL staff roles (NEVER createdAt)
     return (tickets || []).filter(t => {
       if (!t || t.isDeleted) return false;
       if (showArchived ? !t.isArchived : t.isArchived) return false;
 
-      // Primary criteria: authentic Work Order Date
-      const woDate = getTicketWODate(t);
+      // Primary & sole schedule reference: authentic Appointment Date
+      const woDate = getTicketAppointmentDate(t);
+      if (!woDate || woDate !== todayStr) return false;
 
-      // A. Staff (management_data / general staff): ONLY today's WO
-      if (currentUser?.role === 'management_data') {
-        if (!woDate || woDate !== todayStr) return false;
-      }
-      // B. Super Admin & Dispatch: Default ONLY today's WO
-      else if (currentUser?.role === 'super_admin' || currentUser?.role === 'dispatch') {
-        if (!woDate || woDate !== todayStr) return false;
-      }
-      // C. Leader: Today's WO (main view) and Tomorrow's WO (via tab), NEVER yesterday
-      else if (currentUser?.role === 'leader') {
-        if (!woDate) return false;
-        if (leaderDateTab === 'today' && woDate !== todayStr) return false;
-        if (leaderDateTab === 'tomorrow' && woDate !== leaderDates.tomorrow) return false;
-
-        // Leader contractor/area scoping
+      // Role-specific RBAC scoping (date rule above applies uniformly to ALL roles)
+      if (currentUser?.role === 'leader') {
         const currentLeaderName = (currentUser.name || '').trim().toLowerCase();
         const currentLeaderArea = (currentUser.area || '').trim().toLowerCase();
         const currentLeaderContractor = (currentUser.contractor || '').trim().toLowerCase();
@@ -311,11 +248,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           const tCont = (t.contactorName || t.contractorName || '').trim().toLowerCase();
           if (tCont && tCont !== currentLeaderContractor) return false;
         }
-      }
-      // D. Installer: ONLY today's WO assigned to this technician
-      else if (currentUser?.role === 'installer') {
-        if (!woDate || woDate !== todayStr) return false;
-
+      } else if (currentUser?.role === 'installer') {
         const currentInstallerName = (currentUser.name || '').trim().toLowerCase();
         const currentInstallerPhone = (currentUser.phone || '').trim();
         const currentInstallerArea = (currentUser.area || '').trim().toLowerCase();
@@ -327,7 +260,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         const isAssignedToMe =
           Boolean(tInstaller && (tInstaller === currentInstallerName || tInstaller === cleanMyName || tInstaller.includes(cleanMyName) || cleanMyName.includes(tInstaller))) ||
           Boolean(tContact && currentInstallerPhone && tContact.replace(/\D/g, '') === currentInstallerPhone.replace(/\D/g, ''));
-        
+
         if (!isAssignedToMe) return false;
 
         if (currentInstallerArea) {
@@ -335,8 +268,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           if (tArea && tArea !== currentInstallerArea) return false;
         }
       }
-
-      // Unread Chat Filter
 
       // Status filters
       if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
@@ -355,7 +286,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       }
 
       // Search term for non-cross-date searches (e.g. Staff, Leader, Installer)
-      // Strictly scoped within their allowed date view
+      // Strictly scoped within today's Appointment Date view
       if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
         const q = searchTerm.trim().toLowerCase();
         const matchWo = (t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q);
@@ -377,10 +308,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     showArchived,
     isCrossDateActive,
     crossDateSearchResults,
-    currentDateKey,
-    leaderDateTab,
+    todayWIB,
     currentUser,
-    getTicketUnreadCount,
     selectedArea,
     selectedAgentStatus,
     selectedInstallerStatus,
@@ -581,7 +510,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             {/* MoraJaws Luxury Refresh Button */}
             <button
               onClick={async () => {
-                await triggerRefresh(undefined, 'MEMPERBARUI WORK ORDER...', 'Menyelaraskan data tabel tiket dan jadwal appointment');
+                await triggerRefresh(() => refreshActiveTickets(), 'MEMPERBARUI WORK ORDER...', 'Menyelaraskan data tabel tiket dan jadwal appointment');
                 toast.sync('Tabel Work Order berhasil diperbarui.');
               }}
               className="px-2.5 py-1.5 text-xs font-semibold text-[#D8B4FE] bg-[#35105E]/40 hover:bg-[#7135B5]/60 hover:text-white rounded-md border border-[#D8B4FE]/30 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
@@ -715,37 +644,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
         )}
 
-        {/* Leader Tab Switcher */}
-        {currentUser.role === 'leader' && (
-          <div className="flex items-center gap-2 p-2 bg-[#F2EBFE] dark:bg-[#251545] rounded-xl border border-[#D8CCF3] dark:border-[#4B238E] text-xs">
-            <span className="text-[#5B35B1] dark:text-[#D8CCF3] px-2 text-[11px] font-bold">Periode WO Leader:</span>
-            <button
-              type="button"
-              onClick={() => { setLeaderDateTab('today'); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer font-bold ${
-                leaderDateTab === 'today'
-                  ? 'bg-[#5B35B1] text-white shadow-xs'
-                  : 'text-[#5B35B1] dark:text-[#D8CCF3] hover:bg-[#E0D1FC] dark:hover:bg-[#3B1D78]'
-              }`}
-            >
-              <CalendarCheck className="w-3.5 h-3.5" />
-              <span>WO Hari Ini ({todayLeaderCount})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setLeaderDateTab('tomorrow'); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer font-bold ${
-                leaderDateTab === 'tomorrow'
-                  ? 'bg-[#5B35B1] text-white shadow-xs'
-                  : 'text-[#5B35B1] dark:text-[#D8CCF3] hover:bg-[#E0D1FC] dark:hover:bg-[#3B1D78]'
-              }`}
-            >
-              <ClockAlert className="w-3.5 h-3.5" />
-              <span>WO Besok ({tomorrowLeaderCount})</span>
-            </button>
-          </div>
-        )}
-
         {/* Quick Workflow & Approval Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1">
@@ -819,18 +717,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 <span>Tanggal WO Aktif:</span>
               </label>
               <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#5B35B1] text-white">
-                {isCrossDateActive
-                  ? 'Lintas Tanggal'
-                  : currentUser.role === 'leader'
-                  ? (leaderDateTab === 'today' ? 'Hari Ini' : 'Besok')
-                  : 'Hari Ini'}
+                {isCrossDateActive ? 'Lintas Tanggal' : 'Hari Ini'}
               </span>
             </div>
             <div className="flex items-center justify-between gap-1 text-xs">
               <span className="font-semibold text-slate-800 dark:text-white">
                 {isCrossDateActive
                   ? `Hasil Pencarian (${filteredTickets.length} WO)`
-                  : formatIndonesianWODate(currentUser.role === 'leader' && leaderDateTab === 'tomorrow' ? getLeaderWORange().tomorrow : currentDateKey)}
+                  : formatIndonesianWODate(todayWIB)}
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400">
                 WIB (Asia/Jakarta)

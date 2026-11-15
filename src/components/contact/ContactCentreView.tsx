@@ -34,11 +34,13 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 
 export const ContactCentreView: React.FC = () => {
   const {
     tickets,
     currentUser,
+    todayWIB,
     ticketMessages,
     sendTicketMessage,
     markTicketMessagesAsRead,
@@ -75,10 +77,11 @@ export const ContactCentreView: React.FC = () => {
 
   const canManageCategories = currentUser?.role === 'super_admin' || currentUser?.role === 'dispatch';
 
-  // 1A. Available tickets for current user role - STRICT INSTALLER ASSIGNMENT FILTER
+  // 1A. Available tickets for current user role - STRICT TODAY WIB & INSTALLER ASSIGNMENT FILTER
   const availableTickets = useMemo(() => {
     return (tickets || []).filter(t => {
       if (!t || t.isArchived || t.isDeleted) return false;
+      if (getTicketAppointmentDate(t) !== todayWIB) return false;
 
       // Requirement 1A: Strictly only tickets that have an assignment to an installer
       const hasInstallerAssignment = Boolean(
@@ -130,7 +133,7 @@ export const ContactCentreView: React.FC = () => {
       }
       return true;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, currentUser, todayWIB]);
 
   // Search filter across customer name, WO, ID, phone, AND chat message text
   const searchFilteredTickets = useMemo(() => {

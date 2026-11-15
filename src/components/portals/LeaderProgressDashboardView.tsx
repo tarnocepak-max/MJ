@@ -53,7 +53,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
   onSelectTicket,
   onOpenWhatsApp
 }) => {
-  const { tickets, currentUser, contractorsList } = useApp();
+  const { tickets, currentUser, contractorsList, todayWIB } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StatCategoryFilter>('all');
@@ -64,23 +64,10 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Timezone Asia/Jakarta reference: auto-updating every 30 seconds
-  const [todayJakarta, setTodayJakarta] = useState(() => getJakartaDateString(0));
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const nowToday = getJakartaDateString(0);
-      setTodayJakarta(prev => (prev !== nowToday ? nowToday : prev));
-    }, 30000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const tomorrowJakarta = getJakartaDateString(1);
+  const todayJakarta = todayWIB || getJakartaDateString(0);
   const leaderContractor = currentUser?.contractor || (contractorsList?.[0] || 'PT Mitra Jaringan Solusi');
 
-  // Date Filter State: Default 'today', with options for 'tomorrow' and 'all'
-  const [dateFilterType, setDateFilterType] = useState<'today' | 'tomorrow' | 'all'>('today');
-
-  // Filter contractor tickets & Appointment Date (strictly scoped to Leader's contractor AND area)
+  // Filter contractor tickets & strict Appointment Date === todayJakarta (Auto-resets at 00:00 WIB)
   const baseLeaderTickets = useMemo(() => {
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
@@ -102,14 +89,11 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         }
       }
 
-      // Appointment Date in Asia/Jakarta
-      if (dateFilterType === 'all') return true;
+      // Strict Appointment Date in Asia/Jakarta === todayJakarta
       const appDate = getTicketAppointmentDate(t);
-      if (dateFilterType === 'today') return Boolean(appDate && appDate === todayJakarta);
-      if (dateFilterType === 'tomorrow') return Boolean(appDate && appDate === tomorrowJakarta);
-      return true;
+      return Boolean(appDate && appDate === todayJakarta);
     });
-  }, [tickets, currentUser, leaderContractor, todayJakarta, tomorrowJakarta, dateFilterType]);
+  }, [tickets, currentUser, leaderContractor, todayJakarta]);
 
   // Categorize ticket into one of the 6 photo categories
   const getTicketCategory = (t: Ticket): 'unassign' | 'assign' | 'untouch' | 'complete' | 'uncomplete' | 'cancel' => {
@@ -372,40 +356,9 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl border border-white/20 text-xs">
-            <button
-              type="button"
-              onClick={() => { setDateFilterType('today'); setCurrentPage(1); }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                dateFilterType === 'today'
-                  ? 'bg-white text-[#35105E] shadow-xs'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Hari Ini
-            </button>
-            <button
-              type="button"
-              onClick={() => { setDateFilterType('tomorrow'); setCurrentPage(1); }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                dateFilterType === 'tomorrow'
-                  ? 'bg-white text-[#35105E] shadow-xs'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Besok
-            </button>
-            <button
-              type="button"
-              onClick={() => { setDateFilterType('all'); setCurrentPage(1); }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                dateFilterType === 'all'
-                  ? 'bg-white text-[#35105E] shadow-xs'
-                  : 'text-purple-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Semua
-            </button>
+          <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 text-xs">
+            <Calendar className="w-3.5 h-3.5 text-[#D8B4FE]" />
+            <span className="text-[11px] font-bold text-white">Hari Ini ({todayJakarta} WIB)</span>
           </div>
 
           <button

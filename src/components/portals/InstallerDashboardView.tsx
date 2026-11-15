@@ -5,6 +5,7 @@ import { Ticket, TicketStatusWOInstaller } from '../../types/index.ts';
 import { classifyInstallerStatus } from './InstallerPortal';
 import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge } from '../common/Badge';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
+import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
 import {
   Wrench,
   Clock,
@@ -37,7 +38,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
   onSelectTicket,
   onOpenWhatsApp
 }) => {
-  const { currentUser, tickets, updateTicketStatus, startWorkOnTicket } = useApp();
+  const { currentUser, tickets, todayWIB, updateTicketStatus, startWorkOnTicket } = useApp();
   const { toast } = useToast();
   const [fullviewTicket, setFullviewTicket] = useState<Ticket | null>(null);
 
@@ -53,7 +54,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     return false;
   };
 
-  // Strictly filter tickets to current logged-in installer
+  // Strictly filter tickets to current logged-in installer AND today's Appointment Date (WIB)
   const myTickets = useMemo(() => {
     const myName = currentUser.name || '';
     const myUsername = currentUser.username || '';
@@ -62,6 +63,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     return (tickets || []).filter(t => {
       if (t.isArchived || t.isDeleted) return false;
       if (!t.installerName) return false;
+      if (getTicketAppointmentDate(t) !== todayWIB) return false;
 
       // Primary check: assignedTo id matching
       if (t.assignedTo && (t.assignedTo === myId || t.assignedTo === myUsername)) return true;
@@ -72,7 +74,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
       return false;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, currentUser, todayWIB]);
 
   // Realtime synced ticket for fullview mode
   const activeFullviewTicket = useMemo(() => {
@@ -160,12 +162,9 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     setFullviewTicket(ticket);
   };
 
-  const todayStr = new Intl.DateTimeFormat('id-ID', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }).format(new Date());
+  const todayStr = useMemo(() => {
+    return formatAppointmentDateDisplay(todayWIB) || todayWIB;
+  }, [todayWIB]);
 
   // Render Fullview Modal/Page if an active ticket is selected
   if (activeFullviewTicket) {

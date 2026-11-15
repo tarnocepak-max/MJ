@@ -6,6 +6,7 @@ import { StatusInstallerBadge, StatusWhatsAppBadge, StatusAgentBadge, StatusAppr
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from '../tickets/TechnicalReportForm';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import {
   Wrench,
   Phone,
@@ -108,6 +109,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     startWorkOnTicket,
     currentUser,
     users,
+    todayWIB,
     getTicketUnreadCount,
     setTicketChatCategory
   } = useApp();
@@ -133,8 +135,9 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     return false;
   };
 
-  // Filter tickets for this technician: ONLY work orders assigned to their account!
+  // Filter tickets for this technician: ONLY active today's work orders (appointmentDate === todayWIB) assigned to their account!
   const myTickets = useMemo(() => {
+    const isHistoryView = initialFilter === 'done';
     if (currentUser.role === 'installer') {
       const myId = currentUser.id || '';
       const myUsername = (currentUser.username || '').toLowerCase().trim();
@@ -143,6 +146,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       return tickets.filter(t => {
         if (t.isArchived || t.isDeleted) return false;
         if (!t.installerName && !t.assignedTo) return false;
+        if (!isHistoryView && getTicketAppointmentDate(t) !== todayWIB) return false;
 
         // Check UID / assignedTo
         if (myId && t.assignedTo === myId) return true;
@@ -157,9 +161,14 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     }
 
     return tickets.filter(
-      t => !t.isArchived && !t.isDeleted && Boolean(t.installerName) && isInstallerMatch(t.installerName, effectiveInstallerName)
+      t =>
+        !t.isArchived &&
+        !t.isDeleted &&
+        (isHistoryView || getTicketAppointmentDate(t) === todayWIB) &&
+        Boolean(t.installerName) &&
+        isInstallerMatch(t.installerName, effectiveInstallerName)
     );
-  }, [tickets, currentUser, effectiveInstallerName]);
+  }, [tickets, currentUser, effectiveInstallerName, todayWIB, initialFilter]);
 
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<StatusFilterCategory>(initialFilter);

@@ -895,7 +895,7 @@ export let db: DatabaseSchema = {
     revokeOnDeactivate: true,
     revokeOnPasswordChange: true
   },
-  operationalDateOverride: '2026-10-28',
+  operationalDateOverride: null,
   appSettings: {},
   userPreferences: {},
   systemErrorLogs: []
@@ -920,7 +920,9 @@ function loadDatabaseFromDisk() {
           contractors: Array.isArray(parsed.contractors) && parsed.contractors.length > 0 ? parsed.contractors : INITIAL_SEED_CONTRACTORS,
           coverageAreas: Array.isArray(parsed.coverageAreas) && parsed.coverageAreas.length > 0 ? parsed.coverageAreas : INITIAL_SEED_AREAS,
           attachments: Array.isArray(parsed.attachments) ? parsed.attachments : [],
-          storageMetadata: Array.isArray(parsed.storageMetadata) ? parsed.storageMetadata : []
+          storageMetadata: Array.isArray(parsed.storageMetadata) ? parsed.storageMetadata : [],
+          // Auto Reset 00:00 WIB: Never keep a stale persisted date override across server startups
+          operationalDateOverride: null
         };
         if (Array.isArray(parsed.sessions)) {
           SERVER_SESSIONS.length = 0;
@@ -1150,10 +1152,7 @@ export function broadcastSupabaseChange(table: string, eventType: string, record
 export const SERVER_SESSIONS: ServerSession[] = [];
 const LOGIN_ATTEMPTS = new Map<string, { count: number; lastAttempt: number; lockedUntil?: number }>();
 
-function getOperationalDate(): { date: string; isAuto: boolean; timezone: string } {
-  if (db.operationalDateOverride) {
-    return { date: db.operationalDateOverride, isAuto: false, timezone: 'Asia/Jakarta' };
-  }
+export function getJakartaDateStringServer(baseDate: Date = new Date(), offsetDays: number = 0): string {
   try {
     const dtf = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Jakarta',
@@ -1161,15 +1160,47 @@ function getOperationalDate(): { date: string; isAuto: boolean; timezone: string
       month: '2-digit',
       day: '2-digit'
     });
-    return { date: dtf.format(new Date()), isAuto: true, timezone: 'Asia/Jakarta' };
+    if (offsetDays === 0) {
+      return dtf.format(baseDate);
+    }
+    const parts = dtf.formatToParts(baseDate);
+    const y = parseInt(parts.find(p => p.type === 'year')?.value || '1970', 10);
+    const m = parseInt(parts.find(p => p.type === 'month')?.value || '1', 10) - 1;
+    const d = parseInt(parts.find(p => p.type === 'day')?.value || '1', 10);
+    const shifted = new Date(Date.UTC(y, m, d + offsetDays, 12, 0, 0));
+    return dtf.format(shifted);
   } catch {
-    const d = new Date();
-    return {
-      date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-      isAuto: true,
-      timezone: 'Asia/Jakarta'
-    };
+    const d = new Date(baseDate.getTime() + 7 * 3600 * 1000 + offsetDays * 86400000);
+    return d.toISOString().slice(0, 10);
   }
+}
+
+export function getMsUntilNextJakartaMidnightServer(baseDate: Date = new Date()): number {
+  try {
+    const dtf = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const parts = dtf.formatToParts(baseDate);
+    const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10) % 24;
+    const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const s = parseInt(parts.find(p => p.type === 'second')?.value || '0', 10);
+    const msInDay = 86400 * 1000;
+    const elapsedMs = ((h * 3600 + m * 60 + s) * 1000) + baseDate.getMilliseconds();
+    return Math.max(500, msInDay - elapsedMs + 500);
+  } catch {
+    return 60 * 1000;
+  }
+}
+
+function getOperationalDate(baseDate: Date = new Date()): { date: string; isAuto: boolean; timezone: string } {
+  if (db.operationalDateOverride) {
+    return { date: db.operationalDateOverride, isAuto: false, timezone: 'Asia/Jakarta' };
+  }
+  return { date: getJakartaDateStringServer(baseDate), isAuto: true, timezone: 'Asia/Jakarta' };
 }
 
 let isSyncInProgress = false;
@@ -1794,8 +1825,59 @@ export function getBackendTicketWODate(t: any): string | null {
   return null;
 }
 
-export async function createExpressApp(options?: { skipVite?: boolean }): Promise<express.Express> {
+export function isTicketActiveForJakartaDate(ticket: any, targetDateWIB: string): boolean {
+  if (!ticket || typeof ticket !== 'object') return false;
+  if (ticket.isDeleted || ticket.isArchived) return false;
+  const woDate = getBackendTicketWODate(ticket);
+  return Boolean(woDate && woDate === targetDateWIB);
+}
+
+export function filterActiveTicketsForDate(tickets: any[], targetDateWIB: string): any[] {
+  if (!Array.isArray(tickets)) return [];
+  return tickets.filter(t => isTicketActiveForJakartaDate(t, targetDateWIB));
+}
+
+export function scopeActiveTicketsForUser(
+  tickets: any[],
+  user: ServerUser,
+  targetDateWIB: string = getJakartaDateStringServer()
+): any[] {
+  const roleScoped = scopeTicketsForUser(tickets, user);
+  return filterActiveTicketsForDate(roleScoped, targetDateWIB);
+}
+
+export async function createExpressApp(options?: {
+  skipVite?: boolean;
+  nowProvider?: () => Date;
+}): Promise<express.Express> {
   loadDatabaseFromDisk();
+
+  const getNow = options?.nowProvider ?? (() => new Date());
+
+  // Daily 00:00 WIB (Asia/Jakarta) Midnight Rollover Broadcast Scheduler
+  const scheduleNextJakartaMidnightRollover = () => {
+    const delayMs = Math.min(getMsUntilNextJakartaMidnightServer(getNow()), 2147483647);
+    const timer = setTimeout(() => {
+      const rolloverDateWIB = getJakartaDateStringServer(getNow());
+      db.operationalDateOverride = null;
+      backendRealtimeBus.emit('change', {
+        table: 'system_operational_date',
+        eventType: 'MIDNIGHT_ROLLOVER',
+        record: {
+          operationalDateWIB: rolloverDateWIB,
+          timezone: 'Asia/Jakarta'
+        },
+        timestamp: getNow().toISOString()
+      });
+      scheduleNextJakartaMidnightRollover();
+    }, delayMs);
+    if (typeof timer.unref === 'function') {
+      timer.unref();
+    }
+  };
+  if (!options?.skipVite) {
+    scheduleNextJakartaMidnightRollover();
+  }
 
   const app = express();
   const PORT = 3000;
@@ -2034,6 +2116,8 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
         });
       }
       const scopedTickets = user ? scopeTicketsForUser(db.tickets, user) : [];
+      const todayWIB = getJakartaDateStringServer(getNow());
+      const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
       const scopedTicketIds = new Set(scopedTickets.map((t: any) => String(t.id || '')));
       const scopedWoNumbers = new Set(scopedTickets.map((t: any) => String(t.woNumber || '').trim().toUpperCase()));
       const scopedMessages = user
@@ -2058,14 +2142,17 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
           active: user.active
         } : null,
         tickets: scopedTickets,
+        activeTickets: activeTodayTickets,
         ticketMessages: scopedMessages,
         contractors: db.contractors,
         coverageAreas: db.coverageAreas,
         templates: db.templates,
         globalConfig: db.globalConfig,
         sheetsConfig: user?.role === 'super_admin' ? db.sheetsConfig : undefined,
-        operationalDate: getOperationalDate().date,
-        serverTime: new Date().toISOString()
+        operationalDate: todayWIB,
+        operationalDateWIB: todayWIB,
+        timezone: 'Asia/Jakarta',
+        serverTime: getNow().toISOString()
       });
     }
 
@@ -2137,6 +2224,8 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
     }
 
     const scopedTickets = user ? scopeTicketsForUser(baseTickets, user) : [];
+    const todayWIB = getJakartaDateStringServer(getNow());
+    const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
     let scopedMessages: any[] = [];
     if (user && scopedTickets.length > 0) {
       const msgRes = await getTicketMessagesForTicketsFromSupabase(scopedTickets.map((t: any) => t.id));
@@ -2177,14 +2266,17 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
         active: user.active
       } : null,
       tickets: scopedTickets,
+      activeTickets: activeTodayTickets,
       ticketMessages: scopedMessages,
       contractors: safeContractors,
       coverageAreas: coverageAreasList,
       templates: templatesList,
       globalConfig: db.globalConfig,
       sheetsConfig: user?.role === 'super_admin' ? db.sheetsConfig : undefined,
-      operationalDate: getOperationalDate().date,
-      serverTime: new Date().toISOString()
+      operationalDate: todayWIB,
+      operationalDateWIB: todayWIB,
+      timezone: 'Asia/Jakarta',
+      serverTime: getNow().toISOString()
     });
   });
 
@@ -3106,15 +3198,19 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
       ticketsToScope = db.tickets;
     }
 
-    const scopedTickets = scopeTicketsForUser(ticketsToScope, user);
+    const todayWIB = getJakartaDateStringServer(getNow());
+    const scopedTickets = scopeActiveTicketsForUser(ticketsToScope, user, todayWIB);
 
     res.json({
       success: true,
       tickets: scopedTickets,
       count: scopedTickets.length,
+      operationalDateWIB: todayWIB,
+      timezone: 'Asia/Jakarta',
+      activeOnly: true,
       role: user.role,
       user: user.name,
-      serverTime: new Date().toISOString()
+      serverTime: getNow().toISOString()
     });
   });
 
@@ -3141,12 +3237,7 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
     }
 
     const qLower = q.toLowerCase();
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jakarta',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(new Date());
+    const today = getJakartaDateStringServer(getNow());
 
     let pool: any[] = [];
     if (isSupabaseMode()) {
@@ -5653,7 +5744,7 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
 
   // --- Operational Date Engine (Asia/Jakarta) ---
   app.get('/api/system/operational-date', (_req, res) => {
-    res.json(getOperationalDate());
+    res.json(getOperationalDate(getNow()));
   });
 
   app.post('/api/system/operational-date', requireAuth, (req: AuthenticatedRequest, res) => {
@@ -5665,7 +5756,7 @@ export async function createExpressApp(options?: { skipVite?: boolean }): Promis
     db.operationalDateOverride = isAuto || !targetDate ? null : String(targetDate).trim();
     saveDatabaseToDisk();
     logServerAudit('Operational Date Changed', 'system', 'operational-date', `Tanggal operasional diatur ke ${db.operationalDateOverride || 'Otomatis (Hari Ini)'} oleh ${req.user!.name}`, req.user);
-    res.json({ success: true, operationalDate: getOperationalDate().date });
+    res.json({ success: true, operationalDate: getOperationalDate(getNow()).date });
   });
 
   // Helper to extract clean Google Spreadsheet ID

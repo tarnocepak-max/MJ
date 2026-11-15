@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Ticket } from '../../types';
 import { Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: string) => void;
@@ -13,13 +14,16 @@ interface DashboardOverviewProps {
  * in their dedicated operational/report menus, not on this landing page.
  */
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate }) => {
-  const { tickets, currentUser, scopedTickets } = useApp();
+  const { tickets, currentUser, scopedTickets, todayWIB } = useApp();
   const roleRestricted = currentUser?.role === 'leader' || currentUser?.role === 'installer';
   const source = roleRestricted ? scopedTickets : tickets;
 
   const active = useMemo(
-    () => (source || []).filter((t: Ticket) => !t.isArchived && !t.isDeleted),
-    [source]
+    () =>
+      (source || []).filter(
+        (t: Ticket) => !t.isArchived && !t.isDeleted && getTicketAppointmentDate(t) === todayWIB
+      ),
+    [source, todayWIB]
   );
   const counts = useMemo(() => ({
     total: active.length,

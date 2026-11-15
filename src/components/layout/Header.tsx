@@ -27,6 +27,7 @@ import { MoraJawsLogo } from '../common/MoraJawsLogo';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 
 interface HeaderProps {
   activeTab: string;
@@ -37,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
   const {
     currentUser,
     tickets,
+    todayWIB,
     logout,
     contractorsList,
     areasList,
@@ -74,27 +76,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate }) => {
   const activeContractor = currentUser.contractor || (contractorsList?.[0] || 'PT Mitra Jaringan Solusi');
   const activeArea = currentUser.area || (areasList?.[0] || 'Jakarta Selatan');
 
-  // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta)
-  const todayWIB = React.useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Jakarta',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).format(new Date());
-    } catch {
-      return new Date().toISOString().split('T')[0];
-    }
-  }, []);
-
+  // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta, reactive 00:00 WIB)
   const todayTickets = React.useMemo(() => {
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
-      const raw = t.appointmentDate;
-      if (!raw) return false;
-      const clean = String(raw).slice(0, 10);
-      return clean === todayWIB || (String(raw).includes('T') && String(raw).split('T')[0] === todayWIB);
+      return getTicketAppointmentDate(t) === todayWIB;
     });
   }, [tickets, todayWIB]);
 

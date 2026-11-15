@@ -124,6 +124,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     bulkAssignPersonnel,
     currentUser,
     users,
+    todayWIB,
     registerInstallerAccount,
     templates,
     auditLogs,
@@ -158,8 +159,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   // Last refreshed timestamp
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(() => new Date().toISOString());
 
-  // Date schedule for timetable matrix (default today Asia/Jakarta WIB, not hardcoded sample)
-  const [scheduleDate, setScheduleDate] = useState(() => getJakartaDateString(0));
+  // Date schedule for timetable matrix (reactively tracks todayWIB Asia/Jakarta)
+  const [scheduleDate, setScheduleDate] = useState(() => todayWIB || getJakartaDateString(0));
+  useEffect(() => {
+    if (todayWIB) {
+      setScheduleDate(todayWIB);
+    }
+  }, [todayWIB]);
   const [selectedSlotForAssign, setSelectedSlotForAssign] = useState<{ installer: string; slot: string } | null>(null);
 
   const STANDARD_SLOTS = [
@@ -258,39 +264,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
   
-  // Date Range Filter for Assign WO (Strict Asia/Jakarta Appointment Date - Default Today)
-  const todayWIB = getJakartaDateString(0);
-  const [dateFilterType, setDateFilterTypeState] = useState<'all' | 'today' | 'tomorrow' | 'custom'>('today');
+  // Date Filter for Assign WO (Strict Asia/Jakarta Appointment Date === todayWIB, auto-resets at 00:00 WIB)
+  const [dateFilterType, setDateFilterTypeState] = useState<'today'>('today');
   const [customDateStart, setCustomDateStart] = useState<string>(todayWIB);
   const [customDateEnd, setCustomDateEnd] = useState<string>(todayWIB);
   const [appliedDateStart, setAppliedDateStart] = useState<string>(todayWIB);
   const [appliedDateEnd, setAppliedDateEnd] = useState<string>(todayWIB);
 
-  const setDateFilterType = (type: 'all' | 'today' | 'tomorrow' | 'custom') => {
-    setDateFilterTypeState(type);
-    if (type === 'all') {
-      setAppliedDateStart('');
-      setAppliedDateEnd('');
-    } else if (type === 'today') {
-      const today = getJakartaDateString(0);
-      setAppliedDateStart(today);
-      setAppliedDateEnd(today);
-    } else if (type === 'tomorrow') {
-      const tomorrow = getJakartaDateString(1);
-      setAppliedDateStart(tomorrow);
-      setAppliedDateEnd(tomorrow);
-    } else if (type === 'custom') {
-      setAppliedDateStart(customDateStart);
-      setAppliedDateEnd(customDateEnd);
-    }
-  };
-
   useEffect(() => {
-    if (dateFilterType === 'custom') {
-      setAppliedDateStart(customDateStart);
-      setAppliedDateEnd(customDateEnd);
+    if (todayWIB) {
+      setDateFilterTypeState('today');
+      setCustomDateStart(todayWIB);
+      setCustomDateEnd(todayWIB);
+      setAppliedDateStart(todayWIB);
+      setAppliedDateEnd(todayWIB);
+      setCurrentPage(1);
     }
-  }, [dateFilterType, customDateStart, customDateEnd]);
+  }, [todayWIB]);
 
   // Pagination & Rows per page
   const [rowsPerPage, setRowsPerPage] = useState<number>(25);
@@ -525,8 +515,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     let pending = 0;
     let problem = 0;
 
-    const todayDateStr = getJakartaDateString(0);
-    const todayContractorTickets = contractorTickets.filter(t => getTicketAppointmentDate(t) === todayDateStr);
+    const todayContractorTickets = contractorTickets.filter(t => getTicketAppointmentDate(t) === todayWIB);
 
     todayContractorTickets.forEach(t => {
       const { category } = classifyTicketOperational(t);
@@ -570,12 +559,11 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       activeInstallers,
       idleInstallers
     };
-  }, [contractorTickets, myInstallers]);
+  }, [contractorTickets, myInstallers, todayWIB]);
 
   // INSTALLER PROGRESS MONITORING ROWS (Section 4 & 5 - strictly counts appointment date today)
   const installerProgressRows = useMemo(() => {
-    const todayDateStr = getJakartaDateString(0);
-    const todayContractorTickets = contractorTickets.filter(t => getTicketAppointmentDate(t) === todayDateStr);
+    const todayContractorTickets = contractorTickets.filter(t => getTicketAppointmentDate(t) === todayWIB);
 
     return myInstallers.map(inst => {
       const instTickets = todayContractorTickets.filter(
@@ -610,7 +598,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         maxQuota
       };
     });
-  }, [myInstallers, contractorTickets, quotaSettings]);
+  }, [myInstallers, contractorTickets, quotaSettings, todayWIB]);
 
   // FILTERED WORK ORDERS FOR DETAIL TABLE (Section 6, 7 & 8)
   const filteredTickets = useMemo(() => {
@@ -633,11 +621,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         }
       }
 
-      // Date Range Filter (Strict Asia/Jakarta Appointment Date - Default Today or Applied Range; 'All' includes unscheduled WOs)
+      // Strict Asia/Jakarta Appointment Date === todayWIB (Auto-resets at 00:00 WIB)
       const ticketDate = getTicketAppointmentDate(t);
-      if ((appliedDateStart || appliedDateEnd) && !ticketDate) return false;
-      if (appliedDateStart && ticketDate < appliedDateStart) return false;
-      if (appliedDateEnd && ticketDate > appliedDateEnd) return false;
+      if (!ticketDate || ticketDate !== todayWIB) return false;
 
       // Search query filter (WO Number, Customer ID, Customer Name, Phone, Installer, Cluster, Street)
       if (searchQuery.trim()) {
@@ -662,8 +648,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     contractorTickets,
     statusFilter,
     selectedInstallerFilter,
-    appliedDateStart,
-    appliedDateEnd,
+    todayWIB,
     searchQuery
   ]);
 
@@ -2332,87 +2317,17 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 </div>
 
                 {/* Date Filter Bar: "Select WO Date", Start Date, End Date, tombol Cari (Magenta) */}
-                <div className="flex flex-wrap items-center gap-2 p-2 bg-[#FCE4F1]/40 dark:bg-[#251545] rounded-xl border border-[#EC91C0]/60 text-xs">
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-[#A80F62] dark:text-pink-300 shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#FCE4F1]/40 dark:bg-[#251545] rounded-xl border border-[#EC91C0]/60 text-xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#A80F62] dark:text-pink-300 shrink-0">
                     <Calendar className="w-3.5 h-3.5 text-[#D81B83]" />
-                    <span>Select WO Date:</span>
+                    <span>Jadwal WO Aktif Hari Ini (Auto Reset 00:00 WIB):</span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-[#D81B83] text-white font-mono font-bold">
+                      {todayWIB} WIB
+                    </span>
                   </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => { setDateFilterType('all'); setCurrentPage(1); }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                        dateFilterType === 'all'
-                          ? 'bg-[#D81B83] text-white shadow-xs font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setDateFilterType('today'); setCurrentPage(1); }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                        dateFilterType === 'today'
-                          ? 'bg-[#D81B83] text-white shadow-xs font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setDateFilterType('tomorrow'); setCurrentPage(1); }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                        dateFilterType === 'tomorrow'
-                          ? 'bg-[#D81B83] text-white shadow-xs font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Tomorrow
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setDateFilterType('custom'); setCurrentPage(1); }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                        dateFilterType === 'custom'
-                          ? 'bg-[#D81B83] text-white shadow-xs font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Range
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 pl-1">
-                    <input
-                      type="date"
-                      value={customDateStart}
-                      onChange={e => { setCustomDateStart(e.target.value); setDateFilterType('custom'); }}
-                      placeholder="Start Date"
-                      className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] font-mono focus:ring-1 focus:ring-[#D81B83]"
-                      title="Start Date"
-                    />
-                    <span className="text-slate-400 text-[11px]">s/d</span>
-                    <input
-                      type="date"
-                      value={customDateEnd}
-                      onChange={e => { setCustomDateEnd(e.target.value); setDateFilterType('custom'); }}
-                      placeholder="End Date"
-                      className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] font-mono focus:ring-1 focus:ring-[#D81B83]"
-                      title="End Date"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => { setDateFilterType('custom'); setCurrentPage(1); }}
-                      className="px-3 py-1 bg-[#D81B83] hover:bg-[#C21875] text-white font-bold text-[11px] rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                      title="Cari berdasarkan tanggal WO"
-                    >
-                      <Search className="w-3 h-3" />
-                      <span>Cari</span>
-                    </button>
-                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Menampilkan WO dengan Appointment Date = {todayWIB}
+                  </span>
                 </div>
 
                 {/* Bagian Tengah: Search & Filters */}
@@ -2473,7 +2388,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                         setStatusFilter('all');
                         setSelectedInstallerFilter('ALL');
                         setSearchQuery('');
-                        setDateFilterType('all');
                         setSortState({ column: null, direction: null });
                         setCurrentPage(1);
                       }}

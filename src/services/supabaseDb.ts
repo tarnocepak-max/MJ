@@ -36,7 +36,7 @@ export interface WorkOrderFilterOptions {
 }
 
 export interface RealtimeSubscriptionOptions {
-  table?: 'work_orders' | 'ticket_messages' | 'audit_logs' | 'users' | 'app_settings' | 'contractors' | 'coverage_areas' | 'wa_templates';
+  table?: 'work_orders' | 'ticket_messages' | 'audit_logs' | 'users' | 'app_settings' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date';
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   filter?: string;
   onPayload: (payload: any) => void;
