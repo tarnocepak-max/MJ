@@ -183,7 +183,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
   return (
     <div className="space-y-5">
       {/* Stitch AI Sticky Sub-Header & Numbered Tab Ribbon */}
-      <div className="bg-white dark:bg-[#1E1238] rounded-xl px-5 pt-4 pb-2.5 text-[#211A2E] dark:text-white shadow-2xs border border-[#E9E5F0] dark:border-[#35105E]">
+      <div className="mj-tactile-card px-5 pt-4 pb-3 text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78]">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -267,7 +267,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         </div>
 
         {/* Numbered 01..NN Tab Navigation Ribbon */}
-        <div className="mt-4 pt-2.5 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="mj-tactile-tab-bar mt-4 p-1.5 flex items-center gap-1.5 overflow-x-auto">
           {accessibleTabs.map((tab, idx) => {
             const Icon = tab.icon;
             const isActive = currentTab === tab.key;
@@ -279,8 +279,8 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                   isActive
-                    ? 'bg-[#2D115B] text-white font-bold shadow-xs'
-                    : 'text-[#494453] dark:text-[#CEC0E8] font-semibold hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+                    ? 'bg-[#7135b5] text-white font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_3px_0_#35105e]'
+                    : 'text-[#4b4452] dark:text-[#cabde8] font-semibold hover:text-[#1f1638] hover:bg-white/60 dark:hover:bg-[#35105e]'
                 }`}
               >
                 <span
@@ -372,26 +372,26 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {currentTab === 'database' && (isSuperadmin || isManagement) && (
           <div className="space-y-4">
             {/* Sub-tab Switcher for Database */}
-            <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-[#1A0E2E] rounded-xl border border-slate-200 dark:border-purple-900/60 text-xs font-semibold">
+            <div className="mj-tactile-tab-bar flex items-center gap-2 p-1.5 border border-[#e8ddff] dark:border-[#3b1d78] text-xs font-semibold overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setDbSubTab('management')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   dbSubTab === 'management'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'mj-tactile-tab-active font-bold'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Database className="w-3.5 h-3.5" />
-                <span>Database & Backup</span>
+                <span>Database &amp; Backup</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDbSubTab('monitoring')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   dbSubTab === 'monitoring'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'mj-tactile-tab-active font-bold'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Server className="w-3.5 h-3.5" />
@@ -400,10 +400,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDbSubTab('sheets')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   dbSubTab === 'sheets'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'mj-tactile-tab-active font-bold'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
@@ -428,14 +428,14 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {currentTab === 'health_logs' && isSuperadmin && (
           <div className="space-y-4">
             {/* Sub-tab Switcher for Logs */}
-            <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-[#1A0E2E] rounded-xl border border-slate-200 dark:border-purple-900/60 text-xs font-semibold">
+            <div className="mj-tactile-tab-bar flex items-center gap-2 p-1.5 border border-[#e8ddff] dark:border-[#3b1d78] text-xs font-semibold overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setLogSubTab('health')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   logSubTab === 'health'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'mj-tactile-tab-active font-bold'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
@@ -444,10 +444,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setLogSubTab('audit')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   logSubTab === 'audit'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'mj-tactile-tab-active font-bold'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -456,14 +456,14 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setLogSubTab('login')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   logSubTab === 'login'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'mj-tactile-tab-active font-bold'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Lock className="w-3.5 h-3.5" />
-                <span>Riwayat Sesi & Login</span>
+                <span>Riwayat Sesi &amp; Login</span>
               </button>
             </div>
 

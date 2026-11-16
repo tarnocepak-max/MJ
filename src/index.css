@@ -3,57 +3,57 @@
 
 @theme {
   --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Courier Prime", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Plus Jakarta Sans", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier Prime", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Surface & Canvas Tokens */
-  --color-surface: #fef7ff;
-  --color-surface-dim: #e1d5f1;
-  --color-surface-bright: #fef7ff;
-  --color-surface-variant: #eaddfa;
+  /* Stitch AI Tactile Surface & Canvas Tokens */
+  --color-surface: #fdf7ff;
+  --color-surface-dim: #e1d4ff;
+  --color-surface-bright: #fdf7ff;
+  --color-surface-variant: #e8ddff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f9f0ff;
-  --color-surface-container: #f4eaff;
-  --color-surface-container-high: #f0e3ff;
-  --color-surface-container-highest: #eaddfa;
-  --color-surface-tint: #6a46c1;
-  --color-background: #fef7ff;
-  --color-on-background: #1f182c;
-  --color-on-surface: #1f182c;
-  --color-on-surface-variant: #494453;
-  --color-inverse-surface: #342d42;
-  --color-inverse-on-surface: #f7edff;
-  --color-outline: #7a7484;
-  --color-outline-variant: #cbc3d5;
+  --color-surface-container-low: #f8f1ff;
+  --color-surface-container: #f3eaff;
+  --color-surface-container-high: #eee4ff;
+  --color-surface-container-highest: #e8ddff;
+  --color-surface-tint: #793ebe;
+  --color-background: #fdf7ff;
+  --color-on-background: #1f1638;
+  --color-on-surface: #1f1638;
+  --color-on-surface-variant: #4b4452;
+  --color-inverse-surface: #342b4e;
+  --color-inverse-on-surface: #f5eeff;
+  --color-outline: #7d7484;
+  --color-outline-variant: #cec3d4;
 
   /* Brand & Container Tokens */
-  --color-primary: #431599;
+  --color-primary: #58149c;
   --color-on-primary: #ffffff;
-  --color-primary-container: #5b35b1;
-  --color-on-primary-container: #ccb7ff;
-  --color-inverse-primary: #d0bcff;
-  --color-primary-fixed: #e9ddff;
-  --color-primary-fixed-dim: #d0bcff;
-  --color-on-primary-fixed: #22005c;
-  --color-on-primary-fixed-variant: #522aa7;
+  --color-primary-container: #7135b5;
+  --color-on-primary-container: #dec0ff;
+  --color-inverse-primary: #dab9ff;
+  --color-primary-fixed: #eedbff;
+  --color-primary-fixed-dim: #dab9ff;
+  --color-on-primary-fixed: #2a0053;
+  --color-on-primary-fixed-variant: #6020a4;
 
-  --color-secondary: #63597b;
+  --color-secondary: #6a46c1;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #e4d6ff;
-  --color-on-secondary-container: #665b7e;
+  --color-secondary-container: #a380fe;
+  --color-on-secondary-container: #38008d;
   --color-secondary-fixed: #e9ddff;
-  --color-secondary-fixed-dim: #cec0e8;
-  --color-on-secondary-fixed: #1f1634;
-  --color-on-secondary-fixed-variant: #4b4162;
+  --color-secondary-fixed-dim: #d0bcff;
+  --color-on-secondary-fixed: #22005c;
+  --color-on-secondary-fixed-variant: #522aa7;
 
-  --color-tertiary: #40208d;
+  --color-tertiary: #5e00a2;
   --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #583ba6;
-  --color-on-tertiary-container: #cab8ff;
-  --color-tertiary-fixed: #e8ddff;
-  --color-tertiary-fixed-dim: #cebdff;
-  --color-on-tertiary-fixed: #21005e;
-  --color-on-tertiary-fixed-variant: #4f319c;
+  --color-tertiary-container: #7b1eca;
+  --color-on-tertiary-container: #e1bfff;
+  --color-tertiary-fixed: #f0dbff;
+  --color-tertiary-fixed-dim: #ddb7ff;
+  --color-on-tertiary-fixed: #2c0051;
+  --color-on-tertiary-fixed-variant: #6900b3;
 
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
@@ -61,62 +61,63 @@
   --color-on-error-container: #93000a;
 
   /* MoraJaws Enterprise Brand & Semantic Tokens */
-  --color-light-canvas: #F7F6FA;
-  --color-light-canvas-tinted: #F5F1FF;
-  --color-surface-white: #FFFFFF;
-  --color-border-subtle: #E9E5F0;
-  --color-border-lilac: #D8CCF3;
+  --color-light-canvas: #fdf7ff;
+  --color-light-canvas-tinted: #f8f1ff;
+  --color-surface-white: #ffffff;
+  --color-border-subtle: #e8ddff;
+  --color-border-lilac: #cec3d4;
 
   --color-brand-dark-purple: #160D29;
   --color-brand-deep-purple: #35105E;
   --color-brand-gloss-purple: #7135B5;
-  --color-brand-primary: #431599;
-  --color-lilac-accent: #A78BFA;
-  --color-lilac-glow: #D8B4FE;
-  --color-soft-lilac: #E9D5FF;
+  --color-brand-primary: #58149C;
+  --color-lilac-accent: #A380FE;
+  --color-lilac-glow: #DAB9FF;
+  --color-soft-lilac: #EEDBFF;
 
-  --color-text-primary: #211A2E;
-  --color-text-secondary: #766B83;
-  --color-text-muted: #8B8495;
+  --color-text-primary: #1F1638;
+  --color-text-secondary: #4B4452;
+  --color-text-muted: #7D7484;
 
   --color-status-success: #16A36A;
-  --color-status-warning: #E59A27;
-  --color-status-danger: #DC4C5A;
-  --color-status-info: #3977C9;
+  --color-status-warning: #D97706;
+  --color-status-danger: #BA1A1A;
+  --color-status-info: #2563EB;
 }
 
 :root {
-  --mj-dark-purple: #160D29;
-  --mj-deep-purple: #35105E;
-  --mj-gloss-purple: #7135B5;
-  --mj-primary: #431599;
-  --mj-primary-container: #5B35B1;
-  --mj-violet: #A855F7;
-  --mj-lilac: #D8B4FE;
-  --mj-light-lilac: #E9D5FF;
-  --mj-canvas: #F7F6FA;
-  --mj-canvas-tinted: #F5F1FF;
-  --mj-border: #E9E5F0;
-  --mj-border-lilac: #D8CCF3;
-  --mj-white-glow: #FFFFFF;
+  --mj-dark-purple: #342b4e;
+  --mj-deep-purple: #35105e;
+  --mj-gloss-purple: #7135b5;
+  --mj-primary: #58149c;
+  --mj-primary-container: #7135b5;
+  --mj-violet: #a380fe;
+  --mj-lilac: #dab9ff;
+  --mj-light-lilac: #eedbff;
+  --mj-canvas: #fdf7ff;
+  --mj-canvas-tinted: #f8f1ff;
+  --mj-border: #e8ddff;
+  --mj-border-lilac: #cec3d4;
+  --mj-white-glow: #ffffff;
 }
 
 @layer base {
   html,
   body {
     font-family: var(--font-sans);
-    background-color: #F7F6FA;
-    color: #211A2E;
+    background-color: #fdf7ff;
+    color: #1f1638;
     font-size: 14px;
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
   }
 
   html.dark,
   html.dark body {
-    background-color: #160D29;
-    color: #F5F1FF;
+    background-color: #140827;
+    color: #f5eeff;
   }
 
   h1, h2, h3, h4, .font-display {
@@ -178,34 +179,193 @@
   letter-spacing: 0.04em;
 }
 
+/* -------------------------------------------------------------
+   MoraJaws 3D Tactile Extrusion & Kinetic Physics Primitives
+   ------------------------------------------------------------- */
+.mj-tactile-card {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 0 #e8ddff, 0 12px 24px -6px rgba(31, 22, 56, 0.06);
+}
+html.dark .mj-tactile-card {
+  background-color: #1e1238;
+  box-shadow: 0 4px 0 #2e1859, 0 12px 24px -6px rgba(0, 0, 0, 0.45);
+}
+
+.mj-tactile-well {
+  background-color: #f8f1ff;
+  border-radius: 0.5rem;
+  box-shadow: inset 0 2px 4px rgba(31, 22, 56, 0.06);
+}
+html.dark .mj-tactile-well {
+  background-color: #160d29;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.mj-tactile-tab-bar {
+  background-color: #f3eaff;
+  border-radius: 0.75rem;
+  box-shadow: inset 0 2px 4px rgba(31, 22, 56, 0.08);
+}
+html.dark .mj-tactile-tab-bar {
+  background-color: #1a0f30;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.mj-tactile-tab-active {
+  background-color: #ffffff;
+  color: #1f1638;
+  box-shadow: 0 3px 0 #cec3d4, 0 6px 12px rgba(31, 22, 56, 0.06);
+}
+html.dark .mj-tactile-tab-active {
+  background-color: #342b4e;
+  color: #f5eeff;
+  box-shadow: 0 3px 0 #160d29, 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+.mj-tactile-btn-primary {
+  background-color: #7135b5;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 0 #35105e, 0 8px 16px rgba(53, 16, 94, 0.25);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease;
+}
+.mj-tactile-btn-primary:hover:not(:disabled) {
+  background-color: #58149c;
+}
+.mj-tactile-btn-primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #35105e;
+}
+
+.mj-tactile-btn-secondary {
+  background-color: #ffffff;
+  color: #1f1638;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 0 #cec3d4, 0 8px 16px rgba(31, 22, 56, 0.08);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease;
+}
+.mj-tactile-btn-secondary:hover:not(:disabled) {
+  background-color: #f8f1ff;
+}
+.mj-tactile-btn-secondary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 0 #cec3d4;
+}
+html.dark .mj-tactile-btn-secondary {
+  background-color: #261942;
+  color: #f5eeff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 0 #160d29, 0 8px 16px rgba(0, 0, 0, 0.35);
+}
+html.dark .mj-tactile-btn-secondary:hover:not(:disabled) {
+  background-color: #342b4e;
+}
+html.dark .mj-tactile-btn-secondary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #160d29;
+}
+
+.mj-tactile-btn-success {
+  background-color: #6a46c1;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 0 #22005c, 0 8px 16px rgba(34, 0, 92, 0.2);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease;
+}
+.mj-tactile-btn-success:hover:not(:disabled) {
+  background-color: #58149c;
+}
+.mj-tactile-btn-success:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #22005c;
+}
+
+.mj-tactile-btn-danger {
+  background-color: #ba1a1a;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 0 #93000a, 0 8px 16px rgba(147, 0, 10, 0.25);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease;
+}
+.mj-tactile-btn-danger:hover:not(:disabled) {
+  opacity: 0.95;
+}
+.mj-tactile-btn-danger:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #93000a;
+}
+
+.mj-tactile-btn-warning {
+  background-color: #5e00a2;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 0 #2c0051, 0 8px 16px rgba(44, 0, 81, 0.25);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease;
+}
+.mj-tactile-btn-warning:hover:not(:disabled) {
+  opacity: 0.95;
+}
+.mj-tactile-btn-warning:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #2c0051;
+}
+
+.mj-tactile-icon-key {
+  background-color: #ffffff;
+  color: #1f1638;
+  box-shadow: inset 0 1px 0 #ffffff, 0 3px 0 #cec3d4, 0 4px 8px rgba(31, 22, 56, 0.08);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease;
+}
+.mj-tactile-icon-key:hover:not(:disabled) {
+  background-color: #f8f1ff;
+}
+.mj-tactile-icon-key:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #cec3d4;
+}
+html.dark .mj-tactile-icon-key {
+  background-color: #261942;
+  color: #f5eeff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 #160d29;
+}
+
 /* MoraJaws Minimal Enterprise Elevation & Component Primitives */
 .mj-enterprise-card {
   background-color: #FFFFFF;
-  border: 1px solid #E9E5F0;
-  box-shadow: 0 1px 3px rgba(27, 18, 48, 0.05);
+  border: 1px solid #E8DDFF;
+  box-shadow: 0 4px 0 #E8DDFF, 0 12px 24px -6px rgba(31, 22, 56, 0.06);
 }
 
 .mj-btn-primary {
-  background: linear-gradient(135deg, #5B35B1 0%, #7135B5 100%);
+  background-color: #7135B5;
   color: #FFFFFF;
   font-weight: 700;
-  transition: transform 150ms ease, filter 150ms ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 3px 0 #35105E;
+  transition: transform 120ms ease, background-color 150ms ease, box-shadow 120ms ease;
 }
 .mj-btn-primary:hover:not(:disabled) {
-  transform: scale(1.02);
-  filter: brightness(1.06);
+  background-color: #58149C;
+}
+.mj-btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #35105E;
 }
 
 .mj-btn-secondary {
   background-color: #FFFFFF;
-  border: 1px solid #E9E5F0;
-  color: #211A2E;
+  border: 1px solid #E8DDFF;
+  color: #1F1638;
   font-weight: 600;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  box-shadow: 0 2px 0 #CEC3D4;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 120ms ease;
 }
 .mj-btn-secondary:hover:not(:disabled) {
-  background-color: #F3EDFA;
-  border-color: #D8CCF3;
+  background-color: #F8F1FF;
+  border-color: #D0BCFF;
+}
+.mj-btn-secondary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 #CEC3D4;
 }
 
 .mj-focus-glow:focus-visible,

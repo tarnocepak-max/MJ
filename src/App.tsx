@@ -57,6 +57,7 @@ const MainLayout: React.FC = () => {
     currentUser,
     isLoggedIn,
     tickets,
+    users,
     todayWIB,
     openOfflineSyncCenter,
     totalLiveChatUnreadCount,
@@ -243,6 +244,18 @@ const MainLayout: React.FC = () => {
       return (tContractor && myContractor && (tContractor.includes(myContractor) || myContractor.includes(tContractor)));
     }).length;
   }, [isLoggedIn, tickets, currentUser, todayWIB]);
+
+  // Scoped active installers count for Leader's contractor
+  const leaderInstallersCount = useMemo(() => {
+    if (!isLoggedIn || currentUser?.role !== 'leader') return 0;
+    const myContractor = String(currentUser?.contractor || '').toLowerCase().trim();
+    return (users || []).filter(u => {
+      if (u.isDeleted || u.role !== 'installer') return false;
+      if (!myContractor) return true;
+      const uCont = String(u.contractor || '').toLowerCase().trim();
+      return Boolean(uCont && (uCont.includes(myContractor) || myContractor.includes(uCont)));
+    }).length;
+  }, [isLoggedIn, users, currentUser]);
 
   // Helper matching for logged-in technician
   const isInstallerMatch = (ticketInstaller: string | undefined, installerName: string) => {
@@ -847,7 +860,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-[#F5F1FF] transition-colors relative">
+    <div className="h-dvh flex flex-col overflow-hidden bg-[#fdf7ff] dark:bg-[#140827] text-[#1f1638] dark:text-[#f5eeff] transition-colors relative">
       {/* Main Workspace Frame */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Navigation Sidebar: STRICTLY NOT RENDERED FOR INSTALLER */}
@@ -872,11 +885,12 @@ const MainLayout: React.FC = () => {
           {/* Floating Open Menu Button when sidebar is closed on desktop mode */}
           {!isInstaller && !isMobileView && currentSidebarState === 'closed' && !isDetailModalOpen && !isWhatsAppModalOpen && (
             <button
+              type="button"
               onClick={() => setSidebarState('expanded')}
-              className="hidden md:flex fixed bottom-6 left-6 z-30 items-center gap-2 px-3.5 py-2 bg-[#5B35B1] hover:bg-[#7135B5] text-white text-xs font-bold rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer"
+              className="hidden md:flex fixed bottom-6 left-6 z-30 items-center gap-2 px-4 py-2.5 mj-tactile-btn-primary text-xs rounded-xl cursor-pointer whitespace-nowrap"
               title="Buka Menu Navigasi"
             >
-              <Menu className="w-4 h-4" />
+              <Menu className="w-4 h-4 shrink-0" />
               <span>Buka Menu</span>
             </button>
           )}
@@ -946,6 +960,7 @@ const MainLayout: React.FC = () => {
             navigateTo(tab);
           }}
           unassignedCount={leaderUnassignedCount}
+          installersCount={leaderInstallersCount}
         />
       ) : (
         isMobileView && config.device?.android?.showBottomNavigation !== false && (

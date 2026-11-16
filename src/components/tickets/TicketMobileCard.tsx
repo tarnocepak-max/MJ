@@ -56,10 +56,10 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
 
   return (
     <div
-      className={`rounded-xl border transition-all duration-150 flex flex-col bg-white dark:bg-[#1E1238] shadow-2xs relative overflow-hidden ${
+      className={`mj-tactile-card border transition-all duration-150 flex flex-col relative overflow-hidden ${
         isSelected
-          ? 'border-[#7135B5] ring-2 ring-[#7135B5]/20 bg-[#F5F1FF]/40 dark:bg-[#35105E]/30'
-          : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#D8CCF3] dark:hover:border-[#5B35B1]'
+          ? 'border-[#7135B5] ring-2 ring-[#7135B5]/25 bg-[#F8F1FF] dark:bg-[#2E1459]'
+          : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#cec3d4] dark:hover:border-[#5B35B1]'
       } ${densityPadding}`}
     >
       {/* Top Bar: Checkbox + WO Number + Slot Time Badge */}
@@ -107,7 +107,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       {/* Customer & Location Details */}
       <div className="flex flex-col gap-2 text-xs">
         {/* Customer Information Section */}
-        <div className="p-2.5 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29]/70 border border-[#E9E5F0] dark:border-[#35105E] space-y-1.5">
+        <div className="mj-tactile-well p-2.5 border border-[#e8ddff] dark:border-[#35105E] space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 font-bold text-[#211A2E] dark:text-white text-sm">
@@ -144,7 +144,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
                   e.stopPropagation();
                   onOpenWhatsApp(ticket);
                 }}
-                className="px-2.5 py-1 bg-[#16A36A] hover:bg-[#15803D] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors shrink-0 cursor-pointer whitespace-nowrap"
+                className="mj-tactile-btn-success px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap"
                 title="Buka WhatsApp Pelanggan"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -161,7 +161,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
               e.stopPropagation();
               openCustomerAddressInGoogleMaps(ticket);
             }}
-            className="group cursor-pointer p-2.5 rounded-xl border border-[#D8CCF3] dark:border-[#3B1D78] bg-[#F5F1FF]/80 dark:bg-[#251247]/60 hover:bg-[#F0E3FF] dark:hover:bg-[#35105E] transition-all shadow-2xs"
+            className="mj-tactile-well group cursor-pointer p-2.5 border border-[#d8ccf3] dark:border-[#3B1D78] hover:bg-[#f3eaff] dark:hover:bg-[#35105E] transition-all"
             title="Klik alamat untuk membuka Google Maps"
           >
             <div className="flex items-start justify-between gap-1.5">
@@ -238,7 +238,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       </div>
 
       {/* Bottom Action Dock */}
-      <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-[#E9E5F0] dark:border-[#35105E] mt-1">
+      <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-[#e8ddff] dark:border-[#35105E] mt-1">
         {/* Chat Action with Unread Badge */}
         {(() => {
           const unread = getTicketUnreadCount(ticket.id);
@@ -249,17 +249,17 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
                 e.stopPropagation();
                 onSelectTicket(ticket, 'chat');
               }}
-              className={`flex items-center justify-center gap-1.5 px-3 rounded-xl font-bold border transition-colors cursor-pointer shadow-2xs whitespace-nowrap ${
+              className={`flex items-center justify-center gap-1.5 px-3 rounded-xl font-bold border transition-all cursor-pointer whitespace-nowrap ${
                 unread > 0
-                  ? 'bg-[#FEF2F2] dark:bg-rose-950/50 text-[#DC4C5A] dark:text-rose-300 border-[#FECACA] dark:border-rose-900'
-                  : 'bg-[#F5F1FF] dark:bg-[#35105E]/60 text-[#431599] dark:text-[#E9E1FF] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
-              } ${isComfortableTouch ? 'py-2.5 text-xs min-h-[44px]' : 'py-1.5 text-[11px]'}`}
+                  ? 'bg-[#FEF2F2] dark:bg-rose-950/50 text-[#ba1a1a] dark:text-rose-300 border-[#FECACA] dark:border-rose-900 shadow-[0_3px_0_#fecaca]'
+                  : 'mj-tactile-btn-secondary border-[#cec3d4] dark:border-[#4b386b]'
+              } ${isComfortableTouch ? 'py-2.5 text-xs min-h-[44px]' : 'py-1.5 text-[11px] min-h-[40px]'}`}
               title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
             >
-              <MessageCircle className="w-4 h-4 shrink-0" />
+              <MessageCircle className="w-4 h-4 shrink-0 text-[#58149c] dark:text-[#dab9ff]" />
               <span>Chat</span>
               {unread > 0 && (
-                <span className="px-1.5 py-0.2 bg-[#DC4C5A] text-white text-[10px] font-bold rounded-full tabular-nums">
+                <span className="px-1.5 py-0.2 bg-[#ba1a1a] text-white text-[10px] font-bold rounded-full tabular-nums">
                   {unread > 99 ? '99+' : unread}
                 </span>
               )}
@@ -272,8 +272,8 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           <a
             href={`tel:${ticket.customerPhone}`}
             onClick={(e) => e.stopPropagation()}
-            className={`flex items-center justify-center gap-1.5 px-3 rounded-xl font-bold bg-[#F5F1FF] dark:bg-[#35105E]/60 text-[#431599] dark:text-[#E9E1FF] border border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF] transition-colors cursor-pointer shadow-2xs whitespace-nowrap ${
-              isComfortableTouch ? 'py-2.5 text-xs min-h-[44px]' : 'py-1.5 text-[11px]'
+            className={`mj-tactile-btn-secondary flex items-center justify-center gap-1.5 px-3 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] cursor-pointer whitespace-nowrap ${
+              isComfortableTouch ? 'py-2.5 text-xs min-h-[44px]' : 'py-1.5 text-[11px] min-h-[40px]'
             }`}
             title={`Telepon ${ticket.customerPhone}`}
           >
@@ -281,7 +281,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
             <span>Panggil</span>
           </a>
         ) : (
-          <div className="flex items-center justify-center text-[#8B8495] text-xs py-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl">
+          <div className="mj-tactile-well flex items-center justify-center text-[#7d7484] text-xs py-2 rounded-xl min-h-[44px]">
             Telepon -
           </div>
         )}
@@ -290,8 +290,8 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         <button
           type="button"
           onClick={() => onSelectTicket(ticket, 'overview')}
-          className={`col-span-2 flex items-center justify-center gap-1.5 rounded-xl font-bold text-white bg-[#431599] hover:bg-[#5B35B1] active:bg-[#35105E] transition-all shadow-sm cursor-pointer whitespace-nowrap ${
-            isComfortableTouch ? 'py-2.5 text-xs min-h-[44px]' : 'py-2 text-[11px]'
+          className={`mj-tactile-btn-primary col-span-2 flex items-center justify-center gap-1.5 rounded-xl cursor-pointer whitespace-nowrap ${
+            isComfortableTouch ? 'py-2.5 text-xs min-h-[44px]' : 'py-2 text-[11px] min-h-[40px]'
           }`}
           title="Buka Detail & Penugasan WO"
         >

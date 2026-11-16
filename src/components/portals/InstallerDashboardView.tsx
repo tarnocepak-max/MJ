@@ -478,11 +478,11 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* ================================================================= */}
       {/* 1. HERO GREETING & PROGRES KUOTA HARIAN CARD                      */}
       {/* ================================================================= */}
-      <section className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-4 sm:p-5 shadow-xs space-y-3.5">
+      <section className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 sm:p-5 space-y-3.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="inline-flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#16A36A] shrink-0" />
-            <span className="text-[10.5px] font-extrabold tracking-wider uppercase text-[#431599] dark:text-[#D8B4FE]">
+            <span className="text-[10.5px] font-extrabold tracking-wider uppercase text-[#58149c] dark:text-[#dab9ff]">
               TEKNISI LAPANGAN FTTH
             </span>
           </div>
@@ -490,7 +490,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           <button
             type="button"
             onClick={() => setIsOfflineModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F5F1FF] hover:bg-[#EFE9FA] dark:bg-[#2A1647] border border-[#E9D5FF] dark:border-[#5B35B1] text-[#431599] dark:text-[#D8B4FE] text-[10.5px] font-bold transition-colors cursor-pointer tabular-nums"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f3eaff] hover:bg-[#eee4ff] dark:bg-[#2A1647] border border-[#d8ccf3] dark:border-[#5B35B1] text-[#58149c] dark:text-[#dab9ff] text-[10.5px] font-bold transition-colors cursor-pointer tabular-nums"
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
             <span>Offline Siap ({pendingCount} Antrean)</span>
@@ -498,16 +498,16 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
         </div>
 
         <div>
-          <h1 className="font-display text-xl sm:text-2xl font-extrabold text-[#211A2E] dark:text-white tracking-tight leading-snug">
+          <h1 className="font-display text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tracking-tight leading-snug">
             {getWibGreeting()}, {currentUser.name}
           </h1>
-          <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] mt-0.5">
-            {derivedArea} · Korlap: <span className="font-semibold text-[#211A2E] dark:text-white">{derivedLeader.name}</span>
+          <p className="text-xs text-[#4b4452] dark:text-[#cabde8] mt-0.5">
+            {derivedArea} · Korlap: <span className="font-semibold text-[#1f1638] dark:text-white">{derivedLeader.name}</span>
           </p>
         </div>
 
         {/* Progres Kuota Harian Box */}
-        <div className="rounded-xl bg-[#F9F6FF] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] p-3.5 space-y-2">
+        <div className="mj-tactile-well border border-[#e8ddff] dark:border-[#35105E] p-3.5 space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-semibold text-[#494453] dark:text-[#E9D5FF]">
               Progres Kuota Harian
@@ -601,22 +601,22 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* 3 & 4. FEATURED WORK ORDER + SOP CHECK-IN & PELAPORAN             */}
       {/* ================================================================= */}
       {!featuredTicket ? (
-        <section className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-7 text-center space-y-3 shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-[#F5F1FF] dark:bg-[#2A1647] text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center mx-auto">
+        <section className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-7 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-[#f3eaff] dark:bg-[#2A1647] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-6 h-6 text-[#16A36A]" />
           </div>
           <div className="space-y-1">
-            <h2 className="font-display text-base font-bold text-[#211A2E] dark:text-white">
+            <h2 className="font-display text-base font-bold text-[#1f1638] dark:text-white">
               Belum Ada WO Aktif Hari Ini
             </h2>
-            <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] max-w-sm mx-auto">
+            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] max-w-sm mx-auto">
               Work Order yang ditugaskan Leader untuk tanggal {formatAppointmentDateDisplay(todayWIB) || todayWIB} akan tampil otomatis di sini.
             </p>
           </div>
           <button
             type="button"
             onClick={() => onNavigateTab('installer_tasks', 'all')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#431599] hover:bg-[#5B35B1] text-white text-xs font-bold transition-colors cursor-pointer"
+            className="mj-tactile-btn-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs cursor-pointer"
           >
             <span>Lihat Semua Tugas Saya</span>
             <ArrowRight className="w-4 h-4" />
@@ -625,7 +625,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* LEFT: FEATURED WORK ORDER CARD */}
-          <section className="lg:col-span-6 bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-4 sm:p-5 shadow-xs space-y-3.5">
+          <section className="lg:col-span-6 mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 sm:p-5 space-y-3.5">
             {/* Header WO Number + Badge + Slot */}
             <div className="flex items-start justify-between gap-2">
               <div className="space-y-1 min-w-0">
@@ -660,18 +660,18 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             </div>
 
             {/* Customer & Address Box */}
-            <div className="rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] p-3.5 space-y-2">
+            <div className="mj-tactile-well border border-[#e8ddff] dark:border-[#35105E] p-3.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-display font-bold text-base text-[#211A2E] dark:text-white truncate">
+                <h2 className="font-display font-bold text-base text-[#1f1638] dark:text-white truncate">
                   {featuredTicket.customerName || 'Pelanggan'}
                 </h2>
-                <span className="font-mono text-[11px] font-semibold text-[#766B83] dark:text-[#CEC0E8] shrink-0">
+                <span className="font-mono text-[11px] font-semibold text-[#4b4452] dark:text-[#cabde8] shrink-0">
                   ID: {featuredTicket.idCustomer || featuredTicket.customerId || '-'}
                 </span>
               </div>
 
-              <div className="flex items-start gap-2 text-xs text-[#494453] dark:text-[#CEC0E8]">
-                <MapPin className="w-4 h-4 text-[#431599] dark:text-[#A78BFA] shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 text-xs text-[#4b4452] dark:text-[#cabde8]">
+                <MapPin className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff] shrink-0 mt-0.5" />
                 <div className="space-y-0.5 leading-relaxed">
                   <p>
                     {[featuredTicket.clusterName, featuredTicket.streetName || featuredTicket.address, featuredTicket.area]
@@ -696,7 +696,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                     toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
                   })
                 }
-                className="min-h-[54px] rounded-xl bg-[#F5F1FF] hover:bg-[#EFE9FA] dark:bg-[#2A1647] dark:hover:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[#431599] dark:text-[#D8B4FE] flex flex-col items-center justify-center gap-1 py-2 px-2 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                className="mj-tactile-btn-secondary min-h-[54px] rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff] flex flex-col items-center justify-center gap-1 py-2 px-2 text-xs cursor-pointer"
               >
                 <Navigation className="w-4 h-4" />
                 <span>Google Maps</span>
@@ -705,7 +705,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenWhatsApp(featuredTicket)}
-                className="min-h-[54px] rounded-xl bg-[#16A36A] hover:bg-[#15803D] text-white flex flex-col items-center justify-center gap-1 py-2 px-2 text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="mj-tactile-btn-success min-h-[54px] rounded-xl flex flex-col items-center justify-center gap-1 py-2 px-2 text-xs cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>WhatsApp</span>
@@ -714,7 +714,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEmergencyModal(true)}
-                className="min-h-[54px] rounded-xl bg-[#FFF1F2] hover:bg-[#FFE4E6] dark:bg-rose-950/50 border border-[#FECDD3] dark:border-rose-800 text-[#DC4C5A] dark:text-rose-300 flex flex-col items-center justify-center gap-1 py-2 px-2 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                className="mj-tactile-btn-danger min-h-[54px] rounded-xl flex flex-col items-center justify-center gap-1 py-2 px-2 text-xs cursor-pointer"
               >
                 <ShieldAlert className="w-4 h-4" />
                 <span>Darurat</span>
@@ -790,17 +790,17 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           </section>
 
           {/* RIGHT: SOP CHECK-IN & PELAPORAN CARD */}
-          <section className="lg:col-span-6 bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-4 sm:p-5 shadow-xs space-y-4">
+          <section className="lg:col-span-6 mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 sm:p-5 space-y-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="font-display text-base font-extrabold text-[#211A2E] dark:text-white">
-                  SOP Check-in & Pelaporan
+                <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+                  SOP Check-in &amp; Pelaporan
                 </h2>
-                <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
                   Kepatuhan alur teknisi lapangan MORAJAWS
                 </p>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-[#F0E3FF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[10px] font-extrabold uppercase tracking-wider shrink-0">
+              <span className="px-2 py-0.5 rounded-md bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[10px] font-extrabold uppercase tracking-wider shrink-0">
                 WAJIB
               </span>
             </div>
@@ -814,18 +814,18 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-[#431599] text-white font-display font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                     1
                   </div>
                 )}
                 <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
                   <div>
-                    <div className="text-xs font-bold text-[#211A2E] dark:text-white">
+                    <div className="text-xs font-bold text-[#1f1638] dark:text-white">
                       Step 1: Mulai Kerjakan
                     </div>
                     <p
                       className={`text-[11px] mt-0.5 ${
-                        isFeaturedStarted ? 'text-[#16A36A] dark:text-emerald-300 font-medium' : 'text-[#766B83] dark:text-[#CEC0E8]'
+                        isFeaturedStarted ? 'text-[#16A36A] dark:text-emerald-300 font-medium' : 'text-[#4b4452] dark:text-[#cabde8]'
                       }`}
                     >
                       {isFeaturedStarted
@@ -838,7 +838,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                       type="button"
                       disabled={isStartingId === featuredTicket.id}
                       onClick={e => handleStartWork(e, featuredTicket, false)}
-                      className="px-2.5 py-1.5 rounded-lg bg-[#431599] hover:bg-[#5B35B1] text-white text-[11px] font-bold shrink-0 cursor-pointer disabled:opacity-60"
+                      className="mj-tactile-btn-primary px-3 py-1.5 rounded-lg text-[11px] shrink-0 cursor-pointer disabled:opacity-60 whitespace-nowrap"
                     >
                       {isStartingId === featuredTicket.id ? 'Memulai...' : 'Mulai Sekarang'}
                     </button>
@@ -912,7 +912,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             </div>
 
             {/* Check-in LiveChat Verification Box */}
-            <div className="rounded-xl bg-[#F9F6FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#35105E] p-3.5 space-y-3">
+            <div className="mj-tactile-well border border-[#d8ccf3] dark:border-[#35105E] p-3.5 space-y-3">
               <div className="flex items-center justify-between gap-2 text-[11px]">
                 <div className="flex items-center gap-1.5 font-bold min-w-0">
                   {isFeaturedCheckedIn ? (
@@ -1089,7 +1089,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => setFullviewTicket(featuredTicket)}
-                className="w-full min-h-[48px] px-4 rounded-xl bg-gradient-to-r from-[#431599] to-[#7135B5] hover:opacity-95 text-white font-display font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#431599]/20 active:scale-[0.99] transition-all cursor-pointer"
+                className="mj-tactile-btn-primary w-full min-h-[48px] px-4 rounded-xl font-display text-sm flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 <span>Buka Form Laporan 3-Tingkat</span>
                 <ArrowRight className="w-4 h-4" />
@@ -1101,9 +1101,9 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   setHelpMode('korlap');
                   setShowHelpModal(true);
                 }}
-                className="w-full min-h-[44px] px-4 rounded-xl bg-white dark:bg-[#160D29] hover:bg-[#F7F6FA] dark:hover:bg-[#2A1647] border border-[#E9E5F0] dark:border-[#35105E] text-[#211A2E] dark:text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="mj-tactile-btn-secondary w-full min-h-[44px] px-4 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
               >
-                <HelpCircle className="w-4 h-4 text-[#766B83] dark:text-[#A78BFA]" />
+                <HelpCircle className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
                 <span>Minta Bantuan Korlap / Reschedule</span>
               </button>
             </div>
@@ -1125,7 +1125,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
         </div>
 
         {queueTickets.length === 0 ? (
-          <div className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-5 text-center text-xs text-[#766B83] dark:text-[#CEC0E8]">
+          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-5 text-center text-xs text-[#4b4452] dark:text-[#cabde8]">
             {myTickets.length <= 1
               ? 'Tidak ada antrean WO tambahan lainnya untuk hari ini.'
               : 'Semua WO hari ini sedang ditangani.'}
@@ -1153,10 +1153,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 <div
                   key={t.id}
                   onClick={() => setFullviewTicket(t)}
-                  className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] hover:border-[#D8CCF3] p-4 shadow-2xs space-y-2.5 cursor-pointer transition-all"
+                  className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#cec3d4] p-4 space-y-2.5 cursor-pointer transition-all"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-extrabold text-[#211A2E] dark:text-[#D8B4FE]">
+                    <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#dab9ff]">
                       {t.woNumber}
                     </span>
                     <StatusBadge
@@ -1166,16 +1166,16 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   </div>
 
                   <div>
-                    <h3 className="font-display font-bold text-sm text-[#211A2E] dark:text-white truncate">
+                    <h3 className="font-display font-bold text-sm text-[#1f1638] dark:text-white truncate">
                       {t.customerName || 'Pelanggan'}
                     </h3>
-                    <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] truncate mt-0.5">
+                    <p className="text-xs text-[#4b4452] dark:text-[#cabde8] truncate mt-0.5">
                       {t.slotTime || 'Hari ini'} · {t.streetName || t.clusterName || t.area || 'Alamat'}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#E9E5F0]/70 dark:border-[#35105E]">
-                    <span className="font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate">
+                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#e8ddff]/80 dark:border-[#35105E]">
+                    <span className="font-mono text-[11px] text-[#4b4452] dark:text-[#cabde8] truncate">
                       FAT: {t.fatCode || '-'} · {t.area || '-'}
                     </span>
 
@@ -1184,7 +1184,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                         type="button"
                         disabled={isStartingId === t.id}
                         onClick={e => handleStartWork(e, t, true)}
-                        className="px-3.5 py-2 min-h-[36px] rounded-xl bg-[#431599] hover:bg-[#5B35B1] text-white text-[11px] font-extrabold tracking-wide uppercase flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-60"
+                        className="mj-tactile-btn-primary px-3.5 py-2 min-h-[38px] rounded-xl text-[11px] uppercase tracking-wide flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-60 whitespace-nowrap"
                       >
                         <Play className="w-3 h-3 fill-current" />
                         <span>{isStartingId === t.id ? 'MEMULAI...' : 'MULAI KERJAKAN'}</span>
@@ -1196,7 +1196,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                           e.stopPropagation();
                           setFullviewTicket(t);
                         }}
-                        className="px-3 py-1.5 rounded-xl bg-[#F5F1FF] hover:bg-[#EFE9FA] text-[#431599] text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                        className="mj-tactile-btn-secondary px-3 py-1.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff] text-[11px] flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
                       >
                         <Wrench className="w-3 h-3" />
                         <span>Buka Tiket</span>

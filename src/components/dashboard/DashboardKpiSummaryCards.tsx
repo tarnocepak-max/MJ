@@ -257,29 +257,29 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
   return (
     <section aria-label="WO Lifecycle KPI Summary" className="space-y-4">
-      {/* Dark Purple Gloss Header Strip */}
-      <div className="rounded-2xl bg-[#160D29] text-white p-4 sm:p-5 border border-[#3E246F] shadow-sm">
+      {/* Dark Plum-Indigo Tactile Command Banner */}
+      <div className="rounded-xl bg-[#342b4e] dark:bg-[#160D29] text-white p-4 sm:p-5 border border-[#4f4273] dark:border-[#3E246F] shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.22)]">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#7135B5]/40 text-[#E9D5FF] border border-[#9F67EA]/40">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-bold bg-[#7135B5] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_#35105e]">
                 <Activity className="w-3.5 h-3.5" />
                 <span>WO Lifecycle Live KPI</span>
               </span>
-              <span className="text-xs font-mono tabular-nums text-purple-200/80">
+              <span className="text-xs font-mono tabular-nums text-[#dab9ff]">
                 WIB: {todayWIB}
               </span>
               {isKpiLoading && (
-                <span className="text-[11px] text-purple-200/70 inline-flex items-center gap-1">
+                <span className="text-[11px] text-[#dab9ff]/80 inline-flex items-center gap-1">
                   <RefreshCw className="w-3 h-3 animate-spin" />
                   Menyinkronkan...
                 </span>
               )}
             </div>
-            <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
-              Monitoring Status Operasional & Approval Work Order
+            <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-white">
+              Monitoring Status Operasional &amp; Approval Work Order
             </h2>
-            <p className="text-xs text-purple-200/80">
+            <p className="text-xs text-[#f5eeff]/80">
               Klik kartu KPI manapun untuk drill-down langsung ke daftar Work Order yang sesuai.
             </p>
           </div>
@@ -289,12 +289,12 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             {isGlobalRole ? (
               <>
                 <div className="relative">
-                  <Building2 className="w-3.5 h-3.5 text-purple-300 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Building2 className="w-3.5 h-3.5 text-[#dab9ff] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     aria-label="Filter Vendor Kontraktor"
                     value={kpiContractorFilter}
                     onChange={(e) => setKpiContractorFilter(e.target.value)}
-                    className="pl-8 pr-7 py-2 rounded-xl bg-[#241442] border border-[#4E2F8A] text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#9F67EA]"
+                    className="pl-8 pr-7 py-2 rounded-xl bg-[#1f1638]/75 border border-white/15 shadow-inner text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#a380fe]"
                   >
                     <option value="ALL">Semua Vendor / Kontraktor</option>
                     {contractorsList.map(vendor => (
@@ -306,12 +306,12 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                 </div>
 
                 <div className="relative">
-                  <MapPin className="w-3.5 h-3.5 text-purple-300 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <MapPin className="w-3.5 h-3.5 text-[#dab9ff] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     aria-label="Filter Area"
                     value={kpiAreaFilter}
                     onChange={(e) => setKpiAreaFilter(e.target.value)}
-                    className="pl-8 pr-7 py-2 rounded-xl bg-[#241442] border border-[#4E2F8A] text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#9F67EA]"
+                    className="pl-8 pr-7 py-2 rounded-xl bg-[#1f1638]/75 border border-white/15 shadow-inner text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#a380fe]"
                   >
                     <option value="ALL">Semua Area</option>
                     {areasList.map(area => (
@@ -323,8 +323,8 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                 </div>
               </>
             ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#241442] border border-[#4E2F8A] text-xs text-purple-100">
-                <Filter className="w-3.5 h-3.5 text-purple-300" />
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1f1638]/75 border border-white/15 text-xs text-[#f5eeff]">
+                <Filter className="w-3.5 h-3.5 text-[#dab9ff]" />
                 <span>
                   Scope:{' '}
                   <strong className="text-white">
@@ -338,7 +338,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               <button
                 type="button"
                 onClick={onOpenHistoryReport}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#7135B5] hover:bg-[#8244CB] text-xs font-semibold text-white transition-colors"
+                className="mj-tactile-btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs cursor-pointer whitespace-nowrap"
               >
                 <History className="w-3.5 h-3.5" />
                 <span>History Progress</span>
@@ -349,7 +349,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               type="button"
               onClick={() => refreshKpiSummary()}
               disabled={isKpiLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#241442] hover:bg-[#311C59] border border-[#4E2F8A] text-xs font-semibold text-purple-100 transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1f1638]/80 hover:bg-[#1f1638] border border-white/15 shadow-[0_3px_0_#160d29] active:translate-y-[2px] active:shadow-[0_1px_0_#160d29] text-xs font-bold text-[#f5eeff] transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isKpiLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -376,10 +376,10 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   key={tab.id}
                   type="button"
                   onClick={() => setPerspective(tab.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     active
-                      ? 'bg-white text-[#160D29]'
-                      : 'bg-white/5 text-purple-200 hover:bg-white/10 hover:text-white'
+                      ? 'bg-white text-[#1f1638] shadow-[0_3px_0_#cec3d4]'
+                      : 'bg-[#1f1638]/55 text-[#dab9ff] hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -452,10 +452,10 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                 key={card.key}
                 type="button"
                 onClick={() => handleCardClick(card.key)}
-                className={`group text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-3.5 transition-all hover:shadow-md ${card.borderHover} focus:outline-none focus:ring-2 focus:ring-[#7135B5] min-h-[96px] flex flex-col justify-between`}
+                className={`mj-tactile-card group text-left border border-[#e8ddff] dark:border-[#3b1d78] p-3.5 transition-all hover:shadow-md active:translate-y-[2px] cursor-pointer ${card.borderHover} focus:outline-none focus:ring-2 focus:ring-[#7135B5] min-h-[96px] flex flex-col justify-between`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-[#475569] dark:text-slate-300 leading-snug">
+                  <span className="text-[11px] font-bold text-[#4b4452] dark:text-[#cabde8] leading-snug">
                     {card.label}
                   </span>
                   <span
@@ -465,14 +465,14 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   </span>
                 </div>
                 <div className="mt-2 flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-extrabold tracking-tight text-[#160D29] dark:text-white font-mono tabular-nums">
+                  <span className="text-2xl font-extrabold tracking-tight text-[#1f1638] dark:text-white font-mono tabular-nums">
                     {card.value}
                   </span>
-                  <span className="text-[10px] font-semibold text-[#7135B5] dark:text-purple-300 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center">
+                  <span className="text-[10px] font-bold text-[#7135B5] dark:text-[#dab9ff] opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center">
                     Detail <ChevronRight className="w-3 h-3" />
                   </span>
                 </div>
-                <p className="mt-1 text-[10px] text-[#64748B] dark:text-slate-400 truncate">
+                <p className="mt-1 text-[10px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
                   {card.sublabel}
                 </p>
               </button>
@@ -483,14 +483,14 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
       {/* Perspective: Vendor / Kontraktor Breakdown */}
       {perspective === 'vendor' && (
-        <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
-          <div className="px-4 py-3 bg-[#F8FAFC] dark:bg-slate-800/60 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
+        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
+          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e] flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-[#160D29] dark:text-white">
+              <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
                 Ringkasan Operasional Per Vendor / Kontraktor
               </h3>
-              <p className="text-[11px] text-[#64748B] dark:text-slate-400">
-                Klik baris Vendor atau angka untuk filter & drill-down daftar WO Vendor tersebut.
+              <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
+                Klik baris Vendor atau angka untuk filter &amp; drill-down daftar WO Vendor tersebut.
               </p>
             </div>
           </div>
@@ -502,7 +502,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#F8FAFC] dark:bg-slate-800/40 text-[11px] uppercase tracking-wider text-[#475569] dark:text-slate-400 border-b border-[#E2E8F0] dark:border-slate-800">
+                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
                     <th className="py-2.5 px-3 font-bold">Vendor / Kontraktor</th>
                     <th className="py-2.5 px-2.5 text-right font-bold">Total</th>
                     <th className="py-2.5 px-2.5 text-right font-bold">Belum Assign</th>
@@ -651,9 +651,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
       {/* Perspective: Area Breakdown */}
       {perspective === 'area' && (
-        <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
-          <div className="px-4 py-3 bg-[#F8FAFC] dark:bg-slate-800/60 border-b border-[#E2E8F0] dark:border-slate-800">
-            <h3 className="text-sm font-bold text-[#160D29] dark:text-white">Ringkasan Per Area / Wilayah</h3>
+        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
+          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e]">
+            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">Ringkasan Per Area / Wilayah</h3>
           </div>
           {effectiveSummary.byArea.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500">Belum ada data area untuk {todayWIB}.</div>
@@ -661,7 +661,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#F8FAFC] dark:bg-slate-800/40 text-[11px] uppercase text-[#475569] border-b border-[#E2E8F0]">
+                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
                     <th className="py-2.5 px-3 font-bold">Area</th>
                     <th className="py-2.5 px-3 text-right font-bold">Total</th>
                     <th className="py-2.5 px-3 text-right font-bold">Belum Assign</th>
@@ -700,9 +700,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
       {/* Perspective: Leader Breakdown */}
       {perspective === 'leader' && (
-        <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
-          <div className="px-4 py-3 bg-[#F8FAFC] dark:bg-slate-800/60 border-b border-[#E2E8F0] dark:border-slate-800">
-            <h3 className="text-sm font-bold text-[#160D29] dark:text-white">Distribusi & Beban Kerja Leader</h3>
+        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
+          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e]">
+            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">Distribusi &amp; Beban Kerja Leader</h3>
           </div>
           {effectiveSummary.byLeader.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500">Belum ada data Leader untuk {todayWIB}.</div>
@@ -710,7 +710,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#F8FAFC] dark:bg-slate-800/40 text-[11px] uppercase text-[#475569] border-b border-[#E2E8F0]">
+                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
                     <th className="py-2.5 px-3 font-bold">Leader</th>
                     <th className="py-2.5 px-3 font-bold">Vendor</th>
                     <th className="py-2.5 px-3 text-right font-bold">Total</th>
@@ -743,9 +743,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
       {/* Perspective: Installer Breakdown */}
       {perspective === 'installer' && (
-        <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
-          <div className="px-4 py-3 bg-[#F8FAFC] dark:bg-slate-800/60 border-b border-[#E2E8F0] dark:border-slate-800">
-            <h3 className="text-sm font-bold text-[#160D29] dark:text-white">Produktivitas & Status Pekerjaan Teknisi</h3>
+        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
+          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e]">
+            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">Produktivitas &amp; Status Pekerjaan Teknisi</h3>
           </div>
           {effectiveSummary.byInstaller.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500">Belum ada teknisi yang di-assign untuk {todayWIB}.</div>
@@ -753,7 +753,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#F8FAFC] dark:bg-slate-800/40 text-[11px] uppercase text-[#475569] border-b border-[#E2E8F0]">
+                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
                     <th className="py-2.5 px-3 font-bold">Teknisi / Installer</th>
                     <th className="py-2.5 px-3 font-bold">Vendor</th>
                     <th className="py-2.5 px-3 font-bold">Area</th>

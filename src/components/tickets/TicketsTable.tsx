@@ -797,29 +797,29 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             setSelectedApprovalStatus('ALL');
             setCurrentPage(1);
           }}
-          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer bg-white dark:bg-[#1E1238] shadow-2xs ${
+          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
             selectedApprovalStatus === 'ALL'
-              ? 'border-[#D8CCF3] dark:border-[#7135B5] ring-1 ring-[#7135B5]/20'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#D8CCF3]'
+              ? 'border-[#7135B5] ring-2 ring-[#7135B5]/25'
+              : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#cec3d4]'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
               Total Hari Ini
             </span>
-            <span className="p-1.5 rounded-lg bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE]">
+            <span className="p-1.5 rounded-lg bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]">
               <TicketIcon className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold tabular-nums text-[#211A2E] dark:text-white">
+            <span className="font-display text-2xl font-extrabold tabular-nums text-[#1f1638] dark:text-white">
               {approvalCounts.totalToday}
             </span>
             <span className="text-[11px] font-semibold text-[#16A36A] tabular-nums">
               {filteredTickets.length} tampil
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] font-mono text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+          <div className="mt-1 text-[10.5px] font-mono text-[#7d7484] dark:text-[#cabde8]/80 truncate">
             todayWIB: {todayWIB}
           </div>
         </button>
@@ -831,36 +831,36 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             setSelectedApprovalStatus(prev => (prev === 'BUTUH APPROVAL' ? 'ALL' : 'BUTUH APPROVAL'));
             setCurrentPage(1);
           }}
-          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer shadow-2xs ${
+          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
             selectedApprovalStatus === 'BUTUH APPROVAL'
-              ? 'bg-[#F0E3FF] dark:bg-[#35105E] border-[#7135B5] ring-2 ring-[#7135B5]/30'
-              : 'bg-[#F5F1FF] dark:bg-[#251247] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
+              ? 'bg-[#f3eaff] dark:bg-[#35105E] border-[#7135B5] ring-2 ring-[#7135B5]/35'
+              : 'bg-[#f8f1ff] dark:bg-[#251247] border-[#d8ccf3] dark:border-[#5B35B1] hover:bg-[#f3eaff]'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
               <span className="w-2 h-2 rounded-full bg-[#E59A27] shrink-0" />
               <span>Butuh Approval</span>
             </span>
-            <span className="p-1.5 rounded-lg bg-white/80 dark:bg-[#160D29] text-[#E59A27]">
+            <span className="p-1.5 rounded-lg bg-white/90 dark:bg-[#160D29] text-[#E59A27]">
               <Clock className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="font-display text-2xl font-bold tabular-nums text-[#431599] dark:text-white">
+            <span className="font-display text-2xl font-extrabold tabular-nums text-[#58149c] dark:text-white">
               {approvalCounts.butuhApproval}
             </span>
             <span
               className={`px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${
                 approvalCounts.butuhApproval > 0
-                  ? 'bg-[#E59A27] text-white'
+                  ? 'bg-[#d97706] text-white shadow-[0_2px_0_#92400e]'
                   : 'bg-[#ECFDF5] text-[#16A36A]'
               }`}
             >
               {approvalCounts.butuhApproval > 0 ? 'Action Required' : 'Clear'}
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] font-medium text-[#7135B5] dark:text-[#D8B4FE] truncate">
+          <div className="mt-1 text-[10.5px] font-medium text-[#7135B5] dark:text-[#dab9ff] truncate">
             Antrian Verifikasi Dispatch
           </div>
         </button>
@@ -872,14 +872,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             setSelectedApprovalStatus(prev => (prev === 'APPROVED' ? 'ALL' : 'APPROVED'));
             setCurrentPage(1);
           }}
-          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer bg-white dark:bg-[#1E1238] shadow-2xs ${
+          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
             selectedApprovalStatus === 'APPROVED'
-              ? 'border-[#16A36A] ring-2 ring-[#16A36A]/20'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A7F3D0]'
+              ? 'border-[#16A36A] ring-2 ring-[#16A36A]/25'
+              : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#A7F3D0]'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
               Disetujui
             </span>
             <span className="p-1.5 rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#16A36A]">
@@ -887,14 +887,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             </span>
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold tabular-nums text-[#16A36A]">
+            <span className="font-display text-2xl font-extrabold tabular-nums text-[#16A36A]">
               {approvalCounts.approved}
             </span>
-            <span className="text-[11px] font-mono font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+            <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8] tabular-nums">
               {approvedPct}%
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+          <div className="mt-1 text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
             Siap Berita Acara
           </div>
         </button>
@@ -906,69 +906,69 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             setSelectedApprovalStatus(prev => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'));
             setCurrentPage(1);
           }}
-          className={`text-left rounded-xl border p-3.5 transition-all cursor-pointer bg-white dark:bg-[#1E1238] shadow-2xs ${
+          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
             selectedApprovalStatus === 'REJECTED'
-              ? 'border-[#DC4C5A] ring-2 ring-[#DC4C5A]/20'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#FECACA]'
+              ? 'border-[#ba1a1a] ring-2 ring-[#ba1a1a]/25'
+              : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#FECACA]'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
               Perlu Revisi
             </span>
-            <span className="p-1.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/60 text-[#DC4C5A]">
+            <span className="p-1.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/60 text-[#ba1a1a]">
               <AlertTriangle className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold tabular-nums text-[#DC4C5A]">
+            <span className="font-display text-2xl font-extrabold tabular-nums text-[#ba1a1a] dark:text-rose-400">
               {approvalCounts.rejected}
             </span>
-            <span className="text-[10.5px] font-semibold text-[#DC4C5A] truncate">
+            <span className="text-[10.5px] font-semibold text-[#ba1a1a] dark:text-rose-300 truncate">
               Revisi Teknisi
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+          <div className="mt-1 text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
             Dropcore / Foto / OPM
           </div>
         </button>
 
         {/* Card 5: Di Lapangan */}
-        <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238] p-3.5 shadow-2xs">
+        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-3.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
               Di Lapangan
             </span>
-            <span className="p-1.5 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 text-[#3977C9]">
+            <span className="p-1.5 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 text-[#2563eb]">
               <Wrench className="w-3.5 h-3.5" />
             </span>
           </div>
           <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold tabular-nums text-[#3977C9] dark:text-sky-400">
+            <span className="font-display text-2xl font-extrabold tabular-nums text-[#2563eb] dark:text-sky-400">
               {approvalCounts.diLapangan}
             </span>
-            <span className="text-[11px] font-mono font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+            <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8] tabular-nums">
               {fieldPct}%
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] text-[#8B8495] dark:text-[#CEC0E8]/70 truncate">
+          <div className="mt-1 text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
             On-site &amp; En-route
           </div>
         </div>
 
         {/* Card 6: Fast Lane CTA */}
-        <div className="rounded-xl bg-gradient-to-br from-[#35105E] via-[#431599] to-[#7135B5] text-white p-3.5 shadow-sm flex flex-col justify-between">
+        <div className="rounded-xl bg-[#342b4e] dark:bg-gradient-to-br dark:from-[#35105E] dark:via-[#431599] dark:to-[#7135B5] text-white p-3.5 shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.22)] flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#E9D5FF]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#dab9ff]">
               Fast Lane
             </span>
-            <Zap className="w-3.5 h-3.5 text-[#D8B4FE]" />
+            <Zap className="w-3.5 h-3.5 text-[#dab9ff]" />
           </div>
           {currentUser.role === 'dispatch' ? (
             <button
               type="button"
               onClick={() => onNavigate('form_sameday')}
-              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-white text-[#431599] hover:bg-[#F5F1FF] text-xs font-bold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="mj-tactile-btn-secondary mt-2 w-full py-1.5 px-2.5 rounded-lg text-xs text-[#58149c] cursor-pointer whitespace-nowrap"
             >
               + Form Sameday
             </button>
@@ -976,7 +976,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             <button
               type="button"
               onClick={() => onNavigate('import')}
-              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-white text-[#431599] hover:bg-[#F5F1FF] text-xs font-bold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="mj-tactile-btn-secondary mt-2 w-full py-1.5 px-2.5 rounded-lg text-xs text-[#58149c] cursor-pointer whitespace-nowrap"
             >
               + Import Data WO
             </button>
@@ -984,12 +984,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             <button
               type="button"
               onClick={() => onNavigate('contact_centre')}
-              className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-white text-[#431599] hover:bg-[#F5F1FF] text-xs font-bold shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              className="mj-tactile-btn-secondary mt-2 w-full py-1.5 px-2.5 rounded-lg text-xs text-[#58149c] cursor-pointer whitespace-nowrap"
             >
               Contact Centre
             </button>
           )}
-          <div className="mt-1.5 text-[10.5px] text-[#E9D5FF]/90 truncate">
+          <div className="mt-1.5 text-[10.5px] text-[#f5eeff]/85 truncate">
             {currentUser.role === 'dispatch'
               ? 'Prioritas Khusus Sameday'
               : ['super_admin', 'management_data'].includes(currentUser.role)
@@ -1000,11 +1000,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       </section>
 
       {/* 2. Search, Filters & Action Utilities Toolbar */}
-      <section className="bg-white dark:bg-[#1E1238] p-4 rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-2xs space-y-3.5">
+      <section className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] space-y-3.5">
         {/* Row A: Search Input + Appointment Date Chip + Sync Button */}
         <div className={`flex flex-col gap-2.5 ${isMobileView ? '' : 'lg:flex-row lg:items-center'}`}>
           <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#7d7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
@@ -1018,7 +1018,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-20 py-2 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/30 focus:border-[#7135B5] font-medium transition-all"
+              className="mj-tactile-well w-full pl-9 pr-20 py-2 text-xs border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/35 focus:border-[#7135B5] font-medium transition-all"
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {searchTerm ? (
@@ -1043,9 +1043,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
 
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#5B35B1] text-xs">
-              <Calendar className="w-3.5 h-3.5 text-[#431599] dark:text-[#D8B4FE] shrink-0" />
-              <span className="font-semibold text-[#431599] dark:text-[#E9D5FF] whitespace-nowrap">
+            <div className="mj-tactile-well flex items-center gap-2 px-3 py-2 border border-[#d8ccf3] dark:border-[#5B35B1] text-xs">
+              <Calendar className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+              <span className="font-semibold text-[#58149c] dark:text-[#f5eeff] whitespace-nowrap">
                 {isCrossDateActive
                   ? `Lintas Tanggal (${filteredTickets.length} WO)`
                   : `Appointment: ${formatIndonesianWODate(todayWIB)}`}
@@ -1062,7 +1062,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 );
                 toast.sync('Tabel Work Order berhasil diperbarui.');
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#16A36A] bg-[#ECFDF5] dark:bg-emerald-950/50 border border-[#A7F3D0] dark:border-emerald-800 hover:bg-[#D1FAE5] transition-colors cursor-pointer whitespace-nowrap"
+              className="mj-tactile-btn-success inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs cursor-pointer whitespace-nowrap"
               title="Refresh tabel tiket & sinkronkan data"
             >
               <RefreshCw className="w-3.5 h-3.5 shrink-0" />
@@ -1229,7 +1229,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         </div>
 
         {/* Row C: Action Utilities Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29]/70 border border-[#E9E5F0] dark:border-[#35105E] text-xs">
+        <div className="mj-tactile-well flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 border border-[#e8ddff] dark:border-[#35105E] text-xs">
           {/* Left Selection & Contextual Bulk Controls */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -1281,7 +1281,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                     <button
                       type="button"
                       onClick={handleApplyBulkAssign}
-                      className="px-3 py-1 font-semibold text-white bg-[#431599] hover:bg-[#5B35B1] rounded-md cursor-pointer transition-colors whitespace-nowrap"
+                      className="mj-tactile-btn-primary px-3 py-1.5 rounded-md text-xs cursor-pointer whitespace-nowrap"
                     >
                       Assign Teknisi
                     </button>
@@ -1297,7 +1297,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                   <button
                     type="button"
                     onClick={() => setShowBulkDeleteModal(true)}
-                    className="px-2.5 py-1 font-semibold text-white bg-[#DC4C5A] hover:bg-rose-700 rounded-md cursor-pointer inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+                    className="mj-tactile-btn-danger px-2.5 py-1.5 rounded-md text-xs cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Hapus ({selectedIds.size})</span>
@@ -1329,14 +1329,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           {/* Right View, Columns & Export Controls */}
           <div className="flex items-center gap-2 flex-wrap ml-auto">
             {/* Table vs Cards Toggle */}
-            <div className="flex items-center rounded-lg border border-[#E9E5F0] dark:border-[#35105E] p-0.5 bg-white dark:bg-[#1E1238]">
+            <div className="mj-tactile-tab-bar flex items-center p-0.5 border border-[#e8ddff] dark:border-[#35105E]">
               <button
                 type="button"
                 onClick={() => setLayoutMode('table')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   effectiveLayout === 'table'
-                    ? 'bg-[#431599] text-white shadow-xs'
-                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                    ? 'mj-tactile-btn-primary'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5" />
@@ -1345,10 +1345,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               <button
                 type="button"
                 onClick={() => setLayoutMode('cards')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   effectiveLayout === 'cards'
-                    ? 'bg-[#431599] text-white shadow-xs'
-                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                    ? 'mj-tactile-btn-primary'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
@@ -1399,7 +1399,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               <button
                 type="button"
                 onClick={() => setShowColManager(!showColManager)}
-                className="px-2.5 py-1.5 text-xs font-semibold text-[#431599] dark:text-[#E9D5FF] bg-white dark:bg-[#1E1238] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] rounded-lg border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                className="mj-tactile-btn-secondary px-2.5 py-1.5 text-xs text-[#58149c] dark:text-[#f5eeff] rounded-lg border border-[#cec3d4] dark:border-[#4b386b] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 title={omittedEmptyCount > 0 ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini` : undefined}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -1469,7 +1469,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-3 py-1.5 text-xs font-bold text-white bg-[#16A36A] hover:bg-[#15803D] rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              className="mj-tactile-btn-success px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
@@ -1501,11 +1501,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
+        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
           <div className="overflow-x-auto min-h-[280px]">
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="bg-[#F4EAFF] dark:bg-[#251545] border-b border-[#D8CCF3] dark:border-[#35105E] text-[11px] font-bold text-[#431599] dark:text-[#D8B4FE] uppercase tracking-wider">
+                <tr className="bg-[#f3eaff] dark:bg-[#251545] border-b border-[#d8ccf3] dark:border-[#35105E] text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] uppercase tracking-wider">
                   <th
                     className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#F4EAFF] dark:bg-[#251545] border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
                       stickyColumnsEnabled ? 'sticky left-0 z-20' : ''
@@ -2375,8 +2375,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       )}
 
       {/* 4. Footer Pagination & WIB Timezone Info */}
-      <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 text-xs text-[#766B83] dark:text-[#CEC0E8]">
+      <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 text-xs text-[#4b4452] dark:text-[#cabde8]">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <span>Baris per halaman:</span>
@@ -2387,7 +2387,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                   setPageSize(val === 'ALL' ? 'ALL' : Number(val));
                   setCurrentPage(1);
                 }}
-                className="px-2 py-1 text-xs font-semibold bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-md text-[#211A2E] dark:text-white cursor-pointer"
+                className="px-2 py-1 text-xs font-semibold bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-md text-[#1f1638] dark:text-white cursor-pointer"
               >
                 <option value="10">10</option>
                 <option value="25">25</option>
@@ -2399,10 +2399,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
             <div className="tabular-nums">
               Menampilkan{' '}
-              <span className="font-bold text-[#211A2E] dark:text-white">
+              <span className="font-bold text-[#1f1638] dark:text-white">
                 {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}–{Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
               </span>{' '}
-              dari <span className="font-bold text-[#211A2E] dark:text-white">{sortedTickets.length}</span> Work Orders
+              dari <span className="font-bold text-[#1f1638] dark:text-white">{sortedTickets.length}</span> Work Orders
             </div>
           </div>
 
@@ -2411,7 +2411,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               type="button"
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1 || pageSize === 'ALL'}
-              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="mj-tactile-icon-key p-1.5 rounded-lg disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               aria-label="Halaman pertama"
             >
               <ChevronsLeft className="w-3.5 h-3.5" />
@@ -2420,7 +2420,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               type="button"
               onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
               disabled={currentPage === 1 || pageSize === 'ALL'}
-              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="mj-tactile-icon-key p-1.5 rounded-lg disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               aria-label="Halaman sebelumnya"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -2429,7 +2429,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             {pageSize !== 'ALL' &&
               pageNumbers.map((item, idx) =>
                 item === 'ellipsis' ? (
-                  <span key={`e-${idx}`} className="px-2 text-[#8B8495]">
+                  <span key={`e-${idx}`} className="px-2 text-[#7d7484]">
                     ...
                   </span>
                 ) : (
@@ -2437,10 +2437,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                     key={item}
                     type="button"
                     onClick={() => setCurrentPage(item)}
-                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold tabular-nums transition-colors cursor-pointer ${
+                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold tabular-nums transition-all cursor-pointer ${
                       currentPage === item
-                        ? 'bg-[#160D29] dark:bg-[#7135B5] text-white'
-                        : 'text-[#494453] dark:text-[#CEC0E8] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
+                        ? 'mj-tactile-btn-primary'
+                        : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#35105E]'
                     }`}
                   >
                     {item}

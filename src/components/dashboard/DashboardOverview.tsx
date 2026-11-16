@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Ticket, WOKpiFilterKey } from '../../types';
 import { SlaTelemetryDashboardView } from '../sla/SlaTelemetryDashboardView';
 import { DashboardKpiSummaryCards } from './DashboardKpiSummaryCards';
+import { OpsCommandHero, OpsCommandViewTab } from './OpsCommandHero';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: string) => void;
@@ -17,6 +18,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     setKpiContractorFilter,
     setKpiAreaFilter
   } = useApp();
+
+  const [activeCommandView, setActiveCommandView] = useState<OpsCommandViewTab>('overview');
 
   const canViewSlaEngine =
     currentUser?.role === 'super_admin' ||
@@ -52,19 +55,31 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
   return (
     <div className="space-y-6">
-      {/* Live WO Lifecycle 13 KPI Cards & Vendor Breakdown */}
-      <DashboardKpiSummaryCards
-        onDrillDown={handleKpiDrillDown}
-        onOpenHistoryReport={() => onNavigate('history_progress')}
+      {/* Stitch 3D Tactile Ops Command Header & Interactive Operational Views */}
+      <OpsCommandHero
+        activeView={activeCommandView}
+        onChangeView={setActiveCommandView}
+        onNavigate={onNavigate}
+        onSelectTicket={onSelectTicket}
       />
 
-      {/* Existing SLA & Vendor Telemetry Engine */}
-      {canViewSlaEngine && (
-        <SlaTelemetryDashboardView
-          viewContext="dashboard_monitoring"
-          onNavigate={onNavigate}
-          onSelectTicket={onSelectTicket}
-        />
+      {activeCommandView === 'overview' && (
+        <>
+          {/* Live WO Lifecycle 13 KPI Cards & Vendor Breakdown */}
+          <DashboardKpiSummaryCards
+            onDrillDown={handleKpiDrillDown}
+            onOpenHistoryReport={() => onNavigate('history_progress')}
+          />
+
+          {/* Existing SLA & Vendor Telemetry Engine */}
+          {canViewSlaEngine && (
+            <SlaTelemetryDashboardView
+              viewContext="dashboard_monitoring"
+              onNavigate={onNavigate}
+              onSelectTicket={onSelectTicket}
+            />
+          )}
+        </>
       )}
     </div>
   );

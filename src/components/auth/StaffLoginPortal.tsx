@@ -262,7 +262,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                   placeholder="Masukkan nama pengguna atau email"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-[#160D29]/70 border border-[#D8B4FE]/30 rounded-xl text-xs font-medium text-white placeholder-[#D8B4FE]/40 focus:outline-hidden focus:ring-2 focus:ring-[#A855F7] focus:border-[#D8B4FE] transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-[#0f081e]/85 border border-[#D8B4FE]/30 rounded-xl text-xs font-medium text-white placeholder-[#D8B4FE]/40 shadow-inner focus:outline-hidden focus:ring-2 focus:ring-[#A380FE] focus:border-[#D8B4FE] transition-all"
                 />
               </div>
             </div>
@@ -283,7 +283,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                   placeholder="Masukkan kata sandi akun"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 bg-[#160D29]/70 border border-[#D8B4FE]/30 rounded-xl text-xs font-medium text-white placeholder-[#D8B4FE]/40 focus:outline-hidden focus:ring-2 focus:ring-[#A855F7] focus:border-[#D8B4FE] transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 bg-[#0f081e]/85 border border-[#D8B4FE]/30 rounded-xl text-xs font-medium text-white placeholder-[#D8B4FE]/40 shadow-inner focus:outline-hidden focus:ring-2 focus:ring-[#A380FE] focus:border-[#D8B4FE] transition-all"
                 />
                 <button
                   type="button"
@@ -314,7 +314,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-[#7135B5] via-[#A855F7] to-[#7135B5] hover:brightness-110 active:scale-98 text-white rounded-xl font-bold text-xs shadow-[0_8px_25px_rgba(113,53,181,0.5)] border border-[#D8B4FE]/40 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="mj-tactile-btn-primary w-full mt-2 py-3 px-4 rounded-xl text-xs border border-[#D8B4FE]/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading ? (
                 <>

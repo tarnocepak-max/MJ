@@ -260,7 +260,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         : 'Sync Error';
 
     return (
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#E9E5F0] dark:border-[#35105E] shadow-[0_1px_8px_rgba(33,26,46,0.04)] transition-colors">
+      <header className="sticky top-0 z-40 bg-[#fdf7ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#e8ddff] dark:border-[#35105E] shadow-[0_2px_8px_rgba(33,24,58,0.06)] transition-colors">
         <div className="max-w-lg lg:max-w-5xl mx-auto px-3.5 sm:px-6 pt-2.5 pb-2 space-y-2">
           {/* Row 1: Brand + FTTH + Technician Identity | Date + Profile Button */}
           <div className="flex items-center justify-between gap-2.5">
@@ -479,7 +479,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   return (
     <>
       <header
-        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-4 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#E9E5F0] dark:border-[#35105E] shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-colors ${
+        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-4 bg-[#fdf7ff]/90 dark:bg-[#160D29]/90 backdrop-blur-xl border-b border-[#e8ddff]/80 dark:border-[#35105E] shadow-[0_2px_8px_rgba(33,24,58,0.06)] transition-colors ${
           isMobileView ? 'px-3 sm:px-4' : 'px-4 sm:px-6'
         }`}
       >
@@ -491,7 +491,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               const current = config.global.sidebarState || 'expanded';
               setSidebarState(current === 'closed' ? 'expanded' : 'closed');
             }}
-            className="p-2 rounded-lg text-[#766B83] hover:bg-[#F4EAFF] hover:text-[#211A2E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] dark:hover:text-white transition-colors cursor-pointer shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
+            className="mj-tactile-icon-key rounded-lg cursor-pointer shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
             title="Buka / Tutup Sidebar"
             aria-label="Buka / Tutup Sidebar"
           >
@@ -568,7 +568,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                     : 'Cari Work Order hari ini...'
                 }
                 aria-label="Quick Cross-Date Search"
-                className="w-full pl-8 pr-8 py-1.5 bg-[#F7F6FA] dark:bg-[#22123F] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] focus:outline-none focus:bg-white dark:focus:bg-[#1A0E2E] focus:border-[#A78BFA] focus:ring-1 focus:ring-[#A78BFA]/40 transition-all"
+                className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E] rounded-lg text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] shadow-[inset_0_1px_2px_rgba(33,24,58,0.08)] focus:outline-none focus:border-[#7135b5] focus:ring-2 focus:ring-[#dab9ff]/50 transition-all"
               />
               {quickSearch && (
                 <button
@@ -646,7 +646,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               role="group"
               aria-label="Display Mode Switch"
               data-testid="display-mode-switch"
-              className="inline-flex items-center p-0.5 rounded-full bg-[#F5F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0"
+              className="inline-flex items-center p-1 rounded-lg bg-[#f3eaff] dark:bg-[#22123F] shadow-[inset_0_2px_4px_rgba(31,22,56,0.07)] border border-[#e8ddff] dark:border-[#35105E] shrink-0"
             >
               <button
                 type="button"
@@ -654,10 +654,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 aria-pressed={displayMode === 'desktop'}
                 data-testid="display-mode-desktop"
                 title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   displayMode === 'desktop'
-                    ? 'bg-[#431599] text-white shadow-xs'
-                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                    ? 'bg-white dark:bg-[#342b4e] text-[#1f1638] dark:text-white shadow-[0_2px_0_#d0bcff] dark:shadow-[0_2px_0_#160d29]'
+                    : 'text-[#4b4452] dark:text-[#dab9ff]/80 hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5 shrink-0" />
@@ -669,10 +669,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 aria-pressed={displayMode === 'mobile'}
                 data-testid="display-mode-mobile"
                 title="Mobile Mode — Layout compact, drawer navigation, dan card view"
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   displayMode === 'mobile'
-                    ? 'bg-[#431599] text-white shadow-xs'
-                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                    ? 'bg-white dark:bg-[#342b4e] text-[#1f1638] dark:text-white shadow-[0_2px_0_#d0bcff] dark:shadow-[0_2px_0_#160d29]'
+                    : 'text-[#4b4452] dark:text-[#dab9ff]/80 hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5 shrink-0" />
@@ -681,7 +681,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </div>
           )}
 
-          {/* Offline Queue & Online Status Pill */}
+          {/* Offline Queue & Online Status Chip */}
           <button
             type="button"
             onClick={() => setIsOfflineModalOpen(true)}
@@ -690,7 +690,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#B45309] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
                 : pendingCount > 0
                 ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#92400E] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
-                : 'bg-[#ECFDF5] border-[#16A36A]/25 text-[#16A36A] dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300'
+                : 'bg-[#eee4ff] border-[#e8ddff] text-[#1f1638] dark:bg-[#22123F] dark:border-[#35105E] dark:text-[#f5eeff]'
             }`}
             title="Pusat Sinkronisasi Database Offline"
           >
@@ -703,7 +703,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               </>
             ) : isSyncing ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-[#58149c]" />
                 <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>Syncing</span>
               </>
             ) : (
@@ -726,12 +726,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             disabled={isRefreshing}
             className={`${isMobileView ? 'hidden sm:flex' : 'hidden md:flex'} items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
               syncStatus === 'SAVED'
-                ? 'bg-[#F5F1FF] hover:bg-[#EADDFA] border-[#D8CCF3] text-[#431599] dark:bg-[#35105E] dark:hover:bg-[#5B35B1] dark:border-[#7135B5]/50 dark:text-[#E9D5FF]'
+                ? 'bg-[#eee4ff] hover:bg-[#e8ddff] border-[#d0bcff] text-[#58149c] dark:bg-[#35105E] dark:hover:bg-[#5B35B1] dark:border-[#7135B5]/50 dark:text-[#f5eeff]'
                 : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                ? 'bg-[#F0E3FF] border-[#A78BFA] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                ? 'bg-[#e8ddff] border-[#a380fe] text-[#58149c] dark:bg-[#35105E] dark:text-[#dab9ff]'
                 : syncStatus === 'OFFLINE'
                 ? 'bg-[#FEF3C7] border-[#F59E0B]/30 text-[#B45309] dark:bg-amber-950/60 dark:text-amber-300'
-                : 'bg-[#FEF2F2] border-[#DC4C5A]/30 text-[#DC4C5A] dark:bg-rose-950/60 dark:text-rose-300'
+                : 'bg-[#ffdad6] border-[#ba1a1a]/30 text-[#93000a] dark:bg-rose-950/60 dark:text-rose-300'
             }`}
             title={`Supabase PostgreSQL: ${databaseStatus} / ${syncStatus}${
               lastSyncTime ? ` | Terakhir sinkron: ${new Date(lastSyncTime).toLocaleTimeString('id-ID')}` : ''
@@ -762,10 +762,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             <button
               type="button"
               onClick={() => onNavigate('form_sameday')}
-              className="hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#35105E] hover:bg-[#7135B5] text-white text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-xs"
+              className="hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg mj-tactile-btn-primary text-[11px] cursor-pointer whitespace-nowrap shrink-0"
               title="Buat Work Order Sameday Express (Khusus Dispatch)"
             >
-              <Zap className="w-3.5 h-3.5 text-[#D8B4FE]" />
+              <Zap className="w-3.5 h-3.5 text-[#dab9ff]" />
               <span>Form Sameday</span>
             </button>
           )}
@@ -778,13 +778,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 setNotifOpen(prev => !prev);
                 setUserMenuOpen(false);
               }}
-              className="relative p-2 rounded-full text-[#494453] hover:bg-[#F5F1FF] hover:text-[#431599] dark:text-[#CEC0E8] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
+              className="relative mj-tactile-icon-key rounded-lg min-w-[38px] min-h-[38px] flex items-center justify-center cursor-pointer"
               aria-label="Notifikasi Operasional"
               title="Notifikasi Operasional"
             >
               <Bell className="w-4 h-4" />
               {notificationSummary.totalCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#DC4C5A] text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-[#160D29]">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#ba1a1a] text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-[#160D29]">
                   {notificationSummary.totalCount > 9 ? '9+' : notificationSummary.totalCount}
                 </span>
               )}
