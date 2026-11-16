@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { Ticket } from '../../types';
 import { Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
@@ -12,6 +13,7 @@ interface DashboardOverviewProps {
 
 const FallbackOperationalOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { tickets, currentUser, scopedTickets, todayWIB } = useApp();
+  const { isMobileView } = useUIConfig();
   const roleRestricted = currentUser?.role === 'leader' || currentUser?.role === 'installer';
   const source = roleRestricted ? scopedTickets : tickets;
 
@@ -97,7 +99,7 @@ const FallbackOperationalOverview: React.FC<{ onNavigate: (tab: string) => void 
         </button>
       </header>
 
-      <section className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <section className={`grid gap-3 sm:gap-4 ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 xl:grid-cols-4'}`}>
         {cards.map(({ label, sub, value, icon: Icon, tone }) => (
           <article
             key={label}

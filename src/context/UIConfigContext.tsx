@@ -40,6 +40,55 @@ import {
 } from '../services/globalConfigService';
 import { useApp } from './AppContext';
 
+export type DisplayMode = 'desktop' | 'mobile';
+
+export const DISPLAY_MODE_STORAGE_PREFIX = 'morajaws_display_mode_v1';
+
+export const getScopedDisplayModeKey = (
+  user?: { id?: string; username?: string; role?: UserRole | string } | null
+): string | null => {
+  if (!user || !user.role) return null;
+  const uid = String(user.id || user.username || 'anon').trim() || 'anon';
+  const role = String(user.role).trim();
+  return `${DISPLAY_MODE_STORAGE_PREFIX}:${uid}:${role}`;
+};
+
+export const resolveDisplayModeForUser = (
+  user: { id?: string; username?: string; role?: UserRole | string } | null | undefined,
+  isLoggedIn: boolean,
+  windowWidth: number
+): DisplayMode => {
+  const defaultMode: DisplayMode = windowWidth < 768 ? 'mobile' : 'desktop';
+  if (!isLoggedIn || !user || !user.role) {
+    return defaultMode;
+  }
+
+  const key = getScopedDisplayModeKey(user);
+
+  // Strict Role Guard: TEKNISI (installer) is permanently locked to Mobile Mode
+  if (user.role === 'installer') {
+    if (key && typeof window !== 'undefined') {
+      try {
+        if (window.localStorage.getItem(key) !== 'mobile') {
+          window.localStorage.setItem(key, 'mobile');
+        }
+      } catch {}
+    }
+    return 'mobile';
+  }
+
+  if (key && typeof window !== 'undefined') {
+    try {
+      const saved = window.localStorage.getItem(key);
+      if (saved === 'desktop' || saved === 'mobile') {
+        return saved;
+      }
+    } catch {}
+  }
+
+  return defaultMode;
+};
+
 interface UIConfigContextType {
   config: UIConfiguration;
   draftConfig: UIConfiguration | null;
@@ -69,7 +118,10 @@ interface UIConfigContextType {
   updateDetailField: (sectionId: string, fieldKey: string, updates: any) => Promise<{ success: boolean; error?: string }>;
   setShowEmptyFields: (show: boolean) => Promise<{ success: boolean; error?: string }>;
 
-  // Device profile & ergonomic settings (Android vs PC)
+  // Centralized Personal Display Mode (per user + per role) & Device Profile
+  displayMode: DisplayMode;
+  canSwitchDisplayMode: boolean;
+  setDisplayMode: (mode: DisplayMode) => void;
   isMobileView: boolean;
   setDeviceMode: (mode: 'auto' | 'pc' | 'android') => Promise<{ success: boolean; error?: string }>;
   updateAndroidSettings: (updates: Partial<UIConfiguration['device']['android']>) => Promise<{ success: boolean; error?: string }>;
@@ -1631,12 +1683,94 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return persistUiConfigurationGlobal(nextConfig);
   };
 
-  // Device mode & ergonomic adjustments
-  const isMobileView = config.device?.mode === 'android' 
-    ? true 
-    : config.device?.mode === 'pc' 
-    ? false 
-    : windowWidth < 768;
+  // =========================================================================
+  // CENTRALIZED PERSONAL DISPLAY MODE (ISOLATED PER USER + ROLE)
+  // =========================================================================
+  const isInstallerRole = Boolean(isLoggedIn && currentUser?.role === 'installer');
+  const canSwitchDisplayMode = Boolean(isLoggedIn && currentUser?.role && currentUser.role !== 'installer');
+
+  const [displayModeState, setDisplayModeState] = useState<DisplayMode>(() =>
+    resolveDisplayModeForUser(currentUser, isLoggedIn, windowWidth)
+  );
+
+  const prevIdentityRef = useRef<string>('');
+
+  // Re-evaluate display mode whenever authenticated user or role changes
+  useEffect(() => {
+    const resolved = resolveDisplayModeForUser(currentUser, isLoggedIn, windowWidth);
+    setDisplayModeState(resolved);
+
+    const identity = isLoggedIn ? `${currentUser?.id || currentUser?.username || 'anon'}:${currentUser?.role || ''}` : 'logged_out';
+    if (prevIdentityRef.current !== identity) {
+      prevIdentityRef.current = identity;
+      if (isLoggedIn) {
+        const nextSidebarState = resolved === 'mobile' ? 'closed' : 'expanded';
+        setConfig(prev => ({
+          ...prev,
+          global: {
+            ...prev.global,
+            sidebarState: nextSidebarState,
+            sidebarCollapsed: nextSidebarState !== 'expanded'
+          }
+        }));
+      }
+    }
+  }, [isLoggedIn, currentUser?.id, currentUser?.username, currentUser?.role]);
+
+  // Guard against manual localStorage tampering (cross-tab & focus re-validation)
+  useEffect(() => {
+    const enforceScopedDisplayMode = () => {
+      const resolved = resolveDisplayModeForUser(currentUser, isLoggedIn, windowWidth);
+      setDisplayModeState(resolved);
+    };
+    const handleStorage = (e: StorageEvent) => {
+      const scopedKey = getScopedDisplayModeKey(currentUser);
+      if (!e.key || e.key === scopedKey || e.key.startsWith(DISPLAY_MODE_STORAGE_PREFIX)) {
+        enforceScopedDisplayMode();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', enforceScopedDisplayMode);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', enforceScopedDisplayMode);
+    };
+  }, [isLoggedIn, currentUser?.id, currentUser?.username, currentUser?.role, windowWidth]);
+
+  // Derived Display Mode: Hard-locked to 'mobile' for TEKNISI (installer) regardless of any client storage
+  const displayMode: DisplayMode = isInstallerRole ? 'mobile' : displayModeState;
+  const isMobileView = displayMode === 'mobile';
+
+  // Sync HTML root dataset attribute for styling & verification hooks
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.displayMode = displayMode;
+    }
+  }, [displayMode]);
+
+  const setDisplayMode = (mode: DisplayMode) => {
+    if (!isLoggedIn || !currentUser?.role || currentUser.role === 'installer') {
+      // Strictly reject Desktop Mode for TEKNISI / unauthenticated state
+      const key = getScopedDisplayModeKey(currentUser);
+      if (key && currentUser?.role === 'installer') {
+        try {
+          window.localStorage.setItem(key, 'mobile');
+        } catch {}
+      }
+      setDisplayModeState('mobile');
+      return;
+    }
+
+    const validMode: DisplayMode = mode === 'mobile' ? 'mobile' : 'desktop';
+    const scopedKey = getScopedDisplayModeKey(currentUser);
+    if (scopedKey) {
+      try {
+        window.localStorage.setItem(scopedKey, validMode);
+      } catch {}
+    }
+    setDisplayModeState(validMode);
+    setSidebarState(validMode === 'mobile' ? 'closed' : 'expanded');
+  };
 
   const setDeviceMode = async (mode: 'auto' | 'pc' | 'android') => {
     const nextConfig: UIConfiguration = {
@@ -1860,6 +1994,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         config: activeConfig,
         draftConfig,
         isDrafting: Boolean(draftConfig),
+        displayMode,
+        canSwitchDisplayMode,
+        setDisplayMode,
         isMobileView,
         startDrafting,
         updateDraft,

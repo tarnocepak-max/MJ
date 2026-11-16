@@ -698,7 +698,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 <div className="p-3.5 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-2">
                   <div className="text-xs font-bold text-[#211A2E] dark:text-white">Kepadatan Tabel Work Order</div>
                   <div className="flex items-center gap-1.5">
-                    {(['compact', 'normal', 'comfortable'] as const).map(dens => (
+                    {(['compact', 'comfortable', 'spacious'] as const).map(dens => (
                       <button
                         key={dens}
                         type="button"

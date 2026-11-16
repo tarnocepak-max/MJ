@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { Ticket } from '../../types';
 import {
   FileSpreadsheet,
@@ -65,6 +66,7 @@ const initialFilters: ColumnFilters = {
 
 export const ReportDataWOView: React.FC = () => {
   const { tickets, contractors, users, auditLogs } = useApp();
+  const { isMobileView } = useUIConfig();
   const { toast } = useToast();
 
   const [reportType, setReportType] = useState<
@@ -439,7 +441,7 @@ export const ReportDataWOView: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-3 ${isMobileView ? '' : 'sm:flex-row sm:items-center'}`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs">
             <BarChart3 className="w-5 h-5" />
@@ -534,7 +536,7 @@ export const ReportDataWOView: React.FC = () => {
 
       {/* Global Filters Toolbar & Reset */}
       <div className="p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 flex-1 min-w-[280px]">
+        <div className={`grid gap-3 flex-1 min-w-[240px] ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'}`}>
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input

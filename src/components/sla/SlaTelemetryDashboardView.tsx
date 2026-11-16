@@ -27,6 +27,7 @@ import {
   WifiOff
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { useToast } from '../../context/ToastContext';
 import { supabaseDb } from '../../services/supabaseDb';
 import type { Ticket } from '../../types/index';
@@ -162,6 +163,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
   const [drilldownVendor, setDrilldownVendor] = useState<SlaVendorRow | null>(null);
   const [actionModalCtx, setActionModalCtx] = useState<SlaActionModalContext | null>(null);
   const [showLogsDrawer, setShowLogsDrawer] = useState<boolean>(false);
+  const { isMobileView } = useUIConfig();
 
   const loadTelemetry = useCallback(
     async (silent = false) => {
@@ -462,7 +464,11 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       {/* 1. INTEGRATED TOP OPERATIONAL SUB-BAR & FILTER TOOLBAR RIBBON */}
       <section className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-sm bg-white dark:bg-[#1E1238]">
         {/* Top Operational Sub-bar */}
-        <div className="px-4 sm:px-5 py-3.5 bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+        <div
+          className={`px-4 sm:px-5 py-3.5 bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-3 ${
+            isMobileView ? '' : 'xl:flex-row xl:items-center xl:justify-between'
+          }`}
+        >
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1.5 text-xs font-medium text-[#8B8495] dark:text-[#A78BFA]">
               <button
@@ -725,7 +731,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       )}
 
       {/* 2. KPI METRIC SUMMARY ROW (5 MODERN EXECUTIVE CARDS) */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <section className={`grid gap-3 ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
         {/* Card 1: Kepatuhan SLA Global */}
         <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div
@@ -1148,9 +1154,9 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       </section>
 
       {/* 4. TWO-COLUMN DEEP OPERATIONAL ANALYTICS & ESCALATIONS */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <section className={`grid gap-4 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
         {/* Left Column (7 cols): Time Hourly Breakdown & Parameter Matrix */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className={isMobileView ? 'space-y-4' : 'lg:col-span-7 space-y-4'}>
           {/* Hourly SLA Performance Trend Chart Card */}
           <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-sm p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
@@ -1292,7 +1298,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               </svg>
             </div>
 
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1 text-xs">
+            <div className={`mt-3 grid gap-2.5 pt-1 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
               {slotInsights.map(insight => {
                 const ToneIcon =
                   insight.tone === 'warning' ? AlertTriangle : insight.tone === 'success' ? CheckCircle2 : Info;
@@ -1385,7 +1391,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         </div>
 
         {/* Right Column (5 cols): Critical SLA Breach Alerts & Penalty/Incentive Ledger */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className={isMobileView ? 'space-y-4' : 'lg:col-span-5 space-y-4'}>
           {/* Critical SLA Breach Warning Feed (<15 Mins) */}
           <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#DC4C5A]/30 shadow-md p-4 sm:p-5 relative overflow-hidden">
             <div className="flex items-center justify-between pb-3 border-b border-[#E9E5F0] dark:border-[#35105E] gap-2">
@@ -1624,7 +1630,11 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       </section>
 
       {/* 5. LIVE TELEMETRY LOG FOOTER BAR */}
-      <footer className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] flex flex-col md:flex-row items-center justify-between gap-2 shadow-sm text-[#766B83] dark:text-[#A78BFA] text-xs">
+      <footer
+        className={`bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-2 shadow-sm text-[#766B83] dark:text-[#A78BFA] text-xs ${
+          isMobileView ? 'items-start' : 'md:flex-row items-center justify-between'
+        }`}
+      >
         <div className="flex items-center gap-2">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { Ticket } from '../../types/index.ts';
 import {
   Database,
@@ -49,6 +50,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     canonicalFields,
     updateTicket
   } = useApp();
+  const { isMobileView } = useUIConfig();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'wo_data' | 'import_validation' | 'quality_monitoring'>('dashboard');
@@ -208,7 +210,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className={`bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-4 ${isMobileView ? '' : 'md:flex-row md:items-center'}`}>
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E9E1FF] dark:bg-[#3B1D78]/60 border border-[#D8CCF3] dark:border-[#5B35B1]/50 rounded-full text-[#3B1D78] dark:text-[#E9E1FF] text-xs font-semibold mb-2">
             <ShieldCheck className="w-3.5 h-3.5 text-[#5B35B1]" />
@@ -300,7 +302,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* Metrics Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <div className={`grid gap-3.5 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
             <div className="p-4 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs">
               <div className="text-[11px] font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase">Total WO</div>
               <div className="text-2xl font-extrabold text-[#21183A] dark:text-white mt-1">{metrics.total}</div>
@@ -345,7 +347,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
               <span>Standar Kebijakan Integritas Data MoraJaws</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div className={`grid gap-4 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
               <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
                 <div className="font-bold text-indigo-600 dark:text-indigo-400">1. Customer ID 7 Digit Murni</div>
                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -375,7 +377,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       {activeTab === 'wo_data' && (
         <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-xs space-y-4">
           {/* Search Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+          <div className={`grid gap-3 text-xs ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input

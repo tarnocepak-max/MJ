@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
+import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
+import { Ticket } from '../../types/index.ts';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import {
   LayoutDashboard,
@@ -36,12 +38,16 @@ import {
   Layers,
   MapPin,
   HelpCircle,
-  Folder
+  Folder,
+  Search,
+  Loader2,
+  ArrowUpRight
 } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   onNavigate: (tab: string) => void;
+  onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
   sidebarState: 'expanded' | 'minimized' | 'closed';
   onChangeState: (state: 'expanded' | 'minimized' | 'closed') => void;
 }
@@ -89,10 +95,11 @@ export const resolveNavIcon = (iconName?: string): React.ElementType => {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onNavigate,
+  onSelectTicket,
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus } = useApp();
+  const { currentUser, tickets, scopedTickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus } = useApp();
   const {
     isMobileView,
     config,
@@ -101,6 +108,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     submenuItems,
     accordionSettings
   } = useUIConfig();
+  const { isOnline } = useOfflineSync();
+
+  const [isCompactViewport, setIsCompactViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Ticket[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompactViewport(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isDrawerMode = isMobileView || isCompactViewport;
+  const userRole = currentUser?.role || 'installer';
+  const isInstaller = userRole === 'installer';
+  const canCrossDateSearch = userRole === 'super_admin' || userRole === 'dispatch';
 
   const canAccessMenuId = (menuId: string): boolean => {
     if (userRole === 'super_admin') return true;
@@ -130,8 +160,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const totalActiveTickets = todayActiveTickets.length;
   const unassignedCount = todayActiveTickets.filter(t => !t.installerName).length;
-  const userRole = currentUser?.role || 'installer';
-  const isInstaller = userRole === 'installer';
 
   // =========================================================================
   // 1. STANDALONE MENUS (Menu Mandiri tanpa accordion, tanpa kategori induk)
@@ -296,12 +324,127 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleItemClick = (id: string) => {
     onNavigate(id);
-    if (isMobileView || (typeof window !== 'undefined' && window.innerWidth < 768)) {
+    if (isDrawerMode) {
       if (config?.device?.android?.autoCloseSidebarOnNavigate !== false) {
         onChangeState('closed');
       }
     }
   };
+
+  // Focus Sidebar Search Input when triggered via Ctrl+K / custom event
+  useEffect(() => {
+    if (sidebarState === 'closed' || isInstaller) return;
+    const focusSearch = () => {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 40);
+    };
+    if ((window as any).__mjFocusSidebarSearch) {
+      (window as any).__mjFocusSidebarSearch = false;
+      focusSearch();
+    }
+    const handler = () => focusSearch();
+    window.addEventListener('morajaws:focus-sidebar-search', handler);
+    return () => window.removeEventListener('morajaws:focus-sidebar-search', handler);
+  }, [sidebarState, isInstaller]);
+
+  // Live RBAC-filtered Menus & Submenus search
+  const matchedMenus = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const results: Array<{ id: string; label: string; icon?: string; group?: string; badge?: string | number }> = [];
+    filteredStandaloneMenus.forEach(item => {
+      const labelMatch = String(item.label || '').toLowerCase().includes(q);
+      const idMatch = String(item.id || '').toLowerCase().includes(q);
+      if (labelMatch || idMatch) {
+        results.push({
+          id: item.id,
+          label: item.label,
+          icon: item.icon,
+          group: 'Operations Core',
+          badge: item.badge
+        });
+      }
+    });
+    filteredCategoriesWithSubmenus.forEach(cat => {
+      const catMatch = String(cat.name || '').toLowerCase().includes(q);
+      cat.submenus.forEach(sub => {
+        const labelMatch = String(sub.label || '').toLowerCase().includes(q);
+        const idMatch = String(sub.id || '').toLowerCase().includes(q);
+        if (catMatch || labelMatch || idMatch) {
+          results.push({
+            id: sub.id,
+            label: sub.label,
+            icon: sub.icon,
+            group: cat.name,
+            badge: sub.badge
+          });
+        }
+      });
+    });
+    return results;
+  }, [searchQuery, filteredStandaloneMenus, filteredCategoriesWithSubmenus]);
+
+  // Unified Work Order live search (cross-date server API for Superadmin/Dispatch, scoped local fallback for others/offline)
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchError('');
+      setIsSearching(false);
+      return;
+    }
+
+    const qLower = q.toLowerCase();
+    const pool = canCrossDateSearch ? tickets : scopedTickets;
+    const localSearch = () =>
+      pool
+        .filter(
+          t =>
+            !t.isDeleted &&
+            (t.woNumber?.toLowerCase().includes(qLower) ||
+              t.idCustomer?.toLowerCase().includes(qLower) ||
+              t.customerName?.toLowerCase().includes(qLower) ||
+              t.customerPhone?.toLowerCase().includes(qLower) ||
+              t.installerName?.toLowerCase().includes(qLower))
+        )
+        .slice(0, 12);
+
+    if (!canCrossDateSearch || !isOnline) {
+      setSearchResults(localSearch());
+      setSearchError('');
+      setIsSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsSearching(true);
+    setSearchError('');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/tickets/search?q=${encodeURIComponent(q)}`, {
+          credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Search request failed');
+        const json = await res.json();
+        if (!cancelled) {
+          setSearchResults(Array.isArray(json.tickets) ? json.tickets.slice(0, 12) : localSearch());
+        }
+      } catch {
+        if (!cancelled) {
+          setSearchResults(localSearch());
+          setSearchError('Menggunakan pencarian lokal (endpoint server tidak merespons).');
+        }
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, canCrossDateSearch, isOnline, tickets, scopedTickets]);
 
   // Helper for dynamic badge calculation
   const getItemBadge = (itemId: string, defaultBadge?: string | number) => {
@@ -333,15 +476,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
-      <div
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-45 md:hidden"
-        onClick={() => onChangeState('closed')}
-      />
+      {/* Mobile / Drawer Backdrop Overlay */}
+      {isDrawerMode && (
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-45 transition-opacity"
+          onClick={() => onChangeState('closed')}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Sidebar Main Frame: Dark Purple #160D29 */}
-      <aside className="fixed inset-y-0 left-0 z-50 md:relative md:inset-auto md:z-auto bg-[#160D29] text-[#CEC0E8] border-r border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 shadow-[0_1px_8px_rgba(0,0,0,0.08)] md:shadow-none h-full w-64 select-none">
-        {/* Top Brand Header */}
+      <aside
+        data-testid="app-sidebar"
+        data-drawer-mode={isDrawerMode ? 'true' : 'false'}
+        className={`${
+          isDrawerMode
+            ? 'fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-2xl'
+            : 'relative w-64 shadow-none'
+        } bg-[#160D29] text-[#CEC0E8] border-r border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
+      >
+        {/* 1. Sidebar Header / MoraJaws Logo */}
         <div className="h-16 px-4 flex items-center justify-between bg-[#160D29] border-b border-[#35105E]/60 sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <MoraJawsLogo size="sm" animated={false} withGlow={false} />
@@ -354,24 +508,175 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onChangeState('closed')}
-            className="p-1.5 text-[#A78BFA] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer md:hidden"
-            title="Tutup Menu"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {isDrawerMode && (
+            <button
+              type="button"
+              onClick={() => onChangeState('closed')}
+              className="p-1.5 text-[#A78BFA] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
+              title="Tutup Menu"
+              aria-label="Tutup Menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Scrollable Navigation Body */}
-        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
-          <div className="px-2.5 py-1.5 text-[11px] font-bold text-[#8B8495] uppercase tracking-wider">
-            Operations Core
+        {/* 2. Global Search Bar (Positioned directly below Sidebar Header & above Navigation Menu) */}
+        <div className="px-3 pt-3 pb-2 border-b border-[#35105E]/50 bg-[#160D29] shrink-0">
+          <div className="relative flex items-center w-full">
+            <Search className="w-3.5 h-3.5 text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape' && searchQuery) {
+                  e.stopPropagation();
+                  setSearchQuery('');
+                }
+              }}
+              placeholder="Cari menu, fitur, No. WO..."
+              aria-label="Global Search Sidebar"
+              data-testid="sidebar-global-search"
+              className="w-full pl-8 pr-12 py-2 bg-[#1E1236] hover:bg-[#23163F] focus:bg-[#251742] text-xs text-white placeholder-[#8B8495] rounded-lg border border-[#35105E] focus:border-[#A78BFA] focus:ring-1 focus:ring-[#A78BFA]/40 outline-none transition-all"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-2 p-1 rounded text-[#A78BFA] hover:text-white hover:bg-[#35105E] transition-colors cursor-pointer"
+                title="Bersihkan pencarian"
+                aria-label="Bersihkan pencarian"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            ) : (
+              !isDrawerMode && (
+                <kbd className="absolute right-2 px-1.5 py-0.5 bg-[#35105E]/70 border border-[#5B35B1]/50 rounded text-[9px] font-mono font-bold text-[#D8B4FE] pointer-events-none">
+                  Ctrl K
+                </kbd>
+              )
+            )}
           </div>
+        </div>
 
-          {/* Standalone Menus */}
-          <div className="space-y-1">
+        {/* 3. Navigation Menu (Unified Live Search Results OR Standard Menu) */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
+          {searchQuery.trim() ? (
+            <div className="space-y-3" data-testid="sidebar-search-results">
+              {/* Group A: Live RBAC Menu & Feature Results */}
+              <div className="space-y-1">
+                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider">
+                  <span>Menu & Fitur (RBAC)</span>
+                  <span className="font-mono text-[#D8B4FE]">{matchedMenus.length}</span>
+                </div>
+                {matchedMenus.length === 0 ? (
+                  <p className="px-2.5 py-1.5 text-[11px] text-[#8B8495] italic">
+                    Tidak ada menu yang cocok.
+                  </p>
+                ) : (
+                  matchedMenus.map(item => {
+                    const ItemIcon = resolveNavIcon(item.icon);
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={`search-menu-${item.id}`}
+                        type="button"
+                        onClick={() => {
+                          handleItemClick(item.id);
+                          setSearchQuery('');
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-xs'
+                            : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
+                        }`}
+                      >
+                        <ItemIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="truncate font-semibold">{item.label}</div>
+                          {item.group && (
+                            <div className="text-[9.5px] text-[#8B8495] truncate">{item.group}</div>
+                          )}
+                        </div>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-[#A78BFA] shrink-0" />
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Group B: Live Work Order Search Results */}
+              <div className="space-y-1 pt-2 border-t border-[#35105E]/60">
+                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider">
+                  <span>Work Order</span>
+                  {isSearching ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-[#D8B4FE]" />
+                  ) : (
+                    <span className="font-mono text-[#D8B4FE]">{searchResults.length}</span>
+                  )}
+                </div>
+
+                {searchError && (
+                  <p className="px-2.5 py-1 text-[10px] text-amber-300/90">{searchError}</p>
+                )}
+
+                {!isSearching && searchResults.length === 0 ? (
+                  <p className="px-2.5 py-1.5 text-[11px] text-[#8B8495] italic">
+                    Tidak ada Work Order cocok.
+                  </p>
+                ) : (
+                  searchResults.map(t => {
+                    const apptDate = getTicketAppointmentDate(t) || '-';
+                    return (
+                      <button
+                        key={`search-wo-${t.id}`}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectTicket) {
+                            onSelectTicket(t, 'overview');
+                          } else {
+                            onNavigate('tickets');
+                          }
+                          if (isDrawerMode && config?.device?.android?.autoCloseSidebarOnNavigate !== false) {
+                            onChangeState('closed');
+                          }
+                        }}
+                        className="w-full text-left px-2.5 py-2 rounded-lg bg-[#1E1236]/80 hover:bg-[#35105E] border border-[#35105E]/70 transition-colors cursor-pointer space-y-1"
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-mono text-[11px] font-bold text-white truncate">
+                            {t.woNumber || '-'}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-[#35105E] text-[#D8B4FE] text-[9px] font-bold shrink-0">
+                            {apptDate}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#CEC0E8] truncate">
+                          {t.customerName || '-'}
+                        </div>
+                        <div className="flex items-center justify-between gap-1.5 text-[9.5px] text-[#8B8495]">
+                          <span className="truncate">{t.idCustomer || t.installerName || '-'}</span>
+                          <span className="text-[#A78BFA] font-semibold shrink-0">{t.statusWOInstaller || t.statusWOAgent || 'OPEN'}</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="px-2.5 py-1.5 text-[11px] font-bold text-[#8B8495] uppercase tracking-wider">
+                Operations Core
+              </div>
+
+              {/* Standalone Menus */}
+              <div className="space-y-1">
             {filteredStandaloneMenus.map(item => {
               const Icon = resolveNavIcon(item.icon);
               const isActive =
@@ -508,9 +813,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
             </div>
           )}
+            </>
+          )}
         </nav>
 
-        {/* Footer: Live Cluster Status + Active Role & Session Controls */}
+        {/* 4. User Profile / Account Section + Live Cluster Status */}
         <div className="p-3 bg-[#1E1236] border-t border-[#35105E]/70 space-y-2 shrink-0">
           <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#160D29] border border-[#35105E]/70 text-[10.5px]">
             <div className="flex items-center gap-1.5 min-w-0">

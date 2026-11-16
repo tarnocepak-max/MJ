@@ -27,6 +27,7 @@ import {
   getTicketAppointmentDate
 } from '../../services/appointmentDateParser';
 import { StatusInstallerBadge, StatusAgentBadge } from '../common/Badge';
+import { useUIConfig } from '../../context/UIConfigContext';
 
 interface ScheduleCalendarViewProps {
   onSelectTicket: (ticket: Ticket) => void;
@@ -37,6 +38,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
   onSelectTicket,
   onOpenWhatsApp
 }) => {
+  const { isMobileView } = useUIConfig();
   const { tickets, contractors, users, currentUser } = useApp();
 
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'list'>('day');
@@ -153,13 +155,13 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
   return (
     <div className="space-y-5">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col ${isMobileView ? '' : 'sm:flex-row sm:items-center'} justify-between gap-3`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
             <CalendarIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex items-center gap-2">
+            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex flex-wrap items-center gap-2">
               <span>Jadwal Appointment & Manajemen Kalender Work Order</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
                 WIB (Asia/Jakarta)
@@ -171,7 +173,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           </div>
         </div>
         {/* View Switcher: Day, Week, Month, List */}
-        <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold shrink-0">
+        <div className="flex items-center flex-wrap p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold shrink-0">
           <button
             type="button"
             onClick={() => setViewMode('day')}
@@ -277,8 +279,8 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
         </div>
 
         {/* Filters Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-          <div className="relative col-span-1 sm:col-span-2">
+        <div className={`grid ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6'} gap-2`}>
+          <div className={`relative ${isMobileView ? 'col-span-1 sm:col-span-2' : 'col-span-1 sm:col-span-2'}`}>
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -352,7 +354,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
       {/* Main Schedule View Body */}
       {viewMode === 'day' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'} gap-4`}>
             {STANDARD_SLOTS.map(slot => {
               const slotKey = slot.slice(0, 5);
               const slotTickets = dayTickets.filter(t => String(t.slotTime || '').includes(slotKey));

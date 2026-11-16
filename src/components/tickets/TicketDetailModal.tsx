@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
@@ -68,6 +69,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     getTicketUnreadCount,
     setTicketChatCategory
   } = useApp();
+  const { isMobileView } = useUIConfig();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Ticket>>({});
@@ -215,13 +217,21 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const isTicketClosed = ticket.statusWOAgent === 'Closed';
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-xs">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-7xl h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className={`fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs ${isMobileView ? 'p-0' : 'p-2 sm:p-4'}`}>
+      <div
+        className={`bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 w-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+          isMobileView ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl h-[95vh] rounded-2xl'
+        }`}
+      >
         
         {/* ============================================================ */}
         {/* SIMPLE, CLEAN TOP BAR                                        */}
         {/* ============================================================ */}
-        <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+        <div
+          className={`bg-slate-50 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3 shrink-0 ${
+            isMobileView ? 'px-3.5 py-3' : 'px-5 py-3.5 md:flex-row md:items-center'
+          }`}
+        >
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono font-bold text-lg text-indigo-600 dark:text-indigo-400">
               {ticket.woNumber}

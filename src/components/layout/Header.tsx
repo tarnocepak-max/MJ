@@ -16,13 +16,12 @@ import {
   Cloud,
   Zap,
   PanelLeft,
-  Search,
   Bell,
-  X,
   MessageSquare,
   CheckCircle2,
-  Loader2,
-  ArrowUpRight
+  ArrowUpRight,
+  Monitor,
+  Smartphone
 } from 'lucide-react';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
@@ -90,91 +89,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     scopedTickets,
     getTicketUnreadCount
   } = useApp();
-  const { config, setSidebarState } = useUIConfig();
+  const { config, setSidebarState, displayMode, canSwitchDisplayMode, setDisplayMode, isMobileView } = useUIConfig();
   const { isOnline, isSyncing, pendingCount, setIsOfflineModalOpen, isSimulatedOffline } = useOfflineSync();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
   const { playSyncSound } = useMoraJawsSound();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<(Ticket & { _crossDateMeta?: { woDate?: string; dateTag?: string; isCrossDate?: boolean } })[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const canCrossDateSearch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
-
-  // Keyboard shortcut Ctrl+K / Cmd+K for Quick Search
-  useEffect(() => {
-    if (currentUser.role === 'installer') return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setSearchOpen(prev => !prev);
-      } else if (e.key === 'Escape' && searchOpen) {
-        setSearchOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentUser.role, searchOpen]);
-
-  useEffect(() => {
-    if (searchOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 40);
-    }
-  }, [searchOpen]);
-
-  // Execute search via /api/tickets/search for super_admin & dispatch, or scopedTickets locally for other roles
-  useEffect(() => {
-    if (!searchOpen) return;
-    const q = searchQuery.trim();
-    if (!q) {
-      setSearchResults([]);
-      setSearchError(null);
-      setIsSearching(false);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setSearchError(null);
-      const qLower = q.toLowerCase();
-      if (canCrossDateSearch && isOnline) {
-        setIsSearching(true);
-        try {
-          const res = await fetch(`/api/tickets/search?q=${encodeURIComponent(q)}`, {
-            credentials: 'include'
-          });
-          const data = await res.json();
-          if (res.ok && data?.success && Array.isArray(data.tickets)) {
-            setSearchResults(data.tickets.slice(0, 12));
-            setIsSearching(false);
-            return;
-          }
-        } catch {
-          // Fallback cleanly to local tickets pool below
-        }
-        setIsSearching(false);
-      }
-
-      const pool = canCrossDateSearch ? tickets : (scopedTickets || tickets);
-      const localMatches = pool
-        .filter(t => !t.isDeleted)
-        .filter(t => {
-          const wo = String(t.woNumber || '').toLowerCase();
-          const cid = String(t.idCustomer || '').toLowerCase();
-          const cname = String(t.customerName || '').toLowerCase();
-          return wo.includes(qLower) || cid.includes(qLower) || cname.includes(qLower);
-        })
-        .slice(0, 12);
-      setSearchResults(localMatches);
-    }, 220);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, searchOpen, canCrossDateSearch, isOnline, tickets, scopedTickets]);
 
   // Real notification items computed from live unread messages, pending dispatch approvals, and offline queue
   const notificationSummary = useMemo(() => {
@@ -478,87 +402,113 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-16 flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#E9E5F0] dark:border-[#35105E] shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-colors">
+      <header
+        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-4 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#E9E5F0] dark:border-[#35105E] shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-colors ${
+          isMobileView ? 'px-3 sm:px-4' : 'px-4 sm:px-6'
+        }`}
+      >
         {/* Zone 1: Toggle + Breadcrumbs + Appointment Date Pill */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
               const current = config.global.sidebarState || 'expanded';
               setSidebarState(current === 'closed' ? 'expanded' : 'closed');
             }}
-            className="p-1.5 rounded-lg text-[#766B83] hover:bg-[#F4EAFF] hover:text-[#211A2E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] dark:hover:text-white transition-colors cursor-pointer shrink-0"
+            className="p-2 rounded-lg text-[#766B83] hover:bg-[#F4EAFF] hover:text-[#211A2E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] dark:hover:text-white transition-colors cursor-pointer shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
             title="Buka / Tutup Sidebar"
+            aria-label="Buka / Tutup Sidebar"
           >
             <PanelLeft className="w-4 h-4" />
           </button>
 
-          {/* Breadcrumb trail on wide screens */}
-          <nav
-            aria-label="Breadcrumb"
-            className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[260px]"
-          >
-            <button
-              type="button"
-              onClick={() =>
-                onNavigate(
-                  currentUser.role === 'dispatch'
-                    ? 'tickets'
-                    : currentUser.role === 'leader'
-                    ? 'wo_assignment'
-                    : 'dashboard'
-                )
-              }
-              className="hover:text-[#211A2E] dark:hover:text-white transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {config.global.appName || 'MoraJaws'}
-            </button>
-            <span aria-hidden="true">/</span>
-            <span className="text-[#35105E] dark:text-[#D8B4FE] font-semibold truncate">
-              {activePageTitle}
-            </span>
-          </nav>
+          {/* Compact page title in Mobile Mode, full Breadcrumb trail in Desktop Mode */}
+          {isMobileView ? (
+            <div className="min-w-0">
+              <span className="text-xs sm:text-sm font-bold text-[#211A2E] dark:text-white truncate block">
+                {activePageTitle}
+              </span>
+            </div>
+          ) : (
+            <>
+              <nav
+                aria-label="Breadcrumb"
+                className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[260px]"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    onNavigate(
+                      currentUser.role === 'dispatch'
+                        ? 'tickets'
+                        : currentUser.role === 'leader'
+                        ? 'wo_assignment'
+                        : 'dashboard'
+                    )
+                  }
+                  className="hover:text-[#211A2E] dark:hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {config.global.appName || 'MoraJaws'}
+                </button>
+                <span aria-hidden="true">/</span>
+                <span className="text-[#35105E] dark:text-[#D8B4FE] font-semibold truncate">
+                  {activePageTitle}
+                </span>
+              </nav>
 
-          {/* Active Appointment Date Pill */}
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
-            <span className="text-[11px] font-bold tracking-tight whitespace-nowrap tabular-nums">
-              Appointment: Hari Ini (todayWIB) · {formattedToday}
-            </span>
-          </div>
+              {/* Active Appointment Date Pill */}
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+                <span className="text-[11px] font-bold tracking-tight whitespace-nowrap tabular-nums">
+                  Appointment: Hari Ini (todayWIB) · {formattedToday}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Zone 2 & 3: Search (Ctrl+K) + Connectivity + Cloud Live + Notifications + User Profile */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Quick Cross-Date Search Trigger */}
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F7F6FA] hover:bg-[#F0E3FF]/70 dark:bg-[#22123F] dark:hover:bg-[#35105E] border border-[#E9E5F0] dark:border-[#35105E] text-[#766B83] dark:text-[#CEC0E8] text-xs transition-colors cursor-pointer shrink-0"
-            title={
-              canCrossDateSearch
-                ? 'Pencarian WO & Pelanggan Lintas Tanggal (Ctrl+K)'
-                : 'Cari Work Order (Ctrl+K)'
-            }
-          >
-            <Search className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA]" />
-            <span className="hidden lg:inline text-[11px] font-medium text-[#766B83] dark:text-[#CEC0E8]">
-              {canCrossDateSearch ? 'Cari WO / ID...' : 'Cari WO...'}
-            </span>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-white dark:bg-[#160D29] text-[#494453] dark:text-[#D8B4FE] rounded border border-[#E9E5F0] dark:border-[#35105E]">
-              Ctrl+K
-            </kbd>
-          </button>
-
-          {/* Mobile Search Icon */}
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="md:hidden p-1.5 rounded-full bg-[#F7F6FA] dark:bg-[#22123F] border border-[#E9E5F0] dark:border-[#35105E] text-[#7135B5] dark:text-[#D8B4FE] cursor-pointer"
-            aria-label="Cari Work Order"
-          >
-            <Search className="w-4 h-4" />
-          </button>
+        {/* Zone 2 & 3: Display Mode Switch + Connectivity + Cloud Live + Notifications + User Profile */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Display Mode Switch: Available for ALL non-Teknisi roles (hidden strictly for installer) */}
+          {canSwitchDisplayMode && (
+            <div
+              role="group"
+              aria-label="Display Mode Switch"
+              data-testid="display-mode-switch"
+              className="inline-flex items-center p-0.5 rounded-full bg-[#F5F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0"
+            >
+              <button
+                type="button"
+                onClick={() => setDisplayMode('desktop')}
+                aria-pressed={displayMode === 'desktop'}
+                data-testid="display-mode-desktop"
+                title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  displayMode === 'desktop'
+                    ? 'bg-[#431599] text-white shadow-xs'
+                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Desktop</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('mobile')}
+                aria-pressed={displayMode === 'mobile'}
+                data-testid="display-mode-mobile"
+                title="Mobile Mode — Layout compact, drawer navigation, dan card view"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  displayMode === 'mobile'
+                    ? 'bg-[#431599] text-white shadow-xs'
+                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Mobile</span>
+              </button>
+            </div>
+          )}
 
           {/* Offline Queue & Online Status Pill */}
           <button
@@ -576,22 +526,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             {!isOnline ? (
               <>
                 <WifiOff className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">{isSimulatedOffline ? 'Simulasi Offline' : 'Offline'}</span>
+                <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>
+                  {isSimulatedOffline ? 'Simulasi Offline' : 'Offline'}
+                </span>
               </>
             ) : isSyncing ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
-                <span className="hidden sm:inline">Syncing</span>
+                <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>Syncing</span>
               </>
             ) : (
               <>
                 <span className="w-2 h-2 rounded-full bg-[#16A36A] shrink-0" />
-                <span className="hidden md:inline">Online</span>
+                <span className={isMobileView ? 'hidden sm:inline' : 'hidden md:inline'}>Online</span>
               </>
             )}
-            <span className="hidden lg:inline font-mono text-[10px] opacity-80 tabular-nums">
-              · {pendingCount} Pending
-            </span>
+            {!isMobileView && (
+              <span className="hidden lg:inline font-mono text-[10px] opacity-80 tabular-nums">
+                · {pendingCount} Pending
+              </span>
+            )}
           </button>
 
           {/* Cloud Live Pill & Trigger Refresh */}
@@ -599,7 +553,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             type="button"
             onClick={handleGlobalRefresh}
             disabled={isRefreshing}
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
+            className={`${isMobileView ? 'hidden sm:flex' : 'hidden md:flex'} items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
               syncStatus === 'SAVED'
                 ? 'bg-[#F5F1FF] hover:bg-[#EADDFA] border-[#D8CCF3] text-[#431599] dark:bg-[#35105E] dark:hover:bg-[#5B35B1] dark:border-[#7135B5]/50 dark:text-[#E9D5FF]'
                 : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
@@ -633,7 +587,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </button>
 
           {/* Exclusive Dispatch Sameday Express Quick Action */}
-          {currentUser.role === 'dispatch' && activeTab !== 'form_sameday' && (
+          {!isMobileView && currentUser.role === 'dispatch' && activeTab !== 'form_sameday' && (
             <button
               type="button"
               onClick={() => onNavigate('form_sameday')}
@@ -854,121 +808,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </div>
         </div>
       </header>
-
-      {/* Quick Cross-Date Search Modal (Ctrl+K) */}
-      {searchOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-[#160D29]/55 backdrop-blur-xs flex items-start justify-center pt-16 sm:pt-24 px-4"
-          onClick={() => setSearchOpen(false)}
-        >
-          <div
-            className="w-full max-w-xl bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-[#35105E] shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#E9E5F0] dark:border-[#35105E]">
-              <Search className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder={
-                  canCrossDateSearch
-                    ? 'Cari Nomor WO atau ID Pelanggan 7-digit (Lintas Tanggal)...'
-                    : 'Cari Nomor WO, ID Pelanggan, atau Nama Pelanggan...'
-                }
-                className="flex-1 bg-transparent text-sm text-[#211A2E] dark:text-white placeholder-[#8B8495] focus:outline-none"
-              />
-              {isSearching && <Loader2 className="w-4 h-4 text-[#7135B5] animate-spin shrink-0" />}
-              <button
-                type="button"
-                onClick={() => setSearchOpen(false)}
-                className="p-1 rounded-lg text-[#766B83] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="max-h-80 overflow-y-auto divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
-              {searchError && (
-                <div className="p-4 text-xs text-[#DC4C5A] bg-rose-50 dark:bg-rose-950/40">{searchError}</div>
-              )}
-
-              {!searchQuery.trim() ? (
-                <div className="p-6 text-center text-xs text-[#766B83] dark:text-[#CEC0E8] space-y-1">
-                  <p className="font-semibold text-[#211A2E] dark:text-white">
-                    {canCrossDateSearch ? 'Pencarian Lintas Tanggal Aktif' : 'Pencarian Cepat Work Order'}
-                  </p>
-                  <p>
-                    Ketik Nomor WO (mis. <span className="font-mono text-[#7135B5] dark:text-[#D8B4FE]">WO-</span>) atau 7 digit ID Pelanggan.
-                  </p>
-                </div>
-              ) : isSearching && searchResults.length === 0 ? (
-                <div className="p-6 text-center text-xs text-[#766B83] dark:text-[#CEC0E8]">
-                  Mencari di database PostgreSQL...
-                </div>
-              ) : searchResults.length === 0 ? (
-                <div className="p-6 text-center text-xs text-[#766B83] dark:text-[#CEC0E8]">
-                  Tidak ada Work Order yang cocok dengan &ldquo;{searchQuery}&rdquo;.
-                </div>
-              ) : (
-                searchResults.map(t => {
-                  const woDate = t._crossDateMeta?.woDate || getTicketAppointmentDate(t) || '-';
-                  const dateTag = t._crossDateMeta?.dateTag;
-                  return (
-                    <button
-                      key={`quick-search-${t.id}`}
-                      type="button"
-                      onClick={() => {
-                        setSearchOpen(false);
-                        if (onSelectTicket) {
-                          onSelectTicket(t, 'overview');
-                        } else {
-                          onNavigate('tickets');
-                        }
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/50 flex items-center justify-between gap-3 cursor-pointer"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-[#431599] dark:text-[#D8B4FE]">
-                            {t.woNumber}
-                          </span>
-                          <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-[#F7F6FA] dark:bg-[#22123F] text-[#494453] dark:text-[#CEC0E8]">
-                            {t.idCustomer || '-'}
-                          </span>
-                        </div>
-                        <div className="text-xs font-semibold text-[#211A2E] dark:text-white truncate mt-0.5">
-                          {t.customerName}
-                        </div>
-                        <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate">
-                          {t.area || '-'} · {t.contactorName || t.contractorName || '-'} · {t.installerName || 'Unassigned'}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 space-y-1">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold font-mono tabular-nums ${
-                            dateTag === 'previous'
-                              ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                              : dateTag === 'upcoming'
-                              ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300'
-                              : 'bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300'
-                          }`}
-                        >
-                          {woDate}
-                        </span>
-                        <div className="text-[10.5px] font-semibold text-[#766B83] dark:text-[#CEC0E8]">
-                          {t.statusWOAgent || 'Pending'}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

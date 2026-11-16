@@ -18,6 +18,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Ticket, User } from '../../types/index.ts';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { ColumnConfig } from './LeaderColumnSettingsModal';
 import {
   formatSlotBadgeLabel,
@@ -249,6 +250,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 }) => {
   // Local inline dropdown selections per unassigned ticket card before clicking "Tugaskan Sekarang"
   const [pendingInlineChoice, setPendingInlineChoice] = useState<Record<string, string>>({});
+  const { isMobileView } = useUIConfig();
 
   const unassignedTicketsInView = filteredTickets.filter(t => !t.installerName);
   const allUnassignedChecked =
@@ -598,9 +600,9 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                   />
 
                   {/* Main Card Grid */}
-                  <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+                  <div className={`flex-1 min-w-0 grid gap-3 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
                     {/* Left Column: WO Meta + Customer + Address */}
-                    <div className="lg:col-span-5 space-y-1.5 min-w-0">
+                    <div className={`space-y-1.5 min-w-0 ${isMobileView ? '' : 'lg:col-span-5'}`}>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
@@ -648,9 +650,9 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                     </div>
 
                     {/* Right Column: 4-Dimension Badges + Action Controls */}
-                    <div className="lg:col-span-7 flex flex-col justify-between gap-2.5 lg:items-end">
+                    <div className={`flex flex-col justify-between gap-2.5 ${isMobileView ? '' : 'lg:col-span-7 lg:items-end'}`}>
                       {/* 4 Operational Dimension Badges */}
-                      <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                      <div className={`flex flex-wrap items-center gap-1.5 ${isMobileView ? '' : 'lg:justify-end'}`}>
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide tabular-nums ${agentBadge.cls}`}>
                           {agentBadge.label}
                         </span>

@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '../../context/ToastContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 
 interface TextToTableImporterProps {
   onImportSuccess: () => void;
@@ -57,6 +58,7 @@ const SAMPLE_DATA_WO_OPERATIONAL = `|Date|File Name|Date Upload|Agent ID|ID Cust
 |2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-109|7399337|WO20267399337|Syamsul Bahri|081377889900|Titip Kunci di Pos Satpam|PT Mitra Jaringan Solusi|Jakarta Selatan|Andi Saputra|16:00 - 18:00 WIB|Grand Melati Residence|FDT-JS-022|FAT-JS-022-01|Maintenance LOS Red Light|Assigned|Bawa kabel dropcore cadangan|`;
 
 export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImportSuccess }) => {
+  const { isMobileView } = useUIConfig();
   const {
     bulkImportTickets,
     headerMappings,
@@ -794,8 +796,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         </div>
 
         {/* Upload Zone & Text Input */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-          <div className="md:col-span-1 p-4 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center space-y-2">
+        <div className={`grid grid-cols-1 ${isMobileView ? '' : 'md:grid-cols-3'} gap-4 mb-3`}>
+          <div className={`${isMobileView ? '' : 'md:col-span-1'} p-4 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center space-y-2`}>
             <input
               type="file"
               ref={fileInputRef}
@@ -825,7 +827,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             )}
           </div>
 
-          <div className="md:col-span-2 space-y-2">
+          <div className={`${isMobileView ? '' : 'md:col-span-2'} space-y-2`}>
             <textarea
               rows={6}
               placeholder="|WO Number|Customer Name|ID Customer|Customer Phone|Area|Cluster Name|Contactor Name|Slot Time|Ticket Category|&#10;|WO20267399330|Haji Sulaiman|7399330|081299883344|Jakarta Selatan|Grand Melati Residence|PT Mitra Jaringan Solusi|09:00 - 11:00 WIB|New Installation FTTH|"
@@ -1083,7 +1085,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className={`grid grid-cols-1 ${isMobileView ? '' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-3`}>
                 {parseResult.detectedContractors.map((c, cIdx) => {
                   return (
                     <div
@@ -2040,7 +2042,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             )}
 
             {/* Export Settings Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-5 text-xs">
+            <div className={`grid grid-cols-1 ${isMobileView ? '' : 'lg:grid-cols-3'} gap-6 pt-5 text-xs`}>
               
               {/* Card 1: Format Template Ekspor */}
               <div className="space-y-3">

@@ -175,8 +175,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Layout mode: 'cards' or 'table'
+  // Layout mode: 'cards' or 'table' ('auto' follows Display Mode)
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
+
+  useEffect(() => {
+    setLayoutMode('auto');
+  }, [isMobileView]);
 
   const effectiveLayout: 'cards' | 'table' =
     layoutMode === 'auto'
@@ -201,10 +205,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
   const [copiedWoId, setCopiedWoId] = useState<string | null>(null);
 
-  // Keyboard shortcuts: Ctrl+K / Cmd+K focus search, ESC clears when focused
+  // Keyboard shortcuts: '/' focuses local table filter (Ctrl+K reserved for Sidebar Global Search), ESC clears when focused
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+      if (e.key === '/' && !isTyping) {
         e.preventDefault();
         searchInputRef.current?.focus();
       } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current && searchTerm) {
@@ -728,7 +736,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   return (
     <div className="space-y-4">
       {/* 1. 6-Card KPI & Operational Pulse Strip */}
-      <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <section className={`grid gap-3 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6'}`}>
         {/* Card 1: Total Hari Ini */}
         <button
           type="button"
@@ -941,7 +949,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       {/* 2. Search, Filters & Action Utilities Toolbar */}
       <section className="bg-white dark:bg-[#1E1238] p-4 rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-2xs space-y-3.5">
         {/* Row A: Search Input + Appointment Date Chip + Sync Button */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+        <div className={`flex flex-col gap-2.5 ${isMobileView ? '' : 'lg:flex-row lg:items-center'}`}>
           <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -949,7 +957,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               type="text"
               placeholder={
                 isCrossDateSearchEligible
-                  ? 'Cari Nomor WO (e.g. WO2026...) atau ID Customer (Lintas Tanggal)...'
+                  ? 'Filter WO tabel (No. WO, ID Customer, Nama, Teknisi)...'
                   : 'Cari WO Hari Ini (Nomor WO, ID Customer, Nama, Teknisi)...'
               }
               value={searchTerm}
@@ -957,7 +965,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-24 py-2 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/30 focus:border-[#7135B5] font-medium transition-all"
+              className="w-full pl-9 pr-20 py-2 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/30 focus:border-[#7135B5] font-medium transition-all"
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {searchTerm ? (
@@ -972,9 +980,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                   ESC clear
                 </button>
               ) : (
-                <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-mono font-semibold text-[#8B8495]">
-                  Ctrl+K
-                </kbd>
+                !isMobileView && (
+                  <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-mono font-semibold text-[#8B8495]">
+                    /
+                  </kbd>
+                )
               )}
             </div>
           </div>
@@ -1037,7 +1047,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         )}
 
         {/* Row B: 6-Column Filter Matrix */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+        <div className={`grid gap-2.5 text-xs ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
           <div>
             <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
               Area Servis
@@ -1423,7 +1433,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               Tidak ada tiket Work Order yang cocok dengan filter pencarian.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
               {paginatedTickets.map(ticket => (
                 <TicketMobileCard
                   key={ticket.id}

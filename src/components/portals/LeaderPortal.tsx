@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { Ticket, User, TicketStatusWOInstaller } from '../../types/index.ts';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge } from '../common/Badge';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
@@ -150,6 +151,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     syncStatus,
     refreshActiveTickets
   } = useApp();
+  const { isMobileView } = useUIConfig();
 
   // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
   const [internalTab, setInternalTab] = useState<'dashboard' | 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap'>(
@@ -367,6 +369,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [clusterFilter, setClusterFilter] = useState<string>('ALL');
   const [matrixViewMode, setMatrixViewMode] = useState<'cards' | 'table'>('cards');
   const [bulkQuickInstaller, setBulkQuickInstaller] = useState<string>('');
+
+  useEffect(() => {
+    if (isMobileView) {
+      setMatrixViewMode('cards');
+    }
+  }, [isMobileView]);
   
   // Date Filter for Assign WO (Strict Asia/Jakarta Appointment Date === todayWIB, auto-resets at 00:00 WIB)
   const [dateFilterType, setDateFilterTypeState] = useState<'today'>('today');
@@ -1977,7 +1985,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {/* 1. LEADER CONTEXT & OPERATIONAL HEADER (STITCH DESIGN)       */}
       {/* ============================================================ */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className={`flex flex-col justify-between gap-4 ${isMobileView ? '' : 'lg:flex-row lg:items-center'}`}>
         <div className="space-y-2">
           <div className="text-[12px] font-medium text-[#766B83] flex items-center gap-1.5">
             <span>MoraJaws</span>
@@ -2069,7 +2077,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {/* 2. 6 KPI SUMMARY CARDS (REAL SCOPED DATA)                    */}
       {/* ============================================================ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className={`grid gap-3 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
         {/* KPI 1: Total WO Hari Ini */}
         <div
           onClick={() => {
@@ -2348,7 +2356,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {activeTab === 'dashboard' && (
         <div className="space-y-5">
           {/* 10 ACCURATE SUMMARY METRIC CARDS */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className={`grid gap-3 sm:gap-4 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'}`}>
             {/* 1. Total WO */}
             <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
@@ -2696,9 +2704,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* TAB 1: ASSIGN WO & SLOT MATRIX (STITCH 2-PANEL WORKSPACE)    */}
       {/* ============================================================ */}
       {activeTab === 'wo_assignment' && (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+        <div className={`grid gap-5 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-12'}`}>
           {/* LEFT 8 COLUMNS: FILTER, BULK ACTIONS, CARD MATRIX / TABLE */}
-          <div className="xl:col-span-8 min-w-0">
+          <div className={isMobileView ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
             <LeaderAssignMatrixPanel
               totalScopedCount={summaryMetrics.total}
               filteredTickets={filteredTickets}
@@ -2812,7 +2820,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           </div>
 
           {/* RIGHT 4 COLUMNS: TECHNICIAN CAPACITY, 4-SLOT MATRIX & AUDIT TRAIL */}
-          <div className="xl:col-span-4 min-w-0">
+          <div className={isMobileView ? 'min-w-0' : 'xl:col-span-4 min-w-0'}>
             <LeaderQuotaSidebar
               quotaConfig={quotaSettings}
               technicians={technicianSummaries}
@@ -2866,7 +2874,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               </div>
             </div>
 
-            <form onSubmit={handleAddInstaller} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <form onSubmit={handleAddInstaller} className={`grid gap-4 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Nama Lengkap Teknisi *
@@ -3014,7 +3022,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS                  */}
       {/* ============================================================ */}
       {activeTab === 'quota_settings' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+        <div className={`grid gap-5 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {/* Card 1: Batas Kuota Beban Teknisi */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
             <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">

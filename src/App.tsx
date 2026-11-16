@@ -385,6 +385,23 @@ const MainLayout: React.FC = () => {
   const isFullWidth = config.global.contentWidth === 'full';
   const currentSidebarState = config.global.sidebarState || (config.global.sidebarCollapsed ? 'minimized' : 'expanded');
 
+  // Global Ctrl+K / Cmd+K shortcut -> open Sidebar (if closed) & focus Sidebar Global Search
+  useEffect(() => {
+    if (!isLoggedIn || isInstaller) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (currentSidebarState === 'closed') {
+          (window as any).__mjFocusSidebarSearch = true;
+          setSidebarState('expanded');
+        }
+        window.dispatchEvent(new CustomEvent('morajaws:focus-sidebar-search'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoggedIn, isInstaller, currentSidebarState, setSidebarState]);
+
   // Render view based on active tab with fallback
   const renderContent = () => {
     const handleInstallerNavigateTab = (tab: string, filter?: string) => {
@@ -832,6 +849,7 @@ const MainLayout: React.FC = () => {
           <Sidebar
             activeTab={activeTab}
             onNavigate={tab => navigateTo(tab)}
+            onSelectTicket={handleOpenTicketDetail}
             sidebarState={currentSidebarState}
             onChangeState={state => setSidebarState(state)}
           />
@@ -845,8 +863,8 @@ const MainLayout: React.FC = () => {
             onSelectTicket={handleOpenTicketDetail}
           />
 
-          {/* Floating Open Menu Button when sidebar is closed on desktop */}
-          {!isInstaller && currentSidebarState === 'closed' && !isDetailModalOpen && !isWhatsAppModalOpen && (
+          {/* Floating Open Menu Button when sidebar is closed on desktop mode */}
+          {!isInstaller && !isMobileView && currentSidebarState === 'closed' && !isDetailModalOpen && !isWhatsAppModalOpen && (
             <button
               onClick={() => setSidebarState('expanded')}
               className="hidden md:flex fixed bottom-6 left-6 z-30 items-center gap-2 px-3.5 py-2 bg-[#5B35B1] hover:bg-[#7135B5] text-white text-xs font-bold rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer"
@@ -859,7 +877,12 @@ const MainLayout: React.FC = () => {
 
           {/* Content Viewport with responsive bottom navigation spacing */}
           <main
-            className={`flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 ${
+            data-display-mode={isMobileView ? 'mobile' : 'desktop'}
+            className={`flex-1 overflow-y-auto overflow-x-hidden ${
+              isMobileView
+                ? 'p-3 sm:p-4 pb-28 w-full'
+                : 'p-3 sm:p-5 lg:p-6'
+            } ${
               isInstaller
                 ? 'pb-28 w-full'
                 : currentUser.role === 'leader'
@@ -871,9 +894,9 @@ const MainLayout: React.FC = () => {
           >
             <div
               className={
-                isInstaller || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
-                  ? 'w-full'
-                  : 'max-w-7xl mx-auto'
+                isInstaller || isMobileView || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
+                  ? 'w-full min-w-0'
+                  : 'max-w-7xl mx-auto min-w-0'
               }
             >
               {renderContent()}

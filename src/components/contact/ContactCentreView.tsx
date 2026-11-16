@@ -34,9 +34,11 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 
 export const ContactCentreView: React.FC = () => {
+  const { isMobileView } = useUIConfig();
   const {
     tickets,
     currentUser,
@@ -453,9 +455,9 @@ export const ContactCentreView: React.FC = () => {
       </div>
 
       {/* Main 2-Panel Chat Workspace */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden grid grid-cols-1 ${isMobileView ? '' : 'lg:grid-cols-12 min-h-[640px]'}`}>
         {/* Left Panel: Conversation List with Sticky Search & Unread Grouping */}
-        <div className="lg:col-span-5 xl:col-span-4 border-b lg:border-b-0 lg:border-r border-[#E9E1FF] dark:border-purple-900/50 flex flex-col bg-[#F5F1FF]/40 dark:bg-[#201138]/40 h-[640px] max-h-[80vh]">
+        <div className={`${isMobileView ? 'border-b h-[340px]' : 'lg:col-span-5 xl:col-span-4 border-b lg:border-b-0 lg:border-r h-[640px] max-h-[80vh]'} border-[#E9E1FF] dark:border-purple-900/50 flex flex-col bg-[#F5F1FF]/40 dark:bg-[#201138]/40`}>
           {/* STICKY SEARCH BAR - Never scrolls off (Requirement 1B) */}
           <div className="sticky top-0 z-20 bg-[#F5F1FF] dark:bg-[#1f103b] p-3 border-b border-[#E9E1FF] dark:border-purple-900/50 shadow-xs space-y-2.5">
             <div className="relative">
@@ -630,7 +632,7 @@ export const ContactCentreView: React.FC = () => {
         </div>
 
         {/* Right Panel: Chat Message Thread */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col justify-between bg-white dark:bg-[#1A0E2E] h-[640px] max-h-[80vh]">
+        <div className={`${isMobileView ? 'h-[480px]' : 'lg:col-span-7 xl:col-span-8 h-[640px] max-h-[80vh]'} flex flex-col justify-between bg-white dark:bg-[#1A0E2E]`}>
           {activeTicket ? (
             <>
               {/* Channel Header Bar with Full WO Information & Category */}
@@ -914,8 +916,8 @@ export const ContactCentreView: React.FC = () => {
                   <span>{editingCategory ? 'Edit Kategori Chat' : 'Tambah Kategori Baru'}</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div className="sm:col-span-2">
+                <div className={`grid grid-cols-1 ${isMobileView ? '' : 'sm:grid-cols-3'} gap-2.5`}>
+                  <div className={isMobileView ? '' : 'sm:col-span-2'}>
                     <label className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
                       Nama Kategori
                     </label>
