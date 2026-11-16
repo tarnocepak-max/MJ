@@ -319,6 +319,26 @@ const MainLayout: React.FC = () => {
     }).length;
   }, [isLoggedIn, isInstaller, tickets, currentUser, todayWIB]);
 
+  const isFullWidth = config.global.contentWidth === 'full';
+  const currentSidebarState = config.global.sidebarState || (config.global.sidebarCollapsed ? 'minimized' : 'expanded');
+
+  // Global Ctrl+K / Cmd+K shortcut -> open Sidebar (if closed) & focus Sidebar Global Search
+  useEffect(() => {
+    if (!isLoggedIn || isInstaller) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (currentSidebarState === 'closed') {
+          (window as any).__mjFocusSidebarSearch = true;
+          setSidebarState('expanded');
+        }
+        window.dispatchEvent(new CustomEvent('morajaws:focus-sidebar-search'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoggedIn, isInstaller, currentSidebarState, setSidebarState]);
+
   // Unauthenticated Staff Protection: Render dedicated Staff Login Portal
   if (!isLoggedIn) {
     return (
@@ -381,26 +401,6 @@ const MainLayout: React.FC = () => {
     setWhatsAppTicket(ticket);
     setIsWhatsAppModalOpen(true);
   };
-
-  const isFullWidth = config.global.contentWidth === 'full';
-  const currentSidebarState = config.global.sidebarState || (config.global.sidebarCollapsed ? 'minimized' : 'expanded');
-
-  // Global Ctrl+K / Cmd+K shortcut -> open Sidebar (if closed) & focus Sidebar Global Search
-  useEffect(() => {
-    if (!isLoggedIn || isInstaller) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        if (currentSidebarState === 'closed') {
-          (window as any).__mjFocusSidebarSearch = true;
-          setSidebarState('expanded');
-        }
-        window.dispatchEvent(new CustomEvent('morajaws:focus-sidebar-search'));
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoggedIn, isInstaller, currentSidebarState, setSidebarState]);
 
   // Render view based on active tab with fallback
   const renderContent = () => {
