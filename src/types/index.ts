@@ -173,7 +173,10 @@ export interface TicketMessage {
   category?: string;
   attachments: ChatAttachment[];
   timestamp: string;
+  deliveredTo?: string[];
+  deliveredAt?: Record<string, string>;
   readBy?: string[];
+  readAt?: Record<string, string>;
   isCheckIn?: boolean;
 }
 

@@ -17,6 +17,7 @@ import {
   Sparkles,
   Tag
 } from 'lucide-react';
+import { MessageStatusReceipt } from './MessageStatusReceipt';
 
 interface TicketLiveChatProps {
   ticket: Ticket;
@@ -42,18 +43,34 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
   const currentCategoryObj = (chatCategories || []).find(
     c => c.name === ticket.chatCategory || c.id === ticket.chatCategory
   );
-  const activeCategories = (chatCategories || []).filter(
-    c => c.active !== false && (c as any).isActive !== false
-  );
+  const activeCategories = React.useMemo(() => {
+    const seen = new Set<string>();
+    return (chatCategories || []).filter(c => {
+      if (c.active === false || (c as any).isActive === false) return false;
+      const upper = String(c.name || '').trim().toUpperCase();
+      if (!upper || upper === 'UNCLASSIFIED' || seen.has(upper)) return false;
+      seen.add(upper);
+      return true;
+    });
+  }, [chatCategories]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const messages = getMessagesForTicket(ticket.id);
 
-  // Auto mark messages as read when viewing chat
+  // Auto mark messages as read ONLY when chat tab/pane is actively visible
   useEffect(() => {
-    markTicketMessagesAsRead(ticket.id);
+    const tryMark = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      markTicketMessagesAsRead(ticket.id);
+    };
+    tryMark();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') tryMark();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [ticket.id, messages.length, markTicketMessagesAsRead]);
 
   // Auto scroll to latest message
@@ -151,7 +168,12 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
 
     setIsSubmitting(true);
     try {
-      const result = await sendTicketMessage(ticket.id, text.trim(), pendingAttachments, selectedCategory || undefined);
+      const result = await sendTicketMessage(
+        ticket.id,
+        text.trim(),
+        pendingAttachments,
+        isInstaller ? selectedCategory : undefined
+      );
 
       if (result.success) {
         setInputText('');
@@ -230,40 +252,39 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          {/* Synchronized Category Badge */}
-          <div className="flex items-center gap-1.5">
-            <span
-              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-2xs flex items-center gap-1"
-              style={{ backgroundColor: currentCategoryObj?.color || '#5B35B1' }}
-            >
-              <Tag className="w-3 h-3" />
-              <span>{selectedCategory || ticket.chatCategory || 'UNCLASSIFIED'}</span>
-            </span>
+          {/* Synchronized Category Badge & Selector: Mandatory selector ONLY for Installer */}
+          {(isInstaller || (ticket.chatCategory && ticket.chatCategory.toUpperCase() !== 'UNCLASSIFIED')) && (
+            <div className="flex items-center gap-1.5">
+              {(isInstaller ? selectedCategory : ticket.chatCategory) && (
+                <span
+                  className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-2xs flex items-center gap-1"
+                  style={{ backgroundColor: currentCategoryObj?.color || '#5B35B1' }}
+                >
+                  <Tag className="w-3 h-3" />
+                  <span>{isInstaller ? selectedCategory : ticket.chatCategory}</span>
+                </span>
+              )}
 
-            {currentUser.role !== 'leader' && (
-              <select
-                value={selectedCategory || ticket.chatCategory || 'UNCLASSIFIED'}
-                onChange={e => {
-                  handleSelectCategory(e.target.value);
-                  toast.success(`Kategori chat tiket diubah ke "${e.target.value}".`);
-                }}
-                className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none"
-                title="Ganti Kategori Chat"
-              >
-                {activeCategories.length > 0 ? (
-                  activeCategories.map(cat => (
+              {isInstaller && (
+                <select
+                  value={selectedCategory}
+                  onChange={e => {
+                    handleSelectCategory(e.target.value);
+                    if (e.target.value) toast.success(`Kategori chat tiket diubah ke "${e.target.value}".`);
+                  }}
+                  className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none"
+                  title="Pilih Kategori Chat Wajib"
+                >
+                  <option value="">-- Pilih Kategori Wajib --</option>
+                  {activeCategories.map(cat => (
                     <option key={cat.id} value={cat.name}>
                       {cat.name}
                     </option>
-                  ))
-                ) : (
-                  <option value={ticket.chatCategory || 'UNCLASSIFIED'}>
-                    {ticket.chatCategory || 'UNCLASSIFIED'}
-                  </option>
-                )}
-              </select>
-            )}
-          </div>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           <span className="text-slate-400">Total:</span>
           <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 font-mono font-bold text-slate-800 dark:text-slate-200 rounded">
@@ -348,6 +369,16 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
                     </div>
                   )}
                 </div>
+
+                {isMe && (
+                  <MessageStatusReceipt
+                    message={msg}
+                    senderId={currentUser.id}
+                    variant="onLight"
+                    showLabel={true}
+                    className="mt-0.5"
+                  />
+                )}
               </div>
             );
           })

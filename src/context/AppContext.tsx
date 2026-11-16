@@ -245,6 +245,8 @@ interface AppContextType {
 
   // Live Chat
   ticketMessages: TicketMessage[];
+  totalLiveChatUnreadCount: number;
+  liveChatUnreadTicketsCount: number;
   sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string) => Promise<{ success: boolean; error?: string; message?: TicketMessage }>;
   getMessagesForTicket: (ticketId: string) => TicketMessage[];
   markTicketMessagesAsRead: (ticketId: string) => void;
@@ -545,13 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
-  const [ticketMessages, setTicketMessages] = useState<TicketMessage[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.MESSAGES);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
+  const [ticketMessages, setTicketMessages] = useState<TicketMessage[]>([]);
 
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>(() => {
     try {
@@ -731,6 +727,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   });
 
+  const currentUserRef = React.useRef<User>(currentUser);
+  currentUserRef.current = currentUser;
+
+  const ticketsRef = React.useRef<Ticket[]>(tickets);
+  ticketsRef.current = tickets;
+
+  const deliveredTriggeredRef = React.useRef<Set<string>>(new Set());
+
+  const triggerDeliveryReceiptsForMessages = React.useCallback((msgs: TicketMessage[], uid?: string) => {
+    const cleanUid = String(uid || currentUserRef.current?.id || '').trim();
+    if (!cleanUid || !Array.isArray(msgs) || msgs.length === 0) return;
+
+    const ticketIdsToAck = new Set<string>();
+    for (const m of msgs) {
+      if (!m || !m.id || !m.ticketId) continue;
+      if (String(m.senderId || '').trim() === cleanUid) continue;
+      const deliveredTo = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+      if (deliveredTo.includes(cleanUid)) continue;
+      const dedupeKey = `${cleanUid}:${m.id}`;
+      if (deliveredTriggeredRef.current.has(dedupeKey)) continue;
+      deliveredTriggeredRef.current.add(dedupeKey);
+      ticketIdsToAck.add(m.ticketId);
+    }
+
+    ticketIdsToAck.forEach(tid => {
+      supabaseDb
+        .markTicketMessagesDelivered(tid)
+        .then(res => {
+          if (res?.success && res.data?.updatedIds && res.data.updatedIds.length > 0) {
+            const ackIds = new Set(res.data.updatedIds);
+            const ts = res.data.deliveredAt || new Date().toISOString();
+            setTicketMessages(prev =>
+              prev.map(m => {
+                if (!ackIds.has(m.id)) return m;
+                const dTo = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+                if (dTo.includes(cleanUid)) return m;
+                return {
+                  ...m,
+                  deliveredTo: [...dTo, cleanUid],
+                  deliveredAt: { ...(m.deliveredAt || {}), [cleanUid]: ts }
+                };
+              })
+            );
+          }
+        })
+        .catch(() => {});
+    });
+  }, []);
+
   // Supabase Express SSE Subscriptions & Master Sync
   useEffect(() => {
     let unsubWorkOrders: (() => void) | null = null;
@@ -763,18 +808,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           table: 'work_orders',
           onPayload: (payload) => {
             if (isCancelled || !payload) return;
-            if (payload.eventType === 'DELETE' && payload.new?.id) {
-              setTickets(prev => prev.map(t => (t.id === payload.new.id ? { ...t, ...payload.new } : t)));
-            } else if (payload.new && payload.new.id) {
+            const rec = payload.record || payload.new;
+            if (payload.eventType === 'ACCESS_REVOKED' && rec?.id) {
+              const revokedId = String(rec.id);
+              const revokedWo = String(rec.woNumber || '').trim().toUpperCase();
+              setTickets(prev => prev.filter(t => t.id !== revokedId));
+              setTicketMessages(prev =>
+                prev.filter(
+                  m =>
+                    m.ticketId !== revokedId &&
+                    (!revokedWo || String(m.woNumber || '').trim().toUpperCase() !== revokedWo)
+                )
+              );
+              return;
+            }
+            if (payload.eventType === 'DELETE' && rec?.id) {
+              setTickets(prev => prev.map(t => (t.id === rec.id ? { ...t, ...rec } : t)));
+              if (rec.isDeleted) {
+                setTicketMessages(prev => prev.filter(m => m.ticketId !== rec.id));
+              }
+            } else if (rec && rec.id) {
+              const wasPresent = ticketsRef.current.some(t => t.id === rec.id);
               setTickets(prev => {
-                const idx = prev.findIndex(t => t.id === payload.new.id);
+                const idx = prev.findIndex(t => t.id === rec.id);
                 if (idx >= 0) {
                   const copy = [...prev];
-                  copy[idx] = payload.new;
+                  copy[idx] = { ...copy[idx], ...rec };
                   return copy;
                 }
-                return [payload.new, ...prev];
+                return [rec, ...prev];
               });
+              // When a WO becomes newly accessible (e.g., reassignment to this Installer), fetch its messages immediately
+              if (!wasPresent && !rec.isDeleted && !rec.isArchived) {
+                fetch(`/api/tickets/${encodeURIComponent(rec.id)}/messages`, { headers: getAuthHeaders() })
+                  .then(r => (r.ok ? r.json() : null))
+                  .then(data => {
+                    if (!isCancelled && data?.success && Array.isArray(data.messages)) {
+                      const fetchedMsgs: TicketMessage[] = data.messages;
+                      setTicketMessages(prev => {
+                        const map = new Map(prev.map(m => [m.id, m]));
+                        fetchedMsgs.forEach(m => {
+                          if (m?.id) map.set(m.id, m);
+                        });
+                        return Array.from(map.values()).sort(
+                          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                        );
+                      });
+                      triggerDeliveryReceiptsForMessages(fetchedMsgs);
+                    }
+                  })
+                  .catch(() => {});
+              }
             } else {
               refreshDatabaseData().catch(() => {});
             }
@@ -786,21 +870,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           table: 'ticket_messages',
           onPayload: (payload) => {
             if (isCancelled || !payload) return;
-            if (payload.eventType === 'READ_RECEIPT' && payload.ticketId && payload.userId) {
-              const readerId = String(payload.userId);
-              const targetTicketId = String(payload.ticketId);
+            const rec = payload.record || payload.new || payload;
+            if (payload.eventType === 'DELIVERY_RECEIPT' && rec?.ticketId && rec?.userId) {
+              const receiverId = String(rec.userId);
+              const targetTicketId = String(rec.ticketId);
+              const updatedIdSet = Array.isArray(rec.updatedIds) ? new Set(rec.updatedIds.map(String)) : null;
+              const ts = rec.deliveredAt || payload.timestamp || new Date().toISOString();
               setTicketMessages(prev =>
                 prev.map(m => {
                   if (m.ticketId !== targetTicketId) return m;
-                  const readers = Array.isArray(m.readBy) ? m.readBy : [];
-                  if (readers.includes(readerId)) return m;
-                  return { ...m, readBy: [...readers, readerId] };
+                  if (updatedIdSet && !updatedIdSet.has(m.id)) return m;
+                  const delivered = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+                  if (delivered.includes(receiverId)) return m;
+                  return {
+                    ...m,
+                    deliveredTo: [...delivered, receiverId],
+                    deliveredAt: { ...(m.deliveredAt || {}), [receiverId]: ts }
+                  };
                 })
               );
               return;
             }
-            if (payload.new && payload.new.id) {
-              const incomingMsg: TicketMessage = payload.new;
+            if (payload.eventType === 'READ_RECEIPT' && rec?.ticketId && rec?.userId) {
+              const readerId = String(rec.userId);
+              const targetTicketId = String(rec.ticketId);
+              const updatedIdSet = Array.isArray(rec.updatedIds) ? new Set(rec.updatedIds.map(String)) : null;
+              const ts = rec.readAt || payload.timestamp || new Date().toISOString();
+              setTicketMessages(prev =>
+                prev.map(m => {
+                  if (m.ticketId !== targetTicketId) return m;
+                  if (updatedIdSet && !updatedIdSet.has(m.id)) return m;
+                  const readers = Array.isArray(m.readBy) ? m.readBy : [];
+                  const delivered = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+                  const nextDelivered = delivered.includes(readerId) ? delivered : [...delivered, readerId];
+                  const nextReaders = readers.includes(readerId) ? readers : [...readers, readerId];
+                  return {
+                    ...m,
+                    deliveredTo: nextDelivered,
+                    deliveredAt: { ...(m.deliveredAt || {}), [readerId]: m.deliveredAt?.[readerId] || ts },
+                    readBy: nextReaders,
+                    readAt: { ...(m.readAt || {}), [readerId]: ts }
+                  };
+                })
+              );
+              return;
+            }
+            if (rec && rec.id) {
+              const incomingMsg: TicketMessage = rec;
               setTicketMessages(prev => {
                 if (prev.some(m => m.id === incomingMsg.id)) {
                   return prev.map(m => (m.id === incomingMsg.id ? { ...m, ...incomingMsg } : m));
@@ -809,6 +925,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
                 );
               });
+              // Trigger Delivered receipt immediately (NEVER marks readBy)
+              triggerDeliveryReceiptsForMessages([incomingMsg]);
             }
           },
           onError: () => {}
@@ -1013,7 +1131,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTickets(data.tickets);
           }
           if (Array.isArray(data.ticketMessages)) {
-            setTicketMessages(() => {
+            const hydratedMessages: TicketMessage[] = (() => {
               const map = new Map<string, TicketMessage>();
               data.ticketMessages.forEach((m: TicketMessage) => {
                 if (m && m.id) map.set(m.id, m);
@@ -1021,7 +1139,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return Array.from(map.values()).sort(
                 (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
               );
-            });
+            })();
+            setTicketMessages(hydratedMessages);
+            if (resolvedUserId) {
+              triggerDeliveryReceiptsForMessages(hydratedMessages, resolvedUserId);
+            }
           }
           if (Array.isArray(data.contractors) && data.contractors.length > 0) {
             setContractors(deduplicateContractors(data.contractors));
@@ -1236,9 +1358,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [registerAppSyncHandler]);
 
+  // Authoritative ticketMessages are persisted in backend/Supabase; purge stale browser storage cache
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(ticketMessages));
-  }, [ticketMessages]);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.MESSAGES);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.TEMPLATES, JSON.stringify(templates));
@@ -1754,9 +1879,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const authHeaders = getAuthHeaders();
     setIsLoggedIn(false);
     setCurrentUser(UNAUTHENTICATED_USER);
+    setTicketMessages([]);
+    setTickets([]);
+    deliveredTriggeredRef.current.clear();
     try {
       localStorage.setItem('morajaws_logged_in', 'false');
       localStorage.removeItem('morajaws_auth_session');
+      localStorage.removeItem(STORAGE_KEYS.MESSAGES);
       window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
     } catch (e) {}
 
@@ -1810,24 +1939,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 3. Installer / Teknisi: STRICTLY LIMITED to tickets explicitly assigned to this technician!
       if (currentUser.role === 'installer') {
+        const myId = String(currentUser.id || '').trim();
+        if (!myId) return false;
+
+        // Enforce contractor match when user has contractor configured
+        const uContrId = String(currentUser.contractorId || '').toLowerCase().trim();
+        const uContrName = String(currentUser.contractor || '').toLowerCase().trim();
+        const tContrId = String(t.contractorId || '').toLowerCase().trim();
+        const tContrName = ticketContractor;
+        if (uContrId || uContrName) {
+          if (!tContrId && !tContrName) return false;
+          const contrMatch =
+            (uContrId && tContrId && uContrId === tContrId) ||
+            (uContrName && tContrName && (tContrName === uContrName || tContrName.includes(uContrName) || uContrName.includes(tContrName)));
+          if (!contrMatch) return false;
+        }
+
+        const ticketAssignedIds = [
+          t.installerId,
+          (t as any).installerUid,
+          t.assignedToUid,
+          (t as any).assignedToId
+        ]
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+
+        const fbUid = String((currentUser as any).firebaseUid || '').trim();
+        const myUsername = String(currentUser.username || '').trim().toLowerCase();
+
+        // When explicit installer ID/UID exists on ticket, require strict identity match
+        if (ticketAssignedIds.length > 0) {
+          return ticketAssignedIds.some(
+            aid => aid === myId || (Boolean(fbUid) && aid === fbUid)
+          );
+        }
+
+        const assignedToRaw = String(t.assignedTo || '').trim();
+        if (assignedToRaw && (assignedToRaw === myId || (fbUid && assignedToRaw === fbUid) || (myUsername && assignedToRaw.toLowerCase() === myUsername))) {
+          return true;
+        }
+
+        // Fallback only when no explicit ID fields exist on legacy ticket records (exact normalized name/phone only)
         const myName = String(currentUser.name || '').toLowerCase().trim();
         const cleanMyName = myName.replace(/\(.*?\)/g, '').trim();
         const ticketInst = String(t.installerName || '').toLowerCase().trim();
-        if (!ticketInst) return false; // not assigned to anyone
+        const cleanTicketInst = ticketInst.replace(/\(.*?\)/g, '').trim();
+        if (!ticketInst && !assignedToRaw) return false;
 
-        const nameMatch = Boolean(
-          ticketInst === myName ||
-          (cleanMyName && ticketInst === cleanMyName) ||
-          (cleanMyName && ticketInst && (ticketInst.includes(cleanMyName) || cleanMyName.includes(ticketInst)))
+        const exactNameMatch = Boolean(
+          (ticketInst && (ticketInst === myName || (cleanMyName && cleanTicketInst === cleanMyName))) ||
+          (myUsername && ticketInst === myUsername)
         );
-
         const phoneMatch = Boolean(
           currentUser.phone &&
           t.installerContact &&
           String(t.installerContact).replace(/\D/g, '') === String(currentUser.phone).replace(/\D/g, '')
         );
 
-        return nameMatch || phoneMatch;
+        return exactNameMatch || phoneMatch;
       }
 
       return false;
@@ -3736,7 +3905,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Pesan atau lampiran foto tidak boleh kosong.' };
     }
 
-    // Validasi wajib bagi Installer untuk memilih kategori chat
+    // Role-based category validation:
+    // - Installer: wajib memilih kategori aktif dari master DB sebelum mengirim pesan
+    // - Dispatch & Superadmin: kategori opsional / bebas (tidak wajib & tidak memblokir kirim)
+    let effectiveCategory = '';
     if (currentUser.role === 'installer') {
       const myId = currentUser.id || '';
       const myUsername = (currentUser.username || '').toLowerCase().trim();
@@ -3754,15 +3926,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, error: 'Akses Ditolak: Anda hanya berwenang mengirim pesan pada tiket yang ditugaskan kepada Anda.' };
       }
 
-      const chosenCategory = (category || ticket.chatCategory || '').trim();
+      const chosenCategory = String(category || '').trim();
       if (!chosenCategory || chosenCategory.toUpperCase() === 'UNCLASSIFIED') {
         toast.error('Pilih kategori chat terlebih dahulu sebelum memulai percakapan.', 'Kategori Wajib Dipilih');
         return { success: false, error: 'Pilih kategori chat terlebih dahulu sebelum memulai percakapan.' };
       }
+
+      const activeMasterNames = chatCategories
+        .filter(c => c.active !== false && c.name.trim().toUpperCase() !== 'UNCLASSIFIED')
+        .map(c => c.name.trim().toUpperCase());
+      if (activeMasterNames.length > 0 && !activeMasterNames.includes(chosenCategory.toUpperCase())) {
+        toast.error(`Kategori "${chosenCategory}" tidak valid atau sedang dinonaktifkan.`, 'Kategori Tidak Valid');
+        return { success: false, error: `Kategori "${chosenCategory}" tidak valid atau sedang dinonaktifkan.` };
+      }
+      effectiveCategory = chosenCategory.toUpperCase();
+    } else if (category && category.trim()) {
+      effectiveCategory = category.trim().toUpperCase();
     }
 
-    const effectiveCategory = (category || ticket.chatCategory || '').trim();
-    const isStrictProgressCategory = isProgressCategory(effectiveCategory);
+    const isStrictProgressCategory = Boolean(effectiveCategory && isProgressCategory(effectiveCategory));
     const hadCheckInBefore = Boolean(ticket.checkInAt);
 
     try {
@@ -3772,7 +3954,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({
           text: text.trim(),
           attachments,
-          category: effectiveCategory || undefined
+          ...(effectiveCategory ? { category: effectiveCategory } : {})
         })
       });
       const json = await res.json().catch(() => ({}));
@@ -3784,6 +3966,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const savedMessage: TicketMessage = {
         ...json.message,
+        deliveredTo: Array.isArray(json.message.deliveredTo) ? json.message.deliveredTo : [currentUser.id],
         readBy: Array.isArray(json.message.readBy) ? json.message.readBy : [currentUser.id]
       };
 
@@ -3803,7 +3986,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             t.id === ticketId
               ? {
                   ...t,
-                  chatCategory: effectiveCategory || t.chatCategory,
+                  ...(effectiveCategory ? { chatCategory: effectiveCategory } : {}),
                   chatMessagesCount: (t.chatMessagesCount || 0) + 1,
                   lastMessageAt: now,
                   lastMessageSnippet: text.trim() || (attachments.length > 0 ? `[Foto: ${attachments[0].fileName}]` : ''),
@@ -3842,25 +4025,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const getMessagesForTicket = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId || t.woNumber === ticketId);
+    const woUpper = ticket?.woNumber ? String(ticket.woNumber).trim().toUpperCase() : '';
+    const seen = new Set<string>();
     return ticketMessages
-      .filter(m => m.ticketId === ticketId)
+      .filter(m => {
+        if (!m) return false;
+        const match = m.ticketId === ticketId || (woUpper && String(m.woNumber || '').trim().toUpperCase() === woUpper);
+        if (!match) return false;
+        if (m.id) {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+        }
+        return true;
+      })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   };
 
   const markTicketMessagesAsRead = (ticketId: string) => {
     const currentUserId = currentUser?.id || '';
-    if (!currentUserId) return;
+    if (!currentUserId || !ticketId) return;
 
-    let hasUnread = false;
+    const nowIso = new Date().toISOString();
     setTicketMessages(prev => {
       let changed = false;
       const next = prev.map(m => {
         if (m.ticketId !== ticketId) return m;
+        if (m.senderId === currentUserId) return m;
         const currentReaders = Array.isArray(m.readBy) ? m.readBy : [];
         if (currentReaders.includes(currentUserId)) return m;
         changed = true;
-        hasUnread = true;
-        return { ...m, readBy: [...currentReaders, currentUserId] };
+        const currentDelivered = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+        return {
+          ...m,
+          deliveredTo: currentDelivered.includes(currentUserId) ? currentDelivered : [...currentDelivered, currentUserId],
+          deliveredAt: { ...(m.deliveredAt || {}), [currentUserId]: m.deliveredAt?.[currentUserId] || nowIso },
+          readBy: [...currentReaders, currentUserId],
+          readAt: { ...(m.readAt || {}), [currentUserId]: nowIso }
+        };
       });
       return changed ? next : prev;
     });
@@ -3869,15 +4071,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     supabaseDb.markTicketMessagesRead(ticketId).catch(() => {});
   };
 
+  const activeScopedTicketLookup = React.useMemo(() => {
+    const byId = new Set<string>();
+    const woToId = new Map<string, string>();
+    for (const t of scopedTickets) {
+      if (!t || t.isDeleted || t.isArchived) continue;
+      if (t.id) byId.add(t.id);
+      if (t.woNumber && t.id) woToId.set(String(t.woNumber).trim().toUpperCase(), t.id);
+    }
+    return { byId, woToId };
+  }, [scopedTickets]);
+
+  const unreadCountsByTicket = React.useMemo(() => {
+    const currentUserId = String(currentUser?.id || '').trim();
+    const map: Record<string, number> = {};
+    if (!currentUserId || !isLoggedIn) return map;
+    const seenMsgIds = new Set<string>();
+    for (const m of ticketMessages) {
+      if (!m) continue;
+      if (m.id) {
+        if (seenMsgIds.has(m.id)) continue;
+        seenMsgIds.add(m.id);
+      }
+      if (String(m.senderId || '').trim() === currentUserId) continue;
+      const readers = Array.isArray(m.readBy) ? m.readBy : [];
+      if (readers.includes(currentUserId)) continue;
+      let resolvedId: string | undefined;
+      if (m.ticketId && activeScopedTicketLookup.byId.has(m.ticketId)) {
+        resolvedId = m.ticketId;
+      } else if (m.woNumber) {
+        resolvedId = activeScopedTicketLookup.woToId.get(String(m.woNumber).trim().toUpperCase());
+      }
+      if (!resolvedId) continue;
+      map[resolvedId] = (map[resolvedId] || 0) + 1;
+    }
+    return map;
+  }, [ticketMessages, activeScopedTicketLookup, currentUser?.id, isLoggedIn]);
+
   const getTicketUnreadCount = (ticketId: string): number => {
-    const currentUserId = currentUser?.id || '';
-    if (!currentUserId) return 0;
-    return ticketMessages.filter(
-      m => m.ticketId === ticketId &&
-           m.senderId !== currentUserId &&
-           !(Array.isArray(m.readBy) ? m.readBy : []).includes(currentUserId)
-    ).length;
+    return unreadCountsByTicket[ticketId] || 0;
   };
+
+  const totalLiveChatUnreadCount = React.useMemo(() => {
+    return Object.values(unreadCountsByTicket).reduce((sum, count) => sum + count, 0);
+  }, [unreadCountsByTicket]);
+
+  const liveChatUnreadTicketsCount = React.useMemo(() => {
+    return Object.values(unreadCountsByTicket).filter(count => count > 0).length;
+  }, [unreadCountsByTicket]);
 
   // Ticket CRUD
   const getTicketById = (id: string) => {
@@ -5214,8 +5455,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     categoryData: Omit<ChatCategoryConfig, 'id' | 'createdAt'>,
     options: { forceOverwrite?: boolean } = {}
   ): Promise<{ success: boolean; error?: string }> => {
+    const normalizedName = String(categoryData.name || '').trim().toUpperCase();
+    if (!normalizedName) {
+      toast.error('Nama kategori chat tidak boleh kosong.');
+      return { success: false, error: 'Nama kategori chat tidak boleh kosong.' };
+    }
+    const isDup = chatCategories.some(c => String(c.name || '').trim().toUpperCase() === normalizedName);
+    if (isDup) {
+      toast.warning(`Kategori chat "${normalizedName}" sudah terdaftar.`, 'Duplikasi Kategori');
+      return { success: false, error: `Kategori chat "${normalizedName}" sudah terdaftar.` };
+    }
     const newCat: ChatCategoryConfig = {
       ...categoryData,
+      name: normalizedName,
       id: 'cat-' + Date.now(),
       createdAt: new Date().toISOString()
     };
@@ -5232,6 +5484,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updates: Partial<ChatCategoryConfig>,
     options: { forceOverwrite?: boolean } = {}
   ): Promise<{ success: boolean; error?: string }> => {
+    if (updates.name !== undefined) {
+      const normalizedName = String(updates.name || '').trim().toUpperCase();
+      if (!normalizedName) {
+        toast.error('Nama kategori chat tidak boleh kosong.');
+        return { success: false, error: 'Nama kategori chat tidak boleh kosong.' };
+      }
+      const isDup = chatCategories.some(
+        c => c.id !== id && String(c.name || '').trim().toUpperCase() === normalizedName
+      );
+      if (isDup) {
+        toast.warning(`Kategori chat "${normalizedName}" sudah terdaftar.`, 'Duplikasi Kategori');
+        return { success: false, error: `Kategori chat "${normalizedName}" sudah terdaftar.` };
+      }
+      updates = { ...updates, name: normalizedName };
+    }
     const updated = chatCategories.map(c => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c));
     const res = await saveChatCategoriesDbFirst(updated, `Updated chat category ${id}`, Boolean(options.forceOverwrite));
     if (res.success) {
@@ -5842,6 +6109,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bulkImportTickets,
         deleteImportedTicketsByDate,
         ticketMessages,
+        totalLiveChatUnreadCount,
+        liveChatUnreadTicketsCount,
         sendTicketMessage,
         getMessagesForTicket,
         markTicketMessagesAsRead,

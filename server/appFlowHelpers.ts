@@ -223,9 +223,29 @@ export function isProgressCategoryOnly(category?: string | null): boolean {
 export function mapSupabaseMessageToModel(row: any): any {
   if (!row) return null;
   const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
-  const readBy = Array.isArray(payload.readBy)
-    ? payload.readBy.filter((x: any) => typeof x === 'string' && x.trim().length > 0)
-    : (row.sender_id ? [String(row.sender_id)] : []);
+  const readBy: string[] = Array.from(
+    new Set(
+      (Array.isArray(payload.readBy)
+        ? payload.readBy
+        : row.sender_id
+        ? [String(row.sender_id)]
+        : []
+      )
+        .filter((x: any) => typeof x === 'string' && x.trim().length > 0)
+        .map((x: string) => x.trim())
+    )
+  );
+  const rawDelivered = Array.isArray(payload.deliveredTo) ? payload.deliveredTo : [];
+  const deliveredTo: string[] = Array.from(
+    new Set(
+      [...rawDelivered, ...readBy, ...(row.sender_id ? [String(row.sender_id)] : [])]
+        .filter((x: any) => typeof x === 'string' && x.trim().length > 0)
+        .map((x: string) => x.trim())
+    )
+  );
+  const rawCategory = payload.category ?? row.category;
+  const normalizedCategory =
+    typeof rawCategory === 'string' && rawCategory.trim().length > 0 ? rawCategory.trim() : undefined;
 
   return {
     id: String(row.id || ''),
@@ -235,10 +255,13 @@ export function mapSupabaseMessageToModel(row: any): any {
     senderName: String(row.sender_name || row.senderName || ''),
     senderRole: row.sender_role || row.senderRole || 'installer',
     text: String(row.message_text ?? row.text ?? ''),
-    category: payload.category || row.category || undefined,
+    category: normalizedCategory,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
     timestamp: row.created_at || row.timestamp || new Date().toISOString(),
+    deliveredTo,
+    deliveredAt: payload.deliveredAt && typeof payload.deliveredAt === 'object' ? payload.deliveredAt : undefined,
     readBy,
+    readAt: payload.readAt && typeof payload.readAt === 'object' ? payload.readAt : undefined,
     isCheckIn: Boolean(payload.isCheckIn)
   };
 }

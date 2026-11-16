@@ -63,6 +63,7 @@ import {
   getTicketMessagesFromSupabase,
   getTicketMessagesForTicketsFromSupabase,
   insertTicketMessageToSupabase,
+  markTicketMessagesDeliveredInSupabase,
   markTicketMessagesReadInSupabase,
   getWaTemplatesFromSupabase,
   insertWaTemplateToSupabase,
@@ -1163,8 +1164,20 @@ export function logServerAudit(
 export const backendRealtimeBus = new EventEmitter();
 backendRealtimeBus.setMaxListeners(250);
 
-export function broadcastSupabaseChange(table: string, eventType: string, record: any) {
-  backendRealtimeBus.emit('change', { table, eventType, record, timestamp: new Date().toISOString() });
+export function broadcastSupabaseChange(
+  table: string,
+  eventType: string,
+  record: any,
+  options?: { scopeTicket?: any; previousRecord?: any }
+) {
+  backendRealtimeBus.emit('change', {
+    table,
+    eventType,
+    record,
+    scopeTicket: options?.scopeTicket,
+    previousRecord: options?.previousRecord,
+    timestamp: new Date().toISOString()
+  });
 }
 
 // --- Session Store ---
@@ -2436,6 +2449,88 @@ export function scopeActiveTicketsForUser(
   return filterActiveTicketsForDate(roleScoped, targetDateWIB);
 }
 
+const DEFAULT_ACTIVE_CHAT_CATEGORY_NAMES = [
+  'PROGRESS',
+  'COMPLAINT',
+  'FOLLOW UP',
+  'TECHNICAL SUPPORT',
+  'SCHEDULE / APPOINTMENT',
+  'CUSTOMER CONFIRMATION',
+  'ESCALATION',
+  'ISSUE',
+  'REQUEST'
+];
+
+export async function getActiveMasterChatCategories(): Promise<string[]> {
+  let rawSetting: any = null;
+  if (isSupabaseMode()) {
+    try {
+      const res = await getVersionedAppSettingFromSupabase('chat_categories');
+      if (res?.success && res.data?.value) {
+        rawSetting = res.data.value;
+      }
+    } catch {}
+  }
+  if (!rawSetting && db.appSettings?.chat_categories) {
+    rawSetting = db.appSettings.chat_categories;
+  }
+  const rawList: any[] = Array.isArray(rawSetting)
+    ? rawSetting
+    : (rawSetting && Array.isArray(rawSetting.categories) ? rawSetting.categories : []);
+  const activeNames = rawList
+    .filter((c: any) => c && c.active !== false && c.isActive !== false && !c.isDeleted)
+    .map((c: any) => String(c.name || '').trim().toUpperCase())
+    .filter((name: string) => Boolean(name) && name !== 'UNCLASSIFIED');
+  if (activeNames.length > 0) {
+    return Array.from(new Set(activeNames));
+  }
+  return DEFAULT_ACTIVE_CHAT_CATEGORY_NAMES;
+}
+
+export function computeLiveChatUnreadSummary(
+  scopedTickets: any[],
+  messages: any[],
+  userId?: string | null
+): { totalUnreadMessages: number; unreadTicketsCount: number; unreadByTicket: Record<string, number> } {
+  const cleanUser = String(userId || '').trim();
+  if (!cleanUser || !Array.isArray(scopedTickets) || scopedTickets.length === 0) {
+    return { totalUnreadMessages: 0, unreadTicketsCount: 0, unreadByTicket: {} };
+  }
+  const activeScoped = scopedTickets.filter((t: any) => t && !t.isDeleted && !t.isArchived);
+  const ticketById = new Map<string, any>();
+  const ticketByWo = new Map<string, any>();
+  for (const t of activeScoped) {
+    if (t.id) ticketById.set(String(t.id), t);
+    if (t.woNumber) ticketByWo.set(String(t.woNumber).trim().toUpperCase(), t);
+  }
+  const unreadByTicket: Record<string, number> = {};
+  const seenMsgIds = new Set<string>();
+  for (const m of messages || []) {
+    if (!m) continue;
+    const msgId = String(m.id || '').trim();
+    if (msgId) {
+      if (seenMsgIds.has(msgId)) continue;
+      seenMsgIds.add(msgId);
+    }
+    const senderId = String(m.senderId || '').trim();
+    if (senderId === cleanUser) continue;
+    const readBy: string[] = Array.isArray(m.readBy) ? m.readBy.map((x: any) => String(x || '').trim()) : [];
+    if (readBy.includes(cleanUser)) continue;
+    const parent =
+      (m.ticketId ? ticketById.get(String(m.ticketId)) : undefined) ||
+      (m.woNumber ? ticketByWo.get(String(m.woNumber).trim().toUpperCase()) : undefined);
+    if (!parent || !parent.id) continue;
+    const key = String(parent.id);
+    unreadByTicket[key] = (unreadByTicket[key] || 0) + 1;
+  }
+  const counts = Object.values(unreadByTicket);
+  return {
+    totalUnreadMessages: counts.reduce((sum, n) => sum + n, 0),
+    unreadTicketsCount: counts.filter(n => n > 0).length,
+    unreadByTicket
+  };
+}
+
 export async function createExpressApp(options?: {
   skipVite?: boolean;
   nowProvider?: () => Date;
@@ -2717,6 +2812,7 @@ export async function createExpressApp(options?: {
           )
         : [];
       const rolePermBundle = user ? await getEffectiveRolePermissions() : null;
+      const unreadSummary = computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
       return res.json({
         success: true,
         isAuthenticated: Boolean(user),
@@ -2735,6 +2831,7 @@ export async function createExpressApp(options?: {
         tickets: scopedTickets,
         activeTickets: activeTodayTickets,
         ticketMessages: scopedMessages,
+        unreadSummary,
         contractors: db.contractors,
         coverageAreas: db.coverageAreas,
         templates: db.templates,
@@ -2848,6 +2945,8 @@ export async function createExpressApp(options?: {
       user ? getEffectiveRolePermissions().catch(() => null) : Promise.resolve(null)
     ]);
 
+    const unreadSummary = computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+
     res.json({
       success: true,
       isAuthenticated: Boolean(user),
@@ -2866,6 +2965,7 @@ export async function createExpressApp(options?: {
       tickets: scopedTickets,
       activeTickets: activeTodayTickets,
       ticketMessages: scopedMessages,
+      unreadSummary,
       contractors: safeContractors,
       coverageAreas: coverageAreasList,
       templates: templatesList,
@@ -4318,7 +4418,7 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
-    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket);
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: currentTicket });
     await logServerAuditAsync('Work Order Updated', 'work_order', currentTicket.woNumber, `WO ${currentTicket.woNumber} diperbarui oleh ${req.user!.name}`, req.user);
 
     res.json({ success: true, ticket: updatedTicket });
@@ -4413,6 +4513,11 @@ export async function createExpressApp(options?: {
       }
 
       if (results.length > 0) {
+        for (const r of results) {
+          if (r?.workOrder) {
+            broadcastSupabaseChange('work_orders', 'UPDATE', r.workOrder);
+          }
+        }
         const successWoNumbers = results.map(r => r.workOrder?.woNumber || r.workOrder?.id).join(',');
         await logServerAuditAsync(
           'WO Assigned by Leader',
@@ -4522,6 +4627,13 @@ export async function createExpressApp(options?: {
 
       saveDatabaseToDisk();
 
+      targets.forEach(t => {
+        const updated = db.tickets.find(item => item.id === t.id);
+        if (updated) {
+          broadcastSupabaseChange('work_orders', 'UPDATE', updated, { previousRecord: t });
+        }
+      });
+
       await logServerAuditAsync(
         'WO Assigned by Leader',
         'assignment',
@@ -4571,6 +4683,9 @@ export async function createExpressApp(options?: {
     const now = new Date().toISOString();
 
     if (isSupabaseMode()) {
+      const prevWoRes = await getWorkOrderByIdOrWoNumberFromSupabase(ticketId || woNumber).catch(() => null);
+      const prevWorkOrderSnapshot = prevWoRes?.success && prevWoRes.data ? prevWoRes.data : undefined;
+
       const reassignRes = await reassignTicketInSupabase({
         workOrderIdOrWoNumber: ticketId || woNumber,
         previousInstallerName,
@@ -4602,6 +4717,11 @@ export async function createExpressApp(options?: {
           });
         }
       } else {
+        if (reassignRes.data?.workOrder) {
+          broadcastSupabaseChange('work_orders', 'UPDATE', reassignRes.data.workOrder, {
+            previousRecord: prevWorkOrderSnapshot
+          });
+        }
         const assignedWoNumber = reassignRes.data?.workOrder?.woNumber || woNumber || ticketId;
         await logServerAuditAsync(
           'WO Reassigned by Leader',
@@ -4656,6 +4776,7 @@ export async function createExpressApp(options?: {
         });
       }
 
+      const prevTicketSnapshot = { ...targetTicket };
       const prevInstallerSnapshot = previousInstallerName?.trim() || targetTicket.installerName || 'Teknisi Sebelumnya';
       const prevStatusSnapshot = targetTicket.statusWOInstaller || 'Assigned';
       const preservedStatus = targetTicket.checkInAt ? targetTicket.statusWOInstaller : 'Assigned';
@@ -4687,6 +4808,8 @@ export async function createExpressApp(options?: {
       };
       db.assignmentHistory.unshift(localHist);
       saveDatabaseToDisk();
+
+      broadcastSupabaseChange('work_orders', 'UPDATE', targetTicket, { previousRecord: prevTicketSnapshot });
 
       await logServerAuditAsync(
         'WO Reassigned by Leader',
@@ -9700,22 +9823,47 @@ export async function createExpressApp(options?: {
     // Send initial connection greeting with CONNECTED status
     res.write(`data: ${JSON.stringify({ type: 'CONNECTED', status: 'CONNECTED', userId: user.id, role: user.role, timestamp: new Date().toISOString() })}\n\n`);
 
-    const handleEvent = (event: { table: string; eventType: string; record: any; timestamp: string }) => {
+    const handleEvent = (event: { table: string; eventType: string; record: any; scopeTicket?: any; previousRecord?: any; timestamp: string }) => {
       try {
         // Enforce RBAC filtering on broadcasted records
         if (event.table === 'work_orders' && event.record) {
           if (!checkTicketAccess(event.record, user)) {
+            if (event.previousRecord && checkTicketAccess(event.previousRecord, user)) {
+              res.write(
+                `data: ${JSON.stringify({
+                  table: 'work_orders',
+                  eventType: 'ACCESS_REVOKED',
+                  record: {
+                    id: event.record.id,
+                    woNumber: event.record.woNumber
+                  },
+                  timestamp: event.timestamp
+                })}\n\n`
+              );
+            }
             return; // Filtered out by strict server-side RBAC
           }
         }
         if (event.table === 'ticket_messages' && event.record) {
           const rec = event.record;
-          const relatedTicket = db.tickets.find(t => t.id === rec.ticketId || (rec.woNumber && t.woNumber === rec.woNumber));
-          if (relatedTicket && !checkTicketAccess(relatedTicket, user)) {
+          const relatedTicket =
+            event.scopeTicket ||
+            db.tickets.find(t => t.id === rec.ticketId || (rec.woNumber && t.woNumber === rec.woNumber));
+          if (relatedTicket) {
+            if (!checkTicketAccess(relatedTicket, user)) {
+              return;
+            }
+          } else if (user.role === 'installer' || user.role === 'leader') {
             return;
           }
         }
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
+        const safePayload = {
+          table: event.table,
+          eventType: event.eventType,
+          record: event.record,
+          timestamp: event.timestamp
+        };
+        res.write(`data: ${JSON.stringify(safePayload)}\n\n`);
       } catch (err) {
         console.error('[SSE Stream Error] Failed to write event:', err);
       }
@@ -10716,42 +10864,49 @@ export async function createExpressApp(options?: {
         const chatText = `[SLA Governance: ${actionType}] ${record.message}`;
         const msgId = `msg_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
         const nowIso = record.createdAt;
-        if (isSupabaseMode()) {
-          await insertTicketMessageToSupabase({
-            id: msgId,
-            ticketId: String(ticketId),
-            woNumber: String(woNumber || ''),
-            senderId: user.id,
-            senderName: user.name,
-            senderRole: user.role,
-            messageText: chatText,
-            category: msgCategory,
-            attachments: [],
-            isCheckIn: false
-          });
-        } else if (isLocalJsonModeAllowed()) {
-          db.ticketMessages = db.ticketMessages || [];
-          db.ticketMessages.push({
-            id: msgId,
-            ticketId: String(ticketId),
-            woNumber: String(woNumber || ''),
-            senderId: user.id,
-            senderName: user.name,
-            senderRole: user.role,
-            text: chatText,
-            category: msgCategory,
-            attachments: [],
-            timestamp: nowIso,
-            readBy: [user.id],
-            isCheckIn: false
-          });
-          saveDatabaseToDisk();
-        }
-        broadcastSupabaseChange('ticket_messages', 'INSERT', {
+        let savedSlaMsg: any = {
+          id: msgId,
           ticketId: String(ticketId),
           woNumber: String(woNumber || ''),
-          category: msgCategory
-        });
+          senderId: user.id,
+          senderName: user.name,
+          senderRole: user.role,
+          text: chatText,
+          category: msgCategory,
+          attachments: [],
+          timestamp: nowIso,
+          deliveredTo: [user.id],
+          deliveredAt: { [user.id]: nowIso },
+          readBy: [user.id],
+          readAt: { [user.id]: nowIso },
+          isCheckIn: false
+        };
+        let slaScopeTicket: any = null;
+        if (isSupabaseMode()) {
+          const [insRes, woRes] = await Promise.all([
+            insertTicketMessageToSupabase({
+              id: msgId,
+              ticketId: String(ticketId),
+              woNumber: String(woNumber || ''),
+              senderId: user.id,
+              senderName: user.name,
+              senderRole: user.role,
+              messageText: chatText,
+              category: msgCategory,
+              attachments: [],
+              isCheckIn: false
+            }),
+            getWorkOrderByIdOrWoNumberFromSupabase(String(ticketId)).catch(() => null)
+          ]);
+          if (insRes.success && insRes.data) savedSlaMsg = insRes.data;
+          if (woRes?.success && woRes.data) slaScopeTicket = woRes.data;
+        } else if (isLocalJsonModeAllowed()) {
+          db.ticketMessages = db.ticketMessages || [];
+          db.ticketMessages.push(savedSlaMsg);
+          saveDatabaseToDisk();
+          slaScopeTicket = db.tickets.find(t => t.id === String(ticketId) || t.woNumber === String(woNumber || '')) || null;
+        }
+        broadcastSupabaseChange('ticket_messages', 'INSERT', savedSlaMsg, { scopeTicket: slaScopeTicket });
       }
 
       await logServerAuditAsync(
@@ -11352,16 +11507,28 @@ export async function createExpressApp(options?: {
     }
 
     const rawCategory = String(category || '').trim();
-    if (user.role === 'installer' && (!rawCategory || rawCategory.toUpperCase() === 'UNCLASSIFIED')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Pilih kategori chat terlebih dahulu sebelum mengirim pesan.',
-        code: 'CATEGORY_REQUIRED'
-      });
+    const isInstallerRole = user.role === 'installer';
+    let selectedCategory: string | undefined = rawCategory ? rawCategory.toUpperCase() : undefined;
+
+    if (isInstallerRole) {
+      if (!selectedCategory || selectedCategory === 'UNCLASSIFIED') {
+        return res.status(400).json({
+          success: false,
+          error: 'Pilih kategori chat terlebih dahulu sebelum mengirim pesan.',
+          code: 'CATEGORY_REQUIRED'
+        });
+      }
+      const validCategories = await getActiveMasterChatCategories();
+      if (!validCategories.includes(selectedCategory)) {
+        return res.status(400).json({
+          success: false,
+          error: `Kategori chat "${selectedCategory}" tidak terdaftar atau tidak aktif dalam master kategori.`,
+          code: 'INVALID_CATEGORY'
+        });
+      }
     }
 
-    const selectedCategory = (rawCategory || 'GENERAL').toUpperCase();
-    const isInstallerProgressCheckIn = user.role === 'installer' && isProgressCategoryOnly(selectedCategory);
+    const isInstallerProgressCheckIn = isInstallerRole && Boolean(selectedCategory && isProgressCategoryOnly(selectedCategory));
     const nowIso = new Date().toISOString();
     const msgSnippet = cleanText || (safeAttachments.length > 0 ? `[Foto: ${safeAttachments[0]?.fileName || 'Lampiran'}]` : '');
 
@@ -11381,11 +11548,14 @@ export async function createExpressApp(options?: {
           });
         }
 
+        const prevTicketSnapshot = ticketData ? { ...ticketData } : undefined;
         // App Flow 5: Trigger Check-in ONLY when Installer sends message with selected category PROGRESS
         let triggeredCheckIn = false;
         const ticketUpdates: Record<string, any> = {};
         if (ticketData) {
-          ticketUpdates.chatCategory = selectedCategory;
+          if (selectedCategory) {
+            ticketUpdates.chatCategory = selectedCategory;
+          }
           ticketUpdates.chatMessagesCount = (Number(ticketData.chatMessagesCount) || 0) + 1;
           ticketUpdates.lastMessageAt = nowIso;
           ticketUpdates.lastMessageSnippet = msgSnippet;
@@ -11414,7 +11584,7 @@ export async function createExpressApp(options?: {
         if (ticketData && Object.keys(ticketUpdates).length > 0) {
           await updateWorkOrderInSupabase(ticketData.id, ticketUpdates);
           Object.assign(ticketData, ticketUpdates);
-          broadcastSupabaseChange('work_orders', 'UPDATE', ticketData);
+          broadcastSupabaseChange('work_orders', 'UPDATE', ticketData, { previousRecord: prevTicketSnapshot });
         }
 
         const newMsgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -11447,14 +11617,17 @@ export async function createExpressApp(options?: {
           senderName: user.name,
           senderRole: user.role,
           text: cleanText,
-          category: selectedCategory,
+          ...(selectedCategory ? { category: selectedCategory } : {}),
           attachments: safeAttachments,
           timestamp: nowIso,
+          deliveredTo: [user.id],
+          deliveredAt: { [user.id]: nowIso },
           readBy: [user.id],
+          readAt: { [user.id]: nowIso },
           isCheckIn: triggeredCheckIn
         };
 
-        broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg);
+        broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticketData });
 
         if (!isLocalJsonModeAllowed()) {
           return res.json({
@@ -11485,9 +11658,12 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const prevLocalTicket = ticket ? { ...ticket } : undefined;
     let triggeredCheckIn = false;
     if (ticket) {
-      ticket.chatCategory = selectedCategory;
+      if (selectedCategory) {
+        ticket.chatCategory = selectedCategory;
+      }
       ticket.chatMessagesCount = (Number(ticket.chatMessagesCount) || 0) + 1;
       ticket.lastMessageAt = nowIso;
       ticket.lastMessageSnippet = msgSnippet;
@@ -11513,10 +11689,10 @@ export async function createExpressApp(options?: {
           status: 'Sedang Dikerjakan'
         });
       }
-      broadcastSupabaseChange('work_orders', 'UPDATE', ticket);
+      broadcastSupabaseChange('work_orders', 'UPDATE', ticket, { previousRecord: prevLocalTicket });
     }
 
-    const newMsg = {
+    const newMsg: any = {
       id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       ticketId: ticket ? ticket.id : id,
       woNumber: ticket ? ticket.woNumber : id,
@@ -11524,16 +11700,19 @@ export async function createExpressApp(options?: {
       senderName: user.name,
       senderRole: user.role,
       text: cleanText,
-      category: selectedCategory,
+      ...(selectedCategory ? { category: selectedCategory } : {}),
       attachments: safeAttachments,
       timestamp: nowIso,
+      deliveredTo: [user.id],
+      deliveredAt: { [user.id]: nowIso },
       readBy: [user.id],
+      readAt: { [user.id]: nowIso },
       isCheckIn: triggeredCheckIn
     };
 
     db.ticketMessages.push(newMsg);
     saveDatabaseToDisk();
-    broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg);
+    broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticket });
 
     res.json({
       success: true,
@@ -11542,6 +11721,141 @@ export async function createExpressApp(options?: {
       checkInTriggered: triggeredCheckIn,
       checkedIn: triggeredCheckIn
     });
+  });
+
+  // Authoritative Personal / Role-Scoped Unread Counter Summary
+  app.get('/api/livechat/unread-summary', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const user = req.user!;
+    if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Supabase belum dikonfigurasi pada mode produksi.',
+        code: 'SUPABASE_NOT_CONFIGURED'
+      });
+    }
+
+    try {
+      let allTickets: any[] = [];
+      let messagesList: any[] = [];
+
+      if (isSupabaseMode()) {
+        const tRes = await getWorkOrdersFromSupabase();
+        if (tRes.success && Array.isArray(tRes.data)) {
+          allTickets = tRes.data;
+        } else if (isLocalJsonModeAllowed()) {
+          allTickets = db.tickets;
+        } else {
+          return res.status(503).json({
+            success: false,
+            error: 'Database authoritative Supabase tidak tersedia.',
+            code: 'DATABASE_UNAVAILABLE'
+          });
+        }
+        const scopedTickets = scopeTicketsForUser(allTickets, user).filter(t => !t.isDeleted && !t.isArchived);
+        if (scopedTickets.length > 0) {
+          const mRes = await getTicketMessagesForTicketsFromSupabase(scopedTickets.map((t: any) => t.id));
+          if (mRes.success && Array.isArray(mRes.data)) {
+            messagesList = mRes.data;
+          } else if (isLocalJsonModeAllowed()) {
+            messagesList = db.ticketMessages || [];
+          }
+        }
+        const summary = computeLiveChatUnreadSummary(scopedTickets, messagesList, user.id);
+        return res.json({ success: true, userId: user.id, role: user.role, ...summary });
+      }
+
+      const scopedTickets = scopeTicketsForUser(db.tickets || [], user).filter(t => !t.isDeleted && !t.isArchived);
+      const summary = computeLiveChatUnreadSummary(scopedTickets, db.ticketMessages || [], user.id);
+      return res.json({ success: true, userId: user.id, role: user.role, ...summary });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal menghitung ringkasan pesan belum dibaca.'
+      });
+    }
+  });
+
+  // Delivery Receipt (Terkirim -> Diterima) without marking message as Read
+  app.post('/api/tickets/:id/messages/delivered', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { id } = req.params;
+    const user = req.user!;
+
+    if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Supabase belum dikonfigurasi pada mode produksi.',
+        code: 'SUPABASE_NOT_CONFIGURED'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const woRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
+      if (woRes.success && woRes.data) ticket = woRes.data;
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === id || t.woNumber === id) || null;
+    }
+
+    if (ticket && !checkTicketAccess(ticket, user)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Akses Ditolak: Anda tidak memiliki akses ke percakapan Work Order ini.',
+        code: 'FORBIDDEN_SCOPE'
+      });
+    }
+
+    let updatedIds: string[] = [];
+    let deliveredAt = new Date().toISOString();
+    if (isSupabaseMode()) {
+      const delivRes = await markTicketMessagesDeliveredInSupabase(ticket ? ticket.id : id, user.id);
+      if (delivRes.success && delivRes.data) {
+        updatedIds = delivRes.data.updatedIds || [];
+        deliveredAt = delivRes.data.deliveredAt || deliveredAt;
+      } else if (!isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          error: 'Gagal memperbarui status diterima pesan di Supabase.',
+          code: 'DATABASE_UNAVAILABLE'
+        });
+      }
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const targetId = ticket ? ticket.id : id;
+      const targetWo = ticket ? ticket.woNumber : id;
+      (db.ticketMessages || []).forEach((m: any) => {
+        if ((m.ticketId === targetId || m.woNumber === targetWo) && m.senderId !== user.id) {
+          const deliveredTo = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+          if (!deliveredTo.includes(user.id)) {
+            m.deliveredTo = [...deliveredTo, user.id];
+            m.deliveredAt = {
+              ...(m.deliveredAt && typeof m.deliveredAt === 'object' ? m.deliveredAt : {}),
+              [user.id]: deliveredAt
+            };
+            if (!updatedIds.includes(m.id)) updatedIds.push(m.id);
+          }
+        }
+      });
+      if (updatedIds.length > 0) saveDatabaseToDisk();
+    }
+
+    if (updatedIds.length > 0) {
+      broadcastSupabaseChange(
+        'ticket_messages',
+        'DELIVERY_RECEIPT',
+        {
+          ticketId: ticket ? ticket.id : id,
+          woNumber: ticket ? ticket.woNumber : id,
+          userId: user.id,
+          updatedIds,
+          deliveredAt
+        },
+        { scopeTicket: ticket }
+      );
+    }
+
+    return res.json({ success: true, updatedIds, deliveredAt });
   });
 
   // App Flow 4: Mark LiveChat messages as read when user opens LiveChat drawer/tab
@@ -11575,10 +11889,12 @@ export async function createExpressApp(options?: {
     }
 
     let updatedIds: string[] = [];
+    let readAt = new Date().toISOString();
     if (isSupabaseMode()) {
       const markRes = await markTicketMessagesReadInSupabase(ticket ? ticket.id : id, user.id);
       if (markRes.success && markRes.data) {
         updatedIds = markRes.data.updatedIds || [];
+        readAt = markRes.data.readAt || readAt;
       } else if (!isLocalJsonModeAllowed()) {
         return res.status(503).json({
           success: false,
@@ -11594,25 +11910,46 @@ export async function createExpressApp(options?: {
       (db.ticketMessages || []).forEach((m: any) => {
         if ((m.ticketId === targetId || m.woNumber === targetWo) && m.senderId !== user.id) {
           const readBy = Array.isArray(m.readBy) ? m.readBy : [];
+          const deliveredTo = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
+          let dirty = false;
+          if (!deliveredTo.includes(user.id)) {
+            m.deliveredTo = [...deliveredTo, user.id];
+            m.deliveredAt = {
+              ...(m.deliveredAt && typeof m.deliveredAt === 'object' ? m.deliveredAt : {}),
+              [user.id]: readAt
+            };
+            dirty = true;
+          }
           if (!readBy.includes(user.id)) {
             m.readBy = [...readBy, user.id];
-            if (!updatedIds.includes(m.id)) updatedIds.push(m.id);
+            m.readAt = {
+              ...(m.readAt && typeof m.readAt === 'object' ? m.readAt : {}),
+              [user.id]: readAt
+            };
+            dirty = true;
           }
+          if (dirty && !updatedIds.includes(m.id)) updatedIds.push(m.id);
         }
       });
-      saveDatabaseToDisk();
+      if (updatedIds.length > 0) saveDatabaseToDisk();
     }
 
     if (updatedIds.length > 0) {
-      broadcastSupabaseChange('ticket_messages', 'READ_RECEIPT', {
-        ticketId: ticket ? ticket.id : id,
-        woNumber: ticket ? ticket.woNumber : id,
-        userId: user.id,
-        updatedIds
-      });
+      broadcastSupabaseChange(
+        'ticket_messages',
+        'READ_RECEIPT',
+        {
+          ticketId: ticket ? ticket.id : id,
+          woNumber: ticket ? ticket.woNumber : id,
+          userId: user.id,
+          updatedIds,
+          readAt
+        },
+        { scopeTicket: ticket }
+      );
     }
 
-    return res.json({ success: true, updatedIds });
+    return res.json({ success: true, updatedIds, readAt });
   });
 
   // --- WhatsApp Preview (Super Admin & Dispatch Exclusive) ---

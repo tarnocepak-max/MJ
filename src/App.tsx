@@ -58,7 +58,7 @@ const MainLayout: React.FC = () => {
     tickets,
     todayWIB,
     openOfflineSyncCenter,
-    getTicketUnreadCount,
+    totalLiveChatUnreadCount,
     rolePermissions,
     hasPermission,
     globalConflict,
@@ -278,26 +278,11 @@ const MainLayout: React.FC = () => {
     }).length;
   }, [isLoggedIn, isInstaller, tickets, currentUser, todayWIB]);
 
-  // Scoped unread chat count for logged-in Installer (strictly today WIB)
+  // Personal unread LiveChat counter strictly scoped to active today WOs assigned to this Installer
   const installerUnreadChatCount = useMemo(() => {
     if (!isLoggedIn || !isInstaller) return 0;
-    const myName = (currentUser?.name || '').toLowerCase().trim();
-    const myId = currentUser?.id || '';
-    const myUsername = (currentUser?.username || '').toLowerCase().trim();
-
-    return tickets.reduce((total, t) => {
-      if (t.isArchived || t.isDeleted) return total;
-      if (getTicketAppointmentDate(t) !== todayWIB) return total;
-      const assigned = (myId && t.assignedTo === myId) || (myUsername && t.assignedTo === myUsername);
-      const tInst = (t.installerName || '').toLowerCase().trim();
-      const nameMatch =
-        (myName && (tInst === myName || isInstallerMatch(t.installerName, myName))) ||
-        (myUsername && (tInst === myUsername || isInstallerMatch(t.installerName, myUsername)));
-      if (!assigned && !nameMatch) return total;
-
-      return total + (getTicketUnreadCount(t.id) > 0 ? 1 : 0);
-    }, 0);
-  }, [isLoggedIn, isInstaller, tickets, currentUser, getTicketUnreadCount, todayWIB]);
+    return totalLiveChatUnreadCount;
+  }, [isLoggedIn, isInstaller, totalLiveChatUnreadCount]);
 
   // Scoped unconfirmed WhatsApp count for logged-in Installer (strictly today WIB)
   const installerWaPendingCount = useMemo(() => {
@@ -320,6 +305,7 @@ const MainLayout: React.FC = () => {
   }, [isLoggedIn, isInstaller, tickets, currentUser, todayWIB]);
 
   const isFullWidth = config.global.contentWidth === 'full';
+  const isFullChatMode = activeTab === 'contact_centre' || activeTab === 'installer_chat' || activeTab === 'live_chat';
   const currentSidebarState = config.global.sidebarState || (config.global.sidebarCollapsed ? 'minimized' : 'expanded');
 
   // Global Ctrl+K / Cmd+K shortcut -> open Sidebar (if closed) & focus Sidebar Global Search
@@ -886,45 +872,44 @@ const MainLayout: React.FC = () => {
           )}
 
           {/* Content Viewport with responsive bottom navigation spacing */}
-          {(() => {
-            const isContactCentreFullBleed =
-              ['contact_centre', 'installer_chat', 'live_chat'].includes(activeTab) &&
-              !isMobileView &&
-              !isInstaller &&
-              currentUser.role !== 'leader';
-            return (
-              <main
-                data-display-mode={isMobileView ? 'mobile' : 'desktop'}
-                className={`flex-1 ${
-                  isContactCentreFullBleed
-                    ? 'overflow-hidden p-0'
-                    : `overflow-y-auto overflow-x-hidden ${
-                        isMobileView ? 'p-3 sm:p-4 pb-28 w-full' : 'p-3 sm:p-5 lg:p-6'
-                      }`
-                } ${
-                  isInstaller
-                    ? 'pb-28 w-full'
-                    : currentUser.role === 'leader'
-                    ? 'pb-28 sm:pb-24'
-                    : isMobileView && config.device?.android?.showBottomNavigation !== false
-                    ? 'pb-28'
-                    : ''
-                }`}
-              >
-                <div
-                  className={
-                    isContactCentreFullBleed
-                      ? 'w-full h-full min-w-0'
-                      : isInstaller || isMobileView || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
-                      ? 'w-full min-w-0'
-                      : 'max-w-7xl mx-auto min-w-0'
-                  }
-                >
-                  {renderContent()}
-                </div>
-              </main>
-            );
-          })()}
+          <main
+            data-display-mode={isMobileView ? 'mobile' : 'desktop'}
+            className={
+              isFullChatMode
+                ? `flex-1 min-h-0 flex flex-col overflow-hidden p-0 w-full ${
+                    isInstaller
+                      ? 'pb-16'
+                      : currentUser.role === 'leader'
+                      ? 'pb-[68px]'
+                      : isMobileView && config.device?.android?.showBottomNavigation !== false
+                      ? 'pb-16'
+                      : ''
+                  }`
+                : `flex-1 overflow-y-auto overflow-x-hidden ${
+                    isMobileView ? 'p-3 sm:p-4 pb-28 w-full' : 'p-3 sm:p-5 lg:p-6'
+                  } ${
+                    isInstaller
+                      ? 'pb-28 w-full'
+                      : currentUser.role === 'leader'
+                      ? 'pb-28 sm:pb-24'
+                      : isMobileView && config.device?.android?.showBottomNavigation !== false
+                      ? 'pb-28'
+                      : ''
+                  }`
+            }
+          >
+            <div
+              className={
+                isFullChatMode
+                  ? 'flex-1 min-h-0 w-full flex flex-col'
+                  : isInstaller || isMobileView || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
+                  ? 'w-full min-w-0'
+                  : 'max-w-7xl mx-auto min-w-0'
+              }
+            >
+              {renderContent()}
+            </div>
+          </main>
         </div>
       </div>
 

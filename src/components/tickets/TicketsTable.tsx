@@ -166,6 +166,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     rejectProgressReport,
     installersList,
     getTicketUnreadCount,
+    totalLiveChatUnreadCount,
     todayWIB,
     refreshActiveTickets
   } = useApp();
@@ -363,10 +364,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     return Array.from(set).sort();
   }, [tickets]);
 
-  // Total unread chat count across tickets
-  const totalUnreadAcrossTickets = useMemo(() => {
-    return tickets.reduce((acc, t) => acc + (getTicketUnreadCount(t.id) > 0 ? 1 : 0), 0);
-  }, [tickets, getTicketUnreadCount]);
+  // Total role-scoped unread LiveChat messages across active tickets
+  const totalUnreadAcrossTickets = totalLiveChatUnreadCount;
 
   // Filtering based on strict Appointment Date === todayWIB rules uniformly across all roles
   const filteredTickets = useMemo(() => {

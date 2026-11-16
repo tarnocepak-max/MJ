@@ -2565,16 +2565,36 @@ export async function insertTicketMessageToSupabase(message: {
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   try {
-    const senderRead = message.senderId ? [message.senderId] : [];
+    const nowIso = new Date().toISOString();
+    const senderRead = message.senderId ? [String(message.senderId).trim()] : [];
     const basePayload = message.payload && typeof message.payload === 'object' ? message.payload : {};
-    const mergedPayload = {
+    const rawCat = String(message.category || basePayload.category || '').trim();
+    const existingReadBy = Array.isArray(basePayload.readBy) ? basePayload.readBy.map((x: any) => String(x || '').trim()).filter(Boolean) : [];
+    const existingDeliveredTo = Array.isArray(basePayload.deliveredTo) ? basePayload.deliveredTo.map((x: any) => String(x || '').trim()).filter(Boolean) : [];
+    const mergedReadBy = Array.from(new Set([...existingReadBy, ...senderRead]));
+    const mergedDeliveredTo = Array.from(new Set([...existingDeliveredTo, ...mergedReadBy]));
+    const existingDeliveredAt = basePayload.deliveredAt && typeof basePayload.deliveredAt === 'object' ? { ...basePayload.deliveredAt } : {};
+    const existingReadAt = basePayload.readAt && typeof basePayload.readAt === 'object' ? { ...basePayload.readAt } : {};
+    if (message.senderId) {
+      const sId = String(message.senderId).trim();
+      if (!existingDeliveredAt[sId]) existingDeliveredAt[sId] = nowIso;
+      if (!existingReadAt[sId]) existingReadAt[sId] = nowIso;
+    }
+
+    const mergedPayload: Record<string, any> = {
       ...basePayload,
-      category: message.category || basePayload.category || 'GENERAL',
-      readBy: Array.isArray(basePayload.readBy)
-        ? Array.from(new Set([...basePayload.readBy, ...senderRead]))
-        : senderRead,
+      readBy: mergedReadBy,
+      deliveredTo: mergedDeliveredTo,
+      deliveredAt: existingDeliveredAt,
+      readAt: existingReadAt,
       ...(message.isCheckIn ? { isCheckIn: true } : {})
     };
+    if (rawCat) {
+      mergedPayload.category = rawCat.toUpperCase();
+    } else {
+      delete mergedPayload.category;
+    }
+
     const row = {
       id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       ticket_id: message.ticketId || null,
@@ -2585,7 +2605,7 @@ export async function insertTicketMessageToSupabase(message: {
       message_text: message.messageText || '',
       attachments: Array.isArray(message.attachments) ? message.attachments : [],
       payload: mergedPayload,
-      created_at: new Date().toISOString()
+      created_at: nowIso
     };
     const { data, error } = await client.from('ticket_messages').insert([row]).select().maybeSingle();
     if (error) {
@@ -2597,18 +2617,19 @@ export async function insertTicketMessageToSupabase(message: {
   }
 }
 
-export async function markTicketMessagesReadInSupabase(
+export async function markTicketMessagesDeliveredInSupabase(
   ticketIdOrWo: string,
   userId: string
-): Promise<SupabaseOpResult<{ updatedIds: string[] }>> {
+): Promise<SupabaseOpResult<{ updatedIds: string[]; deliveredAt: string }>> {
   const client = getSupabaseBackendClient();
   if (!client) {
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   const cleanKey = String(ticketIdOrWo || '').trim();
   const cleanUser = String(userId || '').trim();
+  const nowIso = new Date().toISOString();
   if (!cleanKey || !cleanUser) {
-    return { success: true, data: { updatedIds: [] } };
+    return { success: true, data: { updatedIds: [], deliveredAt: nowIso } };
   }
   try {
     const { data: rows, error } = await client
@@ -2621,9 +2642,20 @@ export async function markTicketMessagesReadInSupabase(
     const updatedIds: string[] = [];
     for (const row of rows || []) {
       const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
-      const readBy: string[] = Array.isArray(payload.readBy) ? payload.readBy : [];
-      if (row.sender_id !== cleanUser && !readBy.includes(cleanUser)) {
-        const nextPayload = { ...payload, readBy: [...readBy, cleanUser] };
+      const deliveredTo: string[] = Array.isArray(payload.deliveredTo)
+        ? payload.deliveredTo.map((x: any) => String(x || '').trim()).filter(Boolean)
+        : [];
+      const senderId = String(row.sender_id || '').trim();
+      if (senderId !== cleanUser && !deliveredTo.includes(cleanUser)) {
+        const nextDeliveredAt = {
+          ...(payload.deliveredAt && typeof payload.deliveredAt === 'object' ? payload.deliveredAt : {}),
+          [cleanUser]: nowIso
+        };
+        const nextPayload = {
+          ...payload,
+          deliveredTo: [...deliveredTo, cleanUser],
+          deliveredAt: nextDeliveredAt
+        };
         const { error: updErr } = await client
           .from('ticket_messages')
           .update({ payload: nextPayload })
@@ -2633,7 +2665,71 @@ export async function markTicketMessagesReadInSupabase(
         }
       }
     }
-    return { success: true, data: { updatedIds } };
+    return { success: true, data: { updatedIds, deliveredAt: nowIso } };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
+export async function markTicketMessagesReadInSupabase(
+  ticketIdOrWo: string,
+  userId: string
+): Promise<SupabaseOpResult<{ updatedIds: string[]; readAt: string }>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  const cleanKey = String(ticketIdOrWo || '').trim();
+  const cleanUser = String(userId || '').trim();
+  const nowIso = new Date().toISOString();
+  if (!cleanKey || !cleanUser) {
+    return { success: true, data: { updatedIds: [], readAt: nowIso } };
+  }
+  try {
+    const { data: rows, error } = await client
+      .from('ticket_messages')
+      .select('id, sender_id, payload')
+      .or(`ticket_id.eq.${cleanKey},wo_number.eq.${cleanKey}`);
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    const updatedIds: string[] = [];
+    for (const row of rows || []) {
+      const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+      const readBy: string[] = Array.isArray(payload.readBy)
+        ? payload.readBy.map((x: any) => String(x || '').trim()).filter(Boolean)
+        : [];
+      const deliveredTo: string[] = Array.isArray(payload.deliveredTo)
+        ? payload.deliveredTo.map((x: any) => String(x || '').trim()).filter(Boolean)
+        : [];
+      const senderId = String(row.sender_id || '').trim();
+      if (senderId !== cleanUser && !readBy.includes(cleanUser)) {
+        const nextDeliveredTo = deliveredTo.includes(cleanUser) ? deliveredTo : [...deliveredTo, cleanUser];
+        const nextDeliveredAt = {
+          ...(payload.deliveredAt && typeof payload.deliveredAt === 'object' ? payload.deliveredAt : {})
+        };
+        if (!nextDeliveredAt[cleanUser]) nextDeliveredAt[cleanUser] = nowIso;
+        const nextReadAt = {
+          ...(payload.readAt && typeof payload.readAt === 'object' ? payload.readAt : {}),
+          [cleanUser]: nowIso
+        };
+        const nextPayload = {
+          ...payload,
+          readBy: [...readBy, cleanUser],
+          deliveredTo: nextDeliveredTo,
+          deliveredAt: nextDeliveredAt,
+          readAt: nextReadAt
+        };
+        const { error: updErr } = await client
+          .from('ticket_messages')
+          .update({ payload: nextPayload })
+          .eq('id', row.id);
+        if (!updErr) {
+          updatedIds.push(row.id);
+        }
+      }
+    }
+    return { success: true, data: { updatedIds, readAt: nowIso } };
   } catch (err: any) {
     return { success: false, error: classifySupabaseError(err) };
   }

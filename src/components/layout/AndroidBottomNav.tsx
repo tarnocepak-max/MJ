@@ -22,13 +22,11 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
   onToggleMenu,
   isMenuOpen
 }) => {
-  const { tickets, currentUser, ticketMessages } = useApp();
-  const unreadMessages = (ticketMessages || []).filter(
-    message => message.senderId !== currentUser.id && !(message.readBy || []).includes(currentUser.id)
-  ).length;
+  const { scopedTickets, currentUser, totalLiveChatUnreadCount } = useApp();
+  const unreadMessages = totalLiveChatUnreadCount;
   const { config } = useUIConfig();
 
-  const totalActiveTickets = tickets.filter(t => !t.isArchived && !t.isDeleted).length;
+  const totalActiveTickets = scopedTickets.filter(t => !t.isArchived && !t.isDeleted).length;
   const isSuperOrDispatch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
   const canImportWO = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
 

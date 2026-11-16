@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, scopedTickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus } = useApp();
+  const { currentUser, tickets, scopedTickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus, totalLiveChatUnreadCount } = useApp();
   const {
     isMobileView,
     config,
@@ -152,11 +152,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Requirement 1: Ticket indicators strictly calculate WO with Appointment Date = Today (Asia/Jakarta, reactive 00:00 WIB)
   const todayActiveTickets = useMemo(() => {
-    return tickets.filter(t => {
+    return scopedTickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
       return getTicketAppointmentDate(t) === todayWIB;
     });
-  }, [tickets, todayWIB]);
+  }, [scopedTickets, todayWIB]);
 
   const totalActiveTickets = todayActiveTickets.length;
   const unassignedCount = todayActiveTickets.filter(t => !t.installerName).length;
@@ -448,6 +448,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Helper for dynamic badge calculation
   const getItemBadge = (itemId: string, defaultBadge?: string | number) => {
+    if (itemId === 'contact_centre' && totalLiveChatUnreadCount > 0) {
+      return {
+        text: totalLiveChatUnreadCount > 99 ? '99+' : totalLiveChatUnreadCount,
+        color: 'rose' as const
+      };
+    }
     if (itemId === 'wo_assignment' && unassignedCount > 0) {
       return { text: `${unassignedCount} Belum`, color: 'amber' as const };
     }
@@ -702,10 +708,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {badgeInfo && (
                     <span
                       className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded tabular-nums shrink-0 ${
-                        isActive
+                        badgeInfo.color === 'rose'
+                          ? 'bg-[#DC4C5A] text-white'
+                          : isActive
                           ? 'bg-white/20 text-white'
                           : badgeInfo.color === 'amber'
                           ? 'bg-[#E59A27]/20 text-[#FBBF24]'
+                          : badgeInfo.color === 'emerald'
+                          ? 'bg-[#16A36A]/20 text-emerald-300'
                           : 'bg-[#35105E] text-[#D8B4FE]'
                       }`}
                     >
@@ -791,7 +801,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {badgeInfo && (
                                 <span
                                   className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded tabular-nums shrink-0 ${
-                                    isActive
+                                    badgeInfo.color === 'rose'
+                                      ? 'bg-[#DC4C5A] text-white'
+                                      : isActive
                                       ? 'bg-white/20 text-white'
                                       : badgeInfo.color === 'amber'
                                       ? 'bg-[#E59A27]/20 text-[#FBBF24]'

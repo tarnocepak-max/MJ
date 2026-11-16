@@ -741,7 +741,23 @@ export class SupabaseRepository {
     }
   }
 
-  async markTicketMessagesRead(ticketId: string): Promise<SupabaseResponse<{ updatedCount: number }>> {
+  async markTicketMessagesDelivered(
+    ticketId: string
+  ): Promise<SupabaseResponse<{ updatedIds?: string[]; deliveredAt?: string }>> {
+    try {
+      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/delivered`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menandai pesan sudah diterima' } };
+    }
+  }
+
+  async markTicketMessagesRead(
+    ticketId: string
+  ): Promise<SupabaseResponse<{ updatedIds?: string[]; readAt?: string }>> {
     try {
       const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/read`, {
         method: 'POST',
@@ -750,6 +766,23 @@ export class SupabaseRepository {
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menandai pesan sudah dibaca' } };
+    }
+  }
+
+  async getLiveChatUnreadSummary(): Promise<{
+    success: boolean;
+    totalUnreadMessages?: number;
+    unreadTicketsCount?: number;
+    unreadByTicket?: Record<string, number>;
+    error?: any;
+  }> {
+    try {
+      const res = await fetch('/api/livechat/unread-summary', {
+        headers: getAuthHeaders()
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat ringkasan unread' } };
     }
   }
 

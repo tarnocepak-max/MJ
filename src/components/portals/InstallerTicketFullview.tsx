@@ -6,6 +6,7 @@ import { buildWhatsAppClickToChatUrl } from '../../services/whatsappService';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly, getTicketWorkStatus } from '../../services/workSessionService';
+import { MessageStatusReceipt } from '../chat/MessageStatusReceipt';
 import {
   ArrowLeft,
   Phone,
@@ -396,12 +397,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   // LIVE CHAT ROOM STATE & HANDLERS (Synchronized with Contact Center)
   // -------------------------------------------------------------
   const [chatCategory, setChatCategory] = useState<string>(() => {
-    return activeTicket.chatCategory || (chatCategories[0]?.name || 'UNCLASSIFIED');
+    const existing = String(activeTicket.chatCategory || '').trim();
+    return existing && existing.toUpperCase() !== 'UNCLASSIFIED' ? existing : '';
   });
 
-  // Active chat categories from shared Supabase app_settings/chat_categories
+  // Active chat categories from shared Supabase app_settings/chat_categories (deduplicated, excluding UNCLASSIFIED)
   const activeChatCategories = useMemo(() => {
-    return chatCategories.filter(c => c.active !== false && (c as any).isActive !== false);
+    const seen = new Set<string>();
+    return chatCategories.filter(c => {
+      if (c.active === false || (c as any).isActive === false) return false;
+      const upper = String(c.name || '').trim().toUpperCase();
+      if (!upper || upper === 'UNCLASSIFIED' || seen.has(upper)) return false;
+      seen.add(upper);
+      return true;
+    });
   }, [chatCategories]);
 
   // Current category object to retrieve theme color
@@ -430,16 +439,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   // Sync category when activeTicket.chatCategory changes from Supabase PostgreSQL
   useEffect(() => {
-    if (activeTicket.chatCategory) {
-      setChatCategory(activeTicket.chatCategory);
+    const existing = String(activeTicket.chatCategory || '').trim();
+    if (existing && existing.toUpperCase() !== 'UNCLASSIFIED') {
+      setChatCategory(existing);
+    } else {
+      setChatCategory('');
     }
-  }, [activeTicket.chatCategory]);
+  }, [activeTicket.id, activeTicket.chatCategory]);
 
   // Handle changing chat category synchronized to Supabase app_settings & ticket
   const handleChatCategorySelect = async (newCat: string) => {
     setChatCategory(newCat);
-    await setTicketChatCategory(activeTicket.id, newCat);
-    toast.success(`Kategori chat disinkronkan ke "${newCat}".`);
+    setChatError(null);
+    if (newCat) {
+      await setTicketChatCategory(activeTicket.id, newCat);
+      toast.success(`Kategori chat disinkronkan ke "${newCat}".`);
+    }
   };
 
   const handleOpenProgressChatForCheckIn = async () => {
@@ -455,11 +470,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     toast.info('Kategori PROGRESS dipilih. Kirim pesan untuk mencatat Check-in otomatis.', 'Siap Check-in');
   };
 
-  // Mark messages as read ONLY when Installer explicitly activates/focuses LiveChat Room
+  // Mark messages as read ONLY when Installer explicitly activates/focuses LiveChat Room AND tab is visible
   useEffect(() => {
-    if (isChatActive) {
+    const tryMarkRead = () => {
+      if (!isChatActive) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       markTicketMessagesAsRead(activeTicket.id);
-    }
+    };
+    tryMarkRead();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') tryMarkRead();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [isChatActive, activeTicket.id, messages.length, markTicketMessagesAsRead]);
 
   // Auto scroll chat to bottom
@@ -520,6 +543,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     if (e) e.preventDefault();
     if (isSendingChat) return;
 
+    const cleanCat = String(chatCategory || '').trim();
+    if (!cleanCat || cleanCat.toUpperCase() === 'UNCLASSIFIED') {
+      const msg = 'Pilih kategori chat wajib terlebih dahulu (mis. PROGRESS) sebelum mengirim pesan.';
+      setChatError(msg);
+      toast.error(msg, 'Kategori Wajib Dipilih');
+      return;
+    }
+
     const text = directText !== undefined ? directText : chatInputText;
     if (!text.trim() && chatAttachments.length === 0) {
       return;
@@ -530,7 +561,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setChatError(null);
 
     try {
-      const res = await sendTicketMessage(activeTicket.id, text.trim(), chatAttachments, chatCategory);
+      const res = await sendTicketMessage(activeTicket.id, text.trim(), chatAttachments, cleanCat);
       if (res.success) {
         setChatInputText('');
         setChatAttachments([]);
@@ -1239,6 +1270,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                             </div>
                           )}
                         </div>
+                        {isMe && (
+                          <MessageStatusReceipt
+                            message={msg}
+                            senderId={currentUser.id}
+                            variant="onLight"
+                            showLabel={true}
+                          />
+                        )}
                       </div>
                     );
                   })
@@ -1304,17 +1343,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       onChange={e => handleChatCategorySelect(e.target.value)}
                       className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     >
-                      {activeChatCategories.length > 0 ? (
-                        activeChatCategories.map(cat => (
-                          <option key={cat.id} value={cat.name}>
-                            {cat.name}
-                          </option>
-                        ))
-                      ) : (
-                        <option value={chatCategory || 'UNCLASSIFIED'}>
-                          {chatCategory || 'UNCLASSIFIED'}
+                      <option value="">-- Pilih Kategori Wajib --</option>
+                      {activeChatCategories.map(cat => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
                         </option>
-                      )}
+                      ))}
                     </select>
                   </div>
 
@@ -1347,15 +1381,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       value={chatInputText}
                       onFocus={() => setIsChatActive(true)}
                       onChange={e => setChatInputText(e.target.value)}
-                      placeholder="Type Message..."
+                      placeholder={!chatCategory ? 'Pilih kategori chat wajib terlebih dahulu...' : 'Type Message...'}
                       className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
 
                     {/* Blue Send button with paper plane icon */}
                     <button
                       type="submit"
-                      disabled={isSendingChat || (!chatInputText.trim() && chatAttachments.length === 0)}
-                      className="p-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl font-bold flex items-center justify-center transition-colors shrink-0 cursor-pointer shadow-xs"
+                      disabled={isSendingChat || !chatCategory || chatCategory.toUpperCase() === 'UNCLASSIFIED' || (!chatInputText.trim() && chatAttachments.length === 0)}
+                      className="p-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center justify-center transition-colors shrink-0 cursor-pointer shadow-xs"
                       title="Kirim pesan"
                     >
                       <Send className="w-4 h-4" />
