@@ -44,14 +44,16 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
     'summary' | 'active_wo' | 'completed_wo' | 'pending_wo' | 'problem_wo' | 'reports' | 'activities'
   >('summary');
 
-  if (!isOpen || !installer) return null;
-
-  // Filter WO assigned to this installer
+  // Filter WO assigned to this installer (must run unconditionally before early return)
+  const installerNameNorm = installer?.name?.toLowerCase().trim() || '';
   const installerTickets = useMemo(() => {
+    if (!installerNameNorm) return [];
     return contractorTickets.filter(
-      t => t.installerName?.toLowerCase().trim() === installer.name.toLowerCase().trim()
+      t => t.installerName?.toLowerCase().trim() === installerNameNorm
     );
-  }, [contractorTickets, installer.name]);
+  }, [contractorTickets, installerNameNorm]);
+
+  if (!isOpen || !installer) return null;
 
   // Subsets by operational status
   const activeWOs = installerTickets.filter(

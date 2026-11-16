@@ -3577,6 +3577,69 @@ export async function getAssignmentHistoryFromSupabase(woNumberOrId: string): Pr
 }
 
 /**
+ * Retrieves recent assignment / reassignment history records across work orders for a contractor feed.
+ */
+export async function getRecentAssignmentFeedFromSupabase(options?: {
+  contractorName?: string;
+  actionFilter?: string;
+  limit?: number;
+}): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', isUnavailable: true } };
+  }
+
+  try {
+    const maxLimit = Math.min(Math.max(Number(options?.limit) || 40, 1), 200);
+    let query = client.from('assignment_history').select('*');
+    if (options?.actionFilter && options.actionFilter.trim()) {
+      query = query.ilike('source_action', `%${escapePostgrestLikeValue(options.actionFilter.trim())}%`);
+    }
+    if (options?.contractorName && options.contractorName.trim()) {
+      query = query.ilike('contractor_name', `%${escapePostgrestLikeValue(options.contractorName.trim())}%`);
+    }
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(maxLimit);
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+
+    const list = (data || []).map(row => ({
+      id: row.id,
+      ticketId: row.work_order_id,
+      workOrderId: row.work_order_id,
+      woNumber: row.wo_number,
+      contractorId: row.contractor_id,
+      contractorName: row.contractor_name,
+      leaderId: row.leader_id,
+      leaderName: row.leader_name,
+      previousInstallerName: row.previous_installer_name || row.previous_installer,
+      newInstallerName: row.installer_name || row.assigned_installer,
+      installerName: row.installer_name || row.assigned_installer,
+      installerContact: row.installer_contact,
+      slotTime: row.slot_time,
+      appointmentDate: row.appointment_date,
+      sourceAction: row.source_action,
+      previousStatus: row.previous_status,
+      newStatus: row.new_status,
+      reason: row.reason,
+      notes: row.notes,
+      performedById: row.performed_by_id,
+      performedBy: row.performed_by,
+      performedByRole: row.performed_by_role,
+      timestamp: row.created_at,
+      createdAt: row.created_at
+    }));
+
+    return { success: true, data: list };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
+/**
  * Updates an existing coverage area in Supabase.
  */
 export async function updateCoverageAreaInSupabase(id: string, updates: any): Promise<SupabaseOpResult<any>> {

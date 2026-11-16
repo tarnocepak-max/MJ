@@ -186,7 +186,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
       .filter(item => item.unread > 0)
       .slice(0, 5);
     const pendingApprovalTickets = canCrossDateSearch
-      ? pool.filter(t => t.progressReport?.approvalStatus === 'pending_approval').slice(0, 5)
+      ? pool
+          .filter(
+            t =>
+              t.approvalStatus === 'BUTUH APPROVAL' ||
+              t.progressReports?.some(r => r.approvalStatus === 'BUTUH APPROVAL')
+          )
+          .slice(0, 5)
       : [];
     const totalCount = unreadTickets.length + pendingApprovalTickets.length + (pendingCount > 0 ? 1 : 0);
     return { unreadTickets, pendingApprovalTickets, totalCount };
@@ -560,10 +566,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             onClick={() => setIsOfflineModalOpen(true)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               !isOnline
-                ? 'bg-[#FEF3C7] border-[#F59E0B]/30 text-[#B45309] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
+                ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#B45309] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
                 : pendingCount > 0
-                ? 'bg-[#EFF6FF] border-[#3977C9]/30 text-[#3977C9] dark:bg-blue-950/60 dark:border-blue-800 dark:text-blue-300'
-                : 'bg-[#ECFDF5] border-[#16A36A]/20 text-[#15803D] dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300'
+                ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#92400E] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
+                : 'bg-[#ECFDF5] border-[#16A36A]/25 text-[#16A36A] dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300'
             }`}
             title="Pusat Sinkronisasi Database Offline"
           >

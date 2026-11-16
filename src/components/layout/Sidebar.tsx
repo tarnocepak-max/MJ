@@ -388,7 +388,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => handleItemClick(item.id)}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#7135B5] text-white font-bold shadow-sm'
+                      ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-[0_0_16px_rgba(216,180,254,0.22)] ring-1 ring-[#D8B4FE]/50 border-l-2 border-[#D8B4FE]'
                       : 'text-[#CEC0E8] font-medium hover:bg-[#35105E] hover:text-white'
                   }`}
                 >
@@ -475,7 +475,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               onClick={() => handleItemClick(item.id)}
                               className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                                 isActive
-                                  ? 'bg-[#7135B5] text-white font-bold shadow-sm'
+                                  ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-[0_0_14px_rgba(216,180,254,0.2)] ring-1 ring-[#D8B4FE]/45 border-l-2 border-[#D8B4FE]'
                                   : item.highlight
                                   ? 'text-[#E9D5FF] bg-[#35105E]/50 hover:bg-[#35105E] hover:text-white font-medium'
                                   : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white font-normal'

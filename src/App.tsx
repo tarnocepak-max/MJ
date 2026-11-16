@@ -861,11 +861,11 @@ const MainLayout: React.FC = () => {
           <main
             className={`flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 ${
               isInstaller
-                ? 'pb-28 sm:pb-24 w-full'
+                ? 'pb-28 w-full'
                 : currentUser.role === 'leader'
-                ? 'pb-24 sm:pb-20'
+                ? 'pb-28 sm:pb-24'
                 : isMobileView && config.device?.android?.showBottomNavigation !== false
-                ? 'pb-24'
+                ? 'pb-28'
                 : ''
             }`}
           >
@@ -873,7 +873,7 @@ const MainLayout: React.FC = () => {
               className={
                 isInstaller || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
                   ? 'w-full'
-                  : 'max-w-[1440px] mx-auto'
+                  : 'max-w-7xl mx-auto'
               }
             >
               {renderContent()}

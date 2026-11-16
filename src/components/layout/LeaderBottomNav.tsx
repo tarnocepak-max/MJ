@@ -63,7 +63,7 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
   return (
     <nav
       aria-label="Navigasi Utama Leader"
-      className="fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-[#1A0E2E] border-t border-[#E9E1F0] dark:border-purple-900/60 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom,0px)] transition-colors"
+      className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-t border-[#E9E5F0] dark:border-[#35105E] shadow-[0_-4px_20px_rgba(27,18,48,0.06)] pb-[env(safe-area-inset-bottom,0px)] transition-colors"
     >
       <div className="max-w-5xl mx-auto grid grid-cols-5 items-center">
         {tabs.map((tab) => {
@@ -77,30 +77,30 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
               onClick={() => onTabChange(tab.id)}
               className={`relative flex flex-col items-center justify-center py-2 px-1 sm:px-2 min-h-[58px] transition-all cursor-pointer group select-none ${
                 isActive
-                  ? 'text-[#6F35A5] dark:text-[#C084FC]'
-                  : 'text-[#8B8495] dark:text-slate-400 hover:text-[#6F35A5] dark:hover:text-purple-300'
+                  ? 'text-[#431599] dark:text-[#D8B4FE]'
+                  : 'text-[#766B83] dark:text-[#CEC0E8]/75 hover:text-[#431599] dark:hover:text-[#D8B4FE]'
               }`}
             >
               {/* Active Indicator Bar on top */}
               {isActive && (
-                <div className="absolute top-0 inset-x-3 sm:inset-x-6 h-1 bg-[#8B4BC1] dark:bg-[#A855F7] rounded-b-full shadow-[0_0_10px_rgba(139,75,193,0.45)]" />
+                <div className="absolute top-0 inset-x-3 sm:inset-x-6 h-[3px] bg-[#431599] dark:bg-[#A78BFA] rounded-b-full shadow-[0_0_10px_rgba(216,180,254,0.65)]" />
               )}
 
               {/* Icon Container with subtle background badge */}
               <div
                 className={`relative p-1.5 rounded-xl transition-all ${
                   isActive
-                    ? 'bg-[#F3EDFA] dark:bg-[#2A1647] text-[#6F35A5] dark:text-[#C084FC] scale-105 shadow-xs'
-                    : 'text-[#8B8495] dark:text-slate-400 group-hover:scale-105 group-hover:text-[#6F35A5] dark:group-hover:text-purple-300'
+                    ? 'bg-[#F5F1FF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] scale-105 shadow-xs'
+                    : 'text-[#766B83] dark:text-[#CEC0E8]/75 group-hover:scale-105 group-hover:text-[#431599] dark:group-hover:text-[#D8B4FE]'
                 }`}
               >
-                <Icon className={`w-5 h-5 sm:w-5.5 sm:h-5.5 ${isActive ? 'text-[#6F35A5] dark:text-[#C084FC]' : 'text-[#8B8495] dark:text-slate-400'}`} />
+                <Icon className={`w-5 h-5 sm:w-5.5 sm:h-5.5 ${isActive ? 'text-[#431599] dark:text-[#D8B4FE]' : 'text-[#766B83] dark:text-[#CEC0E8]/75'}`} />
 
                 {/* Badge Indicator */}
                 {tab.badge !== undefined && (
                   <span
-                    className={`absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full text-[9px] font-mono leading-tight shadow-xs ${
-                      tab.badgeColor || 'bg-[#6F35A5] text-white'
+                    className={`absolute -top-1.5 -right-2 px-1.5 py-0.2 rounded-full text-[9px] font-mono leading-tight shadow-xs tabular-nums ${
+                      tab.badgeColor || 'bg-[#431599] text-white'
                     }`}
                   >
                     {typeof tab.badge === 'number' && tab.badge > 99 ? '99+' : tab.badge}
@@ -110,10 +110,10 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
 
               {/* Label */}
               <span
-                className={`text-[10px] sm:text-[11px] font-bold tracking-tight text-center mt-1 leading-tight line-clamp-1 uppercase ${
+                className={`text-[10px] sm:text-[10.5px] font-bold tracking-tight text-center mt-1 leading-tight line-clamp-1 uppercase ${
                   isActive
-                    ? 'text-[#6F35A5] dark:text-[#C084FC] font-extrabold'
-                    : 'text-[#8B8495] dark:text-slate-400'
+                    ? 'text-[#431599] dark:text-[#D8B4FE] font-extrabold'
+                    : 'text-[#766B83] dark:text-[#CEC0E8]/75'
                 }`}
               >
                 <span className="hidden sm:inline">{tab.label}</span>

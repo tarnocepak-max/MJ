@@ -72,6 +72,7 @@ import {
   insertSystemErrorLogToSupabase,
   insertAssignmentHistoryToSupabase,
   getAssignmentHistoryFromSupabase,
+  getRecentAssignmentFeedFromSupabase,
   updateCoverageAreaInSupabase,
   deleteCoverageAreaInSupabase,
   deleteContractorInSupabase,
@@ -10773,6 +10774,334 @@ export async function createExpressApp(options?: {
         success: false,
         error: err?.message || 'Gagal memproses tindakan SLA.'
       });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // LEADER QUOTA POLICY, BULK REASSIGN & SCOPED ASSIGNMENT FEED
+  // ---------------------------------------------------------------------------
+  const normalizeLeaderQuotaKey = (contractorName?: string): string => {
+    const raw = String(contractorName || 'default')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const slug = (raw || 'default').slice(0, 42);
+    return `leader_quota_config_${slug}`;
+  };
+
+  const normalizeLeaderQuotaPayload = (raw: any, contractorName: string) => {
+    const defMax = Number(raw?.defaultMaxDailyQuota);
+    const defaultMaxDailyQuota = Number.isFinite(defMax) ? Math.min(Math.max(Math.round(defMax), 1), 12) : 4;
+    const enforceStrictLimit = typeof raw?.enforceStrictLimit === 'boolean' ? raw.enforceStrictLimit : true;
+    const customRaw = raw?.customInstallerLimits && typeof raw.customInstallerLimits === 'object' ? raw.customInstallerLimits : {};
+    const customInstallerLimits: Record<string, number> = {};
+    for (const [k, v] of Object.entries(customRaw)) {
+      const cleanName = String(k || '').trim();
+      const numVal = Number(v);
+      if (cleanName && Number.isFinite(numVal) && numVal >= 1 && numVal <= 12) {
+        customInstallerLimits[cleanName] = Math.round(numVal);
+      }
+    }
+    return {
+      contractorName: contractorName || String(raw?.contractorName || 'Mitra Lapangan'),
+      defaultMaxDailyQuota,
+      enforceStrictLimit,
+      customInstallerLimits
+    };
+  };
+
+  app.get('/api/leader/quota-config', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch', 'management_data', 'it_support']);
+      if (!allowedRoles.has(user.role)) {
+        return res.status(403).json({ success: false, error: 'Akses Ditolak.', code: 'FORBIDDEN' });
+      }
+      const requestedContractor = String(req.query.contractor || '').trim();
+      const targetContractor = user.role === 'leader'
+        ? (user.contractor || requestedContractor || 'default')
+        : (requestedContractor || user.contractor || 'default');
+      const settingKey = normalizeLeaderQuotaKey(targetContractor);
+
+      const readRes = await readGlobalConfigUnified(settingKey);
+      if (!readRes.success) {
+        return res.status(readRes.status || 503).json({
+          success: false,
+          error: readRes.message || 'Gagal membaca konfigurasi kuota teknisi.',
+          code: readRes.code || 'DATABASE_UNAVAILABLE'
+        });
+      }
+
+      const config = normalizeLeaderQuotaPayload(readRes.value, targetContractor);
+      return res.json({
+        success: true,
+        key: settingKey,
+        config: {
+          ...config,
+          updatedBy: readRes.updatedBy || undefined,
+          updatedAt: readRes.updatedAt || undefined
+        },
+        version: readRes.version || 0,
+        isPersistedInDb: Boolean(readRes.value)
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat konfigurasi kuota.' });
+    }
+  });
+
+  app.put('/api/leader/quota-config', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const body = req.body || {};
+      const requestedContractor = String(body.contractorName || '').trim();
+      if (requestedContractor && user.contractor && !isContractorMatch(requestedContractor, user.contractor)) {
+        return res.status(403).json({
+          success: false,
+          error: `Akses Ditolak: Anda hanya berwenang mengubah batas kuota untuk kontraktor ${user.contractor}.`,
+          code: 'SCOPE_MISMATCH'
+        });
+      }
+
+      const targetContractor = user.contractor || requestedContractor || 'default';
+      const settingKey = normalizeLeaderQuotaKey(targetContractor);
+      const normalized = {
+        ...normalizeLeaderQuotaPayload(body, targetContractor),
+        updatedBy: user.name,
+        updatedAt: new Date().toISOString()
+      };
+
+      const saveRes = await saveGlobalConfigUnified(settingKey, normalized, user, {
+        forceOverwrite: true,
+        description: `Konfigurasi Kuota Harian Teknisi (${targetContractor})`,
+        module: 'leader_quota_config',
+        notes: `Default ${normalized.defaultMaxDailyQuota} WO/hari, Strict=${normalized.enforceStrictLimit}`
+      });
+
+      if (!saveRes.success) {
+        return res.status(saveRes.status || 500).json({
+          success: false,
+          error: saveRes.message || 'Gagal menyimpan konfigurasi kuota teknisi ke database.',
+          code: saveRes.code || 'DB_WRITE_ERROR'
+        });
+      }
+
+      await logServerAuditAsync(
+        'Leader Quota Policy Updated',
+        'app_settings',
+        settingKey,
+        `Leader ${user.name} (${targetContractor}) memperbarui kuota harian: default=${normalized.defaultMaxDailyQuota}, strict=${normalized.enforceStrictLimit}, custom=${Object.keys(normalized.customInstallerLimits).length} teknisi`,
+        user,
+        { newState: normalized }
+      );
+
+      return res.json({
+        success: true,
+        key: settingKey,
+        config: normalized,
+        version: saveRes.data?.version || 1,
+        updatedAt: saveRes.data?.updatedAt || normalized.updatedAt,
+        updatedBy: saveRes.data?.updatedBy || user.name
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal menyimpan konfigurasi kuota.' });
+    }
+  });
+
+  app.post('/api/tickets/bulk-reassign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    const { ticketIds, newInstallerName, newInstallerId, reason } = req.body || {};
+
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'Daftar ID Work Order wajib dipilih minimal 1 tiket.', code: 'INVALID_ID' });
+    }
+    if (!newInstallerName || !String(newInstallerName).trim()) {
+      return res.status(400).json({ success: false, error: 'Teknisi tujuan baru wajib dipilih.', code: 'INVALID_INPUT' });
+    }
+    if (!reason || String(reason).trim().length < 5) {
+      return res.status(400).json({ success: false, error: 'Alasan bulk reassign wajib diisi minimal 5 karakter untuk keperluan audit.', code: 'INVALID_REASON' });
+    }
+    if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Database authoritative Supabase tidak tersedia.',
+        code: 'DATABASE_UNAVAILABLE'
+      });
+    }
+
+    const cleanReason = String(reason).trim();
+    const cleanTargetName = String(newInstallerName).trim();
+    const now = new Date().toISOString();
+    const reassigned: any[] = [];
+    const failed: Array<{ id: string; error: string; code?: string }> = [];
+
+    if (isSupabaseMode()) {
+      for (const rawId of ticketIds) {
+        const key = String(rawId || '').trim();
+        if (!key) continue;
+        const r = await reassignTicketInSupabase({
+          workOrderIdOrWoNumber: key,
+          newInstallerName: cleanTargetName,
+          newInstallerId: newInstallerId ? String(newInstallerId).trim() : undefined,
+          reason: cleanReason,
+          contractorName: user.contractor,
+          performedBy: user.name,
+          performedByRole: user.role,
+          performedById: user.id,
+          userContractor: user.contractorId || user.contractor,
+          userArea: user.area,
+          userRole: user.role
+        });
+        if (r.success && r.data) {
+          reassigned.push({
+            workOrder: r.data.workOrder,
+            historyEntry: r.data.history
+          });
+        } else {
+          failed.push({
+            id: key,
+            error: r.error?.message || 'Gagal mereassign Work Order.',
+            code: r.error?.code
+          });
+        }
+      }
+    } else if (isLocalJsonModeAllowed()) {
+      const targetInstaller = db.users.find(
+        u => u.role === 'installer' && !u.isDeleted && u.active !== false && u.name.trim().toLowerCase() === cleanTargetName.toLowerCase()
+      );
+      if (!targetInstaller || !isLeaderAllowedToManageInstaller(user, targetInstaller)) {
+        return res.status(403).json({
+          success: false,
+          error: `Teknisi "${cleanTargetName}" tidak aktif atau di luar cakupan Contractor Anda.`,
+          code: 'SCOPE_MISMATCH'
+        });
+      }
+      for (const rawId of ticketIds) {
+        const key = String(rawId || '').trim();
+        const ticket = db.tickets.find(t => t.id === key || t.woNumber === key);
+        if (!ticket) {
+          failed.push({ id: key, error: 'Work Order tidak ditemukan.', code: 'NOT_FOUND' });
+          continue;
+        }
+        if (!checkTicketAccess(ticket, user)) {
+          failed.push({ id: key, error: 'Di luar cakupan Contractor/Area Leader.', code: 'SCOPE_MISMATCH' });
+          continue;
+        }
+        const prevInstallerSnapshot = ticket.installerName || 'Unassigned';
+        const prevStatusSnapshot = ticket.statusWOInstaller || 'Assigned';
+        const preservedStatus = ticket.checkInAt ? ticket.statusWOInstaller : 'Assigned';
+
+        ticket.installerName = targetInstaller.name;
+        ticket.installerId = targetInstaller.id;
+        ticket.installerUid = targetInstaller.id;
+        ticket.assignedTo = targetInstaller.name;
+        ticket.assignedToUid = targetInstaller.id;
+        ticket.statusWOInstaller = preservedStatus;
+        ticket.updatedAt = now;
+        ticket.updatedBy = user.name;
+
+        const histEntry = {
+          id: 'hist_reassign_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          woNumber: ticket.woNumber,
+          ticketId: ticket.id,
+          previousInstallerName: prevInstallerSnapshot,
+          newInstallerName: targetInstaller.name,
+          newInstallerId: targetInstaller.id,
+          leaderName: user.name,
+          leaderId: user.id,
+          contractorName: user.contractor || 'Mitra Lapangan',
+          timestamp: now,
+          reason: cleanReason,
+          previousStatus: prevStatusSnapshot,
+          newStatus: preservedStatus,
+          sourceAction: 'reassign'
+        };
+        db.assignmentHistory.unshift(histEntry);
+        reassigned.push({ workOrder: ticket, historyEntry: histEntry });
+      }
+      saveDatabaseToDisk();
+    }
+
+    if (reassigned.length > 0) {
+      const woLabels = reassigned.map(item => item.workOrder?.woNumber || item.workOrder?.id).join(', ');
+      await logServerAuditAsync(
+        'Bulk WO Reassigned by Leader',
+        'assignment',
+        woLabels.slice(0, 120),
+        `Leader ${user.name} melakukan Bulk Reassign ${reassigned.length} WO ke teknisi ${cleanTargetName}. Alasan: ${cleanReason}`,
+        user
+      );
+      broadcastSupabaseChange('work_orders', 'UPDATE', {
+        action: 'BULK_REASSIGN',
+        count: reassigned.length,
+        installerName: cleanTargetName
+      });
+    }
+
+    if (reassigned.length === 0 && failed.length > 0) {
+      const hasScope = failed.some(f => f.code === 'SCOPE_MISMATCH');
+      return res.status(hasScope ? 403 : 400).json({
+        success: false,
+        error: failed[0].error || 'Seluruh proses Bulk Reassign gagal.',
+        code: failed[0].code || 'BULK_REASSIGN_FAILED',
+        reassigned,
+        failed
+      });
+    }
+
+    return res.json({
+      success: true,
+      count: reassigned.length,
+      reassigned,
+      failed,
+      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${cleanTargetName}${failed.length > 0 ? ` (${failed.length} gagal)` : ''}.`
+    });
+  });
+
+  app.get('/api/leader/assignment-feed', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch', 'management_data', 'it_support']);
+      if (!allowedRoles.has(user.role)) {
+        return res.status(403).json({ success: false, error: 'Akses Ditolak.', code: 'FORBIDDEN' });
+      }
+      const requestedContractor = String(req.query.contractor || '').trim();
+      const targetContractor = user.role === 'leader' ? (user.contractor || '') : requestedContractor;
+      const actionFilter = String(req.query.action || '').trim();
+      const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 150);
+
+      if (isSupabaseMode()) {
+        const feedRes = await getRecentAssignmentFeedFromSupabase({
+          contractorName: targetContractor || undefined,
+          actionFilter: actionFilter || undefined,
+          limit
+        });
+        if (feedRes.success && feedRes.data) {
+          return res.json({ success: true, feed: feedRes.data });
+        }
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(feedRes.error?.isUnavailable ? 503 : 500).json({
+            success: false,
+            error: feedRes.error?.message || 'Gagal mengambil feed audit penugasan.',
+            code: feedRes.error?.code || 'DATABASE_UNAVAILABLE'
+          });
+        }
+      }
+
+      if (isLocalJsonModeAllowed()) {
+        const localFeed = (db.assignmentHistory || [])
+          .filter(h => {
+            if (targetContractor && h.contractorName && !isContractorMatch(h.contractorName, targetContractor)) return false;
+            if (actionFilter && !String(h.sourceAction || '').toLowerCase().includes(actionFilter.toLowerCase())) return false;
+            return true;
+          })
+          .slice(0, limit);
+        return res.json({ success: true, feed: localFeed });
+      }
+
+      return res.status(503).json({ success: false, error: 'Database tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat audit trail reassign.' });
     }
   });
 

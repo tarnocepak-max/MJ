@@ -80,6 +80,27 @@ import { InstallerDetailModal } from './InstallerDetailModal';
 import { UploadAssignModal } from './UploadAssignModal';
 import { LeaderProgressDashboardView } from './LeaderProgressDashboardView';
 import { ContractorAreaRecapView } from '../reports/ContractorAreaRecapView';
+import {
+  DailyLimitSettingsModal,
+  BulkReassignModal,
+  AssignmentAuditTrailModal
+} from './LeaderQuotaModals';
+import { LeaderQuotaSidebar } from './LeaderQuotaSidebar';
+import { LeaderAssignMatrixPanel } from './LeaderAssignMatrixPanel';
+import {
+  fetchLeaderQuotaConfig,
+  saveLeaderQuotaConfig,
+  fetchLeaderAssignmentFeed,
+  executeBulkReassignApi,
+  buildTechnicianCapacitySummaries,
+  computeAutoBalancePlan,
+  normalizeSlotIndex,
+  normalizeQuotaKeySlug,
+  DEFAULT_LEADER_QUOTA_CONFIG,
+  LeaderQuotaConfig,
+  AssignmentFeedEntry
+} from '../../services/leaderQuotaService';
+import { supabaseDb } from '../../services/supabaseDb';
 
 interface LeaderPortalProps {
   onSelectTicket: (ticket: Ticket) => void;
@@ -88,16 +109,10 @@ interface LeaderPortalProps {
   onLeaderTabChange?: (tab: 'dashboard' | 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap') => void;
 }
 
-interface QuotaSettings {
-  defaultMaxDailyQuota: number;
-  enforceStrictLimit: boolean;
-  customInstallerLimits: Record<string, number>;
-}
+type QuotaSettings = LeaderQuotaConfig;
 
 const DEFAULT_QUOTA_SETTINGS: QuotaSettings = {
-  defaultMaxDailyQuota: 4,
-  enforceStrictLimit: true,
-  customInstallerLimits: {}
+  ...DEFAULT_LEADER_QUOTA_CONFIG
 };
 
 export type LeaderStatusFilter =
@@ -130,7 +145,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     auditLogs,
     toast,
     contractorsList,
-    areasList
+    areasList,
+    databaseStatus,
+    syncStatus,
+    refreshActiveTickets
   } = useApp();
 
   // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
@@ -189,23 +207,105 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return na === nb || na.includes(nb) || nb.includes(na);
   };
 
-  // Persistent Quota Settings
+  // Persistent Quota Settings (Backend Express + Supabase PostgreSQL `app_settings`)
   const QUOTA_STORAGE_KEY = `morajaws_leader_quota_${(leaderContractor || 'default').replace(/\s+/g, '_').toLowerCase()}`;
   const [quotaSettings, setQuotaSettings] = useState<QuotaSettings>(() => {
     try {
       const saved = localStorage.getItem(QUOTA_STORAGE_KEY);
-      if (saved) return { ...DEFAULT_QUOTA_SETTINGS, ...JSON.parse(saved) };
-    } catch (e) {}
-    return DEFAULT_QUOTA_SETTINGS;
+      if (saved) return { ...DEFAULT_QUOTA_SETTINGS, ...JSON.parse(saved), contractorName: displayContractor };
+    } catch {}
+    return { ...DEFAULT_QUOTA_SETTINGS, contractorName: displayContractor };
   });
+  const [isSavingQuota, setIsSavingQuota] = useState(false);
+  const [quotaApiLatencyMs, setQuotaApiLatencyMs] = useState<number | null>(null);
+  const [assignmentFeed, setAssignmentFeed] = useState<AssignmentFeedEntry[]>([]);
 
-  const saveQuotaSettings = (updates: Partial<QuotaSettings>) => {
-    const next = { ...quotaSettings, ...updates };
+  // Load persisted quota configuration and recent reassign feed from backend
+  useEffect(() => {
+    let active = true;
+    const contractorScope = leaderContractor || displayContractor;
+    fetchLeaderQuotaConfig(contractorScope).then(res => {
+      if (!active) return;
+      if (typeof res.latencyMs === 'number') setQuotaApiLatencyMs(res.latencyMs);
+      if (res.success && res.config) {
+        setQuotaSettings(res.config);
+        try {
+          localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(res.config));
+        } catch {}
+      }
+    }).catch(() => {});
+
+    fetchLeaderAssignmentFeed({ contractor: contractorScope, action: 'reassign', limit: 35 }).then(res => {
+      if (!active) return;
+      if (res.success) {
+        setAssignmentFeed(res.feed);
+      }
+    }).catch(() => {});
+
+    // Subscribe to realtime app_settings updates for this contractor's quota key
+    const targetKey = normalizeQuotaKeySlug(contractorScope);
+    const unsubQuota = supabaseDb.subscribeToChanges({
+      table: 'app_settings',
+      onPayload: (payload: any) => {
+        if (!active || !payload) return;
+        const evtKey = payload?.record?.key ?? payload?.key;
+        const evtVal = payload?.record?.value ?? payload?.value;
+        if (evtKey === targetKey && evtVal && typeof evtVal === 'object') {
+          setQuotaSettings(prev => ({
+            ...prev,
+            ...evtVal,
+            customInstallerLimits: { ...(evtVal.customInstallerLimits || {}) }
+          }));
+        }
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubQuota();
+    };
+  }, [leaderContractor, displayContractor, QUOTA_STORAGE_KEY]);
+
+  const reloadAssignmentFeed = async () => {
+    const contractorScope = leaderContractor || displayContractor;
+    const res = await fetchLeaderAssignmentFeed({ contractor: contractorScope, action: 'reassign', limit: 35 }).catch(() => ({
+      success: false,
+      feed: []
+    }));
+    if (res.success) {
+      setAssignmentFeed(res.feed);
+    }
+  };
+
+  const saveQuotaSettings = async (updates: Partial<QuotaSettings>) => {
+    if (!isLeaderRole) {
+      toast.error('Akses Ditolak: Hanya akun Leader yang dapat mengubah batas kuota teknisi.', 'Otoritas Dibatasi');
+      return;
+    }
+    const next: QuotaSettings = {
+      ...quotaSettings,
+      ...updates,
+      contractorName: leaderContractor || displayContractor
+    };
+    const prevSnapshot = quotaSettings;
     setQuotaSettings(next);
+    setIsSavingQuota(true);
     try {
       localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(next));
-    } catch (e) {}
-    triggerNotice('success', 'Pengaturan batas kuota teknisi berhasil disimpan!');
+    } catch {}
+
+    const saveRes = await saveLeaderQuotaConfig(next);
+    setIsSavingQuota(false);
+    if (!saveRes.success) {
+      setQuotaSettings(prevSnapshot);
+      triggerNotice('error', saveRes.error || 'Gagal menyimpan pengaturan kuota ke database.');
+      toast.error(saveRes.error || 'Gagal menyimpan pengaturan kuota ke database.', 'Gagal Menyimpan');
+      return;
+    }
+    if (saveRes.config) {
+      setQuotaSettings(saveRes.config);
+    }
+    triggerNotice('success', 'Pengaturan batas kuota teknisi berhasil disimpan ke database!');
     toast.success('Pengaturan batas kuota penugasan teknisi berhasil disimpan.', 'Kuota Diperbarui');
   };
 
@@ -263,6 +363,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [statusFilter, setStatusFilter] = useState<LeaderStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
+  const [slotFilter, setSlotFilter] = useState<string>('ALL');
+  const [clusterFilter, setClusterFilter] = useState<string>('ALL');
+  const [matrixViewMode, setMatrixViewMode] = useState<'cards' | 'table'>('cards');
+  const [bulkQuickInstaller, setBulkQuickInstaller] = useState<string>('');
   
   // Date Filter for Assign WO (Strict Asia/Jakarta Appointment Date === todayWIB, auto-resets at 00:00 WIB)
   const [dateFilterType, setDateFilterTypeState] = useState<'today'>('today');
@@ -282,8 +386,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   }, [todayWIB]);
 
-  // Pagination & Rows per page
-  const [rowsPerPage, setRowsPerPage] = useState<number>(25);
+  // Pagination & Rows per page (6 default for Stitch card matrix clarity)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(6);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Selected WOs for bulk operations
@@ -296,6 +400,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [selectedInstallerForDetail, setSelectedInstallerForDetail] = useState<User | null>(null);
   const [isUploadAssignModalOpen, setIsUploadAssignModalOpen] = useState(false);
   const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
+  const [isDailyLimitModalOpen, setIsDailyLimitModalOpen] = useState(false);
+  const [isBulkReassignModalOpen, setIsBulkReassignModalOpen] = useState(false);
+  const [isSubmittingBulkReassign, setIsSubmittingBulkReassign] = useState(false);
+  const [isAuditTrailModalOpen, setIsAuditTrailModalOpen] = useState(false);
   const [bulkTargetInstaller, setBulkTargetInstaller] = useState<string>('');
   const [bulkSlotTime, setBulkSlotTime] = useState<string>('');
 
@@ -388,6 +496,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         isSubmitting: false,
         step: 'form'
       });
+      setTimeout(() => {
+        reloadAssignmentFeed().catch(() => {});
+      }, 450);
     }
   };
 
@@ -600,6 +711,94 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     });
   }, [myInstallers, contractorTickets, quotaSettings, todayWIB]);
 
+  const todayContractorTickets = useMemo(() => {
+    return contractorTickets.filter(t => getTicketAppointmentDate(t) === todayWIB);
+  }, [contractorTickets, todayWIB]);
+
+  const clusterOptions = useMemo(() => {
+    const set = new Set<string>();
+    todayContractorTickets.forEach(t => {
+      const c = String(t.clusterName || t.area || '').trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [todayContractorTickets]);
+
+  const technicianSummaries = useMemo(() => {
+    return buildTechnicianCapacitySummaries({
+      installers: myInstallers,
+      todayTickets: todayContractorTickets,
+      quotaConfig: quotaSettings,
+      targetDate: todayWIB
+    });
+  }, [myInstallers, todayContractorTickets, quotaSettings, todayWIB]);
+
+  const totalMaxSlots = useMemo(() => {
+    if (technicianSummaries.length === 0) return 0;
+    return technicianSummaries.reduce((acc, item) => acc + item.maxLimit, 0);
+  }, [technicianSummaries]);
+
+  const quotaUtilizationPct = useMemo(() => {
+    if (totalMaxSlots <= 0) return 0;
+    return Math.min(100, Math.round((summaryMetrics.assigned / totalMaxSlots) * 1000) / 10);
+  }, [summaryMetrics.assigned, totalMaxSlots]);
+
+  const assignedTechnicianCount = useMemo(() => {
+    return technicianSummaries.filter(item => item.assignedCount > 0).length;
+  }, [technicianSummaries]);
+
+  const avgAssignSlaMinutes = useMemo(() => {
+    const diffs: number[] = [];
+    todayContractorTickets.forEach(t => {
+      if (!t.installerName) return;
+      const startIso = t.importedAt || t.createdAt;
+      const endIso = t.reassignedAt || t.updatedAt;
+      if (!startIso || !endIso) return;
+      const startMs = new Date(startIso).getTime();
+      const endMs = new Date(endIso).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return;
+      const mins = Math.round((endMs - startMs) / 60000);
+      if (mins >= 0 && mins <= 720) {
+        diffs.push(mins);
+      }
+    });
+    if (diffs.length === 0) return 0;
+    return Math.max(1, Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length));
+  }, [todayContractorTickets]);
+
+  const mergedAuditFeed = useMemo(() => {
+    const seen = new Set<string>();
+    const list: AssignmentFeedEntry[] = [];
+    const pushItem = (item: AssignmentFeedEntry) => {
+      const key = `${item.woNumber}|${item.newInstallerName || item.installerName}|${item.timestamp || item.createdAt}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      list.push(item);
+    };
+    assignmentFeed.forEach(pushItem);
+    contractorTickets.forEach(t => {
+      (t.assignmentHistory || []).forEach(h => {
+        if (h.sourceAction === 'reassign' || h.previousInstaller || h.previousInstallerName) {
+          const targetInstaller = h.newInstallerName || h.assignedInstaller || '-';
+          pushItem({
+            id: h.id || `${t.id}_${h.timestamp}`,
+            ticketId: t.id,
+            woNumber: t.woNumber,
+            previousInstallerName: h.previousInstallerName || h.previousInstaller || 'Teknisi Sebelumnya',
+            newInstallerName: targetInstaller,
+            installerName: targetInstaller,
+            reason: h.reason,
+            performedBy: h.performedBy || h.leaderName,
+            performedByRole: h.performedByRole,
+            timestamp: h.timestamp,
+            sourceAction: 'reassign'
+          });
+        }
+      });
+    });
+    return list.sort((a, b) => new Date(b.timestamp || b.createdAt || 0).getTime() - new Date(a.timestamp || a.createdAt || 0).getTime());
+  }, [assignmentFeed, contractorTickets]);
+
   // FILTERED WORK ORDERS FOR DETAIL TABLE (Section 6, 7 & 8)
   const filteredTickets = useMemo(() => {
     return contractorTickets.filter(t => {
@@ -619,6 +818,18 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         if ((t.installerName || '').toLowerCase().trim() !== selectedInstallerFilter.toLowerCase().trim()) {
           return false;
         }
+      }
+
+      // Slot filter
+      if (slotFilter !== 'ALL') {
+        const idx = normalizeSlotIndex(t.slotTime);
+        if (String(idx || '') !== slotFilter) return false;
+      }
+
+      // Sub-Cluster filter
+      if (clusterFilter !== 'ALL') {
+        const cName = String(t.clusterName || t.area || '').trim();
+        if (cName.toLowerCase() !== clusterFilter.toLowerCase()) return false;
       }
 
       // Strict Asia/Jakarta Appointment Date === todayWIB (Auto-resets at 00:00 WIB)
@@ -648,6 +859,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     contractorTickets,
     statusFilter,
     selectedInstallerFilter,
+    slotFilter,
+    clusterFilter,
     todayWIB,
     searchQuery
   ]);
@@ -893,6 +1106,136 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         }
       }
     }
+  };
+
+  // Inline Matrix Bulk Quick Assign
+  const handleExecuteBulkQuickAssign = () => {
+    if (!isLeaderRole) {
+      toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO.', 'Akses Ditolak');
+      return;
+    }
+    if (!bulkQuickInstaller) {
+      toast.warning('Pilih teknisi tujuan dari dropdown terlebih dahulu.', 'Pilih Teknisi');
+      return;
+    }
+    if (selectedTicketIds.length === 0) {
+      toast.warning('Centang minimal 1 Work Order yang ingin ditugaskan.', 'Pilih Work Order');
+      return;
+    }
+
+    const tech = technicianSummaries.find(s => s.installer.name === bulkQuickInstaller);
+    if (tech && quotaSettings.enforceStrictLimit && tech.assignedCount + selectedTicketIds.length > tech.maxLimit) {
+      toast.error(
+        `Kuota Tidak Mencukupi: ${bulkQuickInstaller} hanya memiliki ${tech.remainingSlots} slot kosong (${tech.assignedCount}/${tech.maxLimit}).`,
+        'Batas Kuota Ketat'
+      );
+      return;
+    }
+
+    const res = bulkAssignPersonnel(selectedTicketIds, currentUser.name, bulkQuickInstaller);
+    if (res.success) {
+      setSelectedTicketIds([]);
+      setBulkQuickInstaller('');
+      triggerNotice('success', `Berhasil menugaskan ${res.count} Work Order ke ${bulkQuickInstaller}.`);
+    }
+  };
+
+  // Auto-Balance Slot Engine (Leader Only, Real Slot Matching + Quota Check)
+  const handleExecuteAutoBalance = () => {
+    if (!isLeaderRole) {
+      toast.error('Akses Ditolak: Hanya Leader yang berwenang menjalankan Auto-Balance Slot.', 'Akses Ditolak');
+      return;
+    }
+    const targetPool =
+      selectedTicketIds.length > 0
+        ? filteredTickets.filter(t => selectedTicketIds.includes(t.id) && !t.installerName)
+        : filteredTickets.filter(t => !t.installerName);
+
+    if (targetPool.length === 0) {
+      toast.info('Tidak ada Work Order Unassigned pada antrean filter aktif untuk diseimbangkan.', 'Antrean Kosong');
+      return;
+    }
+
+    const plan = computeAutoBalancePlan({
+      targetTickets: targetPool,
+      installers: myInstallers,
+      existingTodayTickets: todayContractorTickets,
+      quotaConfig: quotaSettings
+    });
+
+    if (plan.planned.length === 0) {
+      toast.warning(
+        plan.skipped[0]?.reason || 'Semua teknisi aktif dalam area sudah mencapai batas kuota harian.',
+        'Auto-Balance Tidak Tersedia'
+      );
+      return;
+    }
+
+    // Group planned tickets by chosen technician and dispatch through real bulkAssignPersonnel API
+    const grouped = new Map<string, string[]>();
+    plan.planned.forEach(item => {
+      const arr = grouped.get(item.installer.name) || [];
+      arr.push(item.ticket.id);
+      grouped.set(item.installer.name, arr);
+    });
+
+    let dispatched = 0;
+    grouped.forEach((ids, instName) => {
+      const r = bulkAssignPersonnel(ids, currentUser.name, instName);
+      if (r.success) dispatched += r.count;
+    });
+
+    setSelectedTicketIds([]);
+    const skippedNote = plan.skipped.length > 0 ? ` (${plan.skipped.length} WO dilewati karena kuota penuh)` : '';
+    triggerNotice('success', `Auto-Balance Slot selesai: ${dispatched} WO didistribusikan merata ke teknisi siaga${skippedNote}.`);
+    toast.success(`${dispatched} WO berhasil di-balance berdasarkan slot & sisa kuota${skippedNote}.`, 'Auto-Balance Slot');
+  };
+
+  // Direct Assign from Right Sidebar Technician Card
+  const handleDirectAssignToTechnician = (installer: User) => {
+    if (!isLeaderRole) return;
+    if (selectedTicketIds.length > 0) {
+      const res = bulkAssignPersonnel(selectedTicketIds, currentUser.name, installer.name);
+      if (res.success) {
+        setSelectedTicketIds([]);
+        triggerNotice('success', `${res.count} WO terpilih berhasil ditugaskan langsung ke ${installer.name}.`);
+      }
+      return;
+    }
+    const firstUnassigned = filteredTickets.find(t => !t.installerName) || todayContractorTickets.find(t => !t.installerName);
+    if (!firstUnassigned) {
+      toast.info('Tidak ada WO Unassigned yang tersedia untuk ditugaskan saat ini.', 'Semua Terjadwal');
+      return;
+    }
+    handleAssignTicket(firstUnassigned, installer.name, firstUnassigned.slotTime);
+  };
+
+  // Bulk Reassign Execution via POST /api/tickets/bulk-reassign
+  const handleExecuteBulkReassignModal = async (payload: {
+    ticketIds: string[];
+    targetInstaller: User;
+    reason: string;
+  }) => {
+    if (!isLeaderRole) return;
+    setIsSubmittingBulkReassign(true);
+    const res = await executeBulkReassignApi({
+      ticketIds: payload.ticketIds,
+      newInstallerName: payload.targetInstaller.name,
+      newInstallerId: payload.targetInstaller.id,
+      reason: payload.reason
+    });
+    setIsSubmittingBulkReassign(false);
+
+    if (!res.success) {
+      toast.error(res.error || 'Gagal menjalankan Bulk Reassign.', 'Bulk Reassign Gagal');
+      return;
+    }
+
+    setIsBulkReassignModalOpen(false);
+    setSelectedTicketIds([]);
+    await Promise.all([refreshActiveTickets(), reloadAssignmentFeed()]);
+    triggerNotice('success', res.message || `Berhasil mereassign ${res.count} WO ke ${payload.targetInstaller.name}.`);
+    toast.success(res.message || `Berhasil mereassign ${res.count} WO ke ${payload.targetInstaller.name}.`, 'Bulk Reassign Sukses');
   };
 
   // Export handlers (Copy, CSV, Excel, Print)
@@ -1596,118 +1939,389 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   };
 
+  const todayAppointmentDisplay = useMemo(() => {
+    try {
+      const [y, m, d] = String(todayWIB || '').split('-').map(Number);
+      if (y && m && d) {
+        return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          timeZone: 'UTC'
+        });
+      }
+    } catch {}
+    return todayWIB;
+  }, [todayWIB]);
+
+  const activeAssignedEligibleForReassign = useMemo(() => {
+    return todayContractorTickets.filter(
+      t =>
+        Boolean(t.installerName) &&
+        t.statusWOInstaller !== 'Completed' &&
+        t.statusWOInstaller !== 'Installed' &&
+        t.statusWOAgent !== 'Closed'
+    );
+  }, [todayContractorTickets]);
+
+  const realtimeBadgeLabel =
+    databaseStatus === 'connected' && syncStatus === 'SAVED'
+      ? `Realtime SSE Aktif${quotaApiLatencyMs ? ` (${quotaApiLatencyMs}ms)` : ''}`
+      : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
+      ? 'Sinkronisasi Database...'
+      : databaseStatus === 'offline'
+      ? 'Mode Offline'
+      : 'Menghubungkan SSE...';
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* ============================================================ */}
-      {/* 1. HEADER HALAMAN                                            */}
+      {/* 1. LEADER CONTEXT & OPERATIONAL HEADER (STITCH DESIGN)       */}
       {/* ============================================================ */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-md">
-              <Users2 className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Portal & Dashboard Leader
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                  {displayContractor}
-                </span>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  Area: {displayArea}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500 dark:text-slate-400">
-                <span>Koordinator: <strong className="text-slate-800 dark:text-slate-200">{currentUser.name}</strong></span>
-                <span>•</span>
-                <span className="font-mono text-[11px]">Terakhir diperbarui: {formatDisplayTime(lastRefreshedAt)}</span>
-              </div>
-            </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="text-[12px] font-medium text-[#766B83] flex items-center gap-1.5">
+            <span>MoraJaws</span>
+            <span>/</span>
+            <span>Contractor &amp; Area</span>
+            <span>/</span>
+            <span className="font-bold text-[#431599]">Assign WO &amp; Quota Management</span>
           </div>
 
-          {/* Top Header Refresh Action */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] text-xs font-semibold">
+              <Building2 className="w-3.5 h-3.5 text-[#5B35B1]" />
+              <span>{displayContractor}</span>
+            </span>
 
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] text-xs font-semibold">
+              <MapPin className="w-3.5 h-3.5 text-[#5B35B1]" />
+              <span>
+                {displayArea} ({clusterOptions.length || 1} Sub-Cluster)
+              </span>
+            </span>
+
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] text-xs font-semibold">
+              <UserCheck className="w-3.5 h-3.5 text-[#5B35B1]" />
+              <span>Korlap: {currentUser.name}</span>
+            </span>
+
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${
+                databaseStatus === 'connected'
+                  ? 'bg-[#DCFCE7] border-[#BBF7D0] text-[#15803D]'
+                  : 'bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  databaseStatus === 'connected' ? 'bg-[#16A36A] animate-pulse' : 'bg-[#E59A27]'
+                }`}
+              />
+              <span className="tabular-nums">{realtimeBadgeLabel}</span>
+            </span>
           </div>
         </div>
 
-        {/* Tab Navigation Ribbon for Leader */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 scrollbar-none">
+        {/* Top-Right Quick Action 2x2 Matrix */}
+        <div className="grid grid-cols-2 gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => setActiveTab('wo_assignment')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === 'wo_assignment'
-                ? 'bg-[#5B35B1] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
+            disabled={!isLeaderRole}
+            onClick={() => setIsUploadAssignModalOpen(true)}
+            title={isLeaderRole ? 'Upload Excel/CSV untuk penugasan massal' : 'Hanya Leader yang berwenang'}
+            className="px-3.5 py-2 rounded-xl bg-[#F5F1FF] hover:bg-[#EDE9FE] border border-[#D8CCF3] text-[#431599] font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <UserCheck className="w-4 h-4" />
-            <span>Assign Work Order</span>
+            <FileUp className="w-3.5 h-3.5" />
+            <span>Upload Assign (.xlsx)</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={!isLeaderRole}
+            onClick={() => setIsBulkReassignModalOpen(true)}
+            title={isLeaderRole ? 'Alihkan beberapa WO aktif ke teknisi lain' : 'Hanya Leader yang berwenang'}
+            className="px-3.5 py-2 rounded-xl bg-[#F5F1FF] hover:bg-[#EDE9FE] border border-[#D8CCF3] text-[#431599] font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>Bulk Reassign</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsDailyLimitModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#F7F6FA] border border-[#E9E5F0] text-[#211A2E] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Sliders className="w-3.5 h-3.5 text-[#5B35B1]" />
+            <span>Atur Limit Harian</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-3.5 py-2 rounded-xl bg-[#5B35B1] hover:bg-[#431599] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Matriks</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* 2. 6 KPI SUMMARY CARDS (REAL SCOPED DATA)                    */}
+      {/* ============================================================ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* KPI 1: Total WO Hari Ini */}
+        <div
+          onClick={() => {
+            setStatusFilter('all');
+            setActiveTab('wo_assignment');
+          }}
+          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#D8CCF3] transition-colors"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83]">
+              Total WO Hari Ini
+            </span>
+            <Calendar className="w-4 h-4 text-[#5B35B1] shrink-0" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span
+              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {summaryMetrics.total}
+            </span>
+            <span className="text-xs font-semibold text-[#766B83]">WO</span>
+          </div>
+          <div className="mt-1 text-[11px] text-[#766B83] tabular-nums">
+            Appointment: {todayAppointmentDisplay}
+          </div>
+        </div>
+
+        {/* KPI 2: Unassigned */}
+        <div
+          onClick={() => {
+            setStatusFilter('unassigned');
+            setActiveTab('wo_assignment');
+            setCurrentPage(1);
+          }}
+          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#FCD34D] transition-colors"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#E59A27]">
+              Unassigned
+            </span>
+            <AlertCircle className="w-4 h-4 text-[#E59A27] shrink-0" />
+          </div>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <span
+              className="text-2xl font-extrabold text-[#E59A27] tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {summaryMetrics.unassigned}
+            </span>
             {summaryMetrics.unassigned > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500 text-white font-black">
-                {summaryMetrics.unassigned}
+              <span className="px-2 py-0.5 rounded-md bg-[#FEF3C7] text-[#B45309] text-[10px] font-bold">
+                Butuh Dispatch
               </span>
             )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('progress_dashboard')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === 'progress_dashboard'
-                ? 'bg-[#5B35B1] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Dashboard Progress WO</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('installer_mgmt')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === 'installer_mgmt'
-                ? 'bg-[#5B35B1] text-white shadow-xs'
-                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-            }`}
-          >
-            <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Kelola & Tambah Teknisi</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-600 text-white font-bold">
-              {myInstallers.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('contractor_recap')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === 'contractor_recap'
-                ? 'bg-[#5B35B1] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Rekap Total WO</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('quota_settings')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeTab === 'quota_settings'
-                ? 'bg-[#5B35B1] text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>Pengaturan Kuota</span>
-          </button>
+          </div>
+          <div className="mt-1 text-[11px] text-[#766B83]">
+            Prioritas Slot 1 &amp; 2
+          </div>
         </div>
+
+        {/* KPI 3: Assigned Terjadwal */}
+        <div
+          onClick={() => {
+            setStatusFilter('assigned');
+            setActiveTab('wo_assignment');
+            setCurrentPage(1);
+          }}
+          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#BAE6FD] transition-colors"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#3977C9]">
+              Assigned Terjadwal
+            </span>
+            <CheckCircle2 className="w-4 h-4 text-[#3977C9] shrink-0" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span
+              className="text-2xl font-extrabold text-[#3977C9] tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {summaryMetrics.assigned}
+            </span>
+            <span className="text-xs font-bold text-[#16A36A] tabular-nums">
+              {summaryMetrics.total > 0 ? ((summaryMetrics.assigned / summaryMetrics.total) * 100).toFixed(1) : '0.0'}%
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-[#766B83]">
+            Terdistribusi ke {assignedTechnicianCount} Teknisi
+          </div>
+        </div>
+
+        {/* KPI 4: Teknisi Siaga */}
+        <div
+          onClick={() => setActiveTab('installer_mgmt')}
+          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#D8CCF3] transition-colors"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83]">
+              Teknisi Siaga
+            </span>
+            <Users2 className="w-4 h-4 text-[#5B35B1] shrink-0" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span
+              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {summaryMetrics.activeInstallers} / {myInstallers.length}
+            </span>
+            <span className="text-[11px] font-bold text-[#16A36A]">Online</span>
+          </div>
+          <div className="mt-1 text-[11px] text-[#766B83] tabular-nums">
+            Kapasitas Maks: {totalMaxSlots} Slot
+          </div>
+        </div>
+
+        {/* KPI 5: Utilisasi Kuota */}
+        <div
+          onClick={() => setIsDailyLimitModalOpen(true)}
+          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#D8CCF3] transition-colors"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83]">
+              Utilisasi Kuota
+            </span>
+            <Gauge className="w-4 h-4 text-[#5B35B1] shrink-0" />
+          </div>
+          <div className="mt-2">
+            <span
+              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {quotaUtilizationPct}%
+            </span>
+          </div>
+          <div className="mt-2 w-full h-1.5 bg-[#F1EDF7] rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                quotaUtilizationPct >= 95
+                  ? 'bg-[#DC4C5A]'
+                  : quotaUtilizationPct >= 80
+                  ? 'bg-[#5B35B1]'
+                  : 'bg-[#16A36A]'
+              }`}
+              style={{ width: `${Math.min(100, quotaUtilizationPct)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* KPI 6: SLA Respon Penugasan */}
+        <div className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#16A36A]">
+              SLA Respon Penugasan
+            </span>
+            <Clock className="w-4 h-4 text-[#16A36A] shrink-0" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span
+              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {avgAssignSlaMinutes}
+            </span>
+            <span className="text-xs font-semibold text-[#766B83]">Menit</span>
+          </div>
+          <div
+            className={`mt-1 text-[11px] font-bold ${
+              avgAssignSlaMinutes <= 30 ? 'text-[#16A36A]' : 'text-[#DC4C5A]'
+            }`}
+          >
+            {avgAssignSlaMinutes === 0
+              ? 'Belum ada penugasan hari ini'
+              : avgAssignSlaMinutes <= 30
+              ? 'Target < 30 Menit (Aman)'
+              : 'Melebihi Target 30 Menit'}
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* 3. CLEAN STITCH NAVIGATION TAB RIBBON                        */}
+      {/* ============================================================ */}
+      <div className="border-b border-[#E9E5F0] flex items-center gap-2 sm:gap-5 overflow-x-auto scrollbar-none">
+        <button
+          type="button"
+          onClick={() => setActiveTab('wo_assignment')}
+          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
+            activeTab === 'wo_assignment'
+              ? 'border-[#431599] text-[#431599]'
+              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Assign WO &amp; Slot Matrix</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-[#FEF3C7] text-[#B45309] tabular-nums">
+            {summaryMetrics.unassigned}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('progress_dashboard')}
+          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
+            activeTab === 'progress_dashboard'
+              ? 'border-[#431599] text-[#431599]'
+              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Dashboard Progress WO (Live)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('quota_settings')}
+          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
+            activeTab === 'quota_settings'
+              ? 'border-[#431599] text-[#431599]'
+              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Manajemen Kuota &amp; Beban Teknisi</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('installer_mgmt')}
+          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
+            activeTab === 'installer_mgmt'
+              ? 'border-[#431599] text-[#431599]'
+              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
+          }`}
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>Pendaftaran Akun Teknisi</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('contractor_recap')}
+          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
+            activeTab === 'contractor_recap'
+              ? 'border-[#431599] text-[#431599]'
+              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Rekap WO Mitra</span>
+        </button>
       </div>
 
       {/* Notice Banner */}
@@ -2079,702 +2693,146 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* TAB 1: MENU KHUSUS ASSIGN WO                                 */}
+      {/* TAB 1: ASSIGN WO & SLOT MATRIX (STITCH 2-PANEL WORKSPACE)    */}
       {/* ============================================================ */}
       {activeTab === 'wo_assignment' && (
-        <div className="space-y-4">
-          {/* Quick Status Filter Ribbon for WO Assignment */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E9E1FF] dark:border-purple-900/40">
-              <div>
-                <h3 className="font-bold text-sm text-[#3B1D78] dark:text-purple-200 flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-[#5B35B1]" />
-                  <span>Menu Penugasan & Reassign Work Order (Leader)</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Tugaskan WO kepada teknisi mitra lapangan, atur slot waktu pelaksanaan, dan pantau status pengerjaan.
-                </p>
-              </div>
-
-              {/* Status Ribbon Fast Filter */}
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span>Filter Status:</span>
-                <span className="font-mono font-bold text-[#5B35B1]">
-                  {statusFilter === 'all'
-                    ? 'Semua'
-                    : statusFilter === 'unassigned'
-                    ? 'Belum Di-assign'
-                    : statusFilter === 'assigned'
-                    ? 'Sudah Di-assign'
-                    : statusFilter}
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Status Ribbon Chips */}
-            <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-3">
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'all'
-                    ? 'bg-[#3B1D78] text-white shadow-xs font-bold'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                }`}
-              >
-                <span>Semua Data</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/20">
-                  {summaryMetrics.total}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('unassigned'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'unassigned'
-                    ? 'bg-amber-500 text-white shadow-xs font-bold'
-                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>Belum Di-assign</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-600 text-white font-bold">
-                  {summaryMetrics.unassigned}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('assigned'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'assigned'
-                    ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                    : 'bg-[#F5F1FF] dark:bg-purple-950/40 text-[#3B1D78] dark:text-purple-300 border border-[#D8CCF3] dark:border-purple-800 hover:bg-[#E9E1FF]'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Sudah Di-assign</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-indigo-200 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200">
-                  {summaryMetrics.assigned}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('waiting'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'waiting'
-                    ? 'bg-slate-700 text-white shadow-xs font-bold'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                }`}
-              >
-                <span>Menunggu</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-200 dark:bg-slate-700">
-                  {summaryMetrics.waiting}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('in_progress'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'in_progress'
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
-                    : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <span>Sedang Dikerjakan</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
-                  {summaryMetrics.inProgress}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('completed'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'completed'
-                    ? 'bg-emerald-600 text-white shadow-xs font-bold'
-                    : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-                }`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>WO Selesai</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                  {summaryMetrics.completed}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'pending'
-                    ? 'bg-amber-600 text-white shadow-xs font-bold'
-                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100'
-                }`}
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Tertunda</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-100 text-amber-800">
-                  {summaryMetrics.pending}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStatusFilter('problem'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  statusFilter === 'problem'
-                    ? 'bg-rose-600 text-white shadow-xs font-bold'
-                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100'
-                }`}
-              >
-                <XCircle className="w-3.5 h-3.5" />
-                <span>Bermasalah</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-rose-100 text-rose-800">
-                  {summaryMetrics.problem}
-                </span>
-              </button>
-            </div>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+          {/* LEFT 8 COLUMNS: FILTER, BULK ACTIONS, CARD MATRIX / TABLE */}
+          <div className="xl:col-span-8 min-w-0">
+            <LeaderAssignMatrixPanel
+              totalScopedCount={summaryMetrics.total}
+              filteredTickets={filteredTickets}
+              paginatedTickets={paginatedTickets}
+              unassignedCount={summaryMetrics.unassigned}
+              assignedCount={summaryMetrics.assigned}
+              inProgressCount={summaryMetrics.inProgress}
+              completedCount={summaryMetrics.completed}
+              pendingCount={summaryMetrics.pending}
+              problemCount={summaryMetrics.problem}
+              clusterOptions={clusterOptions}
+              technicians={technicianSummaries}
+              viewMode={matrixViewMode}
+              onViewModeChange={mode => {
+                setMatrixViewMode(mode);
+                if (mode === 'table' && rowsPerPage === 6) setRowsPerPage(25);
+                if (mode === 'cards' && rowsPerPage === 25) setRowsPerPage(6);
+                setCurrentPage(1);
+              }}
+              searchQuery={searchQuery}
+              onSearchChange={q => {
+                setSearchQuery(q);
+                setCurrentPage(1);
+              }}
+              slotFilter={slotFilter}
+              onSlotFilterChange={s => {
+                setSlotFilter(s);
+                setCurrentPage(1);
+              }}
+              statusFilter={statusFilter}
+              onStatusFilterChange={s => {
+                setStatusFilter(s as LeaderStatusFilter);
+                setCurrentPage(1);
+              }}
+              clusterFilter={clusterFilter}
+              onClusterFilterChange={c => {
+                setClusterFilter(c);
+                setCurrentPage(1);
+              }}
+              installerFilter={selectedInstallerFilter}
+              onInstallerFilterChange={inst => {
+                setSelectedInstallerFilter(inst);
+                setCurrentPage(1);
+              }}
+              onResetFilters={() => {
+                setSearchQuery('');
+                setSlotFilter('ALL');
+                setStatusFilter('all');
+                setClusterFilter('ALL');
+                setSelectedInstallerFilter('ALL');
+                setSortState({ column: null, direction: null });
+                setCurrentPage(1);
+              }}
+              selectedTicketIds={selectedTicketIds}
+              onToggleSelectTicket={handleToggleSelectTicket}
+              onSelectAllUnassigned={checked => {
+                const unassignedIds = filteredTickets.filter(t => !t.installerName).map(t => t.id);
+                if (checked) {
+                  setSelectedTicketIds(prev => Array.from(new Set([...prev, ...unassignedIds])));
+                } else {
+                  const idSet = new Set(unassignedIds);
+                  setSelectedTicketIds(prev => prev.filter(id => !idSet.has(id)));
+                }
+              }}
+              onClearSelection={() => setSelectedTicketIds([])}
+              bulkQuickInstaller={bulkQuickInstaller}
+              onBulkQuickInstallerChange={setBulkQuickInstaller}
+              onExecuteBulkQuickAssign={handleExecuteBulkQuickAssign}
+              onExecuteAutoBalance={handleExecuteAutoBalance}
+              isLeaderRole={isLeaderRole}
+              onInlineAssign={(ticket, installerName) => {
+                handleAssignTicket(ticket, installerName, ticket.slotTime);
+              }}
+              onOpenReassignModal={handleOpenReassignModal}
+              onOpenWhatsAppModal={ticket => {
+                const instUser = myInstallers.find(u => u.name === ticket.installerName);
+                if (instUser) {
+                  const msg = buildInstallerAssignmentMessage(ticket, instUser);
+                  setAssignmentNoticeModal({
+                    ticket,
+                    installer: instUser,
+                    renderedMessage: msg,
+                    targetPhone: instUser.phone || ''
+                  });
+                } else if (onOpenWhatsApp) {
+                  onOpenWhatsApp(ticket);
+                } else {
+                  onSelectTicket(ticket);
+                }
+              }}
+              onSelectTicket={onSelectTicket}
+              visibleColumns={visibleColumns}
+              renderHeaderCell={renderHeaderCell}
+              renderBodyCell={renderBodyCell}
+              expandedRowIds={expandedRowIds}
+              classifyTicketOperational={classifyTicketOperational}
+              onOpenColumnSettings={() => setIsColumnModalOpen(true)}
+              onExportCopy={handleExportCopy}
+              onExportCSV={handleExportCSV}
+              onExportExcel={handleExportExcel}
+              onPrint={handlePrint}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={r => {
+                setRowsPerPage(r);
+                setCurrentPage(1);
+              }}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
 
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#EC91C0] dark:border-[#A80F62]/60 shadow-xs space-y-4 p-4 sm:p-5">
-              {/* Header Susunan Assign Data WO Leader & Tombol Aksi Penugasan */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#FCE4F1] dark:bg-[#A80F62]/40 text-[#D81B83] dark:text-[#EC91C0] flex items-center justify-center font-bold shadow-xs shrink-0 border border-[#EC91C0]/60">
-                    <UserCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>Assign Data WO</span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FCE4F1] text-[#A80F62] border border-[#EC91C0]">
-                        {filteredTickets.length} WO
-                      </span>
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Kelola daftar penugasan WO teknisi mitra {leaderContractor}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Tombol Aksi: Upload Assign WO (Magenta Theme, Leader Only) */}
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {isLeaderRole ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsUploadAssignModalOpen(true)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-[#D81B83] hover:bg-[#C21875] text-white border border-[#EC91C0] rounded-xl transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-95"
-                      title="Unggah berkas Excel/CSV untuk penugasan massal"
-                    >
-                      <FileUp className="w-4 h-4 text-white" />
-                      <span>Upload Assign WO</span>
-                    </button>
-                  ) : (
-                    <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
-                      Mode Monitoring (Assign hanya Leader)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* 7A. TOOLBAR 3 BAGIAN (KIRI, TENGAH, KANAN) */}
-              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800 text-xs">
-                {/* Bagian Kiri: Rows Selector & Selected Data Counter */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500 font-medium">Show Entries:</span>
-                    <select
-                      value={rowsPerPage}
-                      onChange={e => {
-                        setRowsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg font-medium text-xs focus:ring-1 focus:ring-[#D81B83]"
-                    >
-                      <option value={10}>10</option>
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                      <option value={-1}>All ({filteredTickets.length})</option>
-                    </select>
-                  </div>
-
-                  <span className="text-slate-300 dark:text-slate-700">|</span>
-
-                  <span className="font-mono text-slate-600 dark:text-slate-300 text-xs">
-                    Total: <strong className="font-bold text-slate-900 dark:text-white">{filteredTickets.length}</strong> WO
-                  </span>
-
-                  {selectedTicketIds.length > 0 && (
-                    <span className="px-2.5 py-1 bg-[#FCE4F1] dark:bg-[#A80F62]/40 text-[#A80F62] dark:text-[#FCE4F1] border border-[#EC91C0] rounded-xl font-bold font-mono text-xs shadow-xs animate-in zoom-in-95 duration-100">
-                      Selected Data: {selectedTicketIds.length}
-                    </span>
-                  )}
-                </div>
-
-                {/* Date Filter Bar: "Select WO Date", Start Date, End Date, tombol Cari (Magenta) */}
-                <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#FCE4F1]/40 dark:bg-[#251545] rounded-xl border border-[#EC91C0]/60 text-xs">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#A80F62] dark:text-pink-300 shrink-0">
-                    <Calendar className="w-3.5 h-3.5 text-[#D81B83]" />
-                    <span>Jadwal WO Aktif Hari Ini (Auto Reset 00:00 WIB):</span>
-                    <span className="px-2.5 py-0.5 rounded-lg bg-[#D81B83] text-white font-mono font-bold">
-                      {todayWIB} WIB
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Menampilkan WO dengan Appointment Date = {todayWIB}
-                  </span>
-                </div>
-
-                {/* Bagian Tengah: Search & Filters */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 max-w-2xl">
-                  {/* Search Bar */}
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Cari WO, ID, Nama, Telp, Cluster, Alamat..."
-                      value={searchQuery}
-                      onChange={e => {
-                        setSearchQuery(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
-                    />
-                  </div>
-
-                  {/* Status Filter Dropdown */}
-                  <select
-                    value={statusFilter}
-                    onChange={e => {
-                      setStatusFilter(e.target.value as LeaderStatusFilter);
-                      setCurrentPage(1);
-                    }}
-                    className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium"
-                  >
-                    <option value="all">Semua Status WO</option>
-                    <option value="unassigned">Belum Di-assign ({summaryMetrics.unassigned})</option>
-                    <option value="assigned">Sudah Di-assign ({summaryMetrics.assigned})</option>
-                    <option value="waiting">Menunggu ({summaryMetrics.waiting})</option>
-                    <option value="in_progress">Sedang Dikerjakan ({summaryMetrics.inProgress})</option>
-                    <option value="completed">Selesai ({summaryMetrics.completed})</option>
-                    <option value="pending">Tertunda ({summaryMetrics.pending})</option>
-                    <option value="problem">Bermasalah / Batal ({summaryMetrics.problem})</option>
-                  </select>
-
-                  {/* Installer Filter Dropdown */}
-                  <select
-                    value={selectedInstallerFilter}
-                    onChange={e => {
-                      setSelectedInstallerFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium"
-                  >
-                    <option value="ALL">Semua Teknisi</option>
-                    {myInstallers.map(inst => (
-                      <option key={inst.id} value={inst.name}>{inst.name}</option>
-                    ))}
-                  </select>
-
-                  {(statusFilter !== 'all' || selectedInstallerFilter !== 'ALL' || searchQuery || Boolean(sortState.column)) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStatusFilter('all');
-                        setSelectedInstallerFilter('ALL');
-                        setSearchQuery('');
-                        setSortState({ column: null, direction: null });
-                        setCurrentPage(1);
-                      }}
-                      className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                      title="Reset seluruh filter dan pengurutan kolom"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-
-                  {sortState.column && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 rounded-lg text-[11px] text-[#5B35B1] dark:text-[#D8B4FE] font-medium animate-in fade-in">
-                      <span>Urut: <strong>{tableColumns.find(c => c.id === sortState.column)?.label || sortState.column}</strong> ({sortState.direction === 'asc' ? 'A-Z ↑' : 'Z-A ↓'})</span>
-                      <button
-                        type="button"
-                        onClick={() => setSortState({ column: null, direction: null })}
-                        className="hover:text-rose-600 dark:hover:text-rose-400 p-0.5 rounded cursor-pointer transition-colors"
-                        title="Hapus urutan kolom"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  )}
-                </div>
-
-                {/* Bagian Kanan: Export & Column Customizer */}
-                <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-auto">
-                  {/* Export Group */}
-                  <div className="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5">
-                    <button
-                      type="button"
-                      onClick={handleExportCopy}
-                      className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded flex items-center gap-1"
-                      title="Salin ke Clipboard"
-                    >
-                      <Copy className="w-3 h-3" />
-                      <span>Copy</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportCSV}
-                      className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded flex items-center gap-1"
-                      title="Unduh CSV"
-                    >
-                      <Download className="w-3 h-3" />
-                      <span>CSV</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportExcel}
-                      className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded flex items-center gap-1"
-                      title="Unduh Excel (.xlsx)"
-                    >
-                      <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-                      <span>Excel</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePrint}
-                      className="px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded flex items-center gap-1"
-                      title="Cetak Tabel / PDF"
-                    >
-                      <Printer className="w-3 h-3" />
-                      <span>Print</span>
-                    </button>
-                  </div>
-
-                  {/* Pengaturan Kolom Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsColumnModalOpen(true)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 rounded-lg font-semibold text-slate-700 dark:text-slate-300 text-xs"
-                    title="Pengaturan Tampilan Kolom"
-                  >
-                    <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Kolom</span>
-                  </button>
-
-                  {/* Mobile Layout Switcher: Table vs Cards */}
-                  <div className="flex sm:hidden border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setMobileLayoutMode('table')}
-                      className={`p-1.5 ${mobileLayoutMode === 'table' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600'}`}
-                      title="Tampilan Tabel"
-                    >
-                      <Table className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMobileLayoutMode('cards')}
-                      className={`p-1.5 ${mobileLayoutMode === 'cards' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600'}`}
-                      title="Tampilan Kartu"
-                    >
-                      <Smartphone className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* ============================================================ */}
-              {/* AREA SEBELUM TABEL WO: INDIKATOR CHECKLIST & TOMBOL ASSIGN   */}
-              {/* ============================================================ */}
-              {selectedTicketIds.length > 0 && (
-                <div className="sticky top-2 z-25 flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-[#210D44] via-[#35105E] to-[#4C1D95] rounded-2xl border-2 border-[#D8B4FE]/60 shadow-xl text-white animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/25 border border-emerald-400/70 text-emerald-300 font-bold text-xs shadow-xs">
-                      <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
-                      <span>[✓ {selectedTicketIds.length} WO Dipilih]</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTicketIds([])}
-                      className="text-xs text-[#D8B4FE] hover:text-white underline cursor-pointer transition-colors"
-                    >
-                      Batalkan Pilihan
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {isLeaderRole && (
-                      <button
-                        type="button"
-                        onClick={() => setIsBulkAssignModalOpen(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#5B35B1] hover:to-[#9333EA] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg border border-[#D8B4FE]/50 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
-                      >
-                        <UserCheck className="w-4 h-4 text-[#E9D5FF]" />
-                        <span>ASSIGN DATA WO ({selectedTicketIds.length})</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* TABLE CONTAINER / MOBILE CARDS */}
-              {filteredTickets.length === 0 ? (
-                <div className="p-10 text-center text-slate-400 text-xs">
-                  Tidak ada Work Order yang sesuai dengan filter dan pencarian aktif.
-                </div>
-              ) : mobileLayoutMode === 'cards' ? (
-                /* SMARTPHONE CARD VIEW */
-                <div className="space-y-3 sm:hidden">
-                  {paginatedTickets.map(t => {
-                    const { label, progressPercent, color } = classifyTicketOperational(t);
-                    const isSelected = selectedTicketIds.includes(t.id);
-
-                    return (
-                      <div
-                        key={t.id}
-                        className={`p-3.5 rounded-xl border transition-all ${
-                          isSelected
-                            ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-500'
-                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleSelectTicket(t.id)}
-                              className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                            />
-                            <span
-                              onClick={() => onSelectTicket(t)}
-                              className="font-mono font-bold text-indigo-600 hover:underline cursor-pointer"
-                            >
-                              {t.woNumber}
-                            </span>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            label === 'Selesai' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {label}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 space-y-1 text-xs">
-                          <div className="font-semibold text-slate-900 dark:text-white">{t.customerName}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">{t.customerPhone} · ID: {t.idCustomer}</div>
-                          <button
-                            type="button"
-                            onClick={() => openCustomerAddressInGoogleMaps(t)}
-                            className="flex items-center gap-1 text-[11px] text-purple-700 dark:text-purple-300 hover:underline text-left group cursor-pointer"
-                            title="Buka alamat di Google Maps"
-                          >
-                            <MapPin className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 group-hover:scale-110 transition-transform" />
-                            <span className="truncate">{t.streetName || t.clusterName || t.area}</span>
-                          </button>
-                          <div className="text-[11px] font-medium text-purple-700 dark:text-purple-300">{t.slotTime} · {t.appointmentDate || 'Tanggal Belum Ada'}</div>
-                        </div>
-
-                        {/* Progress Bar mini */}
-                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-                            <span>Teknisi: <strong>{t.installerName || 'Belum Di-assign'}</strong></span>
-                            <span>{progressPercent}%</span>
-                          </div>
-                          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-emerald-500 h-full rounded-full"
-                              style={{ width: `${progressPercent}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 gap-2">
-                          {isLeaderRole ? (
-                            t.installerName ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenReassignModal(t)}
-                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors"
-                                title="Alihkan tugas WO ke teknisi lain (Reassign)"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                <span>Reassign WO</span>
-                              </button>
-                            ) : (
-                              <select
-                                value={t.installerName || ''}
-                                onChange={e => {
-                                  if (e.target.value) handleAssignTicket(t, e.target.value, t.slotTime);
-                                }}
-                                className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg max-w-[140px]"
-                              >
-                                <option value="">Pilih Teknisi...</option>
-                                {myInstallers.map(inst => (
-                                  <option key={inst.id} value={inst.name}>{inst.name}</option>
-                                ))}
-                              </select>
-                            )
-                          ) : (
-                            <span className="text-[11px] text-slate-500">
-                              Teknisi: <strong>{t.installerName || 'Belum Di-assign'}</strong>
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(t)}
-                            className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 rounded-lg font-bold text-xs"
-                          >
-                            Detail
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* DESKTOP & TABLET STRUCTURED TABLE */
-                <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-[#D81B83] text-white text-[11px] font-bold uppercase sticky top-0 z-10 border-b-2 border-[#A80F62] shadow-sm [&_button]:text-white [&_button:hover]:text-[#FCE4F1] [&_svg]:text-white/90">
-                      <tr>
-                        {visibleColumns.map(col => renderHeaderCell(col))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {paginatedTickets.map(t => {
-                        const { label, progressPercent, color } = classifyTicketOperational(t);
-                        const isSelected = selectedTicketIds.includes(t.id);
-                        const isExpanded = !!expandedRowIds[t.id];
-
-                        return (
-                          <React.Fragment key={t.id}>
-                            <tr
-                              className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${
-                                isSelected ? 'bg-indigo-50/40 dark:bg-indigo-950/20' : ''
-                              }`}
-                            >
-                              {visibleColumns.map(col =>
-                                renderBodyCell(col, t, isSelected, isExpanded, label, progressPercent)
-                              )}
-                            </tr>
-
-                            {/* 7C. EXPANDABLE ROW (Detailed View on Row Expansion) */}
-                            {isExpanded && (
-                              <tr className="bg-slate-50/80 dark:bg-slate-800/40">
-                                <td colSpan={visibleColumns.length} className="p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                                    <div className="space-y-1.5">
-                                      <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                                        📍 Detail Lokasi & Alamat Pelanggan
-                                      </span>
-                                      <div className="text-slate-600 dark:text-slate-400">
-                                        <strong>Alamat Lengkap:</strong> {t.streetName || '-'}
-                                      </div>
-                                      <div className="text-slate-600 dark:text-slate-400">
-                                        <strong>Patokan / Alternatif:</strong> {t.streetAlternatif || 'Tidak ada'}
-                                      </div>
-                                      <div className="text-slate-600 dark:text-slate-400">
-                                        <strong>Area & Cluster:</strong> {t.area} · {t.clusterName || '-'}
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => openCustomerAddressInGoogleMaps(t)}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 rounded-lg border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer"
-                                        title="Buka rute dan lokasi di Google Maps"
-                                      >
-                                        <MapPin className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                        <span>Buka di Google Maps</span>
-                                      </button>
-                                    </div>
-
-                                    <div className="space-y-1 font-mono text-[11px]">
-                                      <span className="font-bold text-slate-800 dark:text-slate-200 block font-sans text-xs">
-                                        🔧 Data Jaringan & Perangkat
-                                      </span>
-                                      <div>OLT / FDT Code: <strong>{t.fdtCode || '-'}</strong></div>
-                                      <div>FAT Code: <strong>{t.fatCode || '-'}</strong></div>
-                                      <div>Kategori: <strong>{t.ticketCategory}</strong></div>
-                                      <div>ONT Brand/Model: <strong>{t.ontBrand || '-'} / {t.ontModel || '-'}</strong></div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">
-                                        📋 Catatan & Status Pekerjaan (WIB)
-                                      </span>
-                                      <div className="p-2 rounded bg-white dark:bg-slate-900 border text-slate-600 dark:text-slate-300 text-[11px] space-y-1">
-                                        <div>{t.remarksWOInstaller || t.remarksAgent || 'Belum ada catatan khusus pada tiket ini.'}</div>
-                                        <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-3 font-mono text-[10.5px]">
-                                          <span>Status: <strong>{getTicketWorkStatus(t).status}</strong></span>
-                                          <span>Check-in: <strong>{t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '-'}</strong></span>
-                                          <span>Check-out: <strong>{t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '-'}</strong></span>
-                                          <span>Durasi: <strong>{getTicketWorkStatus(t).durationFormatted}</strong></span>
-                                        </div>
-                                      </div>
-                                      {t.technicalReport && (
-                                        <div className="text-[11px] text-emerald-600 font-semibold">
-                                          Laporan Teknisi: {t.technicalReport.workResult} ({t.technicalReport.rootCause})
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* PAGINATION BAR */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-slate-500 font-medium">
-                <div>
-                  Menampilkan{' '}
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {filteredTickets.length > 0 ? (rowsPerPage === -1 ? 1 : (currentPage - 1) * rowsPerPage + 1) : 0}
-                  </span>{' '}
-                  sampai{' '}
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {rowsPerPage === -1 ? filteredTickets.length : Math.min(currentPage * rowsPerPage, filteredTickets.length)}
-                  </span>{' '}
-                  dari <span className="font-bold text-slate-800 dark:text-slate-200">{filteredTickets.length}</span> baris
-                </div>
-
-                {rowsPerPage !== -1 && totalPages > 1 && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      className="px-2.5 py-1 rounded-lg border bg-white dark:bg-slate-800 disabled:opacity-40"
-                    >
-                      Sebelumnya
-                    </button>
-                    <span className="px-2 font-mono">
-                      {currentPage} / {totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      className="px-2.5 py-1 rounded-lg border bg-white dark:bg-slate-800 disabled:opacity-40"
-                    >
-                      Selanjutnya
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* RIGHT 4 COLUMNS: TECHNICIAN CAPACITY, 4-SLOT MATRIX & AUDIT TRAIL */}
+          <div className="xl:col-span-4 min-w-0">
+            <LeaderQuotaSidebar
+              quotaConfig={quotaSettings}
+              technicians={technicianSummaries}
+              auditFeed={mergedAuditFeed}
+              isLeaderRole={isLeaderRole}
+              isSavingQuota={isSavingQuota}
+              selectedCount={selectedTicketIds.length}
+              hasUnassignedTickets={summaryMetrics.unassigned > 0}
+              onToggleStrictEnforcement={nextStrict => {
+                saveQuotaSettings({ enforceStrictLimit: nextStrict });
+              }}
+              onDirectAssignToTechnician={handleDirectAssignToTechnician}
+              onSelectTicket={onSelectTicket}
+              onOpenAllAuditTrail={() => setIsAuditTrailModalOpen(true)}
+              onSelectTechnicianFilter={instName => {
+                setSelectedInstallerFilter(prev => (prev === instName ? 'ALL' : instName));
+                setCurrentPage(1);
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -3003,11 +3061,25 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   </div>
                   <input
                     type="checkbox"
+                    disabled={!isLeaderRole || isSavingQuota}
                     checked={quotaSettings.enforceStrictLimit}
                     onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
                     className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
                   />
                 </label>
+              </div>
+
+              <div className="pt-3 border-t flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500">
+                  Custom limit teknisi aktif: <strong>{Object.keys(quotaSettings.customInstallerLimits || {}).length}</strong> override tersimpan di Supabase.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsDailyLimitModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl bg-[#F5F1FF] hover:bg-[#EDE9FE] border border-[#D8CCF3] text-[#431599] font-bold text-xs cursor-pointer shrink-0"
+                >
+                  Kelola Custom Limit per Teknisi
+                </button>
               </div>
             </div>
           </div>
@@ -3263,18 +3335,18 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setAssignmentNoticeModal(null)}
-                className="px-4 py-1.5 text-slate-600"
+                className="px-4 py-1.5 text-slate-600 cursor-pointer"
               >
                 Lewati / Selesai
               </button>
-              <button
-                type="button"
+              <a
+                href={buildWhatsAppClickToChatUrl(
+                  assignmentNoticeModal.targetPhone,
+                  assignmentNoticeModal.renderedMessage
+                ).url}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => {
-                  const res = buildWhatsAppClickToChatUrl(
-                    assignmentNoticeModal.targetPhone,
-                    assignmentNoticeModal.renderedMessage
-                  );
-                  window.open(res.url, '_blank');
                   toast.success('Pesan WhatsApp dibuka di tab baru.', 'WhatsApp Terkirim');
                   setAssignmentNoticeModal(null);
                 }}
@@ -3282,7 +3354,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Kirim via WhatsApp</span>
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -3553,6 +3625,47 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* ============================================================ */}
+      {/* MODAL 8: DAILY LIMIT SETTINGS MODAL (ATUR LIMIT HARIAN)      */}
+      {/* ============================================================ */}
+      <DailyLimitSettingsModal
+        isOpen={isDailyLimitModalOpen}
+        onClose={() => setIsDailyLimitModalOpen(false)}
+        quotaConfig={quotaSettings}
+        technicians={technicianSummaries}
+        contractorName={displayContractor}
+        isLeaderRole={isLeaderRole}
+        isSaving={isSavingQuota}
+        onSave={async nextConfig => {
+          await saveQuotaSettings(nextConfig);
+          setIsDailyLimitModalOpen(false);
+        }}
+      />
+
+      {/* ============================================================ */}
+      {/* MODAL 9: BULK REASSIGN MODAL                                 */}
+      {/* ============================================================ */}
+      <BulkReassignModal
+        isOpen={isBulkReassignModalOpen}
+        onClose={() => setIsBulkReassignModalOpen(false)}
+        eligibleTickets={activeAssignedEligibleForReassign}
+        initialSelectedIds={selectedTicketIds}
+        technicians={technicianSummaries}
+        isLeaderRole={isLeaderRole}
+        isSubmitting={isSubmittingBulkReassign}
+        onExecute={handleExecuteBulkReassignModal}
+      />
+
+      {/* ============================================================ */}
+      {/* MODAL 10: AUDIT TRAIL REASSIGN LENGKAP                       */}
+      {/* ============================================================ */}
+      <AssignmentAuditTrailModal
+        isOpen={isAuditTrailModalOpen}
+        onClose={() => setIsAuditTrailModalOpen(false)}
+        entries={mergedAuditFeed}
+        contractorName={displayContractor}
+      />
     </div>
   );
 };
