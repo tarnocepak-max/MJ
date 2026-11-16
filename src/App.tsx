@@ -27,6 +27,7 @@ import { LeaderPortal } from './components/portals/LeaderPortal';
 import { LeaderProgressDashboardView } from './components/portals/LeaderProgressDashboardView';
 import { ContractorAreaRecapView } from './components/reports/ContractorAreaRecapView';
 import { LocationBasecampView } from './components/contractors/LocationBasecampView';
+import { SlaTelemetryDashboardView } from './components/sla/SlaTelemetryDashboardView';
 import { InstallerPortal, classifyInstallerStatus, StatusFilterCategory } from './components/portals/InstallerPortal';
 import { InstallerDashboardView } from './components/portals/InstallerDashboardView';
 import { InstallerWhatsAppCenter } from './components/whatsapp/InstallerWhatsAppCenter';
@@ -447,7 +448,7 @@ const MainLayout: React.FC = () => {
     switch (activeTab) {
       // Dispatch Management
       case 'dashboard':
-        return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;
+        return <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />;
       case 'tickets':
         return (
           <TicketsTable
@@ -459,7 +460,7 @@ const MainLayout: React.FC = () => {
       case 'form_sameday':
         // WO Same Day is strictly exclusive to Dispatch role
         if (currentUser.role !== 'dispatch') {
-          return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;
+          return <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />;
         }
         return <FormSamedayView />;
       case 'report_data_wo':
@@ -556,6 +557,38 @@ const MainLayout: React.FC = () => {
       case 'location_basecamp':
       case 'contractors':
         return <LocationBasecampView />;
+      case 'sla_monitoring': {
+        const canAccessSla =
+          currentUser.role === 'super_admin' ||
+          currentUser.role === 'dispatch' ||
+          currentUser.role === 'leader' ||
+          currentUser.role === 'management_data';
+        if (!canAccessSla) {
+          const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
+          setTimeout(() => {
+            setActiveTab(redirectTarget);
+          }, 1200);
+          return (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
+                ✕
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                Akses Ditolak: Monitoring SLA Kontraktor &amp; Vendor
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Modul Monitoring SLA Kontraktor &amp; Vendor hanya tersedia untuk Super Admin, Dispatch, Leader/Korlap, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <SlaTelemetryDashboardView
+            onSelectTicket={handleOpenTicketDetail}
+            onNavigate={tab => navigateTo(tab)}
+          />
+        );
+      }
 
       // Technician Portal (TASK INSTALLER) - Protected (Bagian 3: Only Superadmin and Installer)
       case 'installer_portal':
@@ -673,7 +706,7 @@ const MainLayout: React.FC = () => {
         return currentUser.role === 'super_admin' ? (
           <GoogleSheetsSyncView />
         ) : (
-          <DashboardOverview onNavigate={tab => setActiveTab(tab)} />
+          <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />
         );
 
       // System, Roles, Users & Config (Consolidated into SETUP TERPUSAT MORAJAWS)
@@ -786,7 +819,7 @@ const MainLayout: React.FC = () => {
         return <SetupHubView initialTab="droplists" onNavigateTab={tab => setActiveTab(tab)} />;
 
       default:
-        return <DashboardOverview onNavigate={tab => setActiveTab(tab)} />;
+        return <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />;
     }
   };
 

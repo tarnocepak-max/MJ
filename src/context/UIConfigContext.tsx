@@ -224,7 +224,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // =========================================================================
   // 5. KATEGORI: SETUP — ACCORDION
   // =========================================================================
-  { id: 'setup', label: 'SETUP TERPUSAT MORAJAWS', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'setup', label: 'Setup', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
   { id: 'nav_config', label: 'Konfigurasi Menu Navigasi', category: 'Setup', order: 22, visible: true, roles: ['super_admin'] },
   { id: 'management_role', label: 'Role & Permission', category: 'Setup', order: 23, visible: true, roles: ['super_admin'] },
   { id: 'droplist_management', label: 'Droplist Management', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
@@ -479,7 +479,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const sanitizeSubmenuItems = (items: NavSubmenuItem[]): NavSubmenuItem[] => {
     if (!Array.isArray(items)) return [];
     const seen = new Set<string>();
-    return items
+    const cleaned = items
       .filter(item => {
         const id = (item.id || '').toLowerCase();
         const label = (item.label || '').toLowerCase();
@@ -517,7 +517,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (item.id === 'setup') {
           return {
             ...item,
-            label: 'SETUP TERPUSAT MORAJAWS',
+            label: 'Setup',
             roles: ['super_admin', 'dispatch', 'management_data']
           };
         }
@@ -536,8 +536,30 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (item.id === 'droplist_management') {
           return { ...item, label: 'Kategori Report', roles: safeRoles };
         }
+        if (item.id === 'sla_monitoring') {
+          return {
+            ...item,
+            label: 'Monitoring SLA Kontraktor & Vendor',
+            categoryId: 'contractor_area',
+            roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+          };
+        }
         return { ...item, roles: safeRoles };
       });
+
+    if (!seen.has('sla_monitoring')) {
+      cleaned.push({
+        id: 'sla_monitoring',
+        label: 'Monitoring SLA Kontraktor & Vendor',
+        icon: 'Activity',
+        categoryId: 'contractor_area',
+        order: 6,
+        visible: true,
+        roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+      });
+    }
+
+    return cleaned;
   };
 
   const sanitizeStandaloneMenus = (items: StandaloneMenuItem[]): StandaloneMenuItem[] => {

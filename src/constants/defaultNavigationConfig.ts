@@ -123,6 +123,15 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       visible: true,
       roles: ['super_admin', 'leader']
     },
+    {
+      id: 'sla_monitoring',
+      name: 'Monitoring SLA Kontraktor & Vendor',
+      icon: 'Activity',
+      categoryId: 'cat_contractor_area',
+      order: 3,
+      visible: true,
+      roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+    },
 
     // 2. Installer submenus
     {

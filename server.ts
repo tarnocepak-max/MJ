@@ -91,6 +91,11 @@ import {
   isContractorMatch,
   isAreaMatch
 } from './server/appFlowHelpers.ts';
+import {
+  DEFAULT_SLA_THRESHOLD_CONFIG,
+  normalizeSlaConfig,
+  computeSlaTelemetryPayload
+} from './server/slaTelemetryService.ts';
 import { runPhase8ShadowDryRunSuite } from './server/supabaseShadowService.ts';
 import { realtimeSandboxHub, requireSandboxSuperAdmin, getSandboxSuperAdminAllowlist } from './server/realtimeHub.ts';
 import { sandboxJournalEngine } from './server/sandbox/sandboxJournal.ts';
@@ -10382,6 +10387,393 @@ export async function createExpressApp(options?: {
         report: t.technicalReport
       }));
     res.json({ success: true, count: reports.length, reports });
+  });
+
+  // ---------------------------------------------------------------------------
+  // SLA TELEMETRY & VENDOR PERFORMANCE ENGINE API
+  // ---------------------------------------------------------------------------
+  const SLA_ALLOWED_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'management_data']);
+
+  app.get('/api/sla/telemetry', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (!SLA_ALLOWED_ROLES.has(user.role)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Role Anda tidak memiliki izin mengakses Monitoring SLA Kontraktor & Vendor.',
+          code: 'SLA_FORBIDDEN'
+        });
+      }
+
+      if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
+        return res.status(503).json({
+          success: false,
+          error: 'Database authoritative Supabase tidak tersedia pada mode produksi.',
+          code: 'DATABASE_UNAVAILABLE'
+        });
+      }
+
+      const rawPeriod = String(req.query.period || 'today').toLowerCase();
+      const period = rawPeriod === '7d' || rawPeriod === 'mtd' ? rawPeriod : 'today';
+      const areaFilter = String(req.query.area || 'ALL').trim() || 'ALL';
+      const contractorFilter = String(req.query.contractor || 'ALL').trim() || 'ALL';
+
+      let tickets: Ticket[] = [];
+      let contractors: any[] = [];
+      let coverageAreas: any[] = [];
+      let users: any[] = [];
+      let ticketMessages: any[] = [];
+      let databaseSource: 'supabase' | 'local_json' = 'local_json';
+
+      if (isSupabaseMode()) {
+        databaseSource = 'supabase';
+        const [woRes, cRes, areaRes, uRes] = await Promise.all([
+          getWorkOrdersFromSupabase(),
+          getContractorsFromSupabase(),
+          getCoverageAreasFromSupabase(),
+          getUsersFromSupabase(false)
+        ]);
+        if (!woRes.success) {
+          if (!isLocalJsonModeAllowed()) {
+            return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+          }
+          databaseSource = 'local_json';
+          tickets = db.tickets || [];
+          contractors = db.contractors || [];
+          coverageAreas = db.coverageAreas || [];
+          users = db.users || [];
+          ticketMessages = db.ticketMessages || [];
+        } else {
+          tickets = woRes.data || [];
+          contractors = cRes.success && cRes.data ? cRes.data : (isLocalJsonModeAllowed() ? db.contractors : []);
+          coverageAreas = areaRes.success && areaRes.data ? areaRes.data : (isLocalJsonModeAllowed() ? db.coverageAreas : []);
+          users = uRes.success && uRes.data ? uRes.data : (isLocalJsonModeAllowed() ? db.users : []);
+
+          const scopedInitial = scopeTicketsForUser(tickets, user);
+          if (scopedInitial.length > 0) {
+            const msgRes = await getTicketMessagesForTicketsFromSupabase(scopedInitial.map(t => t.id));
+            if (msgRes.success && msgRes.data) {
+              ticketMessages = msgRes.data;
+            }
+          }
+        }
+      } else {
+        tickets = db.tickets || [];
+        contractors = db.contractors || [];
+        coverageAreas = db.coverageAreas || [];
+        users = db.users || [];
+        ticketMessages = db.ticketMessages || [];
+      }
+
+      // Apply strict RBAC user scoping BEFORE computation
+      const scopedTickets = scopeTicketsForUser(tickets, user);
+
+      // Leader role strictly scoped to their own contractor & coverage
+      let scopedContractors = contractors;
+      let scopedUsers = users;
+      if (user.role === 'leader') {
+        const leaderContr = String(user.contractor || '').trim();
+        const leaderContrId = String(user.contractorId || '').trim();
+        scopedContractors = contractors.filter(c =>
+          (leaderContrId && c.id === leaderContrId) || (leaderContr && isContractorMatch(c.name, leaderContr))
+        );
+        scopedUsers = users.filter(u =>
+          (leaderContrId && u.contractorId === leaderContrId) || (leaderContr && isContractorMatch(u.contractor, leaderContr))
+        );
+      }
+
+      const [cfgRead, logsRead] = await Promise.all([
+        readGlobalConfigUnified('sla_telemetry_config'),
+        readGlobalConfigUnified('sla_governance_logs')
+      ]);
+
+      const rawConfig = cfgRead.success ? cfgRead.value : null;
+      const isConfigPersistedInDb = Boolean(cfgRead.success && rawConfig && typeof rawConfig === 'object');
+      const config = normalizeSlaConfig(rawConfig);
+      const configVersion = cfgRead.success && cfgRead.version ? cfgRead.version : 1;
+
+      const governanceLogs = logsRead.success && Array.isArray(logsRead.value) ? logsRead.value : [];
+      const opDateInfo = getOperationalDate(new Date());
+
+      const telemetry = computeSlaTelemetryPayload({
+        tickets: scopedTickets,
+        contractors: scopedContractors,
+        coverageAreas,
+        users: scopedUsers,
+        ticketMessages,
+        operationalDateWIB: opDateInfo.date,
+        period,
+        areaFilter,
+        contractorFilter: user.role === 'leader' ? 'ALL' : contractorFilter,
+        config,
+        configVersion,
+        isConfigPersistedInDb,
+        governanceLogs,
+        databaseSource
+      });
+
+      return res.json({ success: true, telemetry });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal menghitung telemetri SLA Kontraktor & Vendor.'
+      });
+    }
+  });
+
+  app.get('/api/sla/config', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (!SLA_ALLOWED_ROLES.has(user.role)) {
+        return res.status(403).json({ success: false, error: 'Akses Ditolak.', code: 'SLA_FORBIDDEN' });
+      }
+      const readRes = await readGlobalConfigUnified('sla_telemetry_config');
+      if (!readRes.success) {
+        return res.status(readRes.status || 503).json({
+          success: false,
+          error: readRes.message || 'Gagal membaca konfigurasi ambang batas SLA.',
+          code: readRes.code || 'DATABASE_UNAVAILABLE'
+        });
+      }
+      const config = normalizeSlaConfig(readRes.value);
+      return res.json({
+        success: true,
+        config,
+        version: readRes.version || 1,
+        isPersistedInDb: Boolean(readRes.value),
+        updatedAt: readRes.updatedAt,
+        updatedBy: readRes.updatedBy
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat konfigurasi SLA.' });
+    }
+  });
+
+  app.put('/api/sla/config', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const canModifyConfig =
+        user.role === 'super_admin'
+        || (user.role === 'dispatch' && (await hasDynamicPermission(user.role, 'application_configuration')));
+
+      if (!canModifyConfig) {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Hanya Super Admin dan Dispatch berwenang mengubah Ambang Batas SLA & Klausul PKS.',
+          code: 'SLA_CONFIG_FORBIDDEN'
+        });
+      }
+
+      const incoming = req.body?.config || req.body;
+      if (!incoming || typeof incoming !== 'object') {
+        return res.status(400).json({ success: false, error: 'Payload konfigurasi SLA wajib disertakan.' });
+      }
+
+      const normalized = normalizeSlaConfig(incoming);
+      if (req.body?.markCustomConfigured !== false) {
+        normalized.pksRules.isCustomConfigured = true;
+      }
+
+      if (normalized.excellentMin < normalized.goodMin || normalized.goodMin < normalized.warningMin) {
+        return res.status(400).json({
+          success: false,
+          error: 'Urutan ambang batas SLA tidak valid: Excellent ≥ Good ≥ Warning harus terpenuhi.'
+        });
+      }
+
+      const saveRes = await saveGlobalConfigUnified('sla_telemetry_config', normalized, user, {
+        expectedVersion: req.body?.expectedVersion,
+        forceOverwrite: Boolean(req.body?.forceOverwrite),
+        description: 'Konfigurasi Ambang Batas SLA & Klausul PKS Vendor MoraJaws',
+        module: 'sla_telemetry',
+        notes: req.body?.notes || 'Update Ambang Batas SLA'
+      });
+
+      if (!saveRes.success) {
+        return res.status(saveRes.status || 500).json({
+          success: false,
+          conflict: saveRes.conflict,
+          error: saveRes.message || 'Gagal menyimpan konfigurasi SLA.'
+        });
+      }
+
+      await logServerAuditAsync(
+        'SLA Threshold Config Updated',
+        'app_settings',
+        'sla_telemetry_config',
+        `Ambang Batas SLA diperbarui: Target Global ${normalized.globalSlaTarget}%, FTR ${normalized.ftrTarget}%, Max Loss OPM ${normalized.opmMaxLossDbm} dBm, Critical Alert ${normalized.criticalRemainingMinutes} mnt`,
+        user,
+        { newState: normalized }
+      );
+
+      broadcastSupabaseChange('sla_telemetry_config', 'UPDATE', {
+        config: normalized,
+        version: saveRes.data?.version,
+        updatedBy: user.name
+      });
+
+      return res.json({
+        success: true,
+        config: normalized,
+        version: saveRes.data?.version || 1,
+        updatedAt: saveRes.data?.updatedAt || new Date().toISOString(),
+        updatedBy: saveRes.data?.updatedBy || user.name
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal menyimpan konfigurasi SLA.' });
+    }
+  });
+
+  app.post('/api/sla/actions', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'super_admin' && user.role !== 'dispatch') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat mengeksekusi tindakan eskalasi/teguran SLA.',
+          code: 'SLA_ACTION_FORBIDDEN'
+        });
+      }
+
+      if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
+        return res.status(503).json({
+          success: false,
+          error: 'Database authoritative Supabase tidak tersedia.',
+          code: 'DATABASE_UNAVAILABLE'
+        });
+      }
+
+      const {
+        actionType,
+        ticketId,
+        woNumber,
+        contractorId,
+        contractorName,
+        leaderName,
+        leaderPhone,
+        targetInstallerName,
+        message,
+        reason,
+        postToLiveChat
+      } = req.body || {};
+
+      const validActions = new Set([
+        'TEGUR_KORLAP',
+        'ISSUE_SP1',
+        'MASS_ALERT_KORLAP',
+        'ESCALATE_DISPATCH',
+        'BYPASS_PERMIT',
+        'SEND_ASSISTANCE',
+        'PING_TECHNICIAN'
+      ]);
+
+      if (!validActions.has(String(actionType || ''))) {
+        return res.status(400).json({ success: false, error: 'Tipe tindakan SLA tidak valid.' });
+      }
+      if (!message || !String(message).trim()) {
+        return res.status(400).json({ success: false, error: 'Pesan atau catatan tindakan wajib diisi.' });
+      }
+
+      const record = {
+        id: `sla_act_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+        actionType,
+        ticketId: ticketId ? String(ticketId) : undefined,
+        woNumber: woNumber ? String(woNumber) : undefined,
+        contractorId: contractorId ? String(contractorId) : undefined,
+        contractorName: contractorName ? String(contractorName) : undefined,
+        leaderName: leaderName ? String(leaderName) : undefined,
+        leaderPhone: leaderPhone ? String(leaderPhone) : undefined,
+        targetInstallerName: targetInstallerName ? String(targetInstallerName) : undefined,
+        message: String(message).trim(),
+        reason: reason ? String(reason).trim() : undefined,
+        performedBy: user.name,
+        performedByRole: user.role,
+        createdAt: new Date().toISOString()
+      };
+
+      const existingRead = await readGlobalConfigUnified('sla_governance_logs');
+      const prevLogs = existingRead.success && Array.isArray(existingRead.value) ? existingRead.value : [];
+      const nextLogs = [record, ...prevLogs].slice(0, 200);
+
+      const saveRes = await saveGlobalConfigUnified('sla_governance_logs', nextLogs, user, {
+        forceOverwrite: true,
+        description: 'Riwayat Governance & Eskalasi SLA Vendor',
+        module: 'sla_governance_logs',
+        notes: `${actionType}${woNumber ? ` (${woNumber})` : contractorName ? ` (${contractorName})` : ''}`
+      });
+
+      if (!saveRes.success) {
+        return res.status(saveRes.status || 500).json({
+          success: false,
+          error: saveRes.message || 'Gagal mencatat tindakan SLA ke database.'
+        });
+      }
+
+      // Optionally post non-PROGRESS coordination note to LiveChat so check-in semantics are never altered
+      if (postToLiveChat && ticketId) {
+        const msgCategory = actionType === 'ESCALATE_DISPATCH' || actionType === 'BYPASS_PERMIT' ? 'ISSUE' : 'GENERAL';
+        const chatText = `[SLA Governance: ${actionType}] ${record.message}`;
+        const msgId = `msg_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+        const nowIso = record.createdAt;
+        if (isSupabaseMode()) {
+          await insertTicketMessageToSupabase({
+            id: msgId,
+            ticketId: String(ticketId),
+            woNumber: String(woNumber || ''),
+            senderId: user.id,
+            senderName: user.name,
+            senderRole: user.role,
+            messageText: chatText,
+            category: msgCategory,
+            attachments: [],
+            isCheckIn: false
+          });
+        } else if (isLocalJsonModeAllowed()) {
+          db.ticketMessages = db.ticketMessages || [];
+          db.ticketMessages.push({
+            id: msgId,
+            ticketId: String(ticketId),
+            woNumber: String(woNumber || ''),
+            senderId: user.id,
+            senderName: user.name,
+            senderRole: user.role,
+            text: chatText,
+            category: msgCategory,
+            attachments: [],
+            timestamp: nowIso,
+            readBy: [user.id],
+            isCheckIn: false
+          });
+          saveDatabaseToDisk();
+        }
+        broadcastSupabaseChange('ticket_messages', 'INSERT', {
+          ticketId: String(ticketId),
+          woNumber: String(woNumber || ''),
+          category: msgCategory
+        });
+      }
+
+      await logServerAuditAsync(
+        `SLA Action: ${actionType}`,
+        ticketId ? 'work_order' : 'contractor',
+        String(woNumber || contractorName || 'global'),
+        `${actionType} oleh ${user.name}: ${record.message}`,
+        user,
+        { newState: record }
+      );
+
+      broadcastSupabaseChange('sla_actions', 'INSERT', record);
+
+      return res.json({
+        success: true,
+        action: record
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal memproses tindakan SLA.'
+      });
+    }
   });
 
   // Legacy sync check & run

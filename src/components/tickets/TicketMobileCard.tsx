@@ -122,7 +122,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
               </p>
             </div>
 
-            {ticket.area && (
+            {ticket.area && currentUser?.role !== 'super_admin' && currentUser?.role !== 'dispatch' && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[11px] shrink-0 font-semibold border border-[#D8CCF3] dark:border-[#5B35B1]">
                 <MapPin className="w-3 h-3 text-[#7135B5] dark:text-[#A78BFA]" />
                 <span>{ticket.area}</span>

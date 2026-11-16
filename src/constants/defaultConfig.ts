@@ -539,6 +539,15 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     visible: true,
     roles: ['super_admin', 'leader']
   },
+  {
+    id: 'sla_monitoring',
+    label: 'Monitoring SLA Kontraktor & Vendor',
+    icon: 'Activity',
+    categoryId: 'contractor_area',
+    order: 6,
+    visible: true,
+    roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+  },
 
   // 2. Installer (Strict Access: Only super_admin and installer)
   {
@@ -563,7 +572,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
   // 3. Menu Tambahan
   {
     id: 'setup',
-    label: 'SETUP TERPUSAT MORAJAWS',
+    label: 'Setup',
     icon: 'Sliders',
     categoryId: 'menu_tambahan',
     order: 1,

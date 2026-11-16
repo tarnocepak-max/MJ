@@ -3,17 +3,14 @@ import { useApp } from '../../context/AppContext';
 import { Ticket } from '../../types';
 import { Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { SlaTelemetryDashboardView } from '../sla/SlaTelemetryDashboardView';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: string) => void;
+  onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
 }
 
-/**
- * Operational dashboard: intentionally limited to the primary WO indicators.
- * Contractor performance and daily appointment breakdowns remain available
- * in their dedicated operational/report menus, not on this landing page.
- */
-export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate }) => {
+const FallbackOperationalOverview: React.FC<{ onNavigate: (tab: string) => void }> = ({ onNavigate }) => {
   const { tickets, currentUser, scopedTickets, todayWIB } = useApp();
   const roleRestricted = currentUser?.role === 'leader' || currentUser?.role === 'installer';
   const source = roleRestricted ? scopedTickets : tickets;
@@ -25,21 +22,28 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
       ),
     [source, todayWIB]
   );
-  const counts = useMemo(() => ({
-    total: active.length,
-    attention: active.filter(t =>
-      ['Pending', 'Unassigned', 'Failed / Cancelled', 'Pending Technical'].includes(String(t.statusWOInstaller)) ||
-      ['Pending', 'Cancelled'].includes(String(t.statusWOAgent))
-    ).length,
-    progress: active.filter(t =>
-      ['In Progress', 'PROGRESS', 'En Route', 'On Site'].includes(String(t.statusWOInstaller)) ||
-      ['In Progress', 'PROGRESS'].includes(String(t.statusWOAgent))
-    ).length,
-    completed: active.filter(t =>
-      ['Completed', 'Installed', 'Resolved', 'Closed'].includes(String(t.statusWOInstaller)) ||
-      ['Resolved', 'Closed'].includes(String(t.statusWOAgent))
-    ).length
-  }), [active]);
+  const counts = useMemo(
+    () => ({
+      total: active.length,
+      attention: active.filter(
+        t =>
+          ['Pending', 'Unassigned', 'Failed / Cancelled', 'Pending Technical'].includes(
+            String(t.statusWOInstaller)
+          ) || ['Pending', 'Cancelled'].includes(String(t.statusWOAgent))
+      ).length,
+      progress: active.filter(
+        t =>
+          ['In Progress', 'PROGRESS', 'En Route', 'On Site'].includes(String(t.statusWOInstaller)) ||
+          ['In Progress', 'PROGRESS'].includes(String(t.statusWOAgent))
+      ).length,
+      completed: active.filter(
+        t =>
+          ['Completed', 'Installed', 'Resolved', 'Closed'].includes(String(t.statusWOInstaller)) ||
+          ['Resolved', 'Closed'].includes(String(t.statusWOAgent))
+      ).length
+    }),
+    [active]
+  );
 
   const cards = [
     {
@@ -116,46 +120,28 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </article>
         ))}
       </section>
-
-      <section className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238] p-4 sm:p-5 shadow-2xs">
-        <h2 className="font-display text-sm font-bold text-[#211A2E] dark:text-white">
-          Akses Cepat Operasional
-        </h2>
-        <div className="mt-3 flex flex-wrap gap-2.5">
-          <button
-            type="button"
-            onClick={() => onNavigate('tickets')}
-            className="rounded-lg border border-[#D8CCF3] dark:border-[#5B35B1] bg-[#F5F1FF] dark:bg-[#35105E]/60 hover:bg-[#F0E3FF] dark:hover:bg-[#35105E] px-3.5 py-2 text-xs font-semibold text-[#431599] dark:text-[#E9D5FF] transition-colors cursor-pointer whitespace-nowrap"
-          >
-            Daftar Work Order
-          </button>
-          {['super_admin', 'management_data'].includes(currentUser?.role || '') && (
-            <button
-              type="button"
-              onClick={() => onNavigate('import')}
-              className="rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] hover:bg-[#F7F6FA] dark:hover:bg-[#35105E]/50 px-3.5 py-2 text-xs font-semibold text-[#211A2E] dark:text-[#CEC0E8] transition-colors cursor-pointer whitespace-nowrap"
-            >
-              Import Data WO
-            </button>
-          )}
-          {currentUser?.role === 'dispatch' && (
-            <button
-              type="button"
-              onClick={() => onNavigate('form_sameday')}
-              className="rounded-lg border border-[#D8CCF3] bg-[#7135B5] hover:bg-[#431599] px-3.5 py-2 text-xs font-semibold text-white transition-colors cursor-pointer whitespace-nowrap"
-            >
-              + Form Sameday
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onNavigate('contact_centre')}
-            className="rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] hover:bg-[#F7F6FA] dark:hover:bg-[#35105E]/50 px-3.5 py-2 text-xs font-semibold text-[#211A2E] dark:text-[#CEC0E8] transition-colors cursor-pointer whitespace-nowrap"
-          >
-            Contact Centre
-          </button>
-        </div>
-      </section>
     </div>
   );
+};
+
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate, onSelectTicket }) => {
+  const { currentUser } = useApp();
+
+  const canViewSlaEngine =
+    currentUser?.role === 'super_admin' ||
+    currentUser?.role === 'dispatch' ||
+    currentUser?.role === 'leader' ||
+    currentUser?.role === 'management_data';
+
+  if (canViewSlaEngine) {
+    return (
+      <SlaTelemetryDashboardView
+        viewContext="dashboard_monitoring"
+        onNavigate={onNavigate}
+        onSelectTicket={onSelectTicket}
+      />
+    );
+  }
+
+  return <FallbackOperationalOverview onNavigate={onNavigate} />;
 };
