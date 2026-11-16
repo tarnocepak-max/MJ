@@ -21,7 +21,10 @@ import {
   CheckCircle2,
   ArrowUpRight,
   Monitor,
-  Smartphone
+  Smartphone,
+  Search,
+  X,
+  Loader2
 } from 'lucide-react';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
@@ -30,6 +33,7 @@ import { useToast } from '../../context/ToastContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { getAuthHeaders } from '../../services/authService';
 
 interface HeaderProps {
   activeTab: string;
@@ -97,8 +101,80 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [quickSearch, setQuickSearch] = useState('');
+  const [quickResults, setQuickResults] = useState<Ticket[]>([]);
+  const [isQuickSearching, setIsQuickSearching] = useState(false);
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
+  const quickSearchRef = useRef<HTMLDivElement>(null);
 
   const canCrossDateSearch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
+
+  useEffect(() => {
+    const q = quickSearch.trim();
+    if (!q || currentUser.role === 'installer') {
+      setQuickResults([]);
+      setIsQuickSearching(false);
+      return;
+    }
+
+    const qLower = q.toLowerCase();
+    const pool = canCrossDateSearch ? tickets : scopedTickets;
+    const localSearch = () =>
+      (pool || [])
+        .filter(
+          t =>
+            !t.isDeleted &&
+            (t.woNumber?.toLowerCase().includes(qLower) ||
+              t.idCustomer?.toLowerCase().includes(qLower) ||
+              t.customerName?.toLowerCase().includes(qLower) ||
+              t.customerPhone?.toLowerCase().includes(qLower) ||
+              t.installerName?.toLowerCase().includes(qLower))
+        )
+        .slice(0, 8);
+
+    if (!canCrossDateSearch || !isOnline) {
+      setQuickResults(localSearch());
+      setIsQuickSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsQuickSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/tickets/search?q=${encodeURIComponent(q)}`, {
+          credentials: 'include',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Search failed');
+        const json = await res.json();
+        if (!cancelled) {
+          setQuickResults(Array.isArray(json.tickets) ? json.tickets.slice(0, 8) : localSearch());
+        }
+      } catch {
+        if (!cancelled) {
+          setQuickResults(localSearch());
+        }
+      } finally {
+        if (!cancelled) setIsQuickSearching(false);
+      }
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [quickSearch, canCrossDateSearch, isOnline, tickets, scopedTickets, currentUser.role]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (quickSearchRef.current && !quickSearchRef.current.contains(e.target as Node)) {
+        setQuickSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   // Real notification items computed from live unread messages, pending dispatch approvals, and offline queue
   const notificationSummary = useMemo(() => {
@@ -466,6 +542,101 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </>
           )}
         </div>
+
+        {/* Zone 2: Quick Cross-Date Search (Desktop non-mobile mode) */}
+        {!isMobileView && (
+          <div ref={quickSearchRef} className="hidden xl:block flex-1 max-w-xs 2xl:max-w-sm mx-2 relative">
+            <div className="relative flex items-center w-full">
+              <Search className="w-3.5 h-3.5 text-[#8B8495] absolute left-3 pointer-events-none" />
+              <input
+                type="text"
+                value={quickSearch}
+                onFocus={() => setQuickSearchOpen(true)}
+                onChange={e => {
+                  setQuickSearch(e.target.value);
+                  setQuickSearchOpen(true);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    setQuickSearch('');
+                    setQuickSearchOpen(false);
+                  }
+                }}
+                placeholder={
+                  canCrossDateSearch
+                    ? 'Cari WO lintas tanggal...'
+                    : 'Cari Work Order hari ini...'
+                }
+                aria-label="Quick Cross-Date Search"
+                className="w-full pl-8 pr-8 py-1.5 bg-[#F7F6FA] dark:bg-[#22123F] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] focus:outline-none focus:bg-white dark:focus:bg-[#1A0E2E] focus:border-[#A78BFA] focus:ring-1 focus:ring-[#A78BFA]/40 transition-all"
+              />
+              {quickSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickSearch('');
+                    setQuickResults([]);
+                  }}
+                  className="absolute right-2.5 p-0.5 text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white cursor-pointer"
+                  aria-label="Bersihkan pencarian cepat"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {quickSearchOpen && quickSearch.trim().length > 0 && (
+              <div className="absolute left-0 right-0 mt-1.5 bg-white dark:bg-[#1A0E2E] border border-[#E9E5F0] dark:border-[#35105E] rounded-xl shadow-xl z-50 overflow-hidden text-xs">
+                <div className="px-3 py-2 bg-[#F7F6FA] dark:bg-[#22123F] border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between text-[10.5px] font-bold text-[#766B83] dark:text-[#A78BFA] uppercase">
+                  <span>{canCrossDateSearch ? 'Hasil Pencarian Lintas Tanggal' : 'Hasil Work Order'}</span>
+                  {isQuickSearching ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-[#7135B5]" />
+                  ) : (
+                    <span className="font-mono tabular-nums">{quickResults.length} WO</span>
+                  )}
+                </div>
+                <div className="max-h-72 overflow-y-auto divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                  {!isQuickSearching && quickResults.length === 0 ? (
+                    <div className="p-4 text-center text-[#8B8495]">
+                      Tidak ditemukan WO untuk &ldquo;{quickSearch}&rdquo;
+                    </div>
+                  ) : (
+                    quickResults.map(t => (
+                      <button
+                        key={`hdr-search-${t.id}`}
+                        type="button"
+                        onClick={() => {
+                          setQuickSearchOpen(false);
+                          setQuickSearch('');
+                          if (onSelectTicket) onSelectTicket(t, 'overview');
+                          else onNavigate('tickets');
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 flex items-center justify-between gap-2 cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[#35105E] dark:text-[#D8B4FE]">
+                              {t.woNumber}
+                            </span>
+                            <span className="font-mono text-[10px] text-[#8B8495]">
+                              {getTicketAppointmentDate(t) || '-'}
+                            </span>
+                          </div>
+                          <div className="font-semibold text-[#211A2E] dark:text-white truncate">
+                            {t.customerName} · {t.idCustomer || '-'}
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[10px] font-bold shrink-0">
+                          {t.statusWOInstaller || t.statusWOAgent || 'OPEN'}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Zone 2 & 3: Display Mode Switch + Connectivity + Cloud Live + Notifications + User Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

@@ -450,7 +450,12 @@ const MainLayout: React.FC = () => {
         case 'installer_chat':
         case 'live_chat':
         case 'contact_centre':
-          return <ContactCentreView />;
+          return (
+            <ContactCentreView
+              onSelectTicket={handleOpenTicketDetail}
+              onOpenWhatsApp={handleOpenWhatsAppModal}
+            />
+          );
         default:
           return (
             <InstallerDashboardView
@@ -644,7 +649,12 @@ const MainLayout: React.FC = () => {
 
       // Contact & Messaging
       case 'contact_centre':
-        return <ContactCentreView />;
+        return (
+          <ContactCentreView
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
 
       // Data Operations & Sync
       case 'management_data_portal': {
@@ -876,32 +886,45 @@ const MainLayout: React.FC = () => {
           )}
 
           {/* Content Viewport with responsive bottom navigation spacing */}
-          <main
-            data-display-mode={isMobileView ? 'mobile' : 'desktop'}
-            className={`flex-1 overflow-y-auto overflow-x-hidden ${
-              isMobileView
-                ? 'p-3 sm:p-4 pb-28 w-full'
-                : 'p-3 sm:p-5 lg:p-6'
-            } ${
-              isInstaller
-                ? 'pb-28 w-full'
-                : currentUser.role === 'leader'
-                ? 'pb-28 sm:pb-24'
-                : isMobileView && config.device?.android?.showBottomNavigation !== false
-                ? 'pb-28'
-                : ''
-            }`}
-          >
-            <div
-              className={
-                isInstaller || isMobileView || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
-                  ? 'w-full min-w-0'
-                  : 'max-w-7xl mx-auto min-w-0'
-              }
-            >
-              {renderContent()}
-            </div>
-          </main>
+          {(() => {
+            const isContactCentreFullBleed =
+              ['contact_centre', 'installer_chat', 'live_chat'].includes(activeTab) &&
+              !isMobileView &&
+              !isInstaller &&
+              currentUser.role !== 'leader';
+            return (
+              <main
+                data-display-mode={isMobileView ? 'mobile' : 'desktop'}
+                className={`flex-1 ${
+                  isContactCentreFullBleed
+                    ? 'overflow-hidden p-0'
+                    : `overflow-y-auto overflow-x-hidden ${
+                        isMobileView ? 'p-3 sm:p-4 pb-28 w-full' : 'p-3 sm:p-5 lg:p-6'
+                      }`
+                } ${
+                  isInstaller
+                    ? 'pb-28 w-full'
+                    : currentUser.role === 'leader'
+                    ? 'pb-28 sm:pb-24'
+                    : isMobileView && config.device?.android?.showBottomNavigation !== false
+                    ? 'pb-28'
+                    : ''
+                }`}
+              >
+                <div
+                  className={
+                    isContactCentreFullBleed
+                      ? 'w-full h-full min-w-0'
+                      : isInstaller || isMobileView || isFullWidth || (config.device?.mode === 'pc' && config.device?.pc?.wideScreenFullWidth)
+                      ? 'w-full min-w-0'
+                      : 'max-w-7xl mx-auto min-w-0'
+                  }
+                >
+                  {renderContent()}
+                </div>
+              </main>
+            );
+          })()}
         </div>
       </div>
 
