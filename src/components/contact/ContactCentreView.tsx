@@ -9,11 +9,9 @@ import {
   Image as ImageIcon,
   Camera,
   Shield,
-  Wrench,
   Building2,
   CheckCheck,
   Check,
-  Phone,
   Maximize2,
   X,
   AlertCircle,
@@ -22,9 +20,6 @@ import {
   Settings,
   Trash2,
   Edit2,
-  MapPin,
-  Clock,
-  Headphones,
   PanelRightOpen,
   PanelRightClose,
   RefreshCw,
@@ -41,7 +36,6 @@ import { useToast } from '../../context/ToastContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
-import { buildGoogleMapsSearchUrl } from '../../services/mapsService';
 import { getSafePreviewUrl, formatFileSize } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { ContactTicketDetailDrawer } from './ContactTicketDetailDrawer';
@@ -541,19 +535,6 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     }
   };
 
-  // Active ticket maps & whatsapp links
-  const activeTicketMapsUrl = useMemo(() => {
-    if (!activeTicket) return '';
-    if (activeTicket.latitude && activeTicket.longitude) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        `${activeTicket.latitude},${activeTicket.longitude}`
-      )}`;
-    }
-    return buildGoogleMapsSearchUrl(activeTicket).url;
-  }, [activeTicket]);
-
-  const activeTicketPhone = activeTicket?.customerPhone || activeTicket?.installerContact || '';
-  const cleanWaPhone = activeTicketPhone.replace(/[^0-9]/g, '').replace(/^0/, '62');
   const isStreamLive = databaseStatus === 'connected' && isOnline;
   const formattedTodayLabel = formatIndonesianWODate(todayWIB);
 
@@ -720,218 +701,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Persistent Expanded LiveChat Header (Selected Ticket) */}
-      {activeTicket && (
-        <div className="px-4 sm:px-5 py-3 bg-white dark:bg-[#1A0E2E] border-b border-[#E9E5F0] dark:border-[#35105E] shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-3 shrink-0">
-          {/* Work Order Primary Identity */}
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#35105E] to-[#5B35B1] text-white flex items-center justify-center shadow-sm shrink-0">
-              <Headphones className="w-5 h-5" />
-            </div>
-
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-base sm:text-lg font-extrabold text-[#35105E] dark:text-[#D8B4FE] tracking-tight tabular-nums">
-                  {activeTicket.woNumber}
-                </span>
-                {(activeTicket.ticketCategory || activeTicket.appointmentType) && (
-                  <span className="px-2 py-0.5 rounded-full bg-[#DC4C5A] text-white text-[10px] font-extrabold uppercase tracking-wider whitespace-nowrap">
-                    {activeTicket.ticketCategory || activeTicket.appointmentType}
-                  </span>
-                )}
-                <span className="text-[#CBC3D5] dark:text-[#5B35B1] hidden sm:inline">|</span>
-                <span className="font-display text-sm sm:text-base font-bold text-[#211A2E] dark:text-white truncate max-w-[260px]">
-                  {activeTicket.customerName}
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[11px] font-semibold text-[#494453] dark:text-[#D8B4FE] whitespace-nowrap">
-                  ID: {activeTicket.idCustomer || activeTicket.customerId || '-'}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#766B83] dark:text-[#CEC0E8]">
-                <span className="inline-flex items-center gap-1.5 font-semibold text-[#211A2E] dark:text-white">
-                  <Wrench className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
-                  <span>{activeTicket.installerName || 'Belum Ditugaskan'}</span>
-                  {(activeTicket.contactorName || activeTicket.contractorName) && (
-                    <span className="font-normal text-[#766B83] dark:text-[#A78BFA]">
-                      ({activeTicket.contactorName || activeTicket.contractorName})
-                    </span>
-                  )}
-                </span>
-
-                {activeTicket.slotTime && (
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    <span>{activeTicket.slotTime}</span>
-                  </span>
-                )}
-
-                {(activeTicket.address || activeTicket.streetName || activeTicket.area) && (
-                  <span className="inline-flex items-center gap-1 truncate max-w-md">
-                    <MapPin className="w-3.5 h-3.5 shrink-0 text-[#DC4C5A]" />
-                    <span className="truncate">
-                      {[activeTicket.clusterName, activeTicket.address || activeTicket.streetName, activeTicket.area]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 4-Dimension Operational Matrix & Quick Action Controls */}
-          <div className="flex flex-col lg:flex-row lg:items-center gap-2.5 shrink-0">
-            {/* 4-Dimension Badges Grid */}
-            <div className="hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 bg-[#F5F1FF] dark:bg-[#22123F] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
-              <div className="px-2.5 py-1 bg-white dark:bg-[#160D29] rounded-lg">
-                <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8B8495] whitespace-nowrap">
-                  Agent Workflow
-                </div>
-                <div className="text-[11px] font-extrabold text-[#40208D] dark:text-[#D8B4FE] flex items-center gap-1 whitespace-nowrap mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#7135B5] shrink-0" />
-                  <span className="uppercase">{activeTicket.statusWOAgent || 'Pending'}</span>
-                </div>
-              </div>
-
-              <div className="px-2.5 py-1 bg-white dark:bg-[#160D29] rounded-lg">
-                <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8B8495] whitespace-nowrap">
-                  Installer Stage
-                </div>
-                <div className="text-[11px] font-extrabold text-[#3977C9] dark:text-sky-300 flex items-center gap-1 whitespace-nowrap mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3977C9] shrink-0" />
-                  <span className="uppercase">{activeTicket.statusWOInstaller || 'Assigned'}</span>
-                </div>
-              </div>
-
-              <div className="px-2.5 py-1 bg-white dark:bg-[#160D29] rounded-lg">
-                <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#8B8495] whitespace-nowrap">
-                  WA Status
-                </div>
-                <div className="text-[11px] font-extrabold text-[#16A36A] dark:text-emerald-300 flex items-center gap-1 whitespace-nowrap mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A] shrink-0" />
-                  <span className="uppercase">
-                    {(activeTicket.statusWhatsApp || 'not_prepared').replace(/_/g, ' ')}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                className={`px-2.5 py-1 rounded-lg border ${
-                  activeTicket.approvalStatus === 'BUTUH APPROVAL'
-                    ? 'bg-[#E59A27]/12 border-[#E59A27]/35'
-                    : activeTicket.approvalStatus === 'APPROVED'
-                    ? 'bg-[#ECFDF5] dark:bg-emerald-950/40 border-[#16A36A]/30'
-                    : activeTicket.approvalStatus === 'REJECTED'
-                    ? 'bg-[#FEF2F2] dark:bg-rose-950/40 border-[#DC4C5A]/30'
-                    : 'bg-white dark:bg-[#160D29] border-transparent'
-                }`}
-              >
-                <div
-                  className={`text-[9.5px] font-bold uppercase tracking-wider whitespace-nowrap ${
-                    activeTicket.approvalStatus === 'BUTUH APPROVAL'
-                      ? 'text-[#B45309] dark:text-amber-300'
-                      : 'text-[#8B8495]'
-                  }`}
-                >
-                  Approval Gov
-                </div>
-                <div
-                  className={`text-[11px] font-extrabold whitespace-nowrap mt-0.5 ${
-                    activeTicket.approvalStatus === 'BUTUH APPROVAL'
-                      ? 'text-[#B45309] dark:text-amber-200'
-                      : activeTicket.approvalStatus === 'APPROVED'
-                      ? 'text-[#16A36A] dark:text-emerald-300'
-                      : activeTicket.approvalStatus === 'REJECTED'
-                      ? 'text-[#DC4C5A] dark:text-rose-300'
-                      : 'text-[#766B83] dark:text-[#CEC0E8]'
-                  }`}
-                >
-                  {activeTicket.approvalStatus || 'NONE'}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Action Controls + Drawer Toggle */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {activeTicketPhone ? (
-                <a
-                  href={`tel:${activeTicketPhone}`}
-                  className="px-2.5 py-2 rounded-lg bg-[#F7F6FA] dark:bg-[#22123F] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-                  title={`Hubungi ${activeTicketPhone}`}
-                >
-                  <Phone className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA]" />
-                  <span className="hidden sm:inline">Hubungi</span>
-                </a>
-              ) : null}
-
-              {onOpenWhatsApp ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenWhatsApp(activeTicket)}
-                  className="px-2.5 py-2 rounded-lg bg-[#16A36A] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                  title="Buka WhatsApp Pelanggan"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>wa.me</span>
-                </button>
-              ) : (
-                cleanWaPhone && (
-                  <a
-                    href={`https://wa.me/${cleanWaPhone}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2.5 py-2 rounded-lg bg-[#16A36A] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap shrink-0"
-                    title="Buka Sesi WhatsApp"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>wa.me</span>
-                  </a>
-                )
-              )}
-
-              {activeTicketMapsUrl && (
-                <a
-                  href={activeTicketMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-2 rounded-lg bg-[#F7F6FA] dark:bg-[#22123F] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-                  title="Buka Lokasi di Google Maps"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-[#3977C9]" />
-                  <span className="hidden sm:inline">Peta</span>
-                </a>
-              )}
-
-              {/* Prominent Toggle for Collapsible Right Ticket Detail Drawer */}
-              <button
-                type="button"
-                onClick={() => setIsDetailDrawerOpen(prev => !prev)}
-                aria-expanded={isDetailDrawerOpen}
-                data-testid="toggle-ticket-detail-drawer"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#35105E] hover:bg-[#7135B5] text-white shadow-sm transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              >
-                {isDetailDrawerOpen ? (
-                  <PanelRightClose className="w-4 h-4 text-[#D8B4FE] shrink-0" />
-                ) : (
-                  <PanelRightOpen className="w-4 h-4 text-[#D8B4FE] shrink-0" />
-                )}
-                <div className="flex flex-col text-left leading-tight">
-                  <span className="text-[11px] font-bold">
-                    {isDetailDrawerOpen ? 'Tutup Detail' : 'Buka Detail Tiket'}
-                  </span>
-                  <span className="text-[9.5px] text-[#A78BFA] font-mono">Shift + D</span>
-                </div>
-                <span className="ml-0.5 px-1.5 py-0.5 rounded text-[9.5px] font-mono bg-white/10 border border-white/20">
-                  {isDetailDrawerOpen ? 'Open' : 'Collapsed'}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Main Multi-Panel Operational Canvas */}
+      {/* 2. Main Multi-Panel Operational Canvas */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* LEFT PANEL: Conversation Queues & Categories */}
         <aside
@@ -1031,31 +801,6 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 <span>Kelola Tag</span>
               </button>
             )}
-          </div>
-
-          <div className="px-3 py-2 flex flex-wrap gap-1.5 border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0 bg-white dark:bg-[#1A0E2E]">
-            {groupedTickets.map(g => {
-              const isSelected = activeCategoryFilter === g.category.id;
-              return (
-                <button
-                  key={`tag-${g.category.id}`}
-                  type="button"
-                  onClick={() => setActiveCategoryFilter(isSelected ? 'all' : g.category.id)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10.5px] font-bold transition-colors cursor-pointer tabular-nums ${
-                    isSelected
-                      ? 'bg-[#35105E] text-white'
-                      : 'bg-[#F7F6FA] dark:bg-[#22123F] text-[#494453] dark:text-[#CEC0E8] hover:bg-[#F4EAFF]'
-                  }`}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: g.category.color || '#7135B5' }}
-                  />
-                  <span>#{g.category.name}</span>
-                  <span className="opacity-75">({g.tickets.length})</span>
-                </button>
-              );
-            })}
           </div>
 
           {/* Live Queue List (Independent Scroll) */}
@@ -1159,16 +904,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                   >
                     {isDetailDrawerOpen ? (
-                      <>
-                        <PanelRightClose className="w-3.5 h-3.5" />
-                        <span>Tutup Drawer</span>
-                      </>
+                      <PanelRightClose className="w-3.5 h-3.5" />
                     ) : (
-                      <>
-                        <PanelRightOpen className="w-3.5 h-3.5" />
-                        <span>Buka Drawer</span>
-                      </>
+                      <PanelRightOpen className="w-3.5 h-3.5" />
                     )}
+                    <span>Detail Tickets</span>
                   </button>
                 </div>
               </div>

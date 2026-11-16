@@ -247,8 +247,9 @@ interface AppContextType {
   ticketMessages: TicketMessage[];
   totalLiveChatUnreadCount: number;
   liveChatUnreadTicketsCount: number;
-  sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string) => Promise<{ success: boolean; error?: string; message?: TicketMessage }>;
+  sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string) => Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }>;
   getMessagesForTicket: (ticketId: string) => TicketMessage[];
+  refreshMessagesForTicket: (ticketId: string) => Promise<{ messages: TicketMessage[]; hasProgressTrigger: boolean }>;
   markTicketMessagesAsRead: (ticketId: string) => void;
   getTicketUnreadCount: (ticketId: string) => number;
 
@@ -2780,11 +2781,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
-    // App Flow 5: Installer MUST record PROGRESS LiveChat check-in before saving report
-    if (currentUser.role === 'installer' && !ticket.checkInAt) {
-      const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
-      toast.error(msg, 'Check-in PROGRESS Diperlukan');
-      return { success: false, code: 'CHECK_IN_REQUIRED', error: msg };
+    // App Flow 5: Installer MUST record persisted PROGRESS LiveChat check-in (WO ID + User ID) before saving report
+    if (currentUser.role === 'installer') {
+      const targetWoUpper = String(ticket.woNumber || '').trim().toUpperCase();
+      const myUid = String(currentUser.id || '').trim();
+      const hasPersistedProgress = Boolean(
+        myUid &&
+          ticketMessages.some(m => {
+            if (!m || !m.id) return false;
+            const msgId = String(m.id).trim();
+            if (!msgId || msgId.startsWith('temp_') || msgId.startsWith('pending_') || msgId.startsWith('local_offline_')) {
+              return false;
+            }
+            if ((m as any)._offlineSyncStatus === 'pending' || (m as any).status === 'failed' || (m as any).status === 'pending') {
+              return false;
+            }
+            const woMatch =
+              m.ticketId === ticket.id ||
+              (targetWoUpper && String(m.woNumber || '').trim().toUpperCase() === targetWoUpper);
+            if (!woMatch) return false;
+            return String(m.senderId || '').trim() === myUid && isProgressCategory(m.category);
+          })
+      );
+      if (!ticket.checkInAt || !hasPersistedProgress) {
+        const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
+        toast.error(msg, 'Check-in PROGRESS Diperlukan');
+        return { success: false, code: 'CHECK_IN_REQUIRED', error: msg };
+      }
     }
 
     const now = new Date().toISOString();
@@ -3101,7 +3124,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
-      if (!ticket.checkInAt) {
+      const targetWoUpper = String(ticket.woNumber || '').trim().toUpperCase();
+      const hasPersistedProgress = Boolean(
+        myId &&
+          ticketMessages.some(m => {
+            if (!m || !m.id) return false;
+            const msgId = String(m.id).trim();
+            if (!msgId || msgId.startsWith('temp_') || msgId.startsWith('pending_') || msgId.startsWith('local_offline_')) {
+              return false;
+            }
+            if ((m as any)._offlineSyncStatus === 'pending' || (m as any).status === 'failed' || (m as any).status === 'pending') {
+              return false;
+            }
+            const woMatch =
+              m.ticketId === ticket.id ||
+              (targetWoUpper && String(m.woNumber || '').trim().toUpperCase() === targetWoUpper);
+            if (!woMatch) return false;
+            return String(m.senderId || '').trim() === myId && isProgressCategory(m.category);
+          })
+      );
+
+      if (!ticket.checkInAt || !hasPersistedProgress) {
         const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
         toast.error(msg, 'Check-in PROGRESS Diperlukan');
         return {
@@ -3891,7 +3934,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     text: string,
     attachments: ChatAttachment[] = [],
     category?: string
-  ): Promise<{ success: boolean; error?: string; message?: TicketMessage }> => {
+  ): Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }> => {
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
@@ -4016,7 +4059,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addAuditLog('Chat Attachment Uploaded', 'ticket', ticketId, `${currentUser.name} uploaded ${attachments.length} photo(s) in ticket chat`);
       }
 
-      return { success: true, message: savedMessage };
+      return { success: true, message: savedMessage, hasProgressTrigger: Boolean(json.hasProgressTrigger) };
     } catch (err: any) {
       const errMsg = err?.message || 'Koneksi gagal saat mengirim pesan LiveChat. Check-in tidak dicatat.';
       toast.error(errMsg, 'Gagal Mengirim Pesan');
@@ -4041,6 +4084,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   };
+
+  const refreshMessagesForTicket = React.useCallback(
+    async (ticketId: string): Promise<{ messages: TicketMessage[]; hasProgressTrigger: boolean }> => {
+      const cleanId = String(ticketId || '').trim();
+      if (!cleanId) return { messages: [], hasProgressTrigger: false };
+      const headers = getAuthHeaders();
+      if (!headers['Authorization']) return { messages: [], hasProgressTrigger: false };
+
+      try {
+        const res = await fetch(`/api/tickets/${encodeURIComponent(cleanId)}/messages`, {
+          headers,
+          cache: 'no-store'
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success || !Array.isArray(data.messages)) {
+          return { messages: [], hasProgressTrigger: false };
+        }
+
+        const fetchedMsgs: TicketMessage[] = data.messages;
+        const matchedTicket = ticketsRef.current.find(t => t.id === cleanId || t.woNumber === cleanId);
+        const canonicalId = matchedTicket?.id || cleanId;
+        const woUpper = String(matchedTicket?.woNumber || '').trim().toUpperCase();
+
+        setTicketMessages(prev => {
+          const retained = prev.filter(m => {
+            if (!m) return false;
+            const belongsToTarget =
+              m.ticketId === cleanId ||
+              m.ticketId === canonicalId ||
+              (woUpper && String(m.woNumber || '').trim().toUpperCase() === woUpper);
+            return !belongsToTarget;
+          });
+          const mergedMap = new Map<string, TicketMessage>();
+          [...retained, ...fetchedMsgs].forEach(m => {
+            if (m?.id) mergedMap.set(m.id, m);
+          });
+          return Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+        });
+
+        triggerDeliveryReceiptsForMessages(fetchedMsgs);
+        return {
+          messages: fetchedMsgs,
+          hasProgressTrigger: Boolean(data.hasProgressTrigger)
+        };
+      } catch {
+        return { messages: [], hasProgressTrigger: false };
+      }
+    },
+    [triggerDeliveryReceiptsForMessages]
+  );
 
   const markTicketMessagesAsRead = (ticketId: string) => {
     const currentUserId = currentUser?.id || '';
@@ -6113,6 +6208,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         liveChatUnreadTicketsCount,
         sendTicketMessage,
         getMessagesForTicket,
+        refreshMessagesForTicket,
         markTicketMessagesAsRead,
         getTicketUnreadCount,
         templates,

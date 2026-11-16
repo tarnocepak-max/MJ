@@ -90,6 +90,7 @@ import {
 import {
   resolveLeaderForWorkOrder,
   isProgressCategoryOnly,
+  hasUserSentProgressMessage,
   isContractorMatch,
   isAreaMatch
 } from './server/appFlowHelpers.ts';
@@ -2458,7 +2459,8 @@ const DEFAULT_ACTIVE_CHAT_CATEGORY_NAMES = [
   'CUSTOMER CONFIRMATION',
   'ESCALATION',
   'ISSUE',
-  'REQUEST'
+  'REQUEST',
+  'GENERAL'
 ];
 
 export async function getActiveMasterChatCategories(): Promise<string[]> {
@@ -4871,13 +4873,32 @@ export async function createExpressApp(options?: {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk menyimpan laporan untuk tiket ini.' });
     }
 
-    // App Flow 5: Check-in via LiveChat PROGRESS is mandatory before Installer Save Report
-    if (!ticket.checkInAt && req.user!.role === 'installer') {
-      return res.status(400).json({
-        success: false,
-        code: 'CHECK_IN_REQUIRED',
-        error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
-      });
+    // App Flow 5: Check-in via LiveChat PROGRESS (specific to WO ID & logged-in technician User ID) is mandatory before Installer Save Report
+    if (req.user!.role === 'installer') {
+      let woMsgs: any[] = [];
+      if (isSupabaseMode()) {
+        const msgRes = await getTicketMessagesFromSupabase(ticket.id);
+        if (msgRes.success && Array.isArray(msgRes.data)) {
+          woMsgs = msgRes.data;
+        } else if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            error: 'Gagal memverifikasi riwayat LiveChat PROGRESS dari database.',
+            code: 'DATABASE_UNAVAILABLE'
+          });
+        }
+      }
+      if (woMsgs.length === 0 && isLocalJsonModeAllowed()) {
+        woMsgs = db.ticketMessages || [];
+      }
+      const hasProgressMsg = hasUserSentProgressMessage(woMsgs, ticket, req.user!.id);
+      if (!ticket.checkInAt || !hasProgressMsg) {
+        return res.status(400).json({
+          success: false,
+          code: 'CHECK_IN_REQUIRED',
+          error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
+        });
+      }
     }
 
     const now = new Date().toISOString();
@@ -5026,13 +5047,32 @@ export async function createExpressApp(options?: {
       });
     }
 
-    // App Flow 5: Check-in via LiveChat PROGRESS is mandatory before Installer Save Report
-    if (!ticket.checkInAt && req.user!.role === 'installer') {
-      return res.status(400).json({
-        success: false,
-        code: 'CHECK_IN_REQUIRED',
-        error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
-      });
+    // App Flow 5: Check-in via LiveChat PROGRESS (specific to WO ID & logged-in technician User ID) is mandatory before Installer Save Report
+    if (req.user!.role === 'installer') {
+      let woMsgs: any[] = [];
+      if (isSupabaseMode()) {
+        const msgRes = await getTicketMessagesFromSupabase(ticket.id);
+        if (msgRes.success && Array.isArray(msgRes.data)) {
+          woMsgs = msgRes.data;
+        } else if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            error: 'Gagal memverifikasi riwayat LiveChat PROGRESS dari database.',
+            code: 'DATABASE_UNAVAILABLE'
+          });
+        }
+      }
+      if (woMsgs.length === 0 && isLocalJsonModeAllowed()) {
+        woMsgs = db.ticketMessages || [];
+      }
+      const hasProgressMsg = hasUserSentProgressMessage(woMsgs, ticket, req.user!.id);
+      if (!ticket.checkInAt || !hasProgressMsg) {
+        return res.status(400).json({
+          success: false,
+          code: 'CHECK_IN_REQUIRED',
+          error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
+        });
+      }
     }
 
     const now = new Date().toISOString();
@@ -11423,24 +11463,27 @@ export async function createExpressApp(options?: {
 
     if (isSupabaseMode()) {
       try {
-        // Enforce RBAC scope for leader & installer using authoritative database
-        if (req.user!.role === 'leader' || req.user!.role === 'installer') {
-          const tRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
-          if (tRes.success && tRes.data) {
-            if (!checkTicketAccess(tRes.data, req.user!)) {
-              return res.status(403).json({
-                error:
-                  req.user!.role === 'leader'
-                    ? 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
-                    : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order yang ditugaskan kepada Anda.'
-              });
-            }
+        let ticketObj: any = null;
+        const tRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
+        if (tRes.success && tRes.data) {
+          ticketObj = tRes.data;
+          // Enforce RBAC scope for leader & installer using authoritative database
+          if ((req.user!.role === 'leader' || req.user!.role === 'installer') && !checkTicketAccess(ticketObj, req.user!)) {
+            return res.status(403).json({
+              error:
+                req.user!.role === 'leader'
+                  ? 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
+                  : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order yang ditugaskan kepada Anda.'
+            });
           }
         }
 
-        const msgRes = await getTicketMessagesFromSupabase(id);
+        const msgRes = await getTicketMessagesFromSupabase(ticketObj ? ticketObj.id : id);
         if (msgRes.success && msgRes.data) {
-          return res.json({ success: true, messages: msgRes.data });
+          const hasProgressTrigger =
+            req.user!.role === 'installer' &&
+            hasUserSentProgressMessage(msgRes.data, ticketObj || id, req.user!.id);
+          return res.json({ success: true, messages: msgRes.data, hasProgressTrigger });
         } else if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({
             success: false,
@@ -11472,7 +11515,10 @@ export async function createExpressApp(options?: {
     }
 
     const msgs = db.ticketMessages.filter(m => m.ticketId === (ticket ? ticket.id : id) || m.woNumber === (ticket ? ticket.woNumber : id));
-    res.json({ success: true, messages: msgs });
+    const hasProgressTrigger =
+      req.user!.role === 'installer' &&
+      hasUserSentProgressMessage(msgs, ticket || id, req.user!.id);
+    res.json({ success: true, messages: msgs, hasProgressTrigger });
   });
 
   app.post('/api/tickets/:id/messages', requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -11550,42 +11596,9 @@ export async function createExpressApp(options?: {
 
         const prevTicketSnapshot = ticketData ? { ...ticketData } : undefined;
         // App Flow 5: Trigger Check-in ONLY when Installer sends message with selected category PROGRESS
-        let triggeredCheckIn = false;
-        const ticketUpdates: Record<string, any> = {};
-        if (ticketData) {
-          if (selectedCategory) {
-            ticketUpdates.chatCategory = selectedCategory;
-          }
-          ticketUpdates.chatMessagesCount = (Number(ticketData.chatMessagesCount) || 0) + 1;
-          ticketUpdates.lastMessageAt = nowIso;
-          ticketUpdates.lastMessageSnippet = msgSnippet;
-          ticketUpdates.updatedAt = nowIso;
-          ticketUpdates.updatedBy = user.name;
-        }
-
-        if (ticketData && isInstallerProgressCheckIn && (!ticketData.checkInAt || ticketData.workSessionStatus === 'Belum Check-in')) {
-          triggeredCheckIn = true;
-          const existingSessions = Array.isArray(ticketData.workSessions) ? [...ticketData.workSessions] : [];
-          if (!existingSessions.some((s: any) => s.status === 'Sedang Dikerjakan')) {
-            existingSessions.push({
-              sessionId: 'ws_' + Date.now(),
-              checkInAt: nowIso,
-              status: 'Sedang Dikerjakan'
-            });
-          }
-          ticketUpdates.checkInAt = nowIso;
-          ticketUpdates.workSessionStatus = 'Sedang Dikerjakan';
-          ticketUpdates.workSessions = existingSessions;
-          if (ticketData.statusWOInstaller !== 'Completed' && ticketData.statusWOInstaller !== 'Installed') {
-            ticketUpdates.statusWOInstaller = 'On Site';
-          }
-        }
-
-        if (ticketData && Object.keys(ticketUpdates).length > 0) {
-          await updateWorkOrderInSupabase(ticketData.id, ticketUpdates);
-          Object.assign(ticketData, ticketUpdates);
-          broadcastSupabaseChange('work_orders', 'UPDATE', ticketData, { previousRecord: prevTicketSnapshot });
-        }
+        const triggeredCheckIn = Boolean(
+          ticketData && isInstallerProgressCheckIn && (!ticketData.checkInAt || ticketData.workSessionStatus === 'Belum Check-in')
+        );
 
         const newMsgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         const insertRes = await insertTicketMessageToSupabase({
@@ -11609,6 +11622,41 @@ export async function createExpressApp(options?: {
           });
         }
 
+        const ticketUpdates: Record<string, any> = {};
+        if (ticketData) {
+          if (selectedCategory) {
+            ticketUpdates.chatCategory = selectedCategory;
+          }
+          ticketUpdates.chatMessagesCount = (Number(ticketData.chatMessagesCount) || 0) + 1;
+          ticketUpdates.lastMessageAt = nowIso;
+          ticketUpdates.lastMessageSnippet = msgSnippet;
+          ticketUpdates.updatedAt = nowIso;
+          ticketUpdates.updatedBy = user.name;
+        }
+
+        if (ticketData && triggeredCheckIn) {
+          const existingSessions = Array.isArray(ticketData.workSessions) ? [...ticketData.workSessions] : [];
+          if (!existingSessions.some((s: any) => s.status === 'Sedang Dikerjakan')) {
+            existingSessions.push({
+              sessionId: 'ws_' + Date.now(),
+              checkInAt: nowIso,
+              status: 'Sedang Dikerjakan'
+            });
+          }
+          ticketUpdates.checkInAt = nowIso;
+          ticketUpdates.workSessionStatus = 'Sedang Dikerjakan';
+          ticketUpdates.workSessions = existingSessions;
+          if (ticketData.statusWOInstaller !== 'Completed' && ticketData.statusWOInstaller !== 'Installed') {
+            ticketUpdates.statusWOInstaller = 'On Site';
+          }
+        }
+
+        if (ticketData && Object.keys(ticketUpdates).length > 0 && insertRes.success) {
+          await updateWorkOrderInSupabase(ticketData.id, ticketUpdates);
+          Object.assign(ticketData, ticketUpdates);
+          broadcastSupabaseChange('work_orders', 'UPDATE', ticketData, { previousRecord: prevTicketSnapshot });
+        }
+
         const newMsg = insertRes.data || {
           id: newMsgId,
           ticketId: ticketData ? ticketData.id : id,
@@ -11627,7 +11675,17 @@ export async function createExpressApp(options?: {
           isCheckIn: triggeredCheckIn
         };
 
-        broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticketData });
+        if (insertRes.success) {
+          broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticketData });
+        }
+
+        const hasProgressTrigger = Boolean(
+          insertRes.success &&
+          isInstallerRole &&
+          selectedCategory &&
+          isProgressCategoryOnly(selectedCategory) &&
+          String(newMsg.senderId || '') === String(user.id || '')
+        );
 
         if (!isLocalJsonModeAllowed()) {
           return res.json({
@@ -11635,7 +11693,8 @@ export async function createExpressApp(options?: {
             message: newMsg,
             ticket: ticketData,
             checkInTriggered: triggeredCheckIn,
-            checkedIn: triggeredCheckIn
+            checkedIn: triggeredCheckIn,
+            hasProgressTrigger
           });
         }
       } catch (err: any) {
@@ -11714,12 +11773,20 @@ export async function createExpressApp(options?: {
     saveDatabaseToDisk();
     broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticket });
 
+    const localMsgs = db.ticketMessages.filter(
+      m => m.ticketId === (ticket ? ticket.id : id) || m.woNumber === (ticket ? ticket.woNumber : id)
+    );
+    const hasProgressTrigger =
+      isInstallerRole &&
+      hasUserSentProgressMessage(localMsgs, ticket || id, user.id);
+
     res.json({
       success: true,
       message: newMsg,
       ticket,
       checkInTriggered: triggeredCheckIn,
-      checkedIn: triggeredCheckIn
+      checkedIn: triggeredCheckIn,
+      hasProgressTrigger
     });
   });
 

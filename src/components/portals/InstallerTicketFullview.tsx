@@ -64,6 +64,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     rootCauseCategories,
     currentUser,
     getMessagesForTicket,
+    refreshMessagesForTicket,
     sendTicketMessage,
     markTicketMessagesAsRead,
     getTicketUnreadCount,
@@ -84,7 +85,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return tickets.find(t => t.id === initialTicket.id) || initialTicket;
   }, [tickets, initialTicket]);
 
-  const requiresProgressCheckIn = currentUser.role === 'installer' && !activeTicket.checkInAt;
+  const [serverProgressTriggerByTicket, setServerProgressTriggerByTicket] = useState<Record<string, boolean>>({});
+  const triggerKey = `${activeTicket.id}::${currentUser?.id || ''}`;
+
   const workSession = useMemo(() => getTicketWorkStatus(activeTicket), [activeTicket]);
   const unreadChatCount = getTicketUnreadCount(activeTicket.id);
 
@@ -432,10 +435,74 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const messages = getMessagesForTicket(activeTicket.id);
 
-  // Reset explicit LiveChat activation when switching ticket
+  // Authoritative check against persisted DB LiveChat messages:
+  // (WO ID === opened WO) AND (senderId === logged-in technician User ID) AND (category === 'PROGRESS')
+  const hasPersistedProgressFromCurrentTechnician = useMemo(() => {
+    const cleanUid = String(currentUser?.id || '').trim();
+    if (!cleanUid) return false;
+    const targetId = String(activeTicket.id || '').trim();
+    const targetWo = String(activeTicket.woNumber || '').trim().toUpperCase();
+
+    return (messages || []).some(m => {
+      if (!m || !m.id) return false;
+      const msgId = String(m.id).trim();
+      if (
+        !msgId ||
+        msgId.startsWith('temp_') ||
+        msgId.startsWith('pending_') ||
+        msgId.startsWith('local_offline_')
+      ) {
+        return false;
+      }
+      if (
+        (m as any)._offlineSyncStatus === 'pending' ||
+        (m as any).status === 'failed' ||
+        (m as any).status === 'pending'
+      ) {
+        return false;
+      }
+
+      const msgTicketId = String(m.ticketId || '').trim();
+      const msgWo = String(m.woNumber || '').trim().toUpperCase();
+      const woMatches =
+        (targetId && msgTicketId === targetId) ||
+        (targetWo && msgWo === targetWo) ||
+        (targetId && msgWo === targetId.toUpperCase());
+      if (!woMatches) return false;
+
+      const senderId = String(m.senderId || '').trim();
+      if (!senderId || senderId !== cleanUid) return false;
+
+      return String(m.category || '').trim().toUpperCase() === 'PROGRESS';
+    });
+  }, [messages, activeTicket.id, activeTicket.woNumber, currentUser?.id]);
+
+  const hasValidProgressFromCurrentTechnician =
+    currentUser.role === 'installer' &&
+    (hasPersistedProgressFromCurrentTechnician || Boolean(serverProgressTriggerByTicket[triggerKey]));
+
+  const isReportStatusSectionVisible =
+    currentUser.role !== 'installer' ? true : hasValidProgressFromCurrentTechnician;
+
+  const requiresProgressCheckIn =
+    currentUser.role === 'installer' && !hasValidProgressFromCurrentTechnician;
+
+  // Reset explicit LiveChat activation & sync authoritative DB LiveChat state when opening/switching ticket
   useEffect(() => {
     setIsChatActive(false);
-  }, [activeTicket.id]);
+    let cancelled = false;
+    const activeKey = `${activeTicket.id}::${currentUser?.id || ''}`;
+    refreshMessagesForTicket(activeTicket.id).then(res => {
+      if (cancelled) return;
+      setServerProgressTriggerByTicket(prev => ({
+        ...prev,
+        [activeKey]: Boolean(res?.hasProgressTrigger)
+      }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTicket.id, currentUser?.id, refreshMessagesForTicket]);
 
   // Sync category when activeTicket.chatCategory changes from Supabase PostgreSQL
   useEffect(() => {
@@ -565,6 +632,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       if (res.success) {
         setChatInputText('');
         setChatAttachments([]);
+        if (currentUser.role === 'installer' && res.hasProgressTrigger) {
+          setServerProgressTriggerByTicket(prev => ({
+            ...prev,
+            [triggerKey]: true
+          }));
+        }
       } else {
         const err = res.error || 'Gagal mengirim pesan chat.';
         setChatError(err);
@@ -915,9 +988,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
           {/* ========================================================== */}
           {/* KOLOM KIRI (Left Column ~46% on desktop: lg:col-span-5/6)   */}
-          {/* 1. Report Status Pembaruan                                  */}
-          {/* 2. History Progress Report                                  */}
+          {/* 1. Report Status Pembaruan (Hidden until technician sends   */}
+          {/*    first persisted LiveChat message with category PROGRESS) */}
           {/* ========================================================== */}
+          {isReportStatusSectionVisible && (
           <div className="lg:col-span-5 xl:col-span-6 space-y-6">
 
             {/* -------------------------------------------------------- */}
@@ -1119,6 +1193,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </form>
             </div>
           </div>
+          )}
 
           {/* ========================================================== */}
           {/* KOLOM KANAN (Right Column ~54% on desktop: lg:col-span-7/6) */}
@@ -1129,7 +1204,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             onClick={() => {
               if (!isChatActive) setIsChatActive(true);
             }}
-            className="lg:col-span-7 xl:col-span-6"
+            className={isReportStatusSectionVisible ? 'lg:col-span-7 xl:col-span-6' : 'lg:col-span-12'}
           >
             <div className="bg-white dark:bg-[#150B27] rounded-2xl border border-slate-200 dark:border-[#2D1754] p-5 shadow-xs flex flex-col h-[740px]">
               
@@ -1424,7 +1499,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               <Clock className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
               <p className="text-xs">Belum ada riwayat laporan untuk tiket ini.</p>
               <p className="text-[11px] text-slate-500">
-                Isi formulir Report Status Pembaruan di atas dan klik Save Report.
+                {isReportStatusSectionVisible
+                  ? 'Isi formulir Report Status Pembaruan di atas dan klik Save Report.'
+                  : 'Kirim pesan LiveChat dengan kategori PROGRESS terlebih dahulu untuk membuka formulir Report Status Pembaruan.'}
               </p>
             </div>
           ) : (

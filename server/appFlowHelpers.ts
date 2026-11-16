@@ -218,6 +218,47 @@ export function isProgressCategoryOnly(category?: string | null): boolean {
 }
 
 /**
+ * Verifies from persisted LiveChat messages whether a specific user (technician)
+ * has successfully sent at least one valid PROGRESS message on the target Work Order.
+ * Pending, temporary, or failed messages and messages from other users/roles are excluded.
+ */
+export function hasUserSentProgressMessage(
+  messages: any[],
+  ticketOrId: { id?: string; woNumber?: string } | string,
+  userId?: string | null
+): boolean {
+  const cleanUid = String(userId || '').trim();
+  if (!cleanUid || !Array.isArray(messages) || messages.length === 0) return false;
+  const targetId = typeof ticketOrId === 'string' ? ticketOrId.trim() : String(ticketOrId?.id || '').trim();
+  const targetWo = typeof ticketOrId === 'string' ? '' : String(ticketOrId?.woNumber || '').trim().toUpperCase();
+
+  return messages.some(m => {
+    if (!m || !m.id) return false;
+    const msgId = String(m.id).trim();
+    if (!msgId || msgId.startsWith('temp_') || msgId.startsWith('pending_') || msgId.startsWith('local_offline_')) {
+      return false;
+    }
+    if ((m as any)._offlineSyncStatus === 'pending' || (m as any).status === 'failed' || (m as any).status === 'pending') {
+      return false;
+    }
+
+    const msgTicketId = String(m.ticketId || m.ticket_id || '').trim();
+    const msgWo = String(m.woNumber || m.wo_number || '').trim().toUpperCase();
+    const woMatches =
+      (targetId && msgTicketId === targetId) ||
+      (targetWo && msgWo === targetWo) ||
+      (targetId && msgWo === targetId.toUpperCase());
+    if (!woMatches) return false;
+
+    const senderId = String(m.senderId || m.sender_id || '').trim();
+    if (!senderId || senderId !== cleanUid) return false;
+
+    const category = m.category ?? m.payload?.category;
+    return isProgressCategoryOnly(category);
+  });
+}
+
+/**
  * Normalizes a Supabase ticket_messages row into the canonical TicketMessage shape.
  */
 export function mapSupabaseMessageToModel(row: any): any {
