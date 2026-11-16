@@ -276,6 +276,19 @@ export interface Ticket {
   fdt?: string;
   fatPort?: string;
   dropcoreLength?: string;
+  dropcoreLengthMeter?: number | string;
+  fatRedamanDbm?: number | string;
+  rosetRedamanDbm?: number | string;
+  oltRegistrationStatus?: string;
+  stbSerialNumber?: string;
+  regionName?: string;
+  customerCoordinates?: string;
+  distanceKm?: number | string;
+  reassignHistoryCount?: number;
+  photoEvidenceCount?: number;
+  customerSignatureUrl?: string;
+  dispatchRejectionNotes?: string;
+  dataQualityFlags?: string;
   plan?: string;
   serviceAgingMaintenance?: string;
   vendorName?: string;
@@ -529,6 +542,10 @@ export interface ColumnConfig {
   wrapText?: boolean;
   sortable?: boolean;
   filterable?: boolean;
+  categoryGroup?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
+  description?: string;
+  mandatory?: boolean;
+  badgeHint?: string;
 }
 
 export interface TablePreset {
@@ -598,6 +615,10 @@ export interface UIConfiguration {
     showEmptyFields: boolean;
     activePresetId: string;
     presets: TablePreset[];
+    cellFontSize?: 'small' | 'medium' | 'large';
+    freezeColumnCount?: number;
+    smartOmitEmpty?: boolean;
+    showHoverTooltips?: boolean;
   };
 
   // Toolbar Configuration

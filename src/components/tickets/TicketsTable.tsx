@@ -43,7 +43,9 @@ import {
   Wrench,
   FileText,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Lock,
+  Camera
 } from 'lucide-react';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
@@ -58,6 +60,94 @@ import {
   executeSuperadminDispatchSearch
 } from '../../services/woDateFilterEngine';
 import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
+
+const getTicketColumnValue = (ticket: Ticket, key: string): any => {
+  const latestReport = ticket.progressReports?.[0];
+  switch (key) {
+    case 'customerPhone':
+      return ticket.customerPhone || (ticket as any).phoneNumber;
+    case 'contactorName':
+      return ticket.contactorName || ticket.contractorName;
+    case 'streetName':
+      return ticket.streetName || (ticket as any).customerAddress || (ticket as any).address;
+    case 'rosetRedamanDbm':
+      return (
+        ticket.rosetRedamanDbm ??
+        ticket.technicalReport?.opticalPowerRx ??
+        ticket.technicalReport?.opticalPowerDbm
+      );
+    case 'dropcoreLength':
+      return ticket.dropcoreLength ?? ticket.dropcoreLengthMeter;
+    case 'stb1Sn':
+      return ticket.stb1Sn || ticket.stbSerialNumber;
+    case 'reportStatusLabel':
+      return (
+        ticket.reportStatusLabel ||
+        latestReport?.reportStatusLabel ||
+        latestReport?.reportStatus ||
+        ticket.technicalReport?.workResult
+      );
+    case 'reasonReportLabel':
+      return (
+        ticket.reasonReportLabel ||
+        latestReport?.reasonReportLabel ||
+        latestReport?.reasonReport
+      );
+    case 'rootcauseLabel':
+      return (
+        ticket.rootcauseLabel ||
+        latestReport?.rootcauseLabel ||
+        latestReport?.rootCause
+      );
+    case 'rejectionReason':
+      return ticket.rejectionReason || ticket.dispatchRejectionNotes;
+    case 'reassignHistoryCount': {
+      if (typeof ticket.reassignHistoryCount === 'number') return ticket.reassignHistoryCount;
+      if (Array.isArray(ticket.assignmentHistory) && ticket.assignmentHistory.length > 1) {
+        return ticket.assignmentHistory.length - 1;
+      }
+      return 0;
+    }
+    case 'photoEvidenceCount': {
+      if (typeof ticket.photoEvidenceCount === 'number') return ticket.photoEvidenceCount;
+      const count = Array.from(
+        new Set(
+          [
+            ...(ticket.technicalReport?.photos || []),
+            ticket.technicalReport?.photoBeforeUrl,
+            ticket.technicalReport?.photoAfterUrl
+          ].filter((u): u is string => Boolean(u && typeof u === 'string' && u.trim()))
+        )
+      ).length;
+      return count > 0 ? count : undefined;
+    }
+    default:
+      return (ticket as any)[key];
+  }
+};
+
+const formatDateTimeDisplay = (val: any, dateOnly = false): string => {
+  if (val === undefined || val === null || String(val).trim() === '') return '';
+  if (dateOnly) {
+    return formatIndonesianWODate(String(val)) || String(val);
+  }
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return String(val);
+  return d.toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta'
+  });
+};
+
+const parseDbmNumeric = (val: any): number | null => {
+  if (val === undefined || val === null) return null;
+  const cleaned = String(val).replace(/dbm/gi, '').replace(',', '.').trim();
+  const num = Number.parseFloat(cleaned);
+  return Number.isFinite(num) ? num : null;
+};
 
 interface TicketsTableProps {
   onSelectTicket: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
@@ -239,10 +329,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | 'ALL'>(config.ticketsTable.rowsPerPage || 10);
 
-  // Active columns sorted by order
-  const activeColumns = useMemo(() => {
+  useEffect(() => {
+    setPageSize(config.ticketsTable.rowsPerPage || 10);
+  }, [config.ticketsTable.rowsPerPage]);
+
+  // Visible canonical data columns sorted by order (selection & actions are pinned separately)
+  const rawVisibleColumns = useMemo(() => {
     return [...config.ticketsTable.columns]
-      .filter(col => col.visible)
+      .filter(col => col.visible && col.key !== 'selection' && col.key !== 'actions')
       .sort((a, b) => a.order - b.order);
   }, [config.ticketsTable.columns]);
 
@@ -417,6 +511,46 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     return sortedTickets.slice(startIndex, startIndex + effectiveRowsPerPage);
   }, [sortedTickets, currentPage, effectiveRowsPerPage, pageSize]);
 
+  // Apply Smart Omit (Kosong) cleanly on optional columns outside Groups A & B
+  const activeColumns = useMemo(() => {
+    if (!config.ticketsTable.smartOmitEmpty || paginatedTickets.length === 0) {
+      return rawVisibleColumns;
+    }
+    return rawVisibleColumns.filter(col => {
+      if (col.mandatory || col.categoryGroup === 'A' || col.categoryGroup === 'B') return true;
+      return paginatedTickets.some(t => {
+        const val = getTicketColumnValue(t, col.key);
+        if (val === undefined || val === null) return false;
+        if (Array.isArray(val)) return val.length > 0;
+        const str = String(val).trim();
+        return str !== '' && str !== '-';
+      });
+    });
+  }, [rawVisibleColumns, config.ticketsTable.smartOmitEmpty, paginatedTickets]);
+
+  const omittedEmptyCount = rawVisibleColumns.length - activeColumns.length;
+
+  const stickyColumnsEnabled = config.device?.pc?.stickyColumns !== false;
+  const freezeColumnCount = Math.max(1, Math.min(4, config.ticketsTable.freezeColumnCount ?? 4));
+
+  // Cumulative sticky-left pixel positions for frozen data columns (after 44px selection column)
+  const stickyLeftMap = useMemo(() => {
+    const map: Record<string, { left: number; isLastFrozen: boolean }> = {};
+    if (!stickyColumnsEnabled) return map;
+    const freezeDataColsCount = Math.min(Math.max(0, freezeColumnCount - 1), activeColumns.length);
+    let accLeft = 44; // Selection column width
+    for (let i = 0; i < freezeDataColsCount; i++) {
+      const col = activeColumns[i];
+      const w = col.width || 130;
+      map[col.key] = {
+        left: accLeft,
+        isLastFrozen: i === freezeDataColsCount - 1
+      };
+      accLeft += w;
+    }
+    return map;
+  }, [activeColumns, freezeColumnCount, stickyColumnsEnabled]);
+
   const totalPages = pageSize === 'ALL' ? 1 : (Math.ceil(sortedTickets.length / effectiveRowsPerPage) || 1);
 
   const handleSort = (fieldKey: string) => {
@@ -519,7 +653,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     const rows = sortedTickets.map(t => {
       return activeColumns
         .map(col => {
-          const val = (t as any)[col.key] || '';
+          const val = getTicketColumnValue(t, col.key) ?? '';
           return `"${String(val).replace(/"/g, '""')}"`;
         })
         .join(',');
@@ -535,12 +669,22 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     document.body.removeChild(link);
   };
 
-  const densityClass =
+  const showHoverTooltips = config.ticketsTable.showHoverTooltips !== false;
+
+  const cellFontSizeClass =
+    config.ticketsTable.cellFontSize === 'small'
+      ? 'text-[12px]'
+      : config.ticketsTable.cellFontSize === 'large'
+      ? 'text-[14px]'
+      : 'text-[13px]';
+
+  const densityClass = `${
     config.ticketsTable.density === 'compact'
-      ? 'py-2 px-3 text-xs'
+      ? 'py-2 px-3'
       : config.ticketsTable.density === 'spacious'
-      ? 'py-3.5 px-4 text-sm'
-      : 'py-2.5 px-3.5 text-xs';
+      ? 'py-3.5 px-4'
+      : 'py-2.5 px-3.5'
+  } ${cellFontSizeClass}`;
 
   const approvedPct = approvalCounts.totalToday > 0 ? ((approvalCounts.approved / approvalCounts.totalToday) * 100).toFixed(1) : '0.0';
   const fieldPct = approvalCounts.totalToday > 0 ? ((approvalCounts.diLapangan / approvalCounts.totalToday) * 100).toFixed(1) : '0.0';
@@ -1193,18 +1337,29 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 type="button"
                 onClick={() => setShowColManager(!showColManager)}
                 className="px-2.5 py-1.5 text-xs font-semibold text-[#431599] dark:text-[#E9D5FF] bg-white dark:bg-[#1E1238] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] rounded-lg border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                title={omittedEmptyCount > 0 ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini` : undefined}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span className="tabular-nums">Columns ({activeColumns.length})</span>
+                <span className="tabular-nums">
+                  Columns ({activeColumns.length}
+                  {omittedEmptyCount > 0 ? `/${rawVisibleColumns.length}` : ''})
+                </span>
                 <ChevronDown className="w-3 h-3 opacity-70" />
               </button>
 
               {showColManager && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowColManager(false)} />
-                  <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] rounded-xl shadow-xl border border-[#E9E5F0] dark:border-[#35105E] p-3 z-50 text-xs">
+                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] rounded-xl shadow-xl border border-[#E9E5F0] dark:border-[#35105E] p-3 z-50 text-xs">
                     <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E9E5F0] dark:border-[#35105E]">
-                      <span className="font-bold text-[#211A2E] dark:text-white">Visibilitas Kolom</span>
+                      <div>
+                        <span className="font-bold text-[#211A2E] dark:text-white">Visibilitas 46 Kolom</span>
+                        {omittedEmptyCount > 0 && (
+                          <span className="block text-[10px] text-[#7135B5] dark:text-[#D8B4FE]">
+                            Smart Omit: {omittedEmptyCount} kolom kosong disembunyikan otomatis
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => setShowColManager(false)}
@@ -1213,21 +1368,34 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                         Tutup
                       </button>
                     </div>
-                    <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
-                      {config.ticketsTable.columns.map(col => (
-                        <label
-                          key={col.key}
-                          className="flex items-center justify-between p-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 rounded-lg cursor-pointer"
-                        >
-                          <span className="text-[#211A2E] dark:text-[#F5F1FF]">{col.label}</span>
-                          <input
-                            type="checkbox"
-                            checked={col.visible}
-                            onChange={e => setColumnVisibility(col.key, e.target.checked)}
-                            className="rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5]"
-                          />
-                        </label>
-                      ))}
+                    <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                      {[...config.ticketsTable.columns]
+                        .filter(col => col.key !== 'actions')
+                        .sort((a, b) => a.order - b.order)
+                        .map(col => (
+                          <label
+                            key={col.key}
+                            className={`flex items-center justify-between gap-2 p-1.5 rounded-lg ${
+                              col.mandatory
+                                ? 'bg-[#F5F1FF]/70 dark:bg-[#251545]/70 cursor-not-allowed'
+                                : 'hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 cursor-pointer'
+                            }`}
+                          >
+                            <div className="min-w-0 flex items-center gap-1.5">
+                              {col.mandatory && (
+                                <Lock className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
+                              )}
+                              <span className="text-[#211A2E] dark:text-[#F5F1FF] truncate">{col.label}</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              disabled={col.mandatory}
+                              checked={col.mandatory ? true : col.visible}
+                              onChange={e => !col.mandatory && setColumnVisibility(col.key, e.target.checked)}
+                              className="rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5] disabled:opacity-60"
+                            />
+                          </label>
+                        ))}
                     </div>
                   </div>
                 </>
@@ -1275,7 +1443,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="bg-[#F4EAFF] dark:bg-[#251545] border-b border-[#D8CCF3] dark:border-[#35105E] text-[11px] font-bold text-[#431599] dark:text-[#D8B4FE] uppercase tracking-wider">
-                  <th className="py-3 px-3 w-10 text-center sticky left-0 bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E]">
+                  <th
+                    className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#F4EAFF] dark:bg-[#251545] border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
+                      stickyColumnsEnabled ? 'sticky left-0 z-20' : ''
+                    } ${
+                      stickyColumnsEnabled && freezeColumnCount === 1
+                        ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]'
+                        : ''
+                    }`}
+                  >
                     <button type="button" onClick={handleSelectAll} className="text-[#431599] dark:text-[#D8B4FE] cursor-pointer">
                       {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
                         <CheckSquare className="w-4 h-4" />
@@ -1287,22 +1463,24 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
                   {activeColumns.map(col => {
                     const isSorted = sortField === col.key;
-                    const isLeftSticky = col.sticky === 'left' || col.key === 'woNumber';
-                    const isRightSticky = col.sticky === 'right' || col.key === 'actions';
+                    const stickyInfo = stickyLeftMap[col.key];
+                    const widthPx = col.width || 130;
 
                     return (
                       <th
                         key={col.key}
-                        style={{ width: col.width ? `${col.width}px` : undefined }}
+                        style={{
+                          width: `${widthPx}px`,
+                          minWidth: `${widthPx}px`,
+                          ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
+                        }}
                         className={`py-3 px-3.5 whitespace-nowrap ${
                           col.sortable ? 'cursor-pointer hover:bg-[#E9D5FF]/50 dark:hover:bg-[#35105E]' : ''
                         } ${
-                          isLeftSticky
-                            ? 'sticky left-10 bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                            : ''
-                        } ${
-                          isRightSticky
-                            ? 'sticky right-0 bg-[#F4EAFF] dark:bg-[#251545] z-20 border-l border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                          stickyInfo
+                            ? `sticky bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
+                                stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.12)]' : ''
+                              }`
                             : ''
                         }`}
                         onClick={() => col.sortable && handleSort(col.key)}
@@ -1322,13 +1500,24 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                       </th>
                     );
                   })}
+
+                  {/* Always-pinned Right Actions Header */}
+                  <th
+                    className={`py-3 px-3.5 whitespace-nowrap text-center bg-[#F4EAFF] dark:bg-[#251545] ${
+                      stickyColumnsEnabled
+                        ? 'sticky right-0 z-20 border-l border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                        : 'border-l border-[#D8CCF3]/60 dark:border-[#35105E]'
+                    }`}
+                  >
+                    Aksi
+                  </th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
                 {paginatedTickets.length === 0 ? (
                   <tr>
-                    <td colSpan={activeColumns.length + 1} className="py-12 text-center text-[#8B8495] text-xs">
+                    <td colSpan={activeColumns.length + 2} className="py-12 text-center text-[#8B8495] text-xs">
                       Tidak ada tiket Work Order yang cocok dengan filter.
                     </td>
                   </tr>
@@ -1359,6 +1548,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                     );
 
                     const latestReport = ticket.progressReports?.[0];
+                    const unread = getTicketUnreadCount(ticket.id);
 
                     return (
                       <Fragment key={ticket.id}>
@@ -1372,7 +1562,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                           }`}
                         >
                           {/* Row Checkbox */}
-                          <td className={`py-2.5 px-3 text-center sticky left-0 ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] transition-colors`}>
+                          <td
+                            className={`py-2.5 px-3 w-11 min-w-[44px] max-w-[44px] text-center ${stickyCellBg} border-r border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
+                              stickyColumnsEnabled ? 'sticky left-0 z-10' : ''
+                            } ${
+                              stickyColumnsEnabled && freezeColumnCount === 1
+                                ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                : ''
+                            }`}
+                          >
                             <button
                               type="button"
                               onClick={e => {
@@ -1389,138 +1587,25 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                             </button>
                           </td>
 
-                          {/* Render Cell Values by Key */}
+                          {/* Render 46 Canonical Columns by Key */}
                           {activeColumns.map(col => {
-                            const rawVal = (ticket as any)[col.key];
-
-                            if (col.key === 'actions') {
-                              const unread = getTicketUnreadCount(ticket.id);
-                              return (
-                                <td
-                                  key={col.key}
-                                  className={`${densityClass} text-center whitespace-nowrap sticky right-0 ${stickyCellBg} z-10 border-l border-[#E9E5F0] dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors`}
-                                >
-                                  <div className="flex items-center justify-center gap-1">
-                                    {hasInlineEvidence && (
-                                      <button
-                                        type="button"
-                                        onClick={e => {
-                                          e.stopPropagation();
-                                          toggleInlineDrawer(ticket.id);
-                                        }}
-                                        className={`px-2 py-1 rounded-md text-[11px] font-bold border transition-colors cursor-pointer whitespace-nowrap ${
-                                          isExpanded
-                                            ? 'bg-[#431599] text-white border-[#431599]'
-                                            : 'bg-[#F5F1FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
-                                        }`}
-                                        title="Buka Drawer Verifikasi Teknis"
-                                      >
-                                        {isExpanded ? 'Tutup' : 'Review'}
-                                      </button>
-                                    )}
-
-                                    {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-                                      <button
-                                        type="button"
-                                        onClick={e => {
-                                          e.stopPropagation();
-                                          if (!isExpanded) {
-                                            toggleInlineDrawer(ticket.id);
-                                          } else {
-                                            handleInlineApprove(ticket);
-                                          }
-                                        }}
-                                        className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#16A36A] hover:bg-[#15803D] text-white transition-colors cursor-pointer whitespace-nowrap"
-                                        title="Verifikasi & Approve Laporan"
-                                      >
-                                        Approve
-                                      </button>
-                                    )}
-
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        onSelectTicket(ticket);
-                                      }}
-                                      className="p-1.5 text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
-                                      title="Buka Detail Lengkap WO"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                    </button>
-
-                                    {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
-                                      <button
-                                        type="button"
-                                        onClick={e => {
-                                          e.stopPropagation();
-                                          onSelectTicket(ticket, 'chat');
-                                        }}
-                                        className={`relative p-1.5 rounded-md transition-colors cursor-pointer ${
-                                          unread > 0
-                                            ? 'text-[#DC4C5A] bg-[#FEF2F2] dark:bg-rose-950/50'
-                                            : 'text-[#431599] dark:text-[#A78BFA] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
-                                        }`}
-                                        title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
-                                      >
-                                        <MessageCircle className="w-3.5 h-3.5" />
-                                        {unread > 0 && (
-                                          <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-[#DC4C5A] text-white text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums">
-                                            {unread > 99 ? '99+' : unread}
-                                          </span>
-                                        )}
-                                      </button>
-                                    )}
-
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        onOpenWhatsApp(ticket);
-                                      }}
-                                      className="p-1.5 text-[#16A36A] hover:bg-[#ECFDF5] dark:hover:bg-emerald-950/40 rounded-md cursor-pointer"
-                                      title="WhatsApp Confirmation"
-                                    >
-                                      <MessageSquare className="w-3.5 h-3.5" />
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        if (ticket.isArchived) restoreTicket(ticket.id);
-                                        else archiveTicket(ticket.id);
-                                      }}
-                                      className="p-1.5 text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white rounded-md cursor-pointer"
-                                      title={ticket.isArchived ? 'Restore' : 'Archive'}
-                                    >
-                                      {ticket.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-                                    </button>
-
-                                    {currentUser.role === 'management_data' && (
-                                      <button
-                                        type="button"
-                                        onClick={e => {
-                                          e.stopPropagation();
-                                          setTicketToDelete(ticket);
-                                        }}
-                                        className="p-1.5 text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 rounded-md cursor-pointer"
-                                        title="Hapus Work Order (Management Data Only)"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              );
-                            }
+                            const rawVal = getTicketColumnValue(ticket, col.key);
+                            const stickyInfo = stickyLeftMap[col.key];
+                            const widthPx = col.width || 130;
+                            const stickyStyle = {
+                              width: `${widthPx}px`,
+                              minWidth: `${widthPx}px`,
+                              ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
+                            };
+                            const stickyClasses = stickyInfo
+                              ? `sticky ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] ${
+                                  stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.10)]' : ''
+                                } transition-colors`
+                              : '';
 
                             if (col.key === 'woNumber') {
                               return (
-                                <td
-                                  key={col.key}
-                                  className={`${densityClass} sticky left-10 ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] transition-colors`}
-                                >
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                   <div className="flex items-center gap-1.5">
                                     <button
                                       type="button"
@@ -1529,6 +1614,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                                         onSelectTicket(ticket);
                                       }}
                                       className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline tabular-nums cursor-pointer text-left"
+                                      title={showHoverTooltips ? ticket.woNumber : undefined}
                                     >
                                       {ticket.woNumber}
                                     </button>
@@ -1549,9 +1635,64 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                               );
                             }
 
+                            if (col.key === 'idCustomer') {
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  title={showHoverTooltips ? String(ticket.idCustomer || '') : undefined}
+                                  className={`${densityClass} ${stickyClasses} font-mono font-semibold text-[#211A2E] dark:text-white tabular-nums`}
+                                >
+                                  {ticket.idCustomer || '-'}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'customerName') {
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  title={showHoverTooltips ? ticket.customerName : undefined}
+                                  className={`${densityClass} ${stickyClasses} font-semibold text-[#211A2E] dark:text-white truncate max-w-[220px]`}
+                                >
+                                  {ticket.customerName || '-'}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'customerPhone' || col.key === 'installerContact') {
+                              const phoneStr = rawVal ? String(rawVal) : '';
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  title={showHoverTooltips && phoneStr ? phoneStr : undefined}
+                                  className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}
+                                >
+                                  {col.key === 'customerPhone' && phoneStr ? (
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        onOpenWhatsApp(ticket);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 text-[#16A36A] hover:underline font-semibold cursor-pointer"
+                                      title="Kirim pesan WhatsApp ke pelanggan"
+                                    >
+                                      <MessageSquare className="w-3 h-3 shrink-0" />
+                                      <span>{phoneStr}</span>
+                                    </button>
+                                  ) : (
+                                    phoneStr || '-'
+                                  )}
+                                </td>
+                              );
+                            }
+
                             if (col.key === 'statusWOAgent') {
                               return (
-                                <td key={col.key} className={densityClass}>
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                   <StatusAgentBadge status={ticket.statusWOAgent} />
                                 </td>
                               );
@@ -1559,18 +1700,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
                             if (col.key === 'statusWOInstaller') {
                               return (
-                                <td key={col.key} className={densityClass}>
-                                  <div className="flex flex-col gap-1 items-start">
-                                    <StatusInstallerBadge status={ticket.statusWOInstaller} />
-                                    {ticket.approvalStatus && <StatusApprovalBadge status={ticket.approvalStatus} />}
-                                  </div>
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                  <StatusInstallerBadge status={ticket.statusWOInstaller} />
                                 </td>
                               );
                             }
 
                             if (col.key === 'approvalStatus') {
                               return (
-                                <td key={col.key} className={densityClass}>
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                   <StatusApprovalBadge status={ticket.approvalStatus} />
                                 </td>
                               );
@@ -1578,31 +1716,62 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
                             if (col.key === 'statusWhatsApp') {
                               return (
-                                <td key={col.key} className={densityClass}>
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                   <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
                                 </td>
                               );
                             }
 
-                            if (col.key === 'customerPhone') {
+                            if (col.key === 'appointmentDate') {
+                              const formattedDate = formatDateTimeDisplay(rawVal, true);
                               return (
-                                <td key={col.key} className={`${densityClass} font-mono text-[#494453] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}>
-                                  {ticket.customerPhone || '-'}
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
+                                  className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                >
+                                  {formattedDate || '-'}
                                 </td>
                               );
                             }
 
-                            if (col.key === 'idCustomer') {
+                            if (col.key === 'workStartedAt' || col.key === 'checkOutAt' || col.key === 'createdAt') {
+                              const formattedTs = formatDateTimeDisplay(rawVal, false);
                               return (
-                                <td key={col.key} className={`${densityClass} font-mono font-semibold text-[#211A2E] dark:text-white tabular-nums`}>
-                                  {ticket.idCustomer}
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
+                                  className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
+                                >
+                                  {formattedTs || '-'}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'workDurationMinutes') {
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                >
+                                  {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
+                                    ? `${rawVal} mnt`
+                                    : '-'}
                                 </td>
                               );
                             }
 
                             if (col.key === 'customerAddress' || col.key === 'streetName' || col.key === 'address') {
+                              const addrStr = String(rawVal || '');
                               return (
-                                <td key={col.key} className={`${densityClass} text-[#494453] dark:text-[#CEC0E8] max-w-xs`}>
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  className={`${densityClass} ${stickyClasses} text-[#494453] dark:text-[#CEC0E8] max-w-xs`}
+                                >
                                   <button
                                     type="button"
                                     onClick={e => {
@@ -1610,20 +1779,69 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                                       openCustomerAddressInGoogleMaps(ticket);
                                     }}
                                     className="group/map flex items-start gap-1.5 text-left hover:text-[#431599] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer w-full"
-                                    title="Klik untuk membuka lokasi pelanggan di Google Maps"
+                                    title={showHoverTooltips && addrStr ? addrStr : 'Klik untuk membuka lokasi pelanggan di Google Maps'}
                                   >
                                     <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0 mt-0.5 group-hover/map:scale-110 transition-transform" />
-                                    <span className="truncate group-hover/map:underline text-xs">
-                                      {rawVal || (ticket as any).customerAddress || ticket.streetName || '-'}
+                                    <span className="truncate group-hover/map:underline">
+                                      {addrStr || '-'}
                                     </span>
                                   </button>
                                 </td>
                               );
                             }
 
+                            if (col.key === 'rosetRedamanDbm' || col.key === 'fatRedamanDbm') {
+                              const dbmNum = parseDbmNumeric(rawVal);
+                              const isOutOfSpec = dbmNum !== null && (dbmNum < -24 || dbmNum > -8);
+                              return (
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                  {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? (
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[11px] font-bold tabular-nums ${
+                                        col.key === 'rosetRedamanDbm' && isOutOfSpec
+                                          ? 'bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA]'
+                                          : 'bg-[#ECFDF5] text-[#16A36A] border border-[#A7F3D0]'
+                                      }`}
+                                    >
+                                      {String(rawVal).toLowerCase().includes('dbm') ? String(rawVal) : `${rawVal} dBm`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[#8B8495] italic font-normal">-</span>
+                                  )}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'dropcoreLength') {
+                              const dcStr = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                >
+                                  {dcStr ? (dcStr.toLowerCase().endsWith('m') ? dcStr : `${dcStr} m`) : '-'}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'distanceKm') {
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
+                                >
+                                  {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
+                                    ? `${rawVal} km`
+                                    : '-'}
+                                </td>
+                              );
+                            }
+
                             if (col.key === 'installerName') {
                               return (
-                                <td key={col.key} className={densityClass}>
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                   {ticket.installerName ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
                                       {ticket.installerName}
@@ -1637,27 +1855,234 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                               );
                             }
 
+                            if (col.key === 'reassignHistoryCount') {
+                              const count = Number(rawVal) || 0;
+                              return (
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[11px] font-bold tabular-nums ${
+                                      count > 0
+                                        ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/40'
+                                        : 'bg-[#F7F6FA] dark:bg-[#251545] text-[#766B83] dark:text-[#CEC0E8]'
+                                    }`}
+                                  >
+                                    {count}x
+                                  </span>
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'photoEvidenceCount') {
+                              const count = Number(rawVal) || 0;
+                              return (
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                  {count > 0 ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-mono text-[11px] font-bold tabular-nums">
+                                      <Camera className="w-3 h-3" />
+                                      <span>{count}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[#8B8495] italic font-normal">0</span>
+                                  )}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'dataQualityFlags') {
+                              const flags: string[] = Array.isArray(rawVal)
+                                ? rawVal
+                                : typeof rawVal === 'string' && rawVal.trim()
+                                ? rawVal.split(',').map(s => s.trim()).filter(Boolean)
+                                : [];
+                              return (
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                  {flags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {flags.map(flag => (
+                                        <span
+                                          key={flag}
+                                          className="px-1.5 py-0.5 rounded bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA] font-mono text-[10px] font-bold"
+                                        >
+                                          {flag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-[#16A36A] text-[11px] font-semibold">Valid</span>
+                                  )}
+                                </td>
+                              );
+                            }
+
+                            if (col.key === 'customerSignatureUrl') {
+                              return (
+                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                  {rawVal ? (
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        onSelectTicket(ticket, 'report');
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[#431599] dark:text-[#D8B4FE] hover:underline text-[11px] font-semibold cursor-pointer"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Lihat TTD</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[#8B8495] italic font-normal">-</span>
+                                  )}
+                                </td>
+                              );
+                            }
+
+                            const displayValue =
+                              rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
+                                ? String(rawVal)
+                                : '';
+
                             return (
                               <td
                                 key={col.key}
-                                className={`${densityClass} text-[#211A2E] dark:text-[#F5F1FF] ${
+                                style={stickyStyle}
+                                title={showHoverTooltips && displayValue ? displayValue : undefined}
+                                className={`${densityClass} ${stickyClasses} text-[#211A2E] dark:text-[#F5F1FF] ${
+                                  col.format === 'code' ? 'font-mono tabular-nums' : ''
+                                } ${
                                   col.wrapText ? 'break-words max-w-xs' : 'whitespace-nowrap truncate max-w-xs'
                                 }`}
                               >
-                                {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? (
-                                  String(rawVal)
-                                ) : (
-                                  <span className="text-[#8B8495] italic font-normal">-</span>
-                                )}
+                                {displayValue || <span className="text-[#8B8495] italic font-normal">-</span>}
                               </td>
                             );
                           })}
+
+                          {/* Unconditional Sticky-Right Actions Cell */}
+                          <td
+                            className={`${densityClass} text-center whitespace-nowrap ${stickyCellBg} border-l border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
+                              stickyColumnsEnabled
+                                ? 'sticky right-0 z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              {hasInlineEvidence && (
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    toggleInlineDrawer(ticket.id);
+                                  }}
+                                  className={`px-2 py-1 rounded-md text-[11px] font-bold border transition-colors cursor-pointer whitespace-nowrap ${
+                                    isExpanded
+                                      ? 'bg-[#431599] text-white border-[#431599]'
+                                      : 'bg-[#F5F1FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
+                                  }`}
+                                  title="Buka Drawer Verifikasi Teknis"
+                                >
+                                  {isExpanded ? 'Tutup' : 'Review'}
+                                </button>
+                              )}
+
+                              {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (!isExpanded) {
+                                      toggleInlineDrawer(ticket.id);
+                                    } else {
+                                      handleInlineApprove(ticket);
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#16A36A] hover:bg-[#15803D] text-white transition-colors cursor-pointer whitespace-nowrap"
+                                  title="Verifikasi & Approve Laporan"
+                                >
+                                  Approve
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  onSelectTicket(ticket);
+                                }}
+                                className="p-1.5 text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
+                                title="Buka Detail Lengkap WO"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
+                              {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    onSelectTicket(ticket, 'chat');
+                                  }}
+                                  className={`relative p-1.5 rounded-md transition-colors cursor-pointer ${
+                                    unread > 0
+                                      ? 'text-[#DC4C5A] bg-[#FEF2F2] dark:bg-rose-950/50'
+                                      : 'text-[#431599] dark:text-[#A78BFA] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
+                                  }`}
+                                  title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  {unread > 0 && (
+                                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-[#DC4C5A] text-white text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums">
+                                      {unread > 99 ? '99+' : unread}
+                                    </span>
+                                  )}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  onOpenWhatsApp(ticket);
+                                }}
+                                className="p-1.5 text-[#16A36A] hover:bg-[#ECFDF5] dark:hover:bg-emerald-950/40 rounded-md cursor-pointer"
+                                title="WhatsApp Confirmation"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  if (ticket.isArchived) restoreTicket(ticket.id);
+                                  else archiveTicket(ticket.id);
+                                }}
+                                className="p-1.5 text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white rounded-md cursor-pointer"
+                                title={ticket.isArchived ? 'Restore' : 'Archive'}
+                              >
+                                {ticket.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                              </button>
+
+                              {currentUser.role === 'management_data' && (
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setTicketToDelete(ticket);
+                                  }}
+                                  className="p-1.5 text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 rounded-md cursor-pointer"
+                                  title="Hapus Work Order (Management Data Only)"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
                         </tr>
 
                         {/* Expandable Inline Verification Drawer */}
                         {isExpanded && (
                           <tr className="bg-[#F5F1FF]/70 dark:bg-[#251247]/80">
-                            <td colSpan={activeColumns.length + 1} className="p-4 sm:p-5 border-y border-[#D8CCF3] dark:border-[#5B35B1]">
+                            <td colSpan={activeColumns.length + 2} className="p-4 sm:p-5 border-y border-[#D8CCF3] dark:border-[#5B35B1]">
                               <div className="space-y-4">
                                 {/* Drawer Header */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">

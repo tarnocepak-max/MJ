@@ -17,30 +17,153 @@ import {
 } from '../types';
 import { DEFAULT_PASSWORD_HASH } from '../services/authService';
 
+export interface CanonicalColumnGroupMeta {
+  id: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
+  title: string;
+  subtitle?: string;
+  mandatoryGroup?: boolean;
+}
+
+export const CANONICAL_COLUMN_GROUPS: CanonicalColumnGroupMeta[] = [
+  { id: 'A', title: 'A. Identitas Utama & Tiket', subtitle: '5 Kolom • Terkunci Mandatori', mandatoryGroup: true },
+  { id: 'B', title: 'B. 4-Dimensi Status & Governance', subtitle: '4 Kolom Status Utama' },
+  { id: 'C', title: 'C. Jadwal, Slot & Timestamps' },
+  { id: 'D', title: 'D. Wilayah, Alamat & Geolokasi' },
+  { id: 'E', title: 'E. Infrastruktur Jaringan FTTH & Redaman' },
+  { id: 'F', title: 'F. Perangkat CPE, ONT & Router' },
+  { id: 'G', title: 'G. Kontraktor, Korlap & Penugasan Teknisi' },
+  { id: 'H', title: 'H. Laporan Lapangan 3-Tingkat & Audit' }
+];
+
+const DEFAULT_DISPATCH_VISIBLE_KEYS = new Set([
+  'selection',
+  'woNumber',
+  'idCustomer',
+  'customerName',
+  'customerPhone',
+  'statusWOAgent',
+  'statusWOInstaller',
+  'statusWhatsApp',
+  'approvalStatus',
+  'appointmentDate',
+  'slotTime',
+  'area',
+  'clusterName',
+  'contactorName',
+  'leaderName',
+  'installerName',
+  'reportStatusLabel',
+  'remarksWOInstaller'
+]);
+
+const LEADER_VISIBLE_KEYS = new Set([
+  'selection',
+  'woNumber',
+  'idCustomer',
+  'customerName',
+  'customerPhone',
+  'statusWOInstaller',
+  'statusWhatsApp',
+  'appointmentDate',
+  'slotTime',
+  'area',
+  'clusterName',
+  'streetName',
+  'installerName',
+  'remarksWOInstaller'
+]);
+
+const QC_AUDIT_VISIBLE_KEYS = new Set([
+  'selection',
+  'woNumber',
+  'idCustomer',
+  'customerName',
+  'customerPhone',
+  'statusWOAgent',
+  'statusWOInstaller',
+  'approvalStatus',
+  'appointmentDate',
+  'workStartedAt',
+  'checkOutAt',
+  'workDurationMinutes',
+  'fdtCode',
+  'fatCode',
+  'fatRedamanDbm',
+  'rosetRedamanDbm',
+  'dropcoreLength',
+  'ontModel',
+  'ontSerialNumber',
+  'ontMacAddress',
+  'installerName',
+  'reportStatusLabel',
+  'reasonReportLabel',
+  'rootcauseLabel',
+  'photoEvidenceCount',
+  'dataQualityFlags'
+]);
+
 export const DEFAULT_COLUMNS: ColumnConfig[] = [
-  { key: 'woNumber', label: 'WO Number', visible: true, order: 1, width: 140, sticky: 'left', format: 'code', sortable: true, filterable: true },
-  { key: 'date', label: 'Date', visible: true, order: 2, width: 110, format: 'date', sortable: true },
-  { key: 'idCustomer', label: 'Customer ID', visible: true, order: 3, width: 130, format: 'code', sortable: true, filterable: true },
-  { key: 'customerName', label: 'Customer Name', visible: true, order: 4, width: 180, sortable: true, filterable: true },
-  { key: 'customerPhone', label: 'Phone', visible: true, order: 5, width: 140, format: 'phone' },
-  { key: 'area', label: 'Area', visible: true, order: 6, width: 120, sortable: true, filterable: true },
-  { key: 'clusterName', label: 'Cluster', visible: true, order: 7, width: 140, sortable: true, filterable: true },
-  { key: 'slotTime', label: 'Slot Time', visible: true, order: 8, width: 130, sortable: true },
-  { key: 'ticketCategory', label: 'Category', visible: true, order: 9, width: 130, format: 'badge', sortable: true, filterable: true },
-  { key: 'contactorName', label: 'Contractor', visible: true, order: 10, width: 140, sortable: true, filterable: true },
-  { key: 'installerName', label: 'Installer', visible: true, order: 11, width: 140, sortable: true, filterable: true },
-  { key: 'statusWOAgent', label: 'Status Agent', visible: true, order: 12, width: 130, format: 'status_agent', sortable: true, filterable: true },
-  { key: 'statusWOInstaller', label: 'Status Installer', visible: true, order: 13, width: 140, format: 'status_installer', sortable: true, filterable: true },
-  { key: 'statusWhatsApp', label: 'WhatsApp Status', visible: true, order: 14, width: 160, format: 'status_wa', sortable: true, filterable: true },
-  { key: 'fdtCode', label: 'FDT Code', visible: false, order: 15, width: 110, format: 'code' },
-  { key: 'fatCode', label: 'FAT Code', visible: false, order: 16, width: 110, format: 'code' },
-  { key: 'streetName', label: 'Street Address', visible: false, order: 17, width: 220, wrapText: true },
-  { key: 'remarksWOInstaller', label: 'Installer Remarks', visible: false, order: 18, width: 200, wrapText: true },
-  { key: 'agentId', label: 'Agent ID', visible: false, order: 19, width: 100 },
-  { key: 'dateUpload', label: 'Date Uploaded', visible: false, order: 20, width: 120, format: 'date' },
-  { key: 'fileName', label: 'Source File', visible: false, order: 21, width: 150 },
-  { key: 'updatedAt', label: 'Last Updated', visible: true, order: 22, width: 130, format: 'date', sortable: true },
-  { key: 'actions', label: 'Actions', visible: true, order: 23, width: 140, sticky: 'right', align: 'center' }
+  // A. Identitas Utama & Tiket (5 Kolom Mandatori)
+  { key: 'selection', label: 'Checklist Selection', visible: true, order: 1, width: 48, align: 'center', sticky: 'left', categoryGroup: 'A', mandatory: true, description: 'Kotak centang operasi bulk dispatch & broadcast' },
+  { key: 'woNumber', label: 'Nomor Work Order', visible: true, order: 2, width: 140, sticky: 'left', format: 'code', sortable: true, filterable: true, categoryGroup: 'A', mandatory: true, badgeHint: 'Sticky 1', description: 'Nomor unik order WO canonical MyRepublic' },
+  { key: 'idCustomer', label: 'ID Pelanggan MyRep', visible: true, order: 3, width: 110, sticky: 'left', format: 'code', sortable: true, filterable: true, categoryGroup: 'A', mandatory: true, badgeHint: 'cust_id | Sticky 2', description: '7 Digit integer numeric Customer ID' },
+  { key: 'customerName', label: 'Nama Pelanggan', visible: true, order: 4, width: 180, sticky: 'left', sortable: true, filterable: true, categoryGroup: 'A', mandatory: true, badgeHint: 'Sticky 3', description: 'Nama pemohon registrasi sambungan baru' },
+  { key: 'customerPhone', label: 'No. Telepon / WhatsApp', visible: true, order: 5, width: 150, format: 'phone', categoryGroup: 'A', mandatory: true, badgeHint: 'wa.me Action', description: 'Format MSISDN (+628xxx) link langsung kirim template' },
+
+  // B. 4-Dimensi Status & Governance (4 Kolom)
+  { key: 'statusWOAgent', label: 'Status WO Agent', visible: true, order: 6, width: 130, format: 'status_agent', sortable: true, filterable: true, categoryGroup: 'B', description: 'Workflow tahapan: Pending, Assigned, In Progress, Resolved, Closed' },
+  { key: 'statusWOInstaller', label: 'Status WO Teknisi', visible: true, order: 7, width: 135, format: 'status_installer', sortable: true, filterable: true, categoryGroup: 'B', description: 'Progress fisik lapangan: En Route, On Site, Completed, Kendala' },
+  { key: 'statusWhatsApp', label: 'Status WhatsApp Pelanggan', visible: true, order: 8, width: 145, format: 'status_wa', sortable: true, filterable: true, categoryGroup: 'B', description: 'Konfirmasi janji: Ready, Opened, Confirmed, Unreachable' },
+  { key: 'approvalStatus', label: 'Status Approval Dispatch', visible: true, order: 9, width: 140, format: 'badge', sortable: true, filterable: true, categoryGroup: 'B', badgeHint: 'BUTUH APPROVAL', description: 'Gerbang verifikasi data: APPROVED, REJECTED, BUTUH APPROVAL' },
+
+  // C. Jadwal, Slot & Timestamps (6 Kolom)
+  { key: 'appointmentDate', label: 'Tanggal Appointment', visible: true, order: 10, width: 120, format: 'date', sortable: true, categoryGroup: 'C', description: 'appointment_date (todayWIB default)' },
+  { key: 'slotTime', label: 'Slot Waktu Pengerjaan', visible: true, order: 11, width: 110, sortable: true, categoryGroup: 'C', description: 'slot_time (09:00 - 11:00, 13:00 - 15:00)' },
+  { key: 'workStartedAt', label: 'Jam Mulai Pengerjaan', visible: false, order: 12, width: 100, format: 'date', categoryGroup: 'C', description: 'work_started_at' },
+  { key: 'checkOutAt', label: 'Jam Selesai / Checkout', visible: false, order: 13, width: 100, format: 'date', categoryGroup: 'C', description: 'work_completed_at' },
+  { key: 'workDurationMinutes', label: 'Durasi Pengerjaan Menit', visible: false, order: 14, width: 90, sortable: true, categoryGroup: 'C', description: 'work_duration_minutes (dihitung otomatis)' },
+  { key: 'createdAt', label: 'Timestamp Import / Dibuat', visible: false, order: 15, width: 130, format: 'date', sortable: true, categoryGroup: 'C', description: 'created_at' },
+
+  // D. Wilayah, Alamat & Geolokasi (6 Kolom)
+  { key: 'regionName', label: 'Wilayah Operasional', visible: false, order: 16, width: 120, sortable: true, categoryGroup: 'D', description: 'region_name (Jabodetabek, Jawa Barat)' },
+  { key: 'area', label: 'Area Kerja', visible: true, order: 17, width: 130, sortable: true, filterable: true, categoryGroup: 'D', description: 'area_name (Jakarta Selatan, Depok Timur)' },
+  { key: 'clusterName', label: 'Cluster Perumahan', visible: true, order: 18, width: 150, sortable: true, filterable: true, categoryGroup: 'D', description: 'cluster_name' },
+  { key: 'streetName', label: 'Alamat Lengkap Pelanggan', visible: false, order: 19, width: 260, wrapText: true, categoryGroup: 'D', badgeHint: 'G-Maps Link', description: 'installation_address' },
+  { key: 'customerCoordinates', label: 'Titik Koordinat GPS Pelanggan', visible: false, order: 20, width: 140, format: 'code', categoryGroup: 'D', description: 'customer_coordinates (lat, lng)' },
+  { key: 'distanceKm', label: 'Jarak Teknisi ke Lokasi', visible: false, order: 21, width: 90, categoryGroup: 'D', description: 'distance_km (kalkulasi Haversine)' },
+
+  // E. Infrastruktur Jaringan FTTH & Redaman (7 Kolom)
+  { key: 'fdtCode', label: 'Kode FDT', visible: false, order: 22, width: 110, format: 'code', categoryGroup: 'E', description: 'fdt_code' },
+  { key: 'fatCode', label: 'Kode FAT / Tiang Distribusi', visible: false, order: 23, width: 130, format: 'code', categoryGroup: 'E', description: 'fat_code' },
+  { key: 'fatPort', label: 'Nomor Port FAT', visible: false, order: 24, width: 90, format: 'code', categoryGroup: 'E', description: 'fat_port_number (1-16)' },
+  { key: 'fatRedamanDbm', label: 'Redaman Tiang FAT dBm', visible: false, order: 25, width: 115, format: 'code', categoryGroup: 'E', description: 'fat_redaman_dbm' },
+  { key: 'rosetRedamanDbm', label: 'Redaman OPM Roset Pelanggan dBm', visible: false, order: 26, width: 130, format: 'code', categoryGroup: 'E', badgeHint: '>-24dBm Alert', description: 'roset_redaman_dbm' },
+  { key: 'dropcoreLength', label: 'Panjang Dropcore Meter', visible: false, order: 27, width: 110, categoryGroup: 'E', description: 'dropcore_length_meter' },
+  { key: 'oltCode', label: 'ID OLT & Port PON', visible: false, order: 28, width: 120, format: 'code', categoryGroup: 'E', description: 'olt_pon_port' },
+
+  // F. Perangkat CPE, ONT & Router (5 Kolom)
+  { key: 'ontModel', label: 'Tipe Perangkat ONT / Modem', visible: false, order: 29, width: 140, categoryGroup: 'F', description: 'ont_type_model (Huawei HG8245H5, ZTE F670L)' },
+  { key: 'ontSerialNumber', label: 'Serial Number (SN) ONT', visible: false, order: 30, width: 140, format: 'code', categoryGroup: 'F', description: 'ont_serial_number' },
+  { key: 'ontMacAddress', label: 'Barcode & MAC Address ONT', visible: false, order: 31, width: 130, format: 'code', categoryGroup: 'F', description: 'ont_mac_address' },
+  { key: 'oltRegistrationStatus', label: 'Status Registrasi OLT', visible: false, order: 32, width: 120, categoryGroup: 'F', description: 'olt_registration_status (Online/Registered)' },
+  { key: 'stb1Sn', label: 'Serial Number Set-Top Box', visible: false, order: 33, width: 130, format: 'code', categoryGroup: 'F', description: 'stb_serial_number' },
+
+  // G. Kontraktor, Korlap & Penugasan Teknisi (5 Kolom)
+  { key: 'contactorName', label: 'Mitra Kontraktor', visible: true, order: 34, width: 140, sortable: true, filterable: true, categoryGroup: 'G', description: 'contractor_name' },
+  { key: 'leaderName', label: 'Korlap / Leader Lapangan', visible: true, order: 35, width: 130, sortable: true, categoryGroup: 'G', description: 'leader_name' },
+  { key: 'installerName', label: 'Nama Teknisi / Installer', visible: true, order: 36, width: 140, sortable: true, filterable: true, categoryGroup: 'G', description: 'installer_name' },
+  { key: 'installerContact', label: 'No. Kontak Teknisi', visible: false, order: 37, width: 120, format: 'phone', categoryGroup: 'G', description: 'installer_phone' },
+  { key: 'reassignHistoryCount', label: 'Riwayat Reassign Teknisi', visible: false, order: 38, width: 110, categoryGroup: 'G', badgeHint: 'Counter Badge', description: 'reassign_history_count' },
+
+  // H. Laporan Lapangan 3-Tingkat & Audit (8 Kolom)
+  { key: 'reportStatusLabel', label: 'Status Laporan Level 1', visible: true, order: 39, width: 130, categoryGroup: 'H', description: 'report_level_1_status (Done, Pending, Cancel)' },
+  { key: 'reasonReportLabel', label: 'Reason Report Level 2', visible: false, order: 40, width: 150, categoryGroup: 'H', description: 'report_level_2_reason' },
+  { key: 'rootcauseLabel', label: 'Rootcause Code Level 3', visible: false, order: 41, width: 160, categoryGroup: 'H', description: 'report_level_3_rootcause' },
+  { key: 'remarksWOInstaller', label: 'Catatan Teknisi / Remarks', visible: true, order: 42, width: 200, wrapText: true, categoryGroup: 'H', description: 'technician_remarks' },
+  { key: 'photoEvidenceCount', label: 'Bukti Foto Fisik (Jumlah Upload)', visible: false, order: 43, width: 110, categoryGroup: 'H', description: 'photo_evidence_count' },
+  { key: 'customerSignatureUrl', label: 'Link Tanda Tangan Pelanggan', visible: false, order: 44, width: 130, categoryGroup: 'H', description: 'customer_signature_url' },
+  { key: 'rejectionReason', label: 'Catatan Rejection Dispatch', visible: false, order: 45, width: 180, wrapText: true, categoryGroup: 'H', description: 'dispatch_rejection_notes' },
+  { key: 'dataQualityFlags', label: 'Flag Audit Kualitas Data', visible: false, order: 46, width: 140, categoryGroup: 'H', badgeHint: 'Audit Telemetry', description: 'data_quality_flags' }
 ];
 
 export const DEFAULT_DETAIL_SECTIONS: SectionDetailConfig[] = [
@@ -150,45 +273,51 @@ export const DEFAULT_UI_CONFIG: UIConfiguration = {
     rowsPerPage: 10,
     showEmptyFields: false,
     activePresetId: 'preset_default',
+    cellFontSize: 'medium',
+    freezeColumnCount: 4,
+    smartOmitEmpty: true,
+    showHoverTooltips: true,
     presets: [
       {
         id: 'preset_default',
-        name: 'Standard Dispatch View',
-        description: 'Balanced column layout for general ticket monitoring and routing',
-        columns: DEFAULT_COLUMNS,
+        name: 'Preset Default Dispatch',
+        description: 'Tampilan seimbang 18 kolom kanonik utama untuk monitoring & routing dispatch harian',
+        columns: DEFAULT_COLUMNS.map(col => ({
+          ...col,
+          visible: col.mandatory ? true : DEFAULT_DISPATCH_VISIBLE_KEYS.has(col.key)
+        })),
         density: 'comfortable',
         rowsPerPage: 10
       },
       {
-        id: 'preset_compact_dispatch',
-        name: 'Compact Operations',
-        description: 'High-density grid focused on installer assignments and work status',
+        id: 'preset_leader',
+        name: 'Korlap / Leader',
+        description: 'Fokus 14 kolom lapangan untuk penugasan teknisi, alamat, dan konfirmasi WhatsApp',
         columns: DEFAULT_COLUMNS.map(col => ({
           ...col,
-          visible: ['woNumber', 'customerName', 'area', 'installerName', 'slotTime', 'statusWOInstaller', 'statusWhatsApp', 'actions'].includes(col.key),
-          width: col.key === 'woNumber' ? 120 : col.width
-        })),
-        density: 'compact',
-        rowsPerPage: 20
-      },
-      {
-        id: 'preset_customer_contact',
-        name: 'Customer & WhatsApp Confirmation',
-        description: 'Prioritizes customer contact, address, slot time and WhatsApp status',
-        columns: DEFAULT_COLUMNS.map(col => ({
-          ...col,
-          visible: ['woNumber', 'customerName', 'customerPhone', 'slotTime', 'clusterName', 'installerName', 'statusWhatsApp', 'actions'].includes(col.key)
+          visible: col.mandatory ? true : LEADER_VISIBLE_KEYS.has(col.key)
         })),
         density: 'comfortable',
         rowsPerPage: 15
       },
       {
-        id: 'preset_technical',
-        name: 'Technical & Infrastructure',
-        description: 'Focuses on FDT, FAT, category, and technical completion',
+        id: 'preset_qc',
+        name: 'QC & Audit Kualitas',
+        description: 'Tampilan 26 kolom verifikasi jaringan FTTH, OPM redaman, ONT, dan laporan 3-tingkat',
         columns: DEFAULT_COLUMNS.map(col => ({
           ...col,
-          visible: ['woNumber', 'area', 'clusterName', 'fdtCode', 'fatCode', 'ticketCategory', 'installerName', 'statusWOInstaller', 'actions'].includes(col.key)
+          visible: col.mandatory ? true : QC_AUDIT_VISIBLE_KEYS.has(col.key)
+        })),
+        density: 'compact',
+        rowsPerPage: 20
+      },
+      {
+        id: 'preset_all_46',
+        name: 'Semua 46 Kolom',
+        description: 'Menampilkan seluruh 46 kolom kanonik BASE_DATA_WO secara lengkap untuk audit penuh',
+        columns: DEFAULT_COLUMNS.map(col => ({
+          ...col,
+          visible: true
         })),
         density: 'compact',
         rowsPerPage: 15

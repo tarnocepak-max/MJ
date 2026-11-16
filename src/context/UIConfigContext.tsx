@@ -18,6 +18,7 @@ import {
 } from '../types';
 import {
   DEFAULT_UI_CONFIG,
+  DEFAULT_COLUMNS,
   DEFAULT_NAVIGATION_CATEGORIES,
   DEFAULT_CANONICAL_CATEGORIES,
   DEFAULT_STANDALONE_MENUS,
@@ -335,6 +336,78 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     })
   });
 
+  const mergeCanonicalColumns = (savedColumns?: ColumnConfig[]): ColumnConfig[] => {
+    const defaultByKey = new Map(DEFAULT_COLUMNS.map(col => [col.key, col]));
+    if (!Array.isArray(savedColumns) || savedColumns.length === 0) {
+      return DEFAULT_COLUMNS.map(col => ({ ...col }));
+    }
+
+    const seenKeys = new Set<string>();
+    const merged: ColumnConfig[] = [];
+
+    for (const col of savedColumns) {
+      if (!col || !col.key || col.key === 'actions' || seenKeys.has(col.key)) continue;
+      const canonical = defaultByKey.get(col.key);
+      if (!canonical) continue;
+      seenKeys.add(col.key);
+      merged.push({
+        ...canonical,
+        ...col,
+        visible: canonical.mandatory ? true : Boolean(col.visible),
+        mandatory: canonical.mandatory,
+        categoryGroup: canonical.categoryGroup,
+        description: canonical.description,
+        badgeHint: canonical.badgeHint
+      });
+    }
+
+    for (const canonical of DEFAULT_COLUMNS) {
+      if (!seenKeys.has(canonical.key)) {
+        seenKeys.add(canonical.key);
+        merged.push({ ...canonical });
+      }
+    }
+
+    return merged
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      .map((col, idx) => ({ ...col, order: idx + 1 }));
+  };
+
+  const mergeCanonicalPresets = (savedPresets?: TablePreset[]): TablePreset[] => {
+    const basePresets = DEFAULT_UI_CONFIG.ticketsTable.presets.map(p => ({
+      ...p,
+      columns: mergeCanonicalColumns(p.columns)
+    }));
+    if (!Array.isArray(savedPresets) || savedPresets.length === 0) {
+      return basePresets;
+    }
+    const customPresets = savedPresets
+      .filter(p => p && p.id && p.id.startsWith('preset_custom_'))
+      .map(p => ({
+        ...p,
+        columns: mergeCanonicalColumns(p.columns)
+      }));
+    return [...basePresets, ...customPresets];
+  };
+
+  const normalizeTicketsTableConfig = (
+    incomingTable?: Partial<UIConfiguration['ticketsTable']>
+  ): UIConfiguration['ticketsTable'] => {
+    const base = DEFAULT_UI_CONFIG.ticketsTable;
+    const freezeCountRaw = incomingTable?.freezeColumnCount ?? base.freezeColumnCount ?? 4;
+    const freezeColumnCount = Math.max(1, Math.min(4, Number(freezeCountRaw) || 4));
+    return {
+      ...base,
+      ...(incomingTable || {}),
+      columns: mergeCanonicalColumns(incomingTable?.columns),
+      presets: mergeCanonicalPresets(incomingTable?.presets),
+      cellFontSize: incomingTable?.cellFontSize || base.cellFontSize || 'medium',
+      freezeColumnCount,
+      smartOmitEmpty: incomingTable?.smartOmitEmpty ?? base.smartOmitEmpty ?? true,
+      showHoverTooltips: incomingTable?.showHoverTooltips ?? base.showHoverTooltips ?? true
+    };
+  };
+
   const [config, setConfig] = useState<UIConfiguration>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -355,7 +428,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             android: { ...DEFAULT_UI_CONFIG.device.android, ...(parsed.device?.android || {}) },
             pc: { ...DEFAULT_UI_CONFIG.device.pc, ...(parsed.device?.pc || {}) }
           },
-          ticketsTable: { ...DEFAULT_UI_CONFIG.ticketsTable, ...parsed.ticketsTable },
+          ticketsTable: normalizeTicketsTableConfig(parsed.ticketsTable),
           toolbar: sanitizeToolbarButtons({ ...DEFAULT_UI_CONFIG.toolbar, ...parsed.toolbar }),
           ticketDetail: { ...DEFAULT_UI_CONFIG.ticketDetail, ...parsed.ticketDetail }
         };
@@ -885,6 +958,10 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ...prev,
       ...incoming,
       global: { ...prev.global, ...(incoming.global || {}) },
+      ticketsTable: normalizeTicketsTableConfig({
+        ...prev.ticketsTable,
+        ...(incoming.ticketsTable || {})
+      }),
       toolbar: sanitizeToolbarButtons({ ...prev.toolbar, ...(incoming.toolbar || {}) }),
       device: {
         ...prev.device,
@@ -1412,7 +1489,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ticketsTable: {
         ...config.ticketsTable,
         activePresetId: presetId,
-        columns: preset.columns,
+        columns: mergeCanonicalColumns(preset.columns),
         density: preset.density,
         rowsPerPage: preset.rowsPerPage
       }

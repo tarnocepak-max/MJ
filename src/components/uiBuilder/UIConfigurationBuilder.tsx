@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { ColumnConfig, SectionDetailConfig, ToolbarButtonConfig, TablePreset } from '../../types/index.ts';
 import {
-  Sliders,
   Columns3,
   Palette,
   LayoutTemplate,
@@ -14,39 +12,35 @@ import {
   Check,
   Eye,
   EyeOff,
-  Download,
   Upload,
   Plus,
   Trash2,
   Sparkles,
   Smartphone,
   Monitor,
-  CheckCircle2,
-  Phone,
-  MessageSquare,
-  Maximize2,
   FolderTree,
-  Menu,
-  Edit2,
   Database,
   Cloud,
   CloudUpload,
   CloudDownload,
   RefreshCw,
   AlertCircle,
-  HardDrive,
   ShieldCheck,
   FileJson
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { TableColumnsStudio } from './TableColumnsStudio';
 
-export const UIConfigurationBuilder: React.FC = () => {
+interface UIConfigurationBuilderProps {
+  onNavigateToTickets?: () => void;
+}
+
+export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
+  onNavigateToTickets
+}) => {
   const {
     config,
-    draftConfig,
-    isDrafting,
     updateDraft,
-    cancelDraft,
     resetToDefaults,
     applyPreset,
     saveCurrentAsPreset,
@@ -67,16 +61,18 @@ export const UIConfigurationBuilder: React.FC = () => {
     loadConfigFromSupabase,
     isCloudSyncing,
     lastCloudSyncTime,
-    lastCloudSyncError,
     cloudSyncStatus,
     uiConfigVersion,
-    navDocVersion
+    navDocVersion,
+    uiConflict,
+    clearUiConflict,
+    resolveUiConflict
   } = useUIConfig();
 
   const { currentUser } = useApp();
   const isSuperAdmin = currentUser?.role === 'super_admin';
 
-  const [activeTab, setActiveTab] = useState<'supabase_config' | 'device_layout' | 'menu_layout' | 'table_columns' | 'toolbar' | 'detail_sections' | 'global_theme' | 'presets' | 'json'>('device_layout');
+  const [activeTab, setActiveTab] = useState<'table_columns' | 'device_layout' | 'menu_layout' | 'toolbar' | 'detail_sections' | 'global_theme' | 'presets' | 'json' | 'supabase_config'>('table_columns');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -99,25 +95,6 @@ export const UIConfigurationBuilder: React.FC = () => {
   const triggerError = (msg: string) => {
     setSuccessMessage(null);
     setErrorMessage(msg);
-  };
-
-  const handleMoveColumn = (index: number, direction: 'up' | 'down') => {
-    if (!isSuperAdmin) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= config.ticketsTable.columns.length) return;
-    updateDraft(prev => {
-      const cols = [...prev.ticketsTable.columns];
-      const [moved] = cols.splice(index, 1);
-      cols.splice(targetIndex, 0, moved);
-      return {
-        ...prev,
-        ticketsTable: {
-          ...prev.ticketsTable,
-          columns: cols.map((c, idx) => ({ ...c, order: idx + 1 }))
-        }
-      };
-    });
-    triggerNotice('Urutan kolom diperbarui di draft. Klik "Simpan & Upload ke Supabase" untuk menerapkan secara global.');
   };
 
   const handleMoveSection = (index: number, direction: 'up' | 'down') => {
@@ -242,142 +219,198 @@ export const UIConfigurationBuilder: React.FC = () => {
         </div>
       )}
 
-      {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-md bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <Sliders className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Dynamic UI & Layout Configuration Builder
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono tabular-nums font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                v{uiConfigVersion}
-              </span>
-              {/* Supabase PostgreSQL Sync Status Badge */}
-              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                {isCloudSyncing ? (
-                  <>
-                    <RefreshCw className="w-3 h-3 text-indigo-500 animate-spin" />
-                    <span className="text-indigo-600 dark:text-indigo-400">Sinkronisasi Cloud...</span>
-                  </>
-                ) : cloudSyncStatus === 'synced' ? (
-                  <>
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                    <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                      Database Config: Supabase
-                      {lastCloudSyncTime ? ` (${new Date(lastCloudSyncTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})` : ''}
-                    </span>
-                  </>
-                ) : cloudSyncStatus === 'error' ? (
-                  <>
-                    <AlertCircle className="w-3 h-3 text-rose-500" />
-                    <span className="text-rose-600 dark:text-rose-400 font-semibold">Gagal Sinkron Cloud</span>
-                  </>
-                ) : (
-                  <>
-                    <Database className="w-3 h-3 text-amber-500" />
-                    <span className="text-amber-700 dark:text-amber-300">Lokal (Belum Upload)</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Ubah seluruh layout aplikasi, visibilitas kolom tabel, susunan menu, dan simpan sebagai Database Configuration App di Supabase PostgreSQL.
-            </p>
-          </div>
+      {/* Sub-Tabs Switcher */}
+      <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] px-3 py-2 flex items-center justify-between gap-3 flex-wrap shadow-2xs">
+        <div className="flex items-center gap-1.5 text-xs font-semibold overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('table_columns')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'table_columns'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Columns3 className="w-3.5 h-3.5" />
+            <span>Kolom &amp; Ergonomi Tabel ({config.ticketsTable.columns.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('device_layout')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'device_layout'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Android &amp; PC</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('menu_layout')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'menu_layout'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <FolderTree className="w-3.5 h-3.5" />
+            <span>Susunan Menu</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('toolbar')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'toolbar'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5" />
+            <span>Toolbar &amp; Aksi</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('detail_sections')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'detail_sections'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Ticket Detail</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('global_theme')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'global_theme'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>Tema Global</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('presets')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'presets'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Presets ({config.ticketsTable.presets.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('json')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'json'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Backup JSON</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('supabase_config')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'supabase_config'
+                ? 'bg-[#431599] text-white font-bold shadow-xs'
+                : 'text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Cloud Sync (v{uiConfigVersion})</span>
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Supabase Save / Upload Primary Button */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={handleUploadToSupabase}
-            disabled={!isSuperAdmin || isCloudSyncing}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed rounded-md flex items-center gap-1.5 shadow-sm transition-all"
-            title="Upload dan jadikan konfigurasi ini sebagai Database Configuration App di Supabase PostgreSQL"
-          >
-            {isCloudSyncing ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CloudUpload className="w-3.5 h-3.5" />
-            )}
-            <span>Simpan & Upload ke Supabase</span>
-          </button>
-
-          {/* Supabase Pull / Sync Button */}
-          <button
+            type="button"
             onClick={() => setConfirmModal('pull')}
             disabled={isCloudSyncing}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50"
-            title="Tarik konfigurasi master dari Supabase PostgreSQL"
+            className="px-2.5 py-1.5 text-[11px] font-semibold text-[#494453] dark:text-[#CEC0E8] bg-[#F7F6FA] dark:bg-[#251545] hover:bg-[#F5F1FF] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <CloudDownload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <CloudDownload className="w-3.5 h-3.5 text-[#431599] dark:text-[#D8B4FE]" />
             <span>Tarik dari Supabase</span>
           </button>
-
           <button
+            type="button"
             onClick={() => setConfirmModal('reset_ui')}
             disabled={!isSuperAdmin || isCloudSyncing}
-            className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-2.5 py-1.5 text-[11px] font-semibold text-[#766B83] dark:text-[#CEC0E8] hover:bg-[#F7F6FA] dark:hover:bg-[#251545] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-            <span>Reset</span>
-          </button>
-
-          <button
-            onClick={handleExport}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-md flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-400" />
-            <span>Export JSON</span>
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Semua</span>
           </button>
         </div>
       </div>
 
-      {isDrafting && isSuperAdmin && (
-        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>Draft Builder Belum Tersimpan ke Database:</strong> Klik <em>Simpan &amp; Upload ke Supabase</em> untuk memberlakukan perubahan secara global kepada seluruh pengguna.
-            </span>
+      {uiConflict && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold">Konflik Versi Konfigurasi Terdeteksi ({uiConflict.key})</div>
+              <div className="text-[11px] opacity-90 mt-0.5">
+                Versi server saat ini v{uiConflict.currentVersion} (diperbarui oleh {uiConflict.updatedBy || 'Admin lain'}), sementara sesi Anda v{uiConflict.expectedVersion}.
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={cancelDraft}
-              disabled={isCloudSyncing}
-              className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+              onClick={() => resolveUiConflict('reload')}
+              className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#1E1238] border border-amber-300 text-amber-900 dark:text-amber-200 font-semibold cursor-pointer"
             >
-              Batalkan Draft
+              Muat Versi Terbaru
             </button>
             <button
               type="button"
-              onClick={handleUploadToSupabase}
-              disabled={isCloudSyncing}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+              onClick={() => resolveUiConflict('overwrite')}
+              className="px-3 py-1.5 rounded-lg bg-[#431599] text-white font-bold cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>Simpan ke Database</span>
+              Timpa Versi Server
+            </button>
+            <button
+              type="button"
+              onClick={clearUiConflict}
+              className="px-2 py-1.5 text-amber-700 dark:text-amber-300 hover:underline cursor-pointer"
+            >
+              Tutup
             </button>
           </div>
         </div>
       )}
 
-      {(errorMessage || lastCloudSyncError) && (
-        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 rounded text-xs flex items-center justify-between gap-3">
+      {errorMessage && (
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage || lastCloudSyncError}</span>
+            <span>{errorMessage}</span>
           </div>
           {isSuperAdmin && (
             <button
               type="button"
               onClick={handleUploadToSupabase}
               disabled={isCloudSyncing}
-              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold shrink-0"
+              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold shrink-0 cursor-pointer"
             >
               Coba Simpan Ulang
             </button>
@@ -386,121 +419,11 @@ export const UIConfigurationBuilder: React.FC = () => {
       )}
 
       {successMessage && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded text-xs flex items-center gap-2">
+        <div className="p-3 bg-[#ECFDF5] dark:bg-emerald-950/40 border border-[#A7F3D0] dark:border-emerald-800 text-[#16A36A] dark:text-emerald-300 rounded-xl text-xs font-medium flex items-center gap-2">
           <Check className="w-4 h-4 shrink-0" />
           <span>{successMessage}</span>
         </div>
       )}
-
-      {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-medium overflow-x-auto pb-1">
-        <button
-          onClick={() => setActiveTab('supabase_config')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'supabase_config'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50/50 dark:bg-indigo-950/30 rounded-t'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span>☁️ Database Config App</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('device_layout')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'device_layout'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50/50 dark:bg-indigo-950/30 rounded-t'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>📱 Android & 💻 PC Settings</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('menu_layout')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'menu_layout'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50/50 dark:bg-indigo-950/30 rounded-t'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <FolderTree className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span>🗂️ Susunan Menu & Kategori</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('table_columns')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'table_columns'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Columns3 className="w-4 h-4" />
-          <span>Table Columns & Visibility</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('toolbar')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'toolbar'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <LayoutTemplate className="w-4 h-4" />
-          <span>Toolbar & Actions</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('detail_sections')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'detail_sections'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Ticket Detail & Empty Fields</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('global_theme')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'global_theme'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Palette className="w-4 h-4" />
-          <span>Theme, Branding & Density</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('presets')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'presets'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>Table Presets ({config.ticketsTable.presets.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('json')}
-          className={`px-3 py-2 border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap ${
-            activeTab === 'json'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-          }`}
-        >
-          <Upload className="w-4 h-4" />
-          <span>Import / Backup</span>
-        </button>
-      </div>
 
       {/* Tab: Database Configuration App (Supabase PostgreSQL Master Storage) */}
       {activeTab === 'supabase_config' && (
@@ -1305,178 +1228,15 @@ export const UIConfigurationBuilder: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 1: Table Columns Configuration */}
+      {/* Tab 1: Stitch 46-Column Canonical Studio & Live Simulator */}
       {activeTab === 'table_columns' && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-xs">
-                Ticket Information: Column Manager
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Atur visibilitas, urutan naik/turun, label header kustom, lebar kolom (px), alignment, dan kolom sticky.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowPresetModal(true)}
-              disabled={!isSuperAdmin || isCloudSyncing}
-              className="px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Simpan Kolom Saat Ini Sebagai Preset</span>
-            </button>
-          </div>
-
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-md">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase">
-                <tr>
-                  <th className="py-2 px-3 w-12 text-center">Urutan</th>
-                  <th className="py-2 px-3 w-16 text-center">Tampil</th>
-                  <th className="py-2 px-3">Field Key</th>
-                  <th className="py-2 px-3">Label Header Kustom</th>
-                  <th className="py-2 px-3 w-28">Lebar (px)</th>
-                  <th className="py-2 px-3 w-28">Alignment</th>
-                  <th className="py-2 px-3 w-28">Sticky</th>
-                  <th className="py-2 px-3 w-24 text-center">Wrap Teks</th>
-                  <th className="py-2 px-3 w-24 text-center">Reorder</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {config.ticketsTable.columns.map((col, idx) => (
-                  <tr key={col.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-2 px-3 text-center font-mono text-slate-400">{idx + 1}</td>
-
-                    <td className="py-2 px-3 text-center">
-                      <input
-                        type="checkbox"
-                        disabled={!isSuperAdmin}
-                        checked={col.visible}
-                        onChange={e => updateDraft(prev => ({
-                          ...prev,
-                          ticketsTable: {
-                            ...prev.ticketsTable,
-                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, visible: e.target.checked } : c)
-                          }
-                        }))}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      />
-                    </td>
-
-                    <td className="py-2 px-3 font-mono font-medium text-slate-700 dark:text-slate-300">
-                      {col.key}
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        disabled={!isSuperAdmin}
-                        value={col.label}
-                        onChange={e => updateDraft(prev => ({
-                          ...prev,
-                          ticketsTable: {
-                            ...prev.ticketsTable,
-                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, label: e.target.value } : c)
-                          }
-                        }))}
-                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 disabled:opacity-60"
-                      />
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <input
-                        type="number"
-                        disabled={!isSuperAdmin}
-                        value={col.width || 120}
-                        onChange={e => updateDraft(prev => ({
-                          ...prev,
-                          ticketsTable: {
-                            ...prev.ticketsTable,
-                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, width: parseInt(e.target.value) || 100 } : c)
-                          }
-                        }))}
-                        className="w-20 px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 font-mono disabled:opacity-60"
-                      />
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <select
-                        disabled={!isSuperAdmin}
-                        value={col.align || 'left'}
-                        onChange={e => updateDraft(prev => ({
-                          ...prev,
-                          ticketsTable: {
-                            ...prev.ticketsTable,
-                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, align: e.target.value as any } : c)
-                          }
-                        }))}
-                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded disabled:opacity-60"
-                      >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </select>
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <select
-                        disabled={!isSuperAdmin}
-                        value={col.sticky || 'none'}
-                        onChange={e => updateDraft(prev => ({
-                          ...prev,
-                          ticketsTable: {
-                            ...prev.ticketsTable,
-                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, sticky: e.target.value as any } : c)
-                          }
-                        }))}
-                        className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded disabled:opacity-60"
-                      >
-                        <option value="none">None</option>
-                        <option value="left">Sticky Left</option>
-                        <option value="right">Sticky Right</option>
-                      </select>
-                    </td>
-
-                    <td className="py-2 px-3 text-center">
-                      <input
-                        type="checkbox"
-                        disabled={!isSuperAdmin}
-                        checked={Boolean(col.wrapText)}
-                        onChange={e => updateDraft(prev => ({
-                          ...prev,
-                          ticketsTable: {
-                            ...prev.ticketsTable,
-                            columns: prev.ticketsTable.columns.map(c => c.key === col.key ? { ...c, wrapText: e.target.checked } : c)
-                          }
-                        }))}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      />
-                    </td>
-
-                    <td className="py-2 px-3 text-center whitespace-nowrap">
-                      <button
-                        onClick={() => handleMoveColumn(idx, 'up')}
-                        disabled={!isSuperAdmin || idx === 0}
-                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20"
-                        title="Pindah ke Atas"
-                      >
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleMoveColumn(idx, 'down')}
-                        disabled={!isSuperAdmin || idx === config.ticketsTable.columns.length - 1}
-                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20"
-                        title="Pindah ke Bawah"
-                      >
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <TableColumnsStudio
+          isSuperAdmin={isSuperAdmin}
+          onTriggerNotice={triggerNotice}
+          onTriggerError={triggerError}
+          onOpenSavePresetModal={() => setShowPresetModal(true)}
+          onNavigateToTickets={onNavigateToTickets}
+        />
       )}
 
       {/* Tab 2: Toolbar & Actions */}
