@@ -2,7 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { Ticket, User, TicketStatusWOInstaller } from '../../types/index.ts';
-import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge } from '../common/Badge';
+import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusBadge } from '../common/Badge';
+import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
+import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
 import {
   formatAppointmentDateDisplay,
@@ -149,7 +151,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     areasList,
     databaseStatus,
     syncStatus,
-    refreshActiveTickets
+    refreshActiveTickets,
+    activeKpiDrilldown,
+    setActiveKpiDrilldown
   } = useApp();
   const { isMobileView } = useUIConfig();
 
@@ -861,6 +865,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         }
       }
 
+      // KPI Dashboard Drill-Down filter
+      if (activeKpiDrilldown) {
+        if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
+          const tCont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (tCont !== activeKpiDrilldown.contractor.trim().toLowerCase()) return false;
+        }
+        if (activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL') {
+          const tArea = String(t.area || '').trim().toLowerCase();
+          if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
+        }
+        if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
+      }
+
       return true;
     });
   }, [
@@ -870,7 +887,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     slotFilter,
     clusterFilter,
     todayWIB,
-    searchQuery
+    searchQuery,
+    activeKpiDrilldown
   ]);
 
   // Sorting State for Leader Assign WO Table
@@ -1799,15 +1817,16 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         const ws = getTicketWorkStatus(t);
         return (
           <td key={col.id} className="py-2.5 px-3 text-center whitespace-nowrap">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              ws.status === 'Selesai'
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                : ws.status === 'Sedang Dikerjakan'
-                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-            }`}>
-              {ws.status}
-            </span>
+            <StatusBadge
+              status={
+                ws.status === 'Selesai'
+                  ? 'CHECK-OUT'
+                  : ws.status === 'Sedang Dikerjakan'
+                  ? 'PROGRESS'
+                  : 'BELUM CHECK-IN'
+              }
+              variant="checkin"
+            />
           </td>
         );
       }
@@ -2355,6 +2374,21 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {activeTab === 'dashboard' && (
         <div className="space-y-5">
+          {/* 13 WO Lifecycle KPI Summary Cards (Authoritative Backend/Role-Scoped) */}
+          <DashboardKpiSummaryCards
+            onDrillDown={(filterKey, filters) => {
+              setActiveKpiDrilldown({
+                filterKey,
+                dateWIB: todayWIB,
+                contractor: filters?.contractor,
+                area: filters?.area
+              });
+              setStatusFilter('all');
+              setActiveTab('wo_assignment');
+              setCurrentPage(1);
+            }}
+          />
+
           {/* 10 ACCURATE SUMMARY METRIC CARDS */}
           <div className={`grid gap-3 sm:gap-4 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'}`}>
             {/* 1. Total WO */}
@@ -2373,10 +2407,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
             {/* 2. Belum Di-assign (HIGHLIGHT) */}
             <div
-              onClick={() => setActiveTab('wo_assignment')}
+              onClick={() => {
+                setActiveKpiDrilldown({ filterKey: 'unassigned', dateWIB: todayWIB });
+                setActiveTab('wo_assignment');
+              }}
               className={`p-4 rounded-2xl border-2 shadow-xs flex flex-col justify-between cursor-pointer transition-transform hover:scale-[1.02] ${
                 summaryMetrics.unassigned > 0
-                  ? 'bg-amber-500/10 border-amber-500/60 text-amber-900 dark:text-amber-200 animate-pulse'
+                  ? 'bg-amber-500/10 border-amber-500/60 text-amber-900 dark:text-amber-200'
                   : 'bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60'
               }`}
             >
@@ -2704,62 +2741,101 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* TAB 1: ASSIGN WO & SLOT MATRIX (STITCH 2-PANEL WORKSPACE)    */}
       {/* ============================================================ */}
       {activeTab === 'wo_assignment' && (
-        <div className={`grid gap-5 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-12'}`}>
-          {/* LEFT 8 COLUMNS: FILTER, BULK ACTIONS, CARD MATRIX / TABLE */}
-          <div className={isMobileView ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
-            <LeaderAssignMatrixPanel
-              totalScopedCount={summaryMetrics.total}
-              filteredTickets={filteredTickets}
-              paginatedTickets={paginatedTickets}
-              unassignedCount={summaryMetrics.unassigned}
-              assignedCount={summaryMetrics.assigned}
-              inProgressCount={summaryMetrics.inProgress}
-              completedCount={summaryMetrics.completed}
-              pendingCount={summaryMetrics.pending}
-              problemCount={summaryMetrics.problem}
-              clusterOptions={clusterOptions}
-              technicians={technicianSummaries}
-              viewMode={matrixViewMode}
-              onViewModeChange={mode => {
-                setMatrixViewMode(mode);
-                if (mode === 'table' && rowsPerPage === 6) setRowsPerPage(25);
-                if (mode === 'cards' && rowsPerPage === 25) setRowsPerPage(6);
-                setCurrentPage(1);
-              }}
-              searchQuery={searchQuery}
-              onSearchChange={q => {
-                setSearchQuery(q);
-                setCurrentPage(1);
-              }}
-              slotFilter={slotFilter}
-              onSlotFilterChange={s => {
-                setSlotFilter(s);
-                setCurrentPage(1);
-              }}
-              statusFilter={statusFilter}
-              onStatusFilterChange={s => {
-                setStatusFilter(s as LeaderStatusFilter);
-                setCurrentPage(1);
-              }}
-              clusterFilter={clusterFilter}
-              onClusterFilterChange={c => {
-                setClusterFilter(c);
-                setCurrentPage(1);
-              }}
-              installerFilter={selectedInstallerFilter}
-              onInstallerFilterChange={inst => {
-                setSelectedInstallerFilter(inst);
-                setCurrentPage(1);
-              }}
-              onResetFilters={() => {
-                setSearchQuery('');
-                setSlotFilter('ALL');
-                setStatusFilter('all');
-                setClusterFilter('ALL');
-                setSelectedInstallerFilter('ALL');
-                setSortState({ column: null, direction: null });
-                setCurrentPage(1);
-              }}
+        <div className="space-y-4">
+          {activeKpiDrilldown && (
+            <div className="rounded-xl bg-[#160D29] text-white px-4 py-3 border border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="px-2 py-0.5 rounded-full bg-[#7135B5] text-white font-bold text-[10.5px]">
+                  Filter KPI Dashboard
+                </span>
+                <span className="font-bold">
+                  {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
+                </span>
+                {activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL' && (
+                  <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+                    Vendor: {activeKpiDrilldown.contractor}
+                  </span>
+                )}
+                {activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL' && (
+                  <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+                    Area: {activeKpiDrilldown.area}
+                  </span>
+                )}
+                <span className="font-mono font-bold text-[#E9D5FF] tabular-nums">
+                  ({filteredTickets.length} WO ditemukan)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveKpiDrilldown(null);
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#160D29] hover:bg-[#F5F1FF] text-xs font-bold cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Reset Filter KPI</span>
+              </button>
+            </div>
+          )}
+
+          <div className={`grid gap-5 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-12'}`}>
+            {/* LEFT 8 COLUMNS: FILTER, BULK ACTIONS, CARD MATRIX / TABLE */}
+            <div className={isMobileView ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
+              <LeaderAssignMatrixPanel
+                totalScopedCount={summaryMetrics.total}
+                filteredTickets={filteredTickets}
+                paginatedTickets={paginatedTickets}
+                unassignedCount={summaryMetrics.unassigned}
+                assignedCount={summaryMetrics.assigned}
+                inProgressCount={summaryMetrics.inProgress}
+                completedCount={summaryMetrics.completed}
+                pendingCount={summaryMetrics.pending}
+                problemCount={summaryMetrics.problem}
+                clusterOptions={clusterOptions}
+                technicians={technicianSummaries}
+                viewMode={matrixViewMode}
+                onViewModeChange={mode => {
+                  setMatrixViewMode(mode);
+                  if (mode === 'table' && rowsPerPage === 6) setRowsPerPage(25);
+                  if (mode === 'cards' && rowsPerPage === 25) setRowsPerPage(6);
+                  setCurrentPage(1);
+                }}
+                searchQuery={searchQuery}
+                onSearchChange={q => {
+                  setSearchQuery(q);
+                  setCurrentPage(1);
+                }}
+                slotFilter={slotFilter}
+                onSlotFilterChange={s => {
+                  setSlotFilter(s);
+                  setCurrentPage(1);
+                }}
+                statusFilter={statusFilter}
+                onStatusFilterChange={s => {
+                  setStatusFilter(s as LeaderStatusFilter);
+                  setCurrentPage(1);
+                }}
+                clusterFilter={clusterFilter}
+                onClusterFilterChange={c => {
+                  setClusterFilter(c);
+                  setCurrentPage(1);
+                }}
+                installerFilter={selectedInstallerFilter}
+                onInstallerFilterChange={inst => {
+                  setSelectedInstallerFilter(inst);
+                  setCurrentPage(1);
+                }}
+                onResetFilters={() => {
+                  setSearchQuery('');
+                  setSlotFilter('ALL');
+                  setStatusFilter('all');
+                  setClusterFilter('ALL');
+                  setSelectedInstallerFilter('ALL');
+                  setActiveKpiDrilldown(null);
+                  setSortState({ column: null, direction: null });
+                  setCurrentPage(1);
+                }}
               selectedTicketIds={selectedTicketIds}
               onToggleSelectTicket={handleToggleSelectTicket}
               onSelectAllUnassigned={checked => {
@@ -2840,6 +2916,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 setCurrentPage(1);
               }}
             />
+          </div>
           </div>
         </div>
       )}

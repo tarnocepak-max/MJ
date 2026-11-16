@@ -29,6 +29,7 @@ import * as XLSX from 'xlsx';
 import { useToast } from '../../context/ToastContext';
 import { formatAppointmentDateDisplay, parseAppointmentDate, getJakartaDateString } from '../../services/appointmentDateParser';
 import { StatusAgentBadge, StatusInstallerBadge } from '../common/Badge';
+import { HistoryProgressReportView } from './HistoryProgressReportView';
 import { SortableColumnHeader } from '../common/SortableColumnHeader';
 import {
   SortState,
@@ -71,6 +72,7 @@ export const ReportDataWOView: React.FC = () => {
 
   const [reportType, setReportType] = useState<
     | 'all_wo'
+    | 'history_progress'
     | 'wo_agent'
     | 'wo_installer'
     | 'pending'
@@ -505,6 +507,7 @@ export const ReportDataWOView: React.FC = () => {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[#D8CCF3] dark:border-purple-900/60 text-xs font-semibold no-scrollbar">
         {[
           { id: 'all_wo', label: 'Semua WO', count: activeTickets.length },
+          { id: 'history_progress', label: 'History Progress Report', count: activeTickets.reduce((acc, t) => acc + (t.progressReports?.length || 0), 0) },
           { id: 'completed', label: 'WO Selesai', count: activeTickets.filter(t => t.statusWOInstaller === 'Completed' || t.statusWOAgent === 'Closed').length },
           { id: 'pending', label: 'Pending / Reschedule', count: activeTickets.filter(t => t.statusWOInstaller === 'Pending Technical' || t.statusWOAgent === 'Pending').length },
           { id: 'overdue', label: 'Overdue (Terlewat)', count: activeTickets.filter(isOverdue).length },
@@ -534,6 +537,10 @@ export const ReportDataWOView: React.FC = () => {
         ))}
       </div>
 
+      {reportType === 'history_progress' ? (
+        <HistoryProgressReportView />
+      ) : (
+      <>
       {/* Global Filters Toolbar & Reset */}
       <div className="p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className={`grid gap-3 flex-1 min-w-[240px] ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'}`}>
@@ -965,6 +972,8 @@ export const ReportDataWOView: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

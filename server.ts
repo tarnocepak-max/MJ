@@ -85,7 +85,9 @@ import {
   getConfigVersionsFromSupabase,
   getConfigVersionByIdFromSupabase,
   getRolesFromSupabase,
-  updateRolePermissionsInSupabase
+  updateRolePermissionsInSupabase,
+  appendProgressReportHistoryToSupabase,
+  appendDistributionLogToSupabase
 } from './server/supabaseAdapter.ts';
 import {
   resolveLeaderForWorkOrder,
@@ -94,6 +96,12 @@ import {
   isContractorMatch,
   isAreaMatch
 } from './server/appFlowHelpers.ts';
+import {
+  computeKpiSummary,
+  extractProgressReportHistoryFromTickets,
+  normalizeCanonicalReportStatus,
+  getTicketCanonicalApprovalStatus
+} from './server/woLifecycleService.ts';
 import {
   DEFAULT_SLA_THRESHOLD_CONFIG,
   normalizeSlaConfig,
@@ -4070,7 +4078,16 @@ export async function createExpressApp(options?: {
     }
 
     const enrichTicketDistribution = (item: any, appDate: string) => {
+      // Cegah distribusi ganda bila leader dan timestamp distribusi sudah terisi
+      if (item.leaderName && item.distributedAt && item.distributionStatus === 'distributed') {
+        return {
+          ...item,
+          appointmentDate: appDate,
+          slotTime: item.slotTime || undefined
+        };
+      }
       const dist = resolveLeaderForWorkOrder(item, authUsers, authContractors);
+      const distAt = new Date().toISOString();
       return {
         ...item,
         appointmentDate: appDate,
@@ -4083,7 +4100,9 @@ export async function createExpressApp(options?: {
         leaderContact: dist.matched ? dist.leaderContact : undefined,
         corlapName: dist.matched ? dist.corlapName : '',
         distributionStatus: dist.distributionStatus,
-        distributionNotes: dist.distributionNotes
+        distributionNotes: dist.distributionNotes,
+        distributedAt: dist.matched ? distAt : undefined,
+        distributedBy: dist.matched ? 'AUTO_DISTRIBUTION_ENGINE' : undefined
       };
     };
 
@@ -4237,6 +4256,34 @@ export async function createExpressApp(options?: {
     if (data.imported > 0) {
       broadcastSupabaseChange('work_orders', 'INSERT', { batchId, count: data.imported });
     }
+    if (undistributedCount > 0) {
+      broadcastSupabaseChange('work_orders', 'UNMAPPED_DISTRIBUTION_ALERT', {
+        batchId,
+        undistributedCount,
+        message: `${undistributedCount} Work Order baru belum memiliki mapping Leader aktif.`
+      });
+    }
+
+    // Catat log distribusi ke tabel wo_distribution_logs bila skema tersedia (non-blocking)
+    const nowDistIso = new Date().toISOString();
+    Promise.all(
+      enrichedRows.slice(0, 100).map((r: any, idx: number) =>
+        appendDistributionLogToSupabase({
+          id: `dlog_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+          woNumber: String(r.woNumber || r.workOrderNumber || ''),
+          importBatchId: batchId,
+          contractorId: r.contractorId,
+          contractorName: r.contactorName || r.contractorName,
+          area: r.area,
+          leaderId: r.leaderId,
+          leaderName: r.leaderName,
+          distributionStatus: r.distributionStatus || 'pending',
+          distributionNotes: r.distributionNotes,
+          distributedAt: r.distributedAt || nowDistIso,
+          distributedBy: r.distributedBy || req.user!.name
+        })
+      )
+    ).catch(() => {});
 
     if (isLocalJsonModeAllowed()) {
       const validRows = enrichedRows.filter((item: any) => {
@@ -5077,19 +5124,32 @@ export async function createExpressApp(options?: {
 
     const now = new Date().toISOString();
     const existingReports = Array.isArray(ticket.progressReports) ? [...ticket.progressReports] : [];
+    const rawReportStatus = reportStatusLabel || entry?.reportStatusLabel || entry?.reportStatus || status || 'COMPLETE';
+    const canonicalRepStatus = normalizeCanonicalReportStatus(rawReportStatus);
+    const finalReportStatusLabel = canonicalRepStatus !== 'NONE' ? canonicalRepStatus : String(rawReportStatus).trim().toUpperCase();
+    const nextVersionNumber = existingReports.length + 1;
+
     const reportEntry = {
       ...entry,
       id: entry?.id || ('prog_' + Date.now()),
       ticketId: ticket.id,
+      versionNumber: nextVersionNumber,
       timestamp: entry?.timestamp || now,
       submittedBy: req.user!.name,
+      submittedById: req.user!.id,
       userRole: req.user!.role,
+      installerName: entry?.installerName || ticket.installerName || req.user!.name,
+      reportStatus: finalReportStatusLabel,
       reportStatusId: reportStatusId || entry?.reportStatusId,
-      reportStatusLabel: reportStatusLabel || entry?.reportStatusLabel || entry?.reportStatus,
+      reportStatusLabel: finalReportStatusLabel,
+      reasonReport: reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || '',
       reasonReportId: reasonReportId || entry?.reasonReportId,
       reasonReportLabel: reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport,
+      rootCause: rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause || '',
       rootcauseId: rootcauseId || entry?.rootcauseId,
-      rootcauseLabel: rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause
+      rootcauseLabel: rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause,
+      remarksReport: remarks || entry?.remarksReport || rootcauseLabel || '-',
+      approvalStatus: 'BUTUH APPROVAL'
     };
 
     if (!existingReports.some((r: any) => r?.id === reportEntry.id)) {
@@ -5102,7 +5162,7 @@ export async function createExpressApp(options?: {
     let workDurationFormatted = ticket.workDurationFormatted;
     let workSessions = ticket.workSessions;
 
-    // Requirement 3.B: Automatic check-out when report is saved
+    // Requirement 3.B: Automatic check-out when report is saved (never overwrites checkInAt)
     if (ticket.checkInAt && (!ticket.checkOutAt || ticket.workSessionStatus === 'Sedang Dikerjakan')) {
       checkOutAt = now;
       workSessionStatus = 'Selesai';
@@ -5146,27 +5206,30 @@ export async function createExpressApp(options?: {
       }
     }
 
+    const mappedInstallerStatus =
+      finalReportStatusLabel === 'CANCEL'
+        ? 'Failed / Cancelled'
+        : finalReportStatusLabel === 'PENDING' || finalReportStatusLabel === 'RESCHEDULE'
+        ? 'Pending Technical'
+        : 'Completed';
+
     const updates: Record<string, any> = {
       progressReports: existingReports,
+      statusWOInstaller: status || mappedInstallerStatus,
+      statusWOAgent: ticket.statusWOAgent === 'Closed' ? 'Closed' : 'In Progress',
+      approvalStatus: 'BUTUH APPROVAL',
+      reportStatusId: reportStatusId || reportEntry.reportStatusId,
+      reportStatusLabel: finalReportStatusLabel,
+      reasonReportId: reasonReportId || reportEntry.reasonReportId,
+      reasonReportLabel: reportEntry.reasonReportLabel,
+      rootcauseId: rootcauseId || reportEntry.rootcauseId,
+      rootcauseLabel: reportEntry.rootcauseLabel,
+      remarksWOInstaller: remarks || reportEntry.remarksReport,
+      rejectionReason: undefined,
       updatedAt: now,
       updatedBy: req.user!.name
     };
 
-    if (status) {
-      updates.statusWOInstaller = status;
-      // AppFlow 3 & 5: Technician report submission awaits Dispatch approval before Agent Resolved/Closed
-      if (ticket.statusWOAgent !== 'Closed' && ticket.statusWOAgent !== 'Resolved') {
-        updates.statusWOAgent = 'In Progress';
-      }
-      updates.approvalStatus = 'BUTUH APPROVAL';
-    }
-    if (remarks) updates.remarksWOInstaller = remarks;
-    if (reportStatusId) updates.reportStatusId = reportStatusId;
-    if (reportStatusLabel) updates.reportStatusLabel = reportStatusLabel;
-    if (reasonReportId) updates.reasonReportId = reasonReportId;
-    if (reasonReportLabel) updates.reasonReportLabel = reasonReportLabel;
-    if (rootcauseId) updates.rootcauseId = rootcauseId;
-    if (rootcauseLabel) updates.rootcauseLabel = rootcauseLabel;
     if (checkOutAt !== undefined) {
       updates.checkOutAt = checkOutAt;
       updates.workSessionStatus = workSessionStatus;
@@ -5186,25 +5249,548 @@ export async function createExpressApp(options?: {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+
+      await appendProgressReportHistoryToSupabase({
+        id: `hist_${reportEntry.id}`,
+        ticketId: ticket.id,
+        woNumber: ticket.woNumber,
+        eventType: 'REPORT_SUBMITTED',
+        versionNumber: nextVersionNumber,
+        contractorId: ticket.contractorId,
+        contractorName: ticket.contactorName || ticket.contractorName,
+        area: ticket.area,
+        leaderName: ticket.leaderName,
+        installerId: ticket.installerId || req.user!.id,
+        installerName: ticket.installerName || req.user!.name,
+        reportStatus: canonicalRepStatus !== 'NONE' ? canonicalRepStatus : 'PENDING',
+        reasonReport: reportEntry.reasonReportLabel,
+        rootcause: reportEntry.rootcauseLabel,
+        remarks: reportEntry.remarksReport,
+        reportSubmittedAt: now,
+        reportSubmittedBy: req.user!.name,
+        reportSubmittedById: req.user!.id,
+        approvalStatus: 'WAITING APPROVAL',
+        finalWoStatus: updatedTicket.statusWOAgent || 'In Progress',
+        isCheckOutTriggered: Boolean(checkOutAt),
+        payload: { reportEntry }
+      });
     }
 
     if (isLocalJsonModeAllowed()) {
-      const localIdx = db.tickets.findIndex(t => t.id === cleanId || t.woNumber === cleanId);
+      const localIdx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
       if (localIdx !== -1) {
         db.tickets[localIdx] = updatedTicket;
       }
       saveDatabaseToDisk();
     }
 
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
+    broadcastSupabaseChange('progress_reports', 'INSERT', reportEntry, { scopeTicket: updatedTicket });
+
     await logServerAuditAsync(
       'Progress Report Saved',
       'report',
       ticket.woNumber,
-      `Progress report (${status || entry?.reportStatus}) diserahkan oleh ${req.user!.name} untuk WO ${ticket.woNumber}`,
+      `Progress report v${nextVersionNumber} (${finalReportStatusLabel}) diserahkan oleh ${req.user!.name} untuk WO ${ticket.woNumber}`,
       req.user
     );
 
     res.json({ success: true, entry: reportEntry, ticket: updatedTicket });
+  });
+
+  // ---------------------------------------------------------------------------
+  // DISPATCH APPROVAL (Atomic APPROVE -> Auto-Close WO preserving Report Status)
+  // ---------------------------------------------------------------------------
+  app.post('/api/work-orders/:id/approve-report', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    if (user.role !== 'dispatch' && user.role !== 'super_admin') {
+      await logServerAuditAsync(
+        'Access Denied: Dispatch Approval Restricted',
+        'rbac',
+        req.params.id,
+        `User ${user.name} (${user.role}) mencoba melakukan approve report WO ${req.params.id}`,
+        user
+      );
+      return res.status(403).json({
+        success: false,
+        code: 'REQUIRE_DISPATCH_ROLE',
+        error: 'Akses Ditolak: Hanya role Dispatch atau Super Admin yang berwenang menyetujui laporan teknisi.'
+      });
+    }
+
+    const cleanId = (req.params.id || '').trim();
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes.trim() : '';
+
+    if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
+      return res.status(403).json({
+        success: false,
+        code: 'PROTECTED_RECORD',
+        error: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) ticket = supaGet.data;
+      else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId) || null;
+    }
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'Work Order tidak ditemukan.' });
+    }
+    if (PROTECTED_PRODUCTION_WO_IDS.has(ticket.id) || PROTECTED_PRODUCTION_WO_IDS.has(ticket.woNumber)) {
+      return res.status(403).json({
+        success: false,
+        code: 'PROTECTED_RECORD',
+        error: 'Record WO produksi yang telah di-soft-delete dilindungi secara mutlak.'
+      });
+    }
+
+    const currentApproval = getTicketCanonicalApprovalStatus(ticket);
+    if (currentApproval === 'APPROVED') {
+      return res.status(409).json({
+        success: false,
+        code: 'ALREADY_APPROVED',
+        error: `WO ${ticket.woNumber} sudah berstatus APPROVED dan CLOSED. Approval ganda dicegah.`
+      });
+    }
+    if (currentApproval !== 'BUTUH APPROVAL') {
+      return res.status(400).json({
+        success: false,
+        code: 'APPROVAL_STATE_INVALID',
+        error: 'Validasi Gagal: Tombol APPROVE hanya dapat diproses ketika laporan berstatus BUTUH APPROVAL / WAITING APPROVAL.'
+      });
+    }
+
+    const hasReport = (Array.isArray(ticket.progressReports) && ticket.progressReports.length > 0) || Boolean(ticket.technicalReport);
+    if (!hasReport) {
+      return res.status(400).json({
+        success: false,
+        code: 'REPORT_NOT_FOUND',
+        error: 'Laporan pengerjaan teknisi belum tersedia pada Work Order ini.'
+      });
+    }
+
+    const now = new Date().toISOString();
+    const existingReports = Array.isArray(ticket.progressReports) ? [...ticket.progressReports] : [];
+    const latestReport = existingReports[0] || {};
+    const preservedReportStatus = normalizeCanonicalReportStatus(
+      ticket.reportStatusLabel || latestReport.reportStatusLabel || latestReport.reportStatus || ticket.statusWOInstaller
+    );
+    const displayReportStatus =
+      preservedReportStatus !== 'NONE'
+        ? preservedReportStatus
+        : String(ticket.reportStatusLabel || latestReport.reportStatus || 'COMPLETE').toUpperCase();
+
+    const updatedReports = existingReports.map((p: any, idx: number) =>
+      idx === 0
+        ? {
+            ...p,
+            approvalStatus: 'APPROVED',
+            approvedAt: now,
+            approvedBy: user.name,
+            approvedById: user.id,
+            approvalNotes: notes || p.approvalNotes || ''
+          }
+        : p
+    );
+
+    const approvalUpdates: Record<string, any> = {
+      approvalStatus: 'APPROVED',
+      approvalNotes: notes,
+      approvedAt: now,
+      approvedBy: user.name,
+      approvedById: user.id,
+      progressReports: updatedReports,
+      // Pertahankan Report Status asli (PENDING / COMPLETE / RESCHEDULE / CANCEL) sebagai catatan historis
+      reportStatusLabel: ticket.reportStatusLabel || displayReportStatus,
+      // Otomatis menutup WO menjadi Closed saat disetujui Dispatch (sesuai Keputusan 2)
+      statusWOAgent: 'Closed',
+      closedAt: now,
+      closedBy: user.name,
+      closedById: user.id,
+      closeNotes:
+        notes ||
+        `Laporan ${displayReportStatus} disetujui (APPROVED) dan Work Order otomatis ditutup (CLOSED) oleh Dispatch ${user.name}.`,
+      technicalReport: ticket.technicalReport
+        ? {
+            ...ticket.technicalReport,
+            verifiedByDispatch: true,
+            verifiedAt: now,
+            verifiedBy: user.name
+          }
+        : undefined,
+      updatedAt: now,
+      updatedBy: user.name
+    };
+
+    let updatedTicket = { ...ticket, ...approvalUpdates };
+
+    if (isSupabaseMode()) {
+      const supaRes = await updateWorkOrderInSupabase(ticket.id, approvalUpdates);
+      if (!supaRes.success && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'DATABASE_UNAVAILABLE',
+          error: supaRes.error?.message || 'Gagal menyimpan approval ke Supabase.'
+        });
+      }
+      if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+
+      await appendProgressReportHistoryToSupabase({
+        id: `hist_app_${ticket.id}_${Date.now()}`,
+        ticketId: ticket.id,
+        woNumber: ticket.woNumber,
+        eventType: 'DISPATCH_APPROVED',
+        versionNumber: existingReports.length || 1,
+        contractorId: ticket.contractorId,
+        contractorName: ticket.contactorName || ticket.contractorName,
+        area: ticket.area,
+        leaderName: ticket.leaderName,
+        installerId: ticket.installerId,
+        installerName: ticket.installerName || latestReport.installerName || '-',
+        reportStatus: preservedReportStatus !== 'NONE' ? preservedReportStatus : 'COMPLETE',
+        reasonReport: ticket.reasonReportLabel || latestReport.reasonReport,
+        rootcause: ticket.rootcauseLabel || latestReport.rootCause,
+        remarks: latestReport.remarksReport || ticket.remarksWOInstaller || '-',
+        reportSubmittedAt: latestReport.timestamp || ticket.updatedAt || now,
+        reportSubmittedBy: latestReport.submittedBy || ticket.installerName || '-',
+        reportSubmittedById: latestReport.submittedById,
+        approvalStatus: 'APPROVED',
+        approvalDecisionAt: now,
+        dispatchApproverId: user.id,
+        dispatchApproverName: user.name,
+        approvalNotes: notes,
+        finalWoStatus: 'CLOSED',
+        isCheckOutTriggered: Boolean(ticket.checkOutAt),
+        payload: { preservedReportStatus: displayReportStatus }
+      });
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const localIdx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
+      if (localIdx !== -1) {
+        db.tickets[localIdx] = updatedTicket;
+      }
+      saveDatabaseToDisk();
+    }
+
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
+    broadcastSupabaseChange('progress_reports', 'UPDATE', { ticketId: ticket.id, woNumber: ticket.woNumber, approvalStatus: 'APPROVED' }, { scopeTicket: updatedTicket });
+
+    await logServerAuditAsync(
+      'Report Approved & Closed',
+      'work_order',
+      ticket.woNumber,
+      `Dispatch ${user.name} menyetujui laporan (${displayReportStatus}) dan otomatis menutup WO ${ticket.woNumber} -> CLOSED.`,
+      user,
+      { level: 'critical' }
+    );
+
+    return res.json({
+      success: true,
+      ticket: updatedTicket,
+      message: `Laporan ${displayReportStatus} WO ${ticket.woNumber} berhasil disetujui (APPROVED) dan status WO otomatis ditutup (CLOSED).`
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // DISPATCH REVISION / REJECT (Kembalikan ke Teknisi untuk Revisi Tanpa Menimpa History)
+  // ---------------------------------------------------------------------------
+  app.post('/api/work-orders/:id/request-revision', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    if (user.role !== 'dispatch' && user.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        code: 'REQUIRE_DISPATCH_ROLE',
+        error: 'Akses Ditolak: Hanya role Dispatch atau Super Admin yang berwenang meminta revisi laporan.'
+      });
+    }
+
+    const cleanId = (req.params.id || '').trim();
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason || reason.length < 3) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_INPUT',
+        error: 'Alasan revisi / penolakan laporan wajib diisi minimal 3 karakter.'
+      });
+    }
+
+    if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
+      return res.status(403).json({
+        success: false,
+        code: 'PROTECTED_RECORD',
+        error: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) ticket = supaGet.data;
+      else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId) || null;
+    }
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'Work Order tidak ditemukan.' });
+    }
+
+    if (getTicketCanonicalApprovalStatus(ticket) === 'APPROVED') {
+      return res.status(409).json({
+        success: false,
+        code: 'ALREADY_APPROVED',
+        error: `WO ${ticket.woNumber} sudah berstatus APPROVED dan CLOSED.`
+      });
+    }
+
+    const now = new Date().toISOString();
+    const existingReports = Array.isArray(ticket.progressReports) ? [...ticket.progressReports] : [];
+    const latestReport = existingReports[0] || {};
+    const preservedReportStatus = normalizeCanonicalReportStatus(
+      ticket.reportStatusLabel || latestReport.reportStatusLabel || latestReport.reportStatus || ticket.statusWOInstaller
+    );
+
+    const updatedReports = existingReports.map((p: any, idx: number) =>
+      idx === 0
+        ? {
+            ...p,
+            approvalStatus: 'REJECTED',
+            rejectedAt: now,
+            rejectedBy: user.name,
+            rejectedById: user.id,
+            rejectionReason: reason,
+            revisionReason: reason
+          }
+        : p
+    );
+
+    const revisionUpdates: Record<string, any> = {
+      approvalStatus: 'REJECTED',
+      rejectionReason: reason,
+      rejectedAt: now,
+      rejectedBy: user.name,
+      rejectedById: user.id,
+      progressReports: updatedReports,
+      statusWOAgent: 'In Progress',
+      updatedAt: now,
+      updatedBy: user.name
+    };
+
+    let updatedTicket = { ...ticket, ...revisionUpdates };
+
+    if (isSupabaseMode()) {
+      const supaRes = await updateWorkOrderInSupabase(ticket.id, revisionUpdates);
+      if (!supaRes.success && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'DATABASE_UNAVAILABLE',
+          error: supaRes.error?.message || 'Gagal menyimpan permintaan revisi ke Supabase.'
+        });
+      }
+      if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+
+      await appendProgressReportHistoryToSupabase({
+        id: `hist_rev_${ticket.id}_${Date.now()}`,
+        ticketId: ticket.id,
+        woNumber: ticket.woNumber,
+        eventType: 'DISPATCH_REVISION_REQUESTED',
+        versionNumber: existingReports.length || 1,
+        contractorId: ticket.contractorId,
+        contractorName: ticket.contactorName || ticket.contractorName,
+        area: ticket.area,
+        leaderName: ticket.leaderName,
+        installerId: ticket.installerId,
+        installerName: ticket.installerName || latestReport.installerName || '-',
+        reportStatus: preservedReportStatus !== 'NONE' ? preservedReportStatus : 'PENDING',
+        reasonReport: ticket.reasonReportLabel || latestReport.reasonReport,
+        rootcause: ticket.rootcauseLabel || latestReport.rootCause,
+        remarks: latestReport.remarksReport || ticket.remarksWOInstaller || '-',
+        reportSubmittedAt: latestReport.timestamp || ticket.updatedAt || now,
+        reportSubmittedBy: latestReport.submittedBy || ticket.installerName || '-',
+        reportSubmittedById: latestReport.submittedById,
+        approvalStatus: 'REVISION / REJECTED',
+        approvalDecisionAt: now,
+        dispatchApproverId: user.id,
+        dispatchApproverName: user.name,
+        revisionReason: reason,
+        finalWoStatus: 'In Progress',
+        isCheckOutTriggered: Boolean(ticket.checkOutAt),
+        payload: { reason }
+      });
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const localIdx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
+      if (localIdx !== -1) {
+        db.tickets[localIdx] = updatedTicket;
+      }
+      saveDatabaseToDisk();
+    }
+
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
+    broadcastSupabaseChange('progress_reports', 'UPDATE', { ticketId: ticket.id, woNumber: ticket.woNumber, approvalStatus: 'REJECTED' }, { scopeTicket: updatedTicket });
+
+    await logServerAuditAsync(
+      'Report Revision Requested',
+      'work_order',
+      ticket.woNumber,
+      `Dispatch ${user.name} mengembalikan laporan WO ${ticket.woNumber} untuk revisi: "${reason}"`,
+      user,
+      { level: 'critical' }
+    );
+
+    return res.json({
+      success: true,
+      ticket: updatedTicket,
+      message: `Permintaan revisi untuk WO ${ticket.woNumber} berhasil dikirim ke teknisi.`
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // DASHBOARD KPI SUMMARY AGGREGATION (Database-Backed & Strictly RBAC Scoped)
+  // ---------------------------------------------------------------------------
+  app.get('/api/dashboard/kpi-summary', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const opDate = getOperationalDate();
+      const rawDate = typeof req.query.date === 'string' && req.query.date.trim() ? req.query.date.trim() : opDate.date;
+      const dateWIB = normalizeAppointmentDate(rawDate) || opDate.date;
+      const contractorFilter = typeof req.query.contractor === 'string' && req.query.contractor.trim() ? req.query.contractor.trim() : 'ALL';
+      const areaFilter = typeof req.query.area === 'string' && req.query.area.trim() ? req.query.area.trim() : 'ALL';
+
+      let rawTickets: any[] = [];
+      if (isSupabaseMode()) {
+        const sbResult = await getWorkOrdersFromSupabase({
+          appointmentDate: dateWIB,
+          includeArchived: false,
+          includeDeleted: false
+        });
+        if (!sbResult.success) {
+          if (!isLocalJsonModeAllowed()) {
+            return res.status(503).json({
+              success: false,
+              code: 'SUPABASE_UNAVAILABLE',
+              error: 'Gagal menghitung KPI Dashboard dari Supabase.'
+            });
+          }
+          rawTickets = db.tickets || [];
+        } else {
+          rawTickets = sbResult.data || [];
+        }
+      } else {
+        rawTickets = db.tickets || [];
+      }
+
+      const scoped = scopeTicketsForUser(rawTickets, user);
+      const summary = computeKpiSummary(scoped, {
+        dateWIB,
+        scopeRole: user.role,
+        contractorFilter,
+        areaFilter
+      });
+
+      return res.json({ success: true, summary });
+    } catch (err: any) {
+      console.error('[API /api/dashboard/kpi-summary] Error:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal memproses ringkasan KPI Dashboard.'
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // HISTORY PROGRESS REPORT (Append-Only Audit Feed, Strictly RBAC Scoped)
+  // ---------------------------------------------------------------------------
+  app.get('/api/work-orders/progress-history', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const {
+        search = '',
+        reportStatus = 'ALL',
+        approvalStatus = 'ALL',
+        contractor = 'ALL',
+        area = 'ALL',
+        ticketId = '',
+        dateFrom = '',
+        dateTo = ''
+      } = req.query as Record<string, string>;
+
+      let rawTickets: any[] = [];
+      if (isSupabaseMode()) {
+        const sbResult = await getWorkOrdersFromSupabase({
+          includeArchived: true,
+          includeDeleted: false
+        });
+        if (sbResult.success) {
+          rawTickets = sbResult.data || [];
+        } else if (isLocalJsonModeAllowed()) {
+          rawTickets = db.tickets || [];
+        } else {
+          return res.status(503).json({ success: false, code: 'SUPABASE_UNAVAILABLE', error: 'Gagal memuat histori progress report.' });
+        }
+      } else {
+        rawTickets = db.tickets || [];
+      }
+
+      const scoped = scopeTicketsForUser(rawTickets, user);
+      let history = extractProgressReportHistoryFromTickets(scoped);
+
+      if (ticketId.trim()) {
+        history = history.filter(h => h.ticketId === ticketId.trim() || h.woNumber === ticketId.trim());
+      }
+      if (reportStatus && reportStatus !== 'ALL') {
+        const rs = reportStatus.trim().toUpperCase();
+        history = history.filter(h => String(h.reportStatus || '').toUpperCase() === rs);
+      }
+      if (approvalStatus && approvalStatus !== 'ALL') {
+        const as = approvalStatus.trim().toUpperCase();
+        history = history.filter(h => String(h.approvalStatus || '').toUpperCase().includes(as));
+      }
+      if (contractor && contractor !== 'ALL') {
+        history = history.filter(h => String(h.vendorName || '').toLowerCase() === contractor.trim().toLowerCase());
+      }
+      if (area && area !== 'ALL') {
+        history = history.filter(h => String(h.area || '').toLowerCase() === area.trim().toLowerCase());
+      }
+      if (dateFrom) {
+        history = history.filter(h => (h.appointmentDate || h.submittedAt.slice(0, 10)) >= dateFrom);
+      }
+      if (dateTo) {
+        history = history.filter(h => (h.appointmentDate || h.submittedAt.slice(0, 10)) <= dateTo);
+      }
+      if (search && search.trim()) {
+        const q = search.trim().toLowerCase();
+        history = history.filter(
+          h =>
+            String(h.woNumber || '').toLowerCase().includes(q) ||
+            String(h.installerName || '').toLowerCase().includes(q) ||
+            String(h.vendorName || '').toLowerCase().includes(q) ||
+            String(h.area || '').toLowerCase().includes(q) ||
+            String(h.remarks || '').toLowerCase().includes(q) ||
+            String(h.dispatchApprover || '').toLowerCase().includes(q)
+        );
+      }
+
+      return res.json({ success: true, data: history, count: history.length });
+    } catch (err: any) {
+      console.error('[API /api/work-orders/progress-history] Error:', err);
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat History Progress Report.' });
+    }
   });
 
   // Delete Work Order (Management Data Role Exclusive - Requirement 5)

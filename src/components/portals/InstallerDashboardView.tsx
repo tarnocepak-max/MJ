@@ -2,9 +2,16 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { useToast } from '../../context/ToastContext';
-import { Ticket, ChatAttachment } from '../../types/index.ts';
+import { Ticket, ChatAttachment, WOKpiFilterKey } from '../../types/index.ts';
 import { classifyInstallerStatus } from './InstallerPortal';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
+import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
+import { StatusBadge } from '../common/Badge';
+import {
+  getTicketCanonicalApprovalStatus,
+  getTicketCanonicalReportStatus,
+  isTicketClosed
+} from '../../services/woLifecycleService';
 import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { formatJakartaTimeOnly, formatWorkDuration, calculateDurationMinutes } from '../../services/workSessionService';
@@ -18,9 +25,6 @@ import {
   ArrowRight,
   Navigation,
   Play,
-  ClipboardList,
-  RefreshCw,
-  Hourglass,
   Camera,
   Send,
   HelpCircle,
@@ -95,6 +99,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     users,
     tickets,
     todayWIB,
+    setActiveKpiDrilldown,
     startWorkOnTicket,
     sendTicketMessage,
     updateTicketStatus,
@@ -534,104 +539,63 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
         </div>
       </section>
 
+      {/* Revision Required Alert Strip (if any today ticket needs revision) */}
+      {(() => {
+        const revisionTickets = myTickets.filter(t => getTicketCanonicalApprovalStatus(t) === 'REVISION');
+        if (revisionTickets.length === 0) return null;
+        return (
+          <section className="rounded-2xl bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FCA5A5] dark:border-rose-800 p-4 shadow-xs space-y-2.5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-[#B91C1C] dark:text-rose-200">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide">
+                  {revisionTickets.length} WO Memerlukan Revisi Laporan dari Dispatch
+                </span>
+              </div>
+              <StatusBadge status="REVISION / REJECTED" variant="approval" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {revisionTickets.slice(0, 4).map(rt => {
+                const reason =
+                  rt.rejectionReason ||
+                  rt.progressReports?.[0]?.revisionReason ||
+                  rt.progressReports?.[0]?.rejectionReason ||
+                  'Dispatch meminta perbaikan laporan.';
+                return (
+                  <button
+                    key={rt.id}
+                    type="button"
+                    onClick={() => setFullviewTicket(rt)}
+                    className="text-left min-h-[44px] px-3 py-2 rounded-xl bg-white dark:bg-[#1E1135] border border-[#FCA5A5] dark:border-rose-800 hover:border-[#B91C1C] transition-colors flex items-center justify-between gap-2 cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-mono text-xs font-extrabold text-[#B91C1C] dark:text-rose-300">
+                        {rt.woNumber} · {rt.customerName}
+                      </div>
+                      <div className="text-[11px] text-[#7F1D1D] dark:text-rose-200/90 truncate">
+                        Alasan: {reason}
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-[#B91C1C] shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
       {/* ================================================================= */}
-      {/* 2. 2x2 KPI METRIC CARDS (4-COLUMN ON DESKTOP)                     */}
+      {/* 2. LIVE KPI SUMMARY CARDS (11 METRIC CARDS + DRILL-DOWN)          */}
       {/* ================================================================= */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Card 1: BELUM DIMULAI */}
-        <button
-          type="button"
-          onClick={() => onNavigateTab('installer_tasks', 'pending')}
-          className="text-left bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-3.5 shadow-2xs hover:border-[#431599]/40 transition-all cursor-pointer active:scale-[0.99] flex flex-col justify-between gap-2"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-extrabold tracking-wider uppercase text-[#766B83] dark:text-[#CEC0E8]">
-              BELUM DIMULAI
-            </span>
-            <ClipboardList className="w-4 h-4 text-[#8B8495] shrink-0" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-2xl font-extrabold text-[#211A2E] dark:text-white tabular-nums">
-              {stats.belumDikerjakan}
-            </span>
-            <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate">
-              {stats.belumDikerjakan > 0 ? 'WO Menunggu' : 'Semua berjalan'}
-            </span>
-          </div>
-        </button>
-
-        {/* Card 2: AKTIF PENGERJAAN */}
-        <button
-          type="button"
-          onClick={() => {
-            if (activeWorkOrder) {
-              setFullviewTicket(activeWorkOrder);
-            } else {
-              onNavigateTab('installer_tasks', 'pending');
-            }
-          }}
-          className="text-left bg-white dark:bg-[#1E1135] rounded-2xl border border-[#D8CCF3] dark:border-[#5B35B1] p-3.5 shadow-2xs hover:border-[#431599] transition-all cursor-pointer active:scale-[0.99] flex flex-col justify-between gap-2"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-extrabold tracking-wider uppercase text-[#431599] dark:text-[#D8B4FE]">
-              AKTIF PENGERJAAN
-            </span>
-            <RefreshCw className="w-4 h-4 text-[#431599] dark:text-[#A78BFA] shrink-0" />
-          </div>
-          <div className="flex items-baseline gap-2 min-w-0">
-            <span className="font-display text-2xl font-extrabold text-[#431599] dark:text-[#D8B4FE] tabular-nums shrink-0">
-              {stats.sedangDikerjakan}
-            </span>
-            <span className="font-mono text-[11px] font-semibold text-[#494453] dark:text-[#CEC0E8] truncate">
-              {activeWorkOrder?.woNumber || 'Belum aktif'}
-            </span>
-          </div>
-        </button>
-
-        {/* Card 3: SELESAI LAPANGAN */}
-        <button
-          type="button"
-          onClick={() => onNavigateTab('installer_tasks', 'done')}
-          className="text-left bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-3.5 shadow-2xs hover:border-[#16A36A]/50 transition-all cursor-pointer active:scale-[0.99] flex flex-col justify-between gap-2"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-extrabold tracking-wider uppercase text-[#16A36A] dark:text-emerald-300">
-              SELESAI LAPANGAN
-            </span>
-            <CheckCircle2 className="w-4 h-4 text-[#16A36A] shrink-0" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-2xl font-extrabold text-[#16A36A] dark:text-emerald-300 tabular-nums">
-              {stats.selesai}
-            </span>
-            <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate">
-              WO Disetujui
-            </span>
-          </div>
-        </button>
-
-        {/* Card 4: VERIFIKASI DISPATCH */}
-        <button
-          type="button"
-          onClick={() => onNavigateTab('installer_tasks', 'butuh_approval')}
-          className="text-left bg-white dark:bg-[#1E1135] rounded-2xl border border-[#F59E0B]/40 dark:border-amber-700/60 p-3.5 shadow-2xs hover:border-[#E59A27] transition-all cursor-pointer active:scale-[0.99] flex flex-col justify-between gap-2"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-extrabold tracking-wider uppercase text-[#D97706] dark:text-amber-300">
-              VERIFIKASI DISPATCH
-            </span>
-            <Hourglass className="w-4 h-4 text-[#E59A27] shrink-0" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-2xl font-extrabold text-[#D97706] dark:text-amber-300 tabular-nums">
-              {stats.butuhApproval}
-            </span>
-            <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate">
-              Menunggu Approval
-            </span>
-          </div>
-        </button>
-      </section>
+      <DashboardKpiSummaryCards
+        compact={true}
+        defaultPerspective="overview"
+        onDrillDown={(filterKey: WOKpiFilterKey) => {
+          setActiveKpiDrilldown({ filterKey, dateWIB: todayWIB });
+          onNavigateTab('installer_tasks', 'all');
+        }}
+      />
 
       {/* ================================================================= */}
       {/* 3 & 4. FEATURED WORK ORDER + SOP CHECK-IN & PELAPORAN             */}
@@ -792,21 +756,16 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
                 <div className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[10.5px]">
                   <span className="font-semibold text-[#766B83] dark:text-[#CEC0E8] shrink-0">APPROVAL</span>
-                  <span
-                    className={`font-extrabold uppercase truncate ${
-                      featuredTicket.approvalStatus === 'APPROVED'
-                        ? 'text-[#16A36A] dark:text-emerald-300'
-                        : featuredTicket.approvalStatus === 'REJECTED' || featuredTicket.approvalStatus === 'REVISI'
-                        ? 'text-[#DC4C5A] dark:text-rose-300'
-                        : 'text-[#D97706] dark:text-amber-300'
-                    }`}
-                  >
-                    {featuredTicket.approvalStatus && featuredTicket.approvalStatus !== 'NONE'
-                      ? featuredTicket.approvalStatus
-                      : isFeaturedCheckedIn
-                      ? 'MENUNGGU LAPORAN'
-                      : 'BELUM CHECK-IN'}
-                  </span>
+                  {isTicketClosed(featuredTicket) ? (
+                    <StatusBadge status="CLOSED" variant="wo_agent" />
+                  ) : featuredTicket.approvalStatus && featuredTicket.approvalStatus !== 'NONE' ? (
+                    <StatusBadge status={featuredTicket.approvalStatus} variant="approval" />
+                  ) : (
+                    <StatusBadge
+                      status={isFeaturedCheckedIn ? 'CHECK-IN' : 'BELUM CHECK-IN'}
+                      variant="checkin"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1175,11 +1134,20 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {queueTickets.map(t => {
               const notStarted = !t.workStartedAt && (!t.statusWOInstaller || t.statusWOInstaller === 'Assigned');
-              const cat = classifyInstallerStatus(t);
-              const badgeText =
-                t.approvalStatus === 'BUTUH APPROVAL'
-                  ? 'BUTUH APPROVAL'
-                  : (t.statusWOInstaller || 'ASSIGNED').toUpperCase();
+              const closed = isTicketClosed(t);
+              const approval = getTicketCanonicalApprovalStatus(t);
+              const repStatus = getTicketCanonicalReportStatus(t);
+              const queueBadge = closed
+                ? 'CLOSED'
+                : approval !== 'NONE'
+                ? approval === 'REVISION'
+                  ? 'REVISION'
+                  : approval
+                : repStatus !== 'NONE'
+                ? repStatus
+                : t.checkInAt
+                ? 'CHECK-IN'
+                : t.statusWOInstaller || 'ASSIGNED';
 
               return (
                 <div
@@ -1191,17 +1159,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                     <span className="font-mono text-xs font-extrabold text-[#211A2E] dark:text-[#D8B4FE]">
                       {t.woNumber}
                     </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
-                        cat === 'done'
-                          ? 'bg-[#ECFDF5] text-[#16A36A]'
-                          : t.approvalStatus === 'BUTUH APPROVAL'
-                          ? 'bg-[#FEF3C7] text-[#B45309]'
-                          : 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]'
-                      }`}
-                    >
-                      {badgeText}
-                    </span>
+                    <StatusBadge
+                      status={queueBadge}
+                      variant={closed ? 'wo_agent' : approval !== 'NONE' ? 'approval' : 'auto'}
+                    />
                   </div>
 
                   <div>

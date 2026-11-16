@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge } from '../common/Badge';
+import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
+import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 import { TicketMobileCard } from './TicketMobileCard';
 import {
   Search,
@@ -168,7 +169,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     getTicketUnreadCount,
     totalLiveChatUnreadCount,
     todayWIB,
-    refreshActiveTickets
+    refreshActiveTickets,
+    activeKpiDrilldown,
+    setActiveKpiDrilldown
   } = useApp();
   const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
   const { triggerRefresh } = useAnimation();
@@ -464,6 +467,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         }
       }
 
+      if (activeKpiDrilldown) {
+        if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
+          const tCont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (tCont !== activeKpiDrilldown.contractor.trim().toLowerCase()) return false;
+        }
+        if (activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL') {
+          const tArea = String(t.area || '').trim().toLowerCase();
+          if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
+        }
+        if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
+      }
+
       if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
         const q = searchTerm.trim().toLowerCase();
         const matchWo = (t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q);
@@ -493,6 +508,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     selectedWhatsAppStatus,
     selectedCategory,
     selectedApprovalStatus,
+    activeKpiDrilldown,
     searchTerm
   ]);
 
@@ -698,6 +714,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const canApproveInline = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
 
   const hasActiveFilters =
+    Boolean(activeKpiDrilldown) ||
     selectedArea !== 'ALL' ||
     selectedCategory !== 'ALL' ||
     selectedInstallerStatus !== 'ALL' ||
@@ -707,6 +724,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     Boolean(searchTerm.trim());
 
   const resetAllFilters = () => {
+    setActiveKpiDrilldown(null);
     setSearchTerm('');
     setSelectedArea('ALL');
     setSelectedCategory('ALL');
@@ -734,6 +752,42 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
   return (
     <div className="space-y-4">
+      {activeKpiDrilldown && (
+        <div className="rounded-xl bg-[#160D29] text-white px-4 py-3 border border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-2 py-0.5 rounded-full bg-[#7135B5] text-white font-bold text-[10.5px]">
+              Filter KPI Dashboard
+            </span>
+            <span className="font-bold">
+              {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
+            </span>
+            {activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL' && (
+              <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+                Vendor: {activeKpiDrilldown.contractor}
+              </span>
+            )}
+            {activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL' && (
+              <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+                Area: {activeKpiDrilldown.area}
+              </span>
+            )}
+            <span className="font-mono font-bold text-[#E9D5FF] tabular-nums">
+              ({filteredTickets.length} WO ditemukan)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setCurrentPage(1);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#160D29] hover:bg-[#F5F1FF] text-xs font-bold cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Reset Filter KPI</span>
+          </button>
+        </div>
+      )}
       {/* 1. 6-Card KPI & Operational Pulse Strip */}
       <section className={`grid gap-3 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6'}`}>
         {/* Card 1: Total Hari Ini */}
@@ -1745,7 +1799,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                               );
                             }
 
-                            if (col.key === 'workStartedAt' || col.key === 'checkOutAt' || col.key === 'createdAt') {
+                            if (col.key === 'workStartedAt' || col.key === 'checkOutAt' || col.key === 'createdAt' || col.key === 'updatedAt' || col.key === 'checkInAt') {
                               const formattedTs = formatDateTimeDisplay(rawVal, false);
                               return (
                                 <td

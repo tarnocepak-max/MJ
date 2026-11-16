@@ -18,6 +18,7 @@ import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { TicketsTable } from './components/tickets/TicketsTable';
 import { FormSamedayView } from './components/sameday/FormSamedayView';
 import { ReportDataWOView } from './components/reports/ReportDataWOView';
+import { HistoryProgressReportView } from './components/reports/HistoryProgressReportView';
 import { ScheduleCalendarView } from './components/schedule/ScheduleCalendarView';
 import { LoginLogView } from './components/audit/LoginLogView';
 import { AuditLogViewer } from './components/audit/AuditLogViewer';
@@ -456,23 +457,32 @@ const MainLayout: React.FC = () => {
     switch (activeTab) {
       // Dispatch Management
       case 'dashboard':
-        return <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />;
+        return <DashboardOverview onNavigate={tab => navigateTo(tab)} onSelectTicket={handleOpenTicketDetail} />;
       case 'tickets':
         return (
           <TicketsTable
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
-            onNavigate={tab => setActiveTab(tab)}
+            onNavigate={tab => navigateTo(tab)}
           />
         );
       case 'form_sameday':
         // WO Same Day is strictly exclusive to Dispatch role
         if (currentUser.role !== 'dispatch') {
-          return <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />;
+          return <DashboardOverview onNavigate={tab => navigateTo(tab)} onSelectTicket={handleOpenTicketDetail} />;
         }
         return <FormSamedayView />;
       case 'report_data_wo':
         return <ReportDataWOView />;
+      case 'history_progress':
+        return (
+          <HistoryProgressReportView
+            onSelectTicket={tid => {
+              const found = tickets.find(t => t.id === tid);
+              if (found) handleOpenTicketDetail(found, 'history');
+            }}
+          />
+        );
       case 'schedule':
         return (
           <ScheduleCalendarView
@@ -832,7 +842,7 @@ const MainLayout: React.FC = () => {
         return <SetupHubView initialTab="droplists" onNavigateTab={tab => setActiveTab(tab)} />;
 
       default:
-        return <DashboardOverview onNavigate={tab => setActiveTab(tab)} onSelectTicket={handleOpenTicketDetail} />;
+        return <DashboardOverview onNavigate={tab => navigateTo(tab)} onSelectTicket={handleOpenTicketDetail} />;
     }
   };
 

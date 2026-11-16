@@ -447,6 +447,9 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     workDurationMinutes: ticket.workDurationMinutes ?? null,
     workDurationFormatted: ticket.workDurationFormatted || null,
     chatCategory: ticket.chatCategory || null,
+    distributedAt: ticket.distributedAt || null,
+    distributedBy: ticket.distributedBy || null,
+    closedById: ticket.closedById || null,
     ...(ticket.payload && typeof ticket.payload === 'object' ? ticket.payload : {})
   };
 
@@ -686,6 +689,8 @@ export function postgresRowToTicket(row: any): any {
 
     distributionStatus: row.distribution_status || 'pending',
     distributionNotes: row.distribution_notes || undefined,
+    distributedAt: payload.distributedAt || row.distributed_at || undefined,
+    distributedBy: payload.distributedBy || row.distributed_by || undefined,
     statusWOAgent: row.status_wo_agent || 'Pending',
     statusWOInstaller: row.status_wo_installer || 'Unassigned',
     statusWhatsApp: row.status_whatsapp || 'not_prepared',
@@ -738,6 +743,7 @@ export function postgresRowToTicket(row: any): any {
     lastMessageSnippet: row.last_message_snippet || undefined,
     closedAt: row.closed_at || undefined,
     closedBy: row.closed_by || undefined,
+    closedById: payload.closedById || row.closed_by_id || undefined,
     closeNotes: row.close_notes || undefined,
     reopenReason: row.reopen_reason || undefined,
 
@@ -1853,6 +1859,9 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
     if (updates.installerUid !== undefined) mergedPayload.installerUid = updates.installerUid;
     if (updates.assignedTo !== undefined) mergedPayload.assignedTo = updates.assignedTo;
     if (updates.assignedToUid !== undefined) mergedPayload.assignedToUid = updates.assignedToUid;
+    if (updates.distributedAt !== undefined) mergedPayload.distributedAt = updates.distributedAt;
+    if (updates.distributedBy !== undefined) mergedPayload.distributedBy = updates.distributedBy;
+    if (updates.closedById !== undefined) mergedPayload.closedById = updates.closedById;
     if (updates.payload && typeof updates.payload === 'object') {
       Object.assign(mergedPayload, updates.payload);
     }
@@ -1877,6 +1886,134 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
   } catch (err: any) {
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
+  }
+}
+
+export async function appendProgressReportHistoryToSupabase(entry: {
+  id: string;
+  ticketId: string;
+  woNumber: string;
+  eventType: 'REPORT_SUBMITTED' | 'DISPATCH_APPROVED' | 'DISPATCH_REVISION_REQUESTED';
+  versionNumber: number;
+  contractorId?: string;
+  contractorName?: string;
+  area?: string;
+  leaderName?: string;
+  installerId?: string;
+  installerName?: string;
+  reportStatus: string;
+  reasonReport?: string;
+  rootcause?: string;
+  remarks?: string;
+  reportSubmittedAt: string;
+  reportSubmittedBy: string;
+  reportSubmittedById?: string;
+  approvalStatus: string;
+  approvalDecisionAt?: string;
+  dispatchApproverId?: string;
+  dispatchApproverName?: string;
+  approvalNotes?: string;
+  revisionReason?: string;
+  finalWoStatus: string;
+  isCheckOutTriggered?: boolean;
+  payload?: Record<string, any>;
+}): Promise<{ persisted: boolean; skippedSchemaPending?: boolean }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false };
+  try {
+    const { error } = await client.from('wo_progress_report_history').insert([
+      {
+        id: entry.id,
+        ticket_id: entry.ticketId,
+        wo_number: entry.woNumber,
+        event_type: entry.eventType,
+        version_number: entry.versionNumber || 1,
+        contractor_id: entry.contractorId || null,
+        contractor_name: entry.contractorName || null,
+        area: entry.area || null,
+        leader_name: entry.leaderName || null,
+        installer_id: entry.installerId || null,
+        installer_name: entry.installerName || null,
+        report_status: entry.reportStatus,
+        reason_report: entry.reasonReport || null,
+        rootcause: entry.rootcause || null,
+        remarks: entry.remarks || null,
+        report_submitted_at: entry.reportSubmittedAt,
+        report_submitted_by: entry.reportSubmittedBy,
+        report_submitted_by_id: entry.reportSubmittedById || null,
+        approval_status: entry.approvalStatus,
+        approval_decision_at: entry.approvalDecisionAt || null,
+        dispatch_approver_id: entry.dispatchApproverId || null,
+        dispatch_approver_name: entry.dispatchApproverName || null,
+        approval_notes: entry.approvalNotes || null,
+        revision_reason: entry.revisionReason || null,
+        final_wo_status: entry.finalWoStatus,
+        is_check_out_triggered: Boolean(entry.isCheckOutTriggered),
+        payload: entry.payload || {}
+      }
+    ]);
+    if (error) {
+      const code = String(error.code || '');
+      if (code === '42P01' || code === 'PGRST205' || String(error.message || '').includes('does not exist')) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      console.warn('[Supabase DAL] appendProgressReportHistory warning:', error.message);
+      return { persisted: false };
+    }
+    return { persisted: true };
+  } catch {
+    return { persisted: false };
+  }
+}
+
+export async function appendDistributionLogToSupabase(entry: {
+  id: string;
+  ticketId?: string;
+  woNumber: string;
+  importBatchId?: string;
+  contractorId?: string;
+  contractorName?: string;
+  area?: string;
+  leaderId?: string;
+  leaderName?: string;
+  distributionStatus: string;
+  distributionNotes?: string;
+  distributedAt: string;
+  distributedBy?: string;
+  payload?: Record<string, any>;
+}): Promise<{ persisted: boolean; skippedSchemaPending?: boolean }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false };
+  try {
+    const { error } = await client.from('wo_distribution_logs').insert([
+      {
+        id: entry.id,
+        ticket_id: entry.ticketId || null,
+        wo_number: entry.woNumber,
+        import_batch_id: entry.importBatchId || null,
+        contractor_id: entry.contractorId || null,
+        contractor_name: entry.contractorName || null,
+        area: entry.area || null,
+        leader_id: entry.leaderId || null,
+        leader_name: entry.leaderName || null,
+        distribution_status: entry.distributionStatus,
+        distribution_notes: entry.distributionNotes || null,
+        distributed_at: entry.distributedAt,
+        distributed_by: entry.distributedBy || null,
+        payload: entry.payload || {}
+      }
+    ]);
+    if (error) {
+      const code = String(error.code || '');
+      if (code === '42P01' || code === 'PGRST205' || String(error.message || '').includes('does not exist')) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      console.warn('[Supabase DAL] appendDistributionLog warning:', error.message);
+      return { persisted: false };
+    }
+    return { persisted: true };
+  } catch {
+    return { persisted: false };
   }
 }
 

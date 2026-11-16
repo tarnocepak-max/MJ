@@ -1,4 +1,4 @@
-import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog } from '../types';
+import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem } from '../types';
 import { getAuthHeaders } from './authService';
 
 // ==============================================================================
@@ -108,7 +108,7 @@ export interface WorkOrderFilterOptions {
 }
 
 export interface RealtimeSubscriptionOptions {
-  table?: 'work_orders' | 'ticket_messages' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date';
+  table?: 'work_orders' | 'ticket_messages' | 'progress_reports' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date';
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   filter?: string;
   onPayload: (payload: any) => void;
@@ -783,6 +783,126 @@ export class SupabaseRepository {
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat ringkasan unread' } };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // WO LIFECYCLE: KPI SUMMARY, DISPATCH APPROVAL / REVISION, PROGRESS HISTORY
+  // ---------------------------------------------------------------------------
+
+  async fetchDashboardKpiSummary(params?: {
+    date?: string;
+    contractor?: string;
+    area?: string;
+  }): Promise<SupabaseResponse<WOKpiSummary>> {
+    try {
+      const search = new URLSearchParams();
+      if (params?.date) search.set('date', params.date);
+      if (params?.contractor) search.set('contractor', params.contractor);
+      if (params?.area) search.set('area', params.area);
+      const qs = search.toString();
+      const res = await fetch(`/api/dashboard/kpi-summary${qs ? `?${qs}` : ''}`, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(res.status, json, 'SELECT', 'work_orders', 'Gagal memuat ringkasan KPI dashboard')
+        };
+      }
+      return { success: true, data: json.data };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menghubungi server KPI dashboard' }
+      };
+    }
+  }
+
+  async approveWorkOrderReport(ticketId: string, notes?: string): Promise<SupabaseResponse<Ticket>> {
+    try {
+      const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/approve-report`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ notes: notes || '' })
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(res.status, json, 'APPROVE', 'work_orders', 'Gagal menyetujui laporan WO')
+        };
+      }
+      return { success: true, data: json.ticket || json.data };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menghubungi server approval WO' }
+      };
+    }
+  }
+
+  async requestWorkOrderRevision(ticketId: string, reason: string): Promise<SupabaseResponse<Ticket>> {
+    try {
+      const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/request-revision`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason })
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(res.status, json, 'REVISION', 'work_orders', 'Gagal meminta revisi laporan WO')
+        };
+      }
+      return { success: true, data: json.ticket || json.data };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menghubungi server revisi WO' }
+      };
+    }
+  }
+
+  async fetchProgressReportHistory(params?: {
+    search?: string;
+    reportStatus?: string;
+    approvalStatus?: string;
+    contractor?: string;
+    area?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    ticketId?: string;
+  }): Promise<SupabaseResponse<ProgressReportHistoryItem[]>> {
+    try {
+      const search = new URLSearchParams();
+      if (params?.search) search.set('search', params.search);
+      if (params?.reportStatus) search.set('reportStatus', params.reportStatus);
+      if (params?.approvalStatus) search.set('approvalStatus', params.approvalStatus);
+      if (params?.contractor) search.set('contractor', params.contractor);
+      if (params?.area) search.set('area', params.area);
+      if (params?.dateFrom) search.set('dateFrom', params.dateFrom);
+      if (params?.dateTo) search.set('dateTo', params.dateTo);
+      if (params?.ticketId) search.set('ticketId', params.ticketId);
+      const qs = search.toString();
+      const res = await fetch(`/api/work-orders/progress-history${qs ? `?${qs}` : ''}`, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(res.status, json, 'SELECT', 'wo_progress_report_history', 'Gagal memuat History Progress Report')
+        };
+      }
+      return { success: true, data: json.data || [] };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat History Progress Report' }
+      };
     }
   }
 

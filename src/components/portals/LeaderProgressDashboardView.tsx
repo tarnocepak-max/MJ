@@ -37,10 +37,14 @@ import {
   MapPin,
   Sparkles,
   Building2,
-  Timer
+  Timer,
+  X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
+import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
+import { StatusBadge } from '../common/Badge';
+import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 
 interface LeaderProgressDashboardViewProps {
   onSelectTicket: (ticket: Ticket) => void;
@@ -53,7 +57,14 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
   onSelectTicket,
   onOpenWhatsApp
 }) => {
-  const { tickets, currentUser, contractorsList, todayWIB } = useApp();
+  const {
+    tickets,
+    currentUser,
+    contractorsList,
+    todayWIB,
+    activeKpiDrilldown,
+    setActiveKpiDrilldown
+  } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StatCategoryFilter>('all');
@@ -173,6 +184,19 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
   // Filtered & Searched Tickets
   const displayTickets = useMemo(() => {
     return baseLeaderTickets.filter(t => {
+      // KPI Drilldown filter
+      if (activeKpiDrilldown) {
+        if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
+          const tCont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (tCont !== activeKpiDrilldown.contractor.trim().toLowerCase()) return false;
+        }
+        if (activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL') {
+          const tArea = String(t.area || '').trim().toLowerCase();
+          if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
+        }
+        if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
+      }
+
       // Category filter
       if (selectedCategory !== 'all') {
         const cat = getTicketCategory(t);
@@ -243,7 +267,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [baseLeaderTickets, selectedCategory, searchQuery, sortField, sortOrder]);
+  }, [baseLeaderTickets, activeKpiDrilldown, selectedCategory, searchQuery, sortField, sortOrder]);
 
   // Pagination
   const totalPages = rowsPerPage === -1 ? 1 : Math.max(1, Math.ceil(displayTickets.length / rowsPerPage));
@@ -374,6 +398,49 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
           </button>
         </div>
       </div>
+
+      {/* Live WO Lifecycle KPI Summary Cards (Scoped to Leader Vendor & Area) */}
+      <DashboardKpiSummaryCards
+        compact={true}
+        onDrillDown={(filterKey, filters) => {
+          setActiveKpiDrilldown({
+            filterKey,
+            dateWIB: todayJakarta,
+            contractor: filters?.contractor,
+            area: filters?.area
+          });
+          setSelectedCategory('all');
+          setCurrentPage(1);
+        }}
+      />
+
+      {/* Active KPI Filter Banner */}
+      {activeKpiDrilldown && (
+        <div className="rounded-xl bg-[#160D29] text-white px-4 py-3 border border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-2 py-0.5 rounded-full bg-[#7135B5] text-white font-bold text-[10.5px]">
+              Filter KPI Dashboard
+            </span>
+            <span className="font-bold">
+              {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
+            </span>
+            <span className="font-mono font-bold text-[#E9D5FF] tabular-nums">
+              ({displayTickets.length} WO ditemukan)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setCurrentPage(1);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#160D29] hover:bg-[#F5F1FF] text-xs font-bold cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Reset Filter KPI</span>
+          </button>
+        </div>
+      )}
 
       {/* 6 STATISTIK CARDS (Referensi Foto 1 & 3) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -827,17 +894,18 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           </div>
                         </td>
 
-                        {/* 10. Status Pekerjaan (Belum Check-in / Sedang Dikerjakan / Selesai) */}
+                        {/* 10. Status Pekerjaan (Unified StatusBadge) */}
                         <td className="py-3 px-3 text-center whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            workStatus.status === 'Selesai'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : workStatus.status === 'Sedang Dikerjakan'
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse'
-                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                          }`}>
-                            {workStatus.status}
-                          </span>
+                          <StatusBadge
+                            status={
+                              workStatus.status === 'Selesai'
+                                ? 'CHECK-OUT'
+                                : workStatus.status === 'Sedang Dikerjakan'
+                                ? 'PROGRESS'
+                                : 'BELUM CHECK-IN'
+                            }
+                            variant="checkin"
+                          />
                         </td>
 
                         {/* 11. Action Buttons */}

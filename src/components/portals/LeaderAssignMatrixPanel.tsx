@@ -159,39 +159,32 @@ function getWhatsAppBadgeInfo(ticket: Ticket): { label: string; cls: string } {
   return { label: 'WA: READY', cls: 'bg-[#FEF3C7] border border-[#E59A27]/40 text-[#B45309]' };
 }
 
-function getApprovalBadgeInfo(ticket: Ticket): { label: string; cls: string; pulse?: boolean } {
+function getApprovalBadgeInfo(ticket: Ticket): { label: string; cls: string } {
   const latestReport =
     Array.isArray(ticket.progressReports) && ticket.progressReports.length > 0
-      ? ticket.progressReports[ticket.progressReports.length - 1]
+      ? ticket.progressReports[0]
       : undefined;
   const approval = String(ticket.approvalStatus || latestReport?.approvalStatus || '').toUpperCase();
   const statusReport = String(latestReport?.reportStatus || ticket.reportStatusLabel || '').toUpperCase();
-  if (
-    approval === 'APPROVED' ||
-    ticket.technicalReport?.verifiedBy ||
-    statusReport === 'APPROVED' ||
-    ticket.statusWOAgent === 'Closed' ||
-    ticket.statusWOInstaller === 'Completed'
-  ) {
-    return { label: 'APPROVED', cls: 'bg-[#ECFDF5] border border-[#16A36A]/35 text-[#15803D]' };
+  if (ticket.statusWOAgent === 'Closed') {
+    return { label: 'CLOSED', cls: 'bg-[#334155] border border-[#1E293B] text-white' };
   }
-  if (approval === 'REJECTED') {
-    return { label: 'REJECTED · REVISI', cls: 'bg-[#FEF2F2] border border-[#DC4C5A]/40 text-[#DC4C5A]' };
+  if (approval === 'APPROVED' || statusReport === 'APPROVED') {
+    return { label: 'APPROVED', cls: 'bg-[#ECFDF5] border border-[#86EFAC] text-[#15803D]' };
   }
-  if (approval === 'REVISI') {
-    return { label: 'PERLU REVISI', cls: 'bg-[#FFF7ED] border border-[#F97316]/40 text-[#C2410C]' };
+  if (approval === 'REJECTED' || approval === 'REVISI' || approval === 'REVISION') {
+    return { label: 'REVISION / REJECTED', cls: 'bg-[#FEF2F2] border border-[#FCA5A5] text-[#B91C1C]' };
   }
   if (
     approval === 'BUTUH APPROVAL' ||
+    approval === 'WAITING APPROVAL' ||
     statusReport === 'WAITING_DISPATCH_REVIEW' ||
+    Boolean(latestReport) ||
     Boolean(ticket.technicalReport)
   ) {
-    return { label: 'BUTUH APPROVAL', cls: 'bg-[#FEF3C7] border border-[#E59A27]/50 text-[#92400E]', pulse: true };
+    return { label: 'WAITING APPROVAL', cls: 'bg-[#FFF7ED] border border-[#FDBA74] text-[#C2410C]' };
   }
-  if (ticket.installerName) {
-    return { label: 'APPROVED', cls: 'bg-[#ECFDF5] border border-[#16A36A]/35 text-[#15803D]' };
-  }
-  return { label: 'BUTUH APPROVAL', cls: 'bg-[#FEF3C7] border border-[#E59A27]/50 text-[#92400E]', pulse: true };
+  return { label: 'BELUM REPORT', cls: 'bg-[#F1F5F9] border border-[#CBD5E1] text-[#475569]' };
 }
 
 export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = ({
@@ -663,9 +656,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                           {waBadge.label}
                         </span>
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide tabular-nums ${approvalBadge.cls}`}>
-                          {approvalBadge.pulse && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#E59A27] animate-pulse" />
-                          )}
                           <span>{approvalBadge.label}</span>
                         </span>
                       </div>

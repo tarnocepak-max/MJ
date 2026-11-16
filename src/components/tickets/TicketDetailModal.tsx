@@ -2,9 +2,11 @@ import React, { useState, useRef } from 'react';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge } from '../common/Badge';
+import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
+import { HistoryProgressReportView } from '../reports/HistoryProgressReportView';
+import { isTicketAssigned, isTicketCheckedIn, getTicketCanonicalReportStatus, getTicketCanonicalApprovalStatus, isTicketClosed as isLifecycleClosed } from '../../services/woLifecycleService';
 import {
   X,
   MessageSquare,
@@ -537,22 +539,48 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
             </div>
 
+            {/* Compact 7-Step WO Lifecycle Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-1">
+              {[
+                { label: '1. Import', done: Boolean(ticket.createdAt), detail: ticket.appointmentDate || '-' },
+                { label: '2. Distribusi', done: Boolean(ticket.leaderName), detail: ticket.leaderName || 'Unmapped' },
+                { label: '3. Assign', done: isTicketAssigned(ticket), detail: ticket.installerName || 'Belum Assign' },
+                { label: '4. Check-in', done: isTicketCheckedIn(ticket), detail: ticket.checkInAt ? 'PROGRESS' : 'Belum' },
+                { label: '5. Report', done: getTicketCanonicalReportStatus(ticket) !== 'NONE', detail: getTicketCanonicalReportStatus(ticket) !== 'NONE' ? getTicketCanonicalReportStatus(ticket) : 'Belum' },
+                { label: '6. Approval', done: getTicketCanonicalApprovalStatus(ticket) === 'APPROVED', detail: getTicketCanonicalApprovalStatus(ticket) !== 'NONE' ? getTicketCanonicalApprovalStatus(ticket) : '-' },
+                { label: '7. Closed', done: isLifecycleClosed(ticket), detail: isLifecycleClosed(ticket) ? 'CLOSED' : 'Open' }
+              ].map(step => (
+                <div
+                  key={step.label}
+                  className={`rounded-lg px-2.5 py-2 border text-[10.5px] ${
+                    step.done
+                      ? 'bg-[#ECFDF5]/70 dark:bg-emerald-950/30 border-[#86EFAC] dark:border-emerald-800 text-[#15803D] dark:text-emerald-300'
+                      : 'bg-[#F8FAFC] dark:bg-slate-800/50 border-[#E2E8F0] dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="font-bold truncate">{step.label}</div>
+                  <div className="truncate font-mono text-[10px] mt-0.5">{step.detail}</div>
+                </div>
+              ))}
+            </div>
+
             {/* Approval specific state banner */}
             {ticket.approvalStatus === 'BUTUH APPROVAL' && (
-              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+              <div className="p-3.5 rounded-xl bg-[#FFF7ED] dark:bg-orange-950/40 border border-[#FDBA74] dark:border-orange-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-xs">
-                    <Clock className="w-4 h-4 text-amber-600" />
+                  <div className="flex items-center gap-2 text-[#9A3412] dark:text-orange-200 font-bold text-xs">
+                    <Clock className="w-4 h-4 text-[#C2410C]" />
                     <span>Laporan Teknisi Siap Diperiksa & Membutuhkan Approval Dispatch</span>
                   </div>
-                  <div className="text-[11px] text-amber-800 dark:text-amber-300">
-                    Report Status: <strong className="font-bold underline">{ticket.progressReports?.[ticket.progressReports.length - 1]?.reportStatus || ticket.statusWOInstaller}</strong>
-                    {ticket.progressReports?.[ticket.progressReports.length - 1]?.reasonReport && <span> · Reason: {ticket.progressReports[ticket.progressReports.length - 1].reasonReport}</span>}
-                    {ticket.progressReports?.[ticket.progressReports.length - 1]?.rootCause && <span> · Rootcause: {ticket.progressReports[ticket.progressReports.length - 1].rootCause}</span>}
+                  <div className="text-[11px] text-[#9A3412] dark:text-orange-300 flex flex-wrap items-center gap-1.5">
+                    <span>Report Status:</span>
+                    <StatusBadge status={ticket.progressReports?.[0]?.reportStatus || ticket.reportStatusLabel || ticket.statusWOInstaller} variant="report" size="xs" />
+                    {ticket.progressReports?.[0]?.reasonReport && <span>· Reason: {ticket.progressReports[0].reasonReport}</span>}
+                    {ticket.progressReports?.[0]?.rootCause && <span>· Rootcause: {ticket.progressReports[0].rootCause}</span>}
                   </div>
-                  {ticket.progressReports?.[ticket.progressReports.length - 1]?.remarksReport && (
-                    <div className="text-[11px] text-slate-600 dark:text-slate-300 italic bg-amber-100/50 dark:bg-amber-900/30 p-2 rounded-lg">
-                      "{ticket.progressReports[ticket.progressReports.length - 1].remarksReport}"
+                  {ticket.progressReports?.[0]?.remarksReport && (
+                    <div className="text-[11px] text-slate-700 dark:text-slate-300 italic bg-white/80 dark:bg-slate-900/40 p-2 rounded-lg border border-[#FDBA74]/50">
+                      "{ticket.progressReports[0].remarksReport}"
                     </div>
                   )}
                 </div>
@@ -562,18 +590,18 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowApprovalModal(true)}
-                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      className="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>Setujui (Approve)</span>
+                      <span>Approve & Close WO</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowRejectModal(true)}
-                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      className="px-3.5 py-2 bg-[#B91C1C] hover:bg-[#991B1B] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                     >
                       <ThumbsDown className="w-3.5 h-3.5" />
-                      <span>Tolak / Revisi</span>
+                      <span>Minta Revisi</span>
                     </button>
                   </div>
                 )}
@@ -1049,6 +1077,19 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 />
               </div>
             )}
+          </div>
+
+          {/* SECTION 3B: HISTORY PROGRESS REPORT VERSIONS & DISPATCH APPROVAL TRAIL */}
+          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-[#7135B5]" />
+                <h4 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
+                  History Progress Report & Riwayat Approval ({ticket.progressReports?.length || 0} Versi)
+                </h4>
+              </div>
+            </div>
+            <HistoryProgressReportView ticketId={ticket.id} compact />
           </div>
 
           {/* ============================================================ */}

@@ -25,7 +25,9 @@ import {
   HierarchicalStatus,
   HierarchicalReason,
   HierarchicalRemark,
-  WOApprovalStatus
+  WOApprovalStatus,
+  WOKpiSummary,
+  WOKpiFilterKey
 } from '../types/index.ts';
 
 import {
@@ -144,6 +146,18 @@ interface AppContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   isSessionModalOpen: boolean;
   setIsSessionModalOpen: (open: boolean) => void;
+
+  // WO Lifecycle KPI Summary & Drill-Down
+  kpiSummary: WOKpiSummary | null;
+  isKpiLoading: boolean;
+  kpiError: string | null;
+  kpiContractorFilter: string;
+  kpiAreaFilter: string;
+  setKpiContractorFilter: (v: string) => void;
+  setKpiAreaFilter: (v: string) => void;
+  refreshKpiSummary: (opts?: { date?: string; contractor?: string; area?: string }) => Promise<void>;
+  activeKpiDrilldown: { filterKey: WOKpiFilterKey; dateWIB?: string; contractor?: string; area?: string } | null;
+  setActiveKpiDrilldown: (val: { filterKey: WOKpiFilterKey; dateWIB?: string; contractor?: string; area?: string } | null) => void;
 
   // Supabase PostgreSQL Real-time Sync & Connectivity
   databaseStatus: 'connected' | 'connecting' | 'offline' | 'error';
@@ -787,6 +801,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubContractors: (() => void) | null = null;
     let unsubCoverageAreas: (() => void) | null = null;
     let unsubOperationalDate: (() => void) | null = null;
+    let unsubProgressReports: (() => void) | null = null;
     let isCancelled = false;
 
     const handleOnline = () => {
@@ -828,6 +843,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (rec.isDeleted) {
                 setTicketMessages(prev => prev.filter(m => m.ticketId !== rec.id));
               }
+            } else if (payload.eventType === 'UNMAPPED_DISTRIBUTION_ALERT') {
+              const role = currentUserRef.current?.role;
+              if (role === 'dispatch' || role === 'super_admin') {
+                const count = Number(payload.undistributedCount || payload.count || 0);
+                if (count > 0) {
+                  toast.warning(
+                    `${count} Work Order baru belum memiliki mapping Leader/Vendor aktif dan masuk ke antrean Belum Terdistribusi.`,
+                    'Distribusi Leader Perlu Tindakan'
+                  );
+                }
+              }
+              scheduleKpiRefreshRef.current?.();
             } else if (rec && rec.id) {
               const wasPresent = ticketsRef.current.some(t => t.id === rec.id);
               setTickets(prev => {
@@ -839,6 +866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
                 return [rec, ...prev];
               });
+              scheduleKpiRefreshRef.current?.();
               // When a WO becomes newly accessible (e.g., reassignment to this Installer), fetch its messages immediately
               if (!wasPresent && !rec.isDeleted && !rec.isArchived) {
                 fetch(`/api/tickets/${encodeURIComponent(rec.id)}/messages`, { headers: getAuthHeaders() })
@@ -862,6 +890,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
             } else {
               refreshDatabaseData().catch(() => {});
+              scheduleKpiRefreshRef.current?.();
             }
           },
           onError: () => {}
@@ -1042,6 +1071,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             loadCentralData().catch(() => {});
           }
         });
+
+        unsubProgressReports = supabaseDb.subscribeToChanges({
+          table: 'progress_reports',
+          onPayload: (payload) => {
+            if (isCancelled || !payload) return;
+            const rec = payload.record || payload.new;
+            if (rec && rec.id) {
+              setTickets(prev => {
+                const idx = prev.findIndex(t => t.id === rec.id);
+                if (idx >= 0) {
+                  const copy = [...prev];
+                  copy[idx] = { ...copy[idx], ...rec };
+                  return copy;
+                }
+                return prev;
+              });
+            }
+            scheduleKpiRefreshRef.current?.();
+          }
+        });
       } catch (sseErr) {
         console.warn('[Realtime SSE] Notice attaching Supabase SSE:', sseErr);
       }
@@ -1067,6 +1116,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubContractors?.();
       unsubCoverageAreas?.();
       unsubOperationalDate?.();
+      unsubProgressReports?.();
     };
   }, [isLoggedIn]);
 
@@ -1607,6 +1657,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Operational schedule reference date (Asia/Jakarta WIB — always initializes to live todayWIB)
   const [operationalDate, setOperationalDateState] = useState<string>(() => getJakartaDateString(0));
+
+  // WO Lifecycle Dashboard KPI Summary & Drill-Down State
+  const [kpiSummary, setKpiSummary] = useState<WOKpiSummary | null>(null);
+  const [isKpiLoading, setIsKpiLoading] = useState<boolean>(false);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+  const [kpiContractorFilter, setKpiContractorFilter] = useState<string>('ALL');
+  const [kpiAreaFilter, setKpiAreaFilter] = useState<string>('ALL');
+  const [activeKpiDrilldown, setActiveKpiDrilldown] = useState<{
+    filterKey: WOKpiFilterKey;
+    dateWIB?: string;
+    contractor?: string;
+    area?: string;
+  } | null>(null);
+
+  const kpiRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refreshKpiSummary = React.useCallback(
+    async (opts?: { date?: string; contractor?: string; area?: string }) => {
+      const headers = getAuthHeaders();
+      if (!headers['Authorization']) return;
+      setIsKpiLoading(true);
+      setKpiError(null);
+      try {
+        const res = await supabaseDb.fetchDashboardKpiSummary({
+          date: opts?.date || todayWIB,
+          contractor: opts?.contractor ?? kpiContractorFilter,
+          area: opts?.area ?? kpiAreaFilter
+        });
+        if (res.success && res.data) {
+          setKpiSummary(res.data);
+        } else if (res.error) {
+          setKpiError(res.error.message || 'Gagal memuat ringkasan KPI');
+        }
+      } catch (err: any) {
+        setKpiError(err?.message || 'Gagal memuat ringkasan KPI');
+      } finally {
+        setIsKpiLoading(false);
+      }
+    },
+    [todayWIB, kpiContractorFilter, kpiAreaFilter]
+  );
+
+  const scheduleKpiRefreshRef = useRef<(() => void) | undefined>(undefined);
+  scheduleKpiRefreshRef.current = () => {
+    if (kpiRefreshTimerRef.current) clearTimeout(kpiRefreshTimerRef.current);
+    kpiRefreshTimerRef.current = setTimeout(() => {
+      refreshKpiSummary().catch(() => {});
+    }, 350);
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      refreshKpiSummary().catch(() => {});
+    }
+  }, [isLoggedIn, todayWIB, kpiContractorFilter, kpiAreaFilter, refreshKpiSummary]);
 
   const setOperationalDate = async (
     date: string,
@@ -3380,54 +3485,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(e => console.warn('Offline progress report enqueue error', e));
     }
 
-    // Persist progress report to Supabase PostgreSQL (Confirmed Write)
+    // Persist progress report authoritatively to backend endpoint (Confirmed Write + Version History + Auto Check-out)
     try {
       if (isOnline) {
         setSyncStatus('SYNCING');
-        const saveRes = await supabaseDb.updateWorkOrder(updatedWithProgress.id, progressUpdateFields);
-        if (!saveRes.success) {
+        const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/progress-report`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            entry,
+            status: nextInstallerStatus,
+            remarks: finalRemarks,
+            reportStatusId: finalStatusId,
+            reportStatusLabel: finalStatusName,
+            reasonReportId: finalReasonId,
+            reasonReportLabel: finalReasonName,
+            rootcauseId: finalRootcauseId,
+            rootcauseLabel: finalRootcauseName
+          })
+        });
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok || !json || json.success !== true) {
           setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
-          const errCode = saveRes.error?.code;
-          const errMsg = saveRes.error?.message || 'Gagal menyimpan progress report ke Supabase';
+          const errCode = json?.code || `HTTP_${resp.status}`;
+          const errMsg = json?.error || json?.message || 'Gagal menyimpan progress report ke server.';
           setSyncStatus('ERROR');
           toast.error('Gagal menyimpan progress report ke Supabase PostgreSQL: ' + errMsg, 'Penyimpanan Gagal');
           return { success: false, code: errCode, error: errMsg };
         }
+        if (json.ticket && json.ticket.id) {
+          setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+        }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
         toast.success(
           `Laporan WO ${ticket.woNumber} (${finalStatusName}) berhasil disimpan dan sedang menunggu approval Dispatch.`,
           'Laporan Tersimpan (Butuh Approval)'
         );
+        return { success: true, report: json.entry || entry };
       } else {
         await saveTicketsOffline([updatedWithProgress]);
         toast.warning(`Laporan WO ${ticket.woNumber} tersimpan offline di IndexedDB lokal (Butuh Approval).`, 'Laporan Offline');
+        return { success: true, report: entry };
       }
     } catch (err: any) {
       setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
       setSyncStatus('ERROR');
-      console.error('Failed writing progress report to Supabase:', err);
+      console.error('Failed writing progress report to server:', err);
       toast.error('Gagal menyimpan progress report ke Supabase PostgreSQL: ' + (err?.message || err), 'Penyimpanan Gagal');
       return { success: false, error: err?.message || 'Gagal menyimpan ke Supabase PostgreSQL' };
     }
-
-    fetch(`/api/tickets/${ticketId}/progress-report`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        entry,
-        status: nextInstallerStatus,
-        remarks: finalRemarks,
-        reportStatusId: finalStatusId,
-        reportStatusLabel: finalStatusName,
-        reasonReportId: finalReasonId,
-        reasonReportLabel: finalReasonName,
-        rootcauseId: finalRootcauseId,
-        rootcauseLabel: finalRootcauseName
-      })
-    }).catch(e => console.error('Error saving progress report to server:', e));
-
-    return { success: true, report: entry };
   };
 
   const verifyTechnicalReport = (ticketId: string) => {
@@ -3555,20 +3663,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Dispatch ${currentUser.name} (UID: ${dispatchUid}) menyetujui laporan dan otomatis menutup tiket WO ${ticket.woNumber} (Status: ${statusName} -> CLOSED)`
     );
 
-    // Persist ke Supabase PostgreSQL (Pastikan update berhasil sebelum mengembalikan success)
+    // Persist ke Backend Transactional Approve Endpoint (APPROVED + Auto CLOSED + Immutable History)
     try {
-      const res = await supabaseDb.updateWorkOrder(updatedTicket.id, updatedTicket);
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.approveWorkOrderReport(updatedTicket.id, notes);
       if (!res.success) {
         throw new Error(res.error?.message || 'Gagal menyimpan status approval ke Supabase PostgreSQL.');
       }
+      if (res.data && res.data.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...res.data } : t)));
+      }
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
       toast.success(
-        'Ticket WO berhasil di-approve dan otomatis ditutup.',
+        'Ticket WO berhasil di-approve dan otomatis ditutup (CLOSED).',
         'Approval Berhasil'
       );
     } catch (err: any) {
       console.error('[Supabase] Error saving approved report:', err);
       // Rollback local state jika gagal
       setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
+      setSyncStatus('ERROR');
       return { success: false, error: err?.message || 'Gagal menyimpan status approval ke Supabase PostgreSQL.' };
     }
 
@@ -3583,8 +3699,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Akses Ditolak: Hanya Dispatch dan Super Admin yang berwenang menolak laporan.' };
     }
 
-    if (!reason || !reason.trim()) {
-      return { success: false, error: 'Alasan penolakan / revisi laporan wajib diisi.' };
+    if (!reason || reason.trim().length < 3) {
+      return { success: false, error: 'Alasan penolakan / revisi laporan wajib diisi minimal 3 karakter.' };
     }
 
     const ticket = getTicketById(ticketId);
@@ -3593,7 +3709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date().toISOString();
     const updatedReports = (ticket.progressReports || []).map((p, idx) =>
       idx === 0
-        ? { ...p, approvalStatus: 'REJECTED' as WOApprovalStatus }
+        ? { ...p, approvalStatus: 'REJECTED' as WOApprovalStatus, rejectionReason: reason.trim(), revisionReason: reason.trim(), rejectedAt: now, rejectedBy: currentUser.name, rejectedById: currentUser.id }
         : p
     );
 
@@ -3632,10 +3748,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     try {
-      const res = await supabaseDb.updateWorkOrder(updatedTicket.id, updatedTicket);
+      setSyncStatus('SYNCING');
+      const res = await supabaseDb.requestWorkOrderRevision(updatedTicket.id, reason.trim());
       if (!res.success) throw new Error(res.error?.message || 'Gagal menyimpan status penolakan');
+      if (res.data && res.data.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...res.data } : t)));
+      }
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      toast.warning(`Permintaan revisi laporan WO ${ticket.woNumber} telah dikirim ke teknisi.`, 'Revisi Dikirim');
     } catch (err: any) {
       console.warn('[Supabase] Error saving rejected report:', err);
+      setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
+      setSyncStatus('ERROR');
       return { success: false, error: err?.message || 'Gagal menyimpan status penolakan ke Supabase PostgreSQL.' };
     }
 
@@ -6277,7 +6403,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteHierarchicalRemark,
         getReasonsForStatus,
         getRemarksForReason,
-        reconcileDroplistsNow
+        reconcileDroplistsNow,
+        kpiSummary,
+        isKpiLoading,
+        kpiError,
+        kpiContractorFilter,
+        kpiAreaFilter,
+        setKpiContractorFilter,
+        setKpiAreaFilter,
+        refreshKpiSummary,
+        activeKpiDrilldown,
+        setActiveKpiDrilldown
       }}
     >
       {children}

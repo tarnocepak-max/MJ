@@ -152,6 +152,15 @@ export interface ProgressReportEntry {
   approvalStatus?: WOApprovalStatus;
   approvedAt?: string;
   approvedBy?: string;
+  approvedById?: string;
+  approvalNotes?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  rejectedById?: string;
+  rejectionReason?: string;
+  revisionReason?: string;
+  versionNumber?: number;
+  submittedById?: string;
 }
 
 export interface ChatAttachment {
@@ -341,6 +350,8 @@ export interface Ticket {
   // --- F. Automatic Distribution Engine Status ---
   distributionStatus?: WODistributionStatus;
   distributionNotes?: string;
+  distributedAt?: string;
+  distributedBy?: string;
 
   // --- G. Operational Statuses ---
   statusWOAgent: TicketStatusWOAgent;
@@ -1052,6 +1063,134 @@ export interface HierarchicalDroplistData {
   updatedAt: string;
   updatedBy: string;
 }
+
+// -------------------------------------------------------------
+// WO Lifecycle KPI Summary, Drill-Down & History Progress Report
+// -------------------------------------------------------------
+export type WOKpiFilterKey =
+  | 'total_today'
+  | 'unassigned'
+  | 'assigned'
+  | 'not_checked_in'
+  | 'checked_in_progress'
+  | 'report_pending'
+  | 'report_complete'
+  | 'report_reschedule'
+  | 'report_cancel'
+  | 'butuh_approval'
+  | 'approved'
+  | 'revision_rejected'
+  | 'closed'
+  | 'unmapped_distribution';
+
+export interface WOKpiVendorBreakdown {
+  contractorId?: string;
+  contractorName: string;
+  total: number;
+  unassigned: number;
+  assigned: number;
+  notCheckedIn: number;
+  checkedInProgress: number;
+  reportPending: number;
+  reportComplete: number;
+  reportReschedule: number;
+  reportCancel: number;
+  butuhApproval: number;
+  approved: number;
+  revisionRejected: number;
+  closed: number;
+  unmapped: number;
+}
+
+export interface WOKpiAreaBreakdown {
+  area: string;
+  total: number;
+  unassigned: number;
+  checkedInProgress: number;
+  butuhApproval: number;
+  approved: number;
+  closed: number;
+}
+
+export interface WOKpiLeaderBreakdown {
+  leaderName: string;
+  contractorName: string;
+  total: number;
+  unassigned: number;
+  assigned: number;
+  checkedInProgress: number;
+  butuhApproval: number;
+  closed: number;
+}
+
+export interface WOKpiInstallerBreakdown {
+  installerName: string;
+  contractorName: string;
+  area: string;
+  total: number;
+  checkedInProgress: number;
+  butuhApproval: number;
+  approved: number;
+  revisionRejected: number;
+  closed: number;
+}
+
+export interface WOKpiSummary {
+  dateWIB: string;
+  generatedAt: string;
+  scopeRole: UserRole;
+  contractorFilter: string;
+  areaFilter: string;
+  counts: {
+    totalToday: number;
+    unassigned: number;
+    assigned: number;
+    notCheckedIn: number;
+    checkedInProgress: number;
+    reportPending: number;
+    reportComplete: number;
+    reportReschedule: number;
+    reportCancel: number;
+    butuhApproval: number;
+    approved: number;
+    revisionRejected: number;
+    closed: number;
+    unmappedDistribution: number;
+  };
+  byVendor: WOKpiVendorBreakdown[];
+  byArea: WOKpiAreaBreakdown[];
+  byLeader: WOKpiLeaderBreakdown[];
+  byInstaller: WOKpiInstallerBreakdown[];
+}
+
+export interface ProgressReportHistoryItem {
+  id: string;
+  ticketId: string;
+  woNumber: string;
+  appointmentDate?: string;
+  slotTime?: string;
+  customerName?: string;
+  installerName: string;
+  installerId?: string;
+  vendorName: string;
+  area: string;
+  leaderName?: string;
+  versionNumber: number;
+  reportStatus: 'PENDING' | 'COMPLETE' | 'RESCHEDULE' | 'CANCEL' | string;
+  reasonReport?: string;
+  rootCause?: string;
+  remarks: string;
+  submittedAt: string;
+  submittedBy: string;
+  approvalStatus: WOApprovalStatus | 'WAITING APPROVAL' | 'REVISION / REJECTED' | string;
+  dispatchApprover?: string;
+  dispatchApproverId?: string;
+  approvalTimestamp?: string;
+  approvalNotes?: string;
+  revisionReason?: string;
+  finalWoStatus: string;
+}
+
 
 
 

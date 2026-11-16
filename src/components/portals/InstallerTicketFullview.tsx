@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Ticket, TicketStatusWOInstaller, ProgressReportEntry, ChatAttachment } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
-import { StatusInstallerBadge, StatusWhatsAppBadge, StatusAgentBadge, StatusApprovalBadge } from '../common/Badge';
+import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
+import {
+  isTicketClosed,
+  getTicketCanonicalApprovalStatus,
+  getTicketCanonicalReportStatus
+} from '../../services/woLifecycleService';
 import { buildWhatsAppClickToChatUrl } from '../../services/whatsappService';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
@@ -39,7 +44,9 @@ import {
   Sparkles,
   Info,
   Tag,
-  Play
+  Play,
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
@@ -112,6 +119,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   // Level 3: Rootcause (Remarks)
   // -------------------------------------------------------------
   const latestReport = activeTicket.progressReports?.[0];
+  const ticketClosed = isTicketClosed(activeTicket);
+  const canonicalApproval = getTicketCanonicalApprovalStatus(activeTicket);
+  const canonicalReport = getTicketCanonicalReportStatus(activeTicket);
+  const latestRevisionReason =
+    activeTicket.rejectionReason ||
+    latestReport?.revisionReason ||
+    (latestReport as any)?.rejectionReason ||
+    '';
 
   const [reportStatus, setReportStatus] = useState<string>(() => {
     return latestReport?.reportStatus || activeTicket.statusWOInstaller || '';
@@ -258,6 +273,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const handleSaveReport = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (isSubmittingReport) return;
+
+    if (ticketClosed) {
+      playErrorSound();
+      const msg = 'Work Order ini sudah berstatus CLOSED (disetujui Dispatch) dan terkunci read-only.';
+      setReportError(msg);
+      toast.error(msg, 'WO Sudah Closed');
+      return;
+    }
 
     if (requiresProgressCheckIn) {
       playErrorSound();
@@ -482,7 +505,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     (hasPersistedProgressFromCurrentTechnician || Boolean(serverProgressTriggerByTicket[triggerKey]));
 
   const isReportStatusSectionVisible =
-    currentUser.role !== 'installer' ? true : hasValidProgressFromCurrentTechnician;
+    currentUser.role !== 'installer' ? true : (hasValidProgressFromCurrentTechnician || ticketClosed);
 
   const requiresProgressCheckIn =
     currentUser.role === 'installer' && !hasValidProgressFromCurrentTechnician;
@@ -699,9 +722,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               <span className="font-mono font-extrabold text-sm sm:text-base text-[#3B1D78] dark:text-[#E9E1FF]">
                 {activeTicket.woNumber}
               </span>
+              {ticketClosed && <StatusBadge status="CLOSED" variant="wo_agent" />}
               <StatusInstallerBadge status={activeTicket.statusWOInstaller} />
+              {canonicalReport !== 'NONE' && <StatusBadge status={canonicalReport} variant="report" />}
               <StatusApprovalBadge status={activeTicket.approvalStatus} />
-              <StatusAgentBadge status={activeTicket.statusWOAgent} />
               <StatusWhatsAppBadge status={activeTicket.statusWhatsApp} />
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
@@ -727,34 +751,38 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </span>
           </div>
 
-          {!activeTicket.workStartedAt ? (
-            <button
-              type="button"
-              onClick={async () => {
-                await startWorkOnTicket(activeTicket.id);
-              }}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-pulse"
-              title="Mulai pengerjaan tiket WO ini sekarang"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>MULAI KERJAKAN</span>
-            </button>
-          ) : (
-            <div className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-emerald-500" />
-              <span>Mulai: {formatJakartaTimeOnly(activeTicket.workStartedAt)}</span>
-            </div>
-          )}
+          {!ticketClosed && (
+            <>
+              {!activeTicket.workStartedAt ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await startWorkOnTicket(activeTicket.id);
+                  }}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  title="Mulai pengerjaan tiket WO ini sekarang"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>MULAI KERJAKAN</span>
+                </button>
+              ) : (
+                <div className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-emerald-500" />
+                  <span>Mulai: {formatJakartaTimeOnly(activeTicket.workStartedAt)}</span>
+                </div>
+              )}
 
-          <button
-            type="button"
-            onClick={handleOtwLokasi}
-            className="px-3 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-            title="Update status En Route dan buka rute Google Maps"
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Otw Lokasi</span>
-          </button>
+              <button
+                type="button"
+                onClick={handleOtwLokasi}
+                className="px-3 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                title="Update status En Route dan buka rute Google Maps"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Otw Lokasi</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1011,8 +1039,47 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </span>
               </div>
 
+              {/* WO CLOSED Read-Only Lock Banner */}
+              {ticketClosed && (
+                <div className="p-3.5 rounded-xl bg-[#334155] text-white border border-[#1E293B] text-xs flex items-start gap-2.5">
+                  <Lock className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-extrabold uppercase tracking-wide flex items-center gap-2 flex-wrap">
+                      <span>Work Order Telah CLOSED (Terkunci Read-Only)</span>
+                      <StatusBadge status="APPROVED" variant="approval" />
+                    </div>
+                    <p className="text-[11px] text-slate-200 leading-relaxed">
+                      Laporan dengan status akhir <strong>{canonicalReport !== 'NONE' ? canonicalReport : activeTicket.statusWOInstaller}</strong> telah disetujui oleh Dispatch{' '}
+                      {activeTicket.approvedBy ? `(${activeTicket.approvedBy})` : ''}. Formulir terkunci agar histori laporan tetap utuh.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dispatch Revision Alert Banner */}
+              {!ticketClosed && canonicalApproval === 'REVISION' && (
+                <div className="p-3.5 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-200 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>Revisi Laporan Diminta Dispatch</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-[#B91C1C] text-white font-mono font-bold text-[10px]">
+                      Kirim Revisi v{(activeTicket.progressReports?.length || 0) + 1}
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] font-semibold text-[#7F1D1D] dark:text-rose-100 leading-relaxed">
+                    Alasan Revisi ({latestReport?.rejectedBy || activeTicket.rejectedBy || 'Dispatch'}):{' '}
+                    "{latestRevisionReason || 'Silakan perbaiki dan kirim ulang Report Status Pembaruan.'}"
+                  </p>
+                  <p className="text-[10.5px] text-[#991B1B] dark:text-rose-300">
+                    Catatan: Check-in dan histori laporan versi sebelumnya (v1–v{activeTicket.progressReports?.length || 0}) tetap tersimpan.
+                  </p>
+                </div>
+              )}
+
               {/* Pre-Check-in Gate Banner (App Flow 5) */}
-              {requiresProgressCheckIn && (
+              {requiresProgressCheckIn && !ticketClosed && (
                 <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -1055,8 +1122,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   </div>
                   <select
                     value={reportStatus}
+                    disabled={ticketClosed || isSubmittingReport}
                     onChange={e => handleReportStatusChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <option value="">-- Pilih Report Status (Level 1) --</option>
                     {availableStatusOptions.map(st => (
@@ -1079,7 +1147,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   </div>
                   <select
                     value={reasonReport}
-                    disabled={!reportStatus || availableReasonOptions.length === 0}
+                    disabled={ticketClosed || isSubmittingReport || !reportStatus || availableReasonOptions.length === 0}
                     onChange={e => handleReasonReportChange(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
@@ -1112,7 +1180,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   </div>
                   <select
                     value={rootCause}
-                    disabled={!reasonReport || availableRootcauseOptions.length === 0}
+                    disabled={ticketClosed || isSubmittingReport || !reasonReport || availableRootcauseOptions.length === 0}
                     onChange={e => handleRootcauseChange(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
@@ -1142,7 +1210,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-normal">Level 3 (Template / Manual)</span>
                   </div>
 
-                  {availableRemarksTemplates.length > 0 && (
+                  {!ticketClosed && availableRemarksTemplates.length > 0 && (
                     <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
                       <span className="text-slate-400 text-[10px] font-semibold shrink-0">Template:</span>
                       {availableRemarksTemplates.map((tpl, i) => (
@@ -1162,34 +1230,43 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   <textarea
                     rows={3}
                     value={remarksReport}
+                    disabled={ticketClosed || isSubmittingReport}
                     onChange={e => setRemarksReport(e.target.value)}
                     placeholder="Tuliskan catatan detail hasil penanganan teknisi di lapangan..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all resize-none text-xs sm:text-sm"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all resize-none text-xs sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
                 {/* Buttons: Cancel (Red) & Save Report (Green) */}
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleCancelReport}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    title="Batal perubahan formulir"
-                  >
-                    <X className="w-4 h-4" />
-                    <span>Cancel</span>
-                  </button>
+                {!ticketClosed && (
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelReport}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      title="Batal perubahan formulir"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Cancel</span>
+                    </button>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmittingReport || requiresProgressCheckIn}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    title={requiresProgressCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu' : 'Simpan Laporan Status'}
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>{isSubmittingReport ? 'Menyimpan...' : 'Save Report'}</span>
-                  </button>
-                </div>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingReport || requiresProgressCheckIn}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      title={requiresProgressCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu' : 'Simpan Laporan Status'}
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>
+                        {isSubmittingReport
+                          ? 'Menyimpan...'
+                          : canonicalApproval === 'REVISION'
+                          ? `Kirim Revisi v${(activeTicket.progressReports?.length || 0) + 1}`
+                          : 'Save Report'}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           </div>
@@ -1520,9 +1597,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     key={item.id || idx}
                     className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#1B0E32] space-y-2 text-xs relative overflow-hidden"
                   >
-                    {/* Top info: Date/Time, User/Technician, Status Badge */}
+                    {/* Top info: Version, Date/Time, User/Technician, Status Badges */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2D1754]">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-extrabold bg-[#F5F1FF] text-[#431599] dark:bg-[#2E1459] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1]">
+                          v{item.versionNumber || progressHistory.length - idx}
+                        </span>
                         <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1">
                           <Clock className="w-3 h-3 text-emerald-600" />
                           {formattedDate} WIB
@@ -1534,15 +1614,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         </span>
                       </div>
 
-                      <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
-                        item.reportStatus === 'Completed' || item.reportStatus === 'Installed'
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                          : item.reportStatus === 'Failed / Cancelled'
-                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                      }`}>
-                        {item.reportStatus}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <StatusBadge status={item.reportStatus} variant="report" />
+                        {(item.approvalStatus || (idx === 0 && activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE')) && (
+                          <StatusBadge
+                            status={item.approvalStatus || activeTicket.approvalStatus}
+                            variant="approval"
+                          />
+                        )}
+                      </div>
                     </div>
 
                     {/* Installer & Schedule info if available */}
@@ -1551,6 +1631,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         <span>Installer: <strong className="text-slate-700 dark:text-slate-300">{item.installerName || activeTicket.installerName || '-'}</strong></span>
                         <span>·</span>
                         <span>Jadwal: <strong className="text-slate-700 dark:text-slate-300 font-mono">{item.appointmentDate || activeTicket.appointmentDate || '-'} ({item.slotTime || activeTicket.slotTime})</strong></span>
+                        {(item.approvedBy || item.rejectedBy) && (
+                          <>
+                            <span>·</span>
+                            <span>
+                              Dispatch: <strong className="text-slate-700 dark:text-slate-300">{item.approvedBy || item.rejectedBy}</strong>
+                            </span>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -1574,6 +1662,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     {item.remarksReport && (
                       <div className="p-2.5 rounded-lg bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs leading-relaxed italic">
                         "{item.remarksReport}"
+                      </div>
+                    )}
+
+                    {/* Revision reason if this version was rejected by Dispatch */}
+                    {(item.revisionReason || (item as any).rejectionReason) && (
+                      <div className="p-2 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-200 text-[11px] font-semibold">
+                        Catatan Revisi Dispatch: "{item.revisionReason || (item as any).rejectionReason}"
                       </div>
                     )}
                   </div>
@@ -1660,9 +1755,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#D8B4FE]/70">Approval Dispatch:</span>
-                <span className="font-bold text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-md border border-amber-400/40 animate-pulse">
-                  BUTUH APPROVAL
-                </span>
+                <StatusBadge status="BUTUH APPROVAL" variant="approval" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#D8B4FE]/70">Report Status:</span>
