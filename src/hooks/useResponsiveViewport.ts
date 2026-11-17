@@ -30,8 +30,8 @@ export function useResponsiveViewport(): ResponsiveViewportState {
   const isMobileViewport = width <= 767;
   const isTabletViewport = width >= 768 && width <= 1023;
   const isDesktopViewport = width >= 1024;
-  const isCompactUI = isMobileView || isMobileViewport;
-  const isDrawerViewport = isCompactUI || isTabletViewport;
+  const isCompactUI = isMobileView;
+  const isDrawerViewport = isCompactUI || isTabletViewport || isMobileViewport;
 
   return {
     width,

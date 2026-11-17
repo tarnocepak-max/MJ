@@ -105,9 +105,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const [quickResults, setQuickResults] = useState<Ticket[]>([]);
   const [isQuickSearching, setIsQuickSearching] = useState(false);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
-  const [mobileSearchOverlayOpen, setMobileSearchOverlayOpen] = useState(false);
   const quickSearchRef = useRef<HTMLDivElement>(null);
-  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   const canCrossDateSearch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
@@ -177,7 +175,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setQuickSearchOpen(false);
-        setMobileSearchOverlayOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -187,13 +184,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
       document.removeEventListener('keydown', handleEscape);
     };
   }, []);
-
-  useEffect(() => {
-    if (mobileSearchOverlayOpen) {
-      const t = setTimeout(() => mobileSearchInputRef.current?.focus(), 60);
-      return () => clearTimeout(t);
-    }
-  }, [mobileSearchOverlayOpen]);
 
   // Real notification items computed from live unread messages, pending dispatch approvals, and offline queue
   const notificationSummary = useMemo(() => {
@@ -690,64 +680,67 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </div>
         )}
 
-        {/* Zone 2 & 3: Quick Search Trigger (Mobile/Tablet) + Display Mode Switch + Connectivity + Cloud Live + Quick Actions + Notifications + User Profile */}
+        {/* Zone 2 & 3: Display Mode Switch + Connectivity + Cloud Live + Quick Actions + Notifications + User Profile */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Mobile & Tablet Topbar Search Icon -> Opens Overlay Search */}
-          <button
-            type="button"
-            onClick={() => {
-              setMobileSearchOverlayOpen(prev => !prev);
-              setNotifOpen(false);
-              setUserMenuOpen(false);
-            }}
-            aria-label="Buka Pencarian Cepat"
-            aria-expanded={mobileSearchOverlayOpen}
-            title="Cari Work Order"
-            data-testid="mobile-topbar-search-trigger"
-            className={`${isMobileView ? 'inline-flex' : 'inline-flex lg:hidden'} btn-3d-icon min-w-[38px] min-h-[38px] sm:w-9 sm:h-9 cursor-pointer`}
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
           {/* Display Mode Switch: Available for ALL non-Teknisi roles (hidden strictly for installer) */}
           {canSwitchDisplayMode && (
-            <div
-              role="group"
-              aria-label="Display Mode Switch"
-              data-testid="display-mode-switch"
-              className="hidden sm:inline-flex items-center p-0.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0 gap-0.5"
-            >
+            <>
+              {/* Compact single-button switch on small screens (< sm), replacing the topbar search button */}
               <button
                 type="button"
-                onClick={() => setDisplayMode('desktop')}
-                aria-pressed={displayMode === 'desktop'}
-                data-testid="display-mode-desktop"
-                title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                  displayMode === 'desktop'
-                    ? 'btn-3d-primary'
-                    : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
-                }`}
-              >
-                <Monitor className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Desktop</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDisplayMode('mobile')}
+                onClick={() => setDisplayMode(displayMode === 'mobile' ? 'desktop' : 'mobile')}
+                aria-label={displayMode === 'mobile' ? 'Switch ke Desktop Mode' : 'Switch ke Mobile Mode'}
                 aria-pressed={displayMode === 'mobile'}
-                data-testid="display-mode-mobile"
-                title="Mobile Mode — Layout compact, drawer navigation, dan card view"
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                  displayMode === 'mobile'
-                    ? 'btn-3d-primary'
-                    : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
-                }`}
+                title={displayMode === 'mobile' ? 'Mode saat ini: Mobile — Ketuk untuk pindah ke Desktop Mode' : 'Mode saat ini: Desktop — Ketuk untuk pindah ke Mobile Mode'}
+                data-testid="display-mode-toggle"
+                className="inline-flex sm:hidden btn-3d-icon min-w-[38px] min-h-[38px] cursor-pointer text-[#58149C] dark:text-[#DAB9FF]"
               >
-                <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Mobile</span>
+                {displayMode === 'mobile' ? (
+                  <Monitor className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Smartphone className="w-4 h-4 shrink-0" />
+                )}
               </button>
-            </div>
+
+              {/* Segmented Desktop | Mobile switch on sm+ screens */}
+              <div
+                role="group"
+                aria-label="Display Mode Switch"
+                data-testid="display-mode-switch"
+                className="hidden sm:inline-flex items-center p-0.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0 gap-0.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('desktop')}
+                  aria-pressed={displayMode === 'desktop'}
+                  data-testid="display-mode-desktop"
+                  title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    displayMode === 'desktop'
+                      ? 'btn-3d-primary'
+                      : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                  }`}
+                >
+                  <Monitor className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Desktop</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('mobile')}
+                  aria-pressed={displayMode === 'mobile'}
+                  data-testid="display-mode-mobile"
+                  title="Mobile Mode — Layout compact, drawer navigation, dan card view"
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    displayMode === 'mobile'
+                      ? 'btn-3d-primary'
+                      : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Mobile</span>
+                </button>
+              </div>
+            </>
           )}
 
           {/* Offline Queue & Online Status Chip */}
@@ -1062,114 +1055,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </div>
         </div>
       </header>
-
-      {/* Mobile & Tablet Topbar Quick Search Overlay */}
-      {mobileSearchOverlayOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-45 bg-[#160D29]/55 backdrop-blur-xs"
-            onClick={() => setMobileSearchOverlayOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-label="Overlay Pencarian Cepat Work Order"
-            data-testid="mobile-topbar-search-overlay"
-            className="fixed top-16 inset-x-0 z-50 px-3 pt-2.5 pb-4 bg-white dark:bg-[#1A0E2E] border-b border-[#D8CCF3] dark:border-[#35105E] shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150"
-          >
-            <div className="max-w-2xl mx-auto space-y-2.5">
-              <div className="relative flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    ref={mobileSearchInputRef}
-                    type="text"
-                    value={quickSearch}
-                    onChange={e => setQuickSearch(e.target.value)}
-                    placeholder={
-                      canCrossDateSearch
-                        ? 'Cari No. WO, ID Cust, Nama, HP, Teknisi (Lintas Tanggal)...'
-                        : 'Cari Work Order hari ini...'
-                    }
-                    className="w-full pl-9 pr-9 py-2.5 min-h-[44px] bg-[#F8F1FF] dark:bg-[#160D29] border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/50"
-                  />
-                  {quickSearch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuickSearch('');
-                        setQuickResults([]);
-                        mobileSearchInputRef.current?.focus();
-                      }}
-                      aria-label="Bersihkan teks pencarian"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMobileSearchOverlayOpen(false)}
-                  className="btn-3d-secondary px-3 min-h-[44px] rounded-xl text-xs font-bold cursor-pointer shrink-0"
-                >
-                  Tutup
-                </button>
-              </div>
-
-              {quickSearch.trim().length > 0 && (
-                <div className="bg-[#FDF7FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-xl overflow-hidden text-xs">
-                  <div className="px-3.5 py-2 bg-[#F3EAFF] dark:bg-[#22123F] border-b border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] uppercase">
-                    <span>{canCrossDateSearch ? 'Hasil Pencarian Lintas Tanggal' : 'Hasil Work Order'}</span>
-                    {isQuickSearching ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <span className="font-mono tabular-nums">{quickResults.length} WO</span>
-                    )}
-                  </div>
-                  <div className="max-h-64 overflow-y-auto divide-y divide-[#E8DDFF] dark:divide-[#35105E]">
-                    {!isQuickSearching && quickResults.length === 0 ? (
-                      <div className="p-4 text-center text-[#7D7484]">
-                        Tidak ditemukan Work Order untuk &ldquo;{quickSearch}&rdquo;
-                      </div>
-                    ) : (
-                      quickResults.map(t => (
-                        <button
-                          key={`mob-search-${t.id}`}
-                          type="button"
-                          onClick={() => {
-                            setMobileSearchOverlayOpen(false);
-                            setQuickSearch('');
-                            if (onSelectTicket) onSelectTicket(t, 'overview');
-                            else onNavigate('tickets');
-                          }}
-                          className="w-full text-left px-3.5 py-3 hover:bg-[#F3EAFF]/60 dark:hover:bg-[#35105E]/60 flex items-center justify-between gap-2 cursor-pointer"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
-                                {t.woNumber}
-                              </span>
-                              <span className="font-mono text-[10px] text-[#7D7484]">
-                                {getTicketAppointmentDate(t) || '-'}
-                              </span>
-                            </div>
-                            <div className="font-semibold text-[#1F1638] dark:text-white truncate mt-0.5">
-                              {t.customerName} · {t.idCustomer || '-'}
-                            </div>
-                          </div>
-                          <span className="px-2 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] text-[10px] font-bold shrink-0">
-                            {t.statusWOInstaller || t.statusWOAgent || 'OPEN'}
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 };

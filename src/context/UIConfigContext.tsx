@@ -1750,9 +1750,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isLoggedIn, currentUser?.id, currentUser?.username, currentUser?.role, windowWidth]);
 
   // Derived Display Mode: Hard-locked to 'mobile' for TEKNISI (installer) regardless of any client storage
-  // Automatically adapt to mobile UI whenever viewport <= 767px
+  // Defaults to 'mobile' on <768px viewports unless the user explicitly switches to 'desktop'
   const displayMode: DisplayMode = isInstallerRole ? 'mobile' : displayModeState;
-  const isMobileView = displayMode === 'mobile' || windowWidth <= 767;
+  const isMobileView = displayMode === 'mobile';
 
   // Sync HTML root dataset attribute for styling & verification hooks
   useEffect(() => {
