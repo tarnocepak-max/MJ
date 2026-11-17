@@ -935,3 +935,50 @@ html.dark .tactile-debossed-input {
   }
 }
 
+/* ============================================================================
+ * STITCH MOBILE / TASK FOCUS SURFACE & SAFE-AREA UTILITIES
+ * ============================================================================ */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mj-stitch-surface {
+  background-color: #f9f9ff;
+  color: #111c2d;
+}
+html.dark .mj-stitch-surface {
+  background-color: #140827;
+  color: #f5eeff;
+}
+
+.mj-stitch-card {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(17, 28, 45, 0.045), 0 0 0 1px rgba(216, 227, 251, 0.65);
+}
+html.dark .mj-stitch-card {
+  background-color: #1e1238;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(91, 53, 177, 0.35);
+}
+
+.mj-stitch-tonal-well {
+  background-color: #f0f3ff;
+  border-radius: 0.75rem;
+}
+html.dark .mj-stitch-tonal-well {
+  background-color: #160d29;
+}
+
+

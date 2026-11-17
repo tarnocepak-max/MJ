@@ -41,21 +41,21 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
     <nav
       aria-label="Mobile Bottom Navigation"
       data-testid="android-bottom-nav"
-      className="fixed bottom-0 inset-x-0 z-35 bg-[#ffffff] dark:bg-[#160D29] border-t border-[#e8ddff] dark:border-[#35105E] shadow-[0_-2px_8px_rgba(31,22,56,0.06)] transition-all duration-200 pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed bottom-0 inset-x-0 z-35 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-t border-[#d8e3fb] dark:border-[#35105E] shadow-[0_-2px_12px_rgba(17,28,45,0.06)] transition-all duration-200 pb-[env(safe-area-inset-bottom,0px)]"
     >
       <div className={`max-w-4xl mx-auto flex items-center justify-around px-2 gap-1 ${touchSizeClass}`}>
         {/* Tab 1: Dashboard */}
         <button
           type="button"
           onClick={() => onNavigate(currentUser.role === 'management_data' ? 'management_data_portal' : 'dashboard')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:translate-y-0.5 ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:scale-95 ${
             activeTab === 'dashboard' || activeTab === 'management_data_portal'
-              ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-extrabold shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
-              : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] hover:bg-[#f8f1ff] dark:hover:bg-[#22123F]'
+              ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-extrabold'
+              : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] hover:bg-[#f0f3ff] dark:hover:bg-[#22123F]'
           }`}
         >
           {(activeTab === 'dashboard' || activeTab === 'management_data_portal') && (
-            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-full" />
+            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-full" />
           )}
           <LayoutDashboard className="w-5 h-5 shrink-0" />
           <span className="truncate text-[10px]">Dashboard</span>
@@ -65,14 +65,14 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('tickets')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[52px] min-h-[44px] relative rounded-xl cursor-pointer active:translate-y-0.5 ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all min-w-[52px] min-h-[44px] relative rounded-xl cursor-pointer active:scale-95 ${
             activeTab === 'tickets'
-              ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-extrabold shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
-              : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] hover:bg-[#f8f1ff] dark:hover:bg-[#22123F]'
+              ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-extrabold'
+              : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] hover:bg-[#f0f3ff] dark:hover:bg-[#22123F]'
           }`}
         >
           {activeTab === 'tickets' && (
-            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-full" />
+            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-full" />
           )}
           <div className="relative">
             <TicketIcon className="w-5 h-5 shrink-0" />
@@ -90,14 +90,14 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('import')}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:translate-y-0.5 ${
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:scale-95 ${
               activeTab === 'import'
-                ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-extrabold shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
-                : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] hover:bg-[#f8f1ff] dark:hover:bg-[#22123F]'
+                ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-extrabold'
+                : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] hover:bg-[#f0f3ff] dark:hover:bg-[#22123F]'
             }`}
           >
             {activeTab === 'import' && (
-              <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-full" />
+              <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-full" />
             )}
             <FileSpreadsheet className="w-5 h-5 shrink-0" />
             <span className="truncate text-[10px]">Import WO</span>
@@ -106,14 +106,14 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('report_data_wo')}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:translate-y-0.5 ${
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:scale-95 ${
               activeTab === 'report_data_wo'
-                ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-extrabold shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
-                : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] hover:bg-[#f8f1ff] dark:hover:bg-[#22123F]'
+                ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-extrabold'
+                : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] hover:bg-[#f0f3ff] dark:hover:bg-[#22123F]'
             }`}
           >
             {activeTab === 'report_data_wo' && (
-              <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-full" />
+              <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-full" />
             )}
             <FileSpreadsheet className="w-5 h-5 shrink-0" />
             <span className="truncate text-[10px]">Report WO</span>
@@ -124,14 +124,14 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('contact_centre')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:translate-y-0.5 ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:scale-95 ${
             activeTab === 'contact_centre'
-              ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-extrabold shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
-              : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] hover:bg-[#f8f1ff] dark:hover:bg-[#22123F]'
+              ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-extrabold'
+              : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] hover:bg-[#f0f3ff] dark:hover:bg-[#22123F]'
           }`}
         >
           {activeTab === 'contact_centre' && (
-            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-full" />
+            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-full" />
           )}
           <span className="relative">
             <MessageCircle className="w-5 h-5 shrink-0" />
@@ -150,14 +150,14 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
           onClick={onToggleMenu}
           aria-expanded={isMenuOpen}
           data-testid="mobile-bottom-menu-toggle"
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:translate-y-0.5 ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all min-w-[52px] min-h-[44px] rounded-xl cursor-pointer relative active:scale-95 ${
             isMenuOpen
-              ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-extrabold shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
-              : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] hover:bg-[#f8f1ff] dark:hover:bg-[#22123F]'
+              ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-extrabold'
+              : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] hover:bg-[#f0f3ff] dark:hover:bg-[#22123F]'
           }`}
         >
           {isMenuOpen && (
-            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-full" />
+            <div className="absolute top-0.5 inset-x-3 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-full" />
           )}
           <Menu className="w-5 h-5 shrink-0" />
           <span className="truncate text-[10px]">Menu</span>

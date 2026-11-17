@@ -269,8 +269,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         : 'Sync Error';
 
     return (
-      <header className="sticky top-0 z-40 bg-[#fdf7ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#e8ddff] dark:border-[#35105E] shadow-[0_2px_8px_rgba(33,24,58,0.06)] transition-colors">
-        <div className="max-w-lg lg:max-w-5xl mx-auto px-3.5 sm:px-6 pt-2.5 pb-2 space-y-2">
+      <header className="sticky top-0 z-40 bg-[#f9f9ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#d8e3fb] dark:border-[#35105E] shadow-[0_1px_8px_rgba(17,28,45,0.05)] transition-colors pt-safe">
+        <div className="max-w-lg lg:max-w-5xl mx-auto px-3.5 sm:px-6 pt-2 pb-2 space-y-1.5">
           {/* Row 1: Brand + FTTH + Technician Identity | Date + Profile Button */}
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -284,15 +284,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               </button>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-display font-extrabold text-[15px] text-[#211A2E] dark:text-white tracking-tight leading-none">
-                    {config.global.appName || 'MoraJaws'}
+                  <span className="font-display font-extrabold text-[15px] text-[#111c2d] dark:text-white tracking-tight leading-none">
+                    {config.global.appName || 'MoraJaws'} Ops
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#F0E3FF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[9.5px] font-extrabold tracking-wider uppercase leading-none">
+                  <span className="px-1.5 py-0.5 rounded bg-[#cce5ff] dark:bg-[#35105E] text-[#004b73] dark:text-[#D8B4FE] text-[9.5px] font-extrabold tracking-wider uppercase leading-none">
                     FTTH
                   </span>
                 </div>
-                <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate mt-0.5">
-                  {currentUser.name} · {activeContractor || 'Mitra Lapangan'}
+                <p className="text-[11px] font-semibold text-[#006194] dark:text-[#93ccff] truncate mt-0.5">
+                  Field Engineer · {currentUser.name}
                 </p>
               </div>
             </div>
@@ -507,35 +507,38 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             <PanelLeft className="w-4 h-4" />
           </button>
 
-          {/* Compact Stitch identity in Mobile Mode or Leader compact screen; full Breadcrumb trail in Desktop Mode */}
+          {/* Compact Stitch identity in Mobile Mode; full Breadcrumb trail in Desktop Mode */}
           {isMobileView ? (
-            currentUser.role === 'leader' ? (
-              <div className="flex items-center gap-2 min-w-0">
-                <MoraJawsLogo size="sm" animated={false} withGlow={false} />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-display font-extrabold text-[14px] text-[#1f1638] dark:text-white tracking-tight leading-none truncate">
-                      {config.global.appName || 'MoraJaws'}
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none shrink-0">
-                      LEADER
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-[#16A36A]' : 'bg-[#E59A27]'}`} />
-                    <span className="text-[10.5px] font-medium text-[#7d7484] dark:text-[#CEC0E8] truncate">
-                      {activeArea || activeContractor || activePageTitle}
-                    </span>
-                  </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <MoraJawsLogo size="sm" animated={false} withGlow={false} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display font-extrabold text-[14px] text-[#111c2d] dark:text-white tracking-tight leading-none truncate">
+                    {config.global.appName || 'MoraJaws'} Ops
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-[#cce5ff] dark:bg-[#35105E] text-[#004b73] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none shrink-0">
+                    {currentUser.role === 'super_admin'
+                      ? 'ADMIN'
+                      : currentUser.role === 'dispatch'
+                      ? 'DISPATCH'
+                      : currentUser.role === 'leader'
+                      ? 'LEADER'
+                      : currentUser.role === 'management_data'
+                      ? 'DATA'
+                      : 'OPS'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-[#16A36A]' : 'bg-[#E59A27]'}`} />
+                  <span className="text-[10.5px] font-semibold text-[#006194] dark:text-[#CEC0E8] truncate">
+                    {activePageTitle}
+                    {currentUser.role === 'leader' && (activeArea || activeContractor)
+                      ? ` · ${activeArea || activeContractor}`
+                      : ''}
+                  </span>
                 </div>
               </div>
-            ) : (
-              <div className="min-w-0">
-                <span className="text-xs sm:text-sm font-bold text-[#211A2E] dark:text-white truncate block">
-                  {activePageTitle}
-                </span>
-              </div>
-            )
+            </div>
           ) : (
             <>
               <nav

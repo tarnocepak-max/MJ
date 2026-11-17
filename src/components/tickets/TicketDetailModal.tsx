@@ -2,13 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
-import {
-  StatusAgentBadge,
-  StatusInstallerBadge,
-  StatusWhatsAppBadge,
-  StatusApprovalBadge,
-  StatusBadge
-} from '../common/Badge';
+import { StatusApprovalBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
 import { HistoryProgressReportView } from '../reports/HistoryProgressReportView';
@@ -25,8 +19,6 @@ import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal'
 import {
   X,
   MessageSquare,
-  Edit2,
-  Check,
   Archive,
   RotateCcw,
   Trash2,
@@ -91,7 +83,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     reopenTicket,
     archiveTicket,
     restoreTicket,
-    leadersList,
     installersList,
     approveProgressReport,
     rejectProgressReport,
@@ -102,11 +93,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     toast
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editFormData, setEditFormData] = useState<Partial<Ticket>>({});
-  const [selectedLeader, setSelectedLeader] = useState('');
-  const [selectedInstaller, setSelectedInstaller] = useState('');
 
   // Dispatcher verification & decision state
   const [decisionNotes, setDecisionNotes] = useState('');
@@ -142,7 +128,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   useEffect(() => {
     if (!isOpen || !ticket) return;
-    setIsEditing(false);
     setShowCloseModal(false);
     setShowReopenModal(false);
     setDecisionError(null);
@@ -269,43 +254,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     }
   };
 
-  const handleStartEdit = () => {
-    setEditFormData({
-      customerName: ticket.customerName,
-      customerPhone: ticket.customerPhone,
-      address: ticket.address || ticket.streetName || '',
-      clusterName: ticket.clusterName || '',
-      slotTime: ticket.slotTime || '',
-      remarksAgent: ticket.remarksAgent || '',
-      remarksWOInstaller: ticket.remarksWOInstaller || '',
-      remarks: ticket.remarks || ''
-    });
-    setSelectedLeader(ticket.leaderName || '');
-    setSelectedInstaller(ticket.installerName || '');
-    setIsEditing(true);
-  };
-
-  const handleSaveEdit = () => {
-    const updates: Partial<Ticket> = { ...editFormData };
-    if (currentUser.role === 'super_admin') {
-      updates.leaderName = selectedLeader;
-    } else {
-      delete (updates as Record<string, unknown>).leaderName;
-      delete (updates as Record<string, unknown>).corlapName;
-      delete (updates as Record<string, unknown>).distributionStatus;
-    }
-    if (currentUser.role === 'leader') {
-      updates.installerName = selectedInstaller;
-    }
-    const res = updateTicket(ticket.id, updates, 'Manual ticket detail edit');
-    if (res && !res.success && res.error) {
-      toast.error(res.error, 'Gagal Menyimpan');
-      return;
-    }
-    toast.success(`Perubahan data WO ${ticket.woNumber} tersimpan.`);
-    setIsEditing(false);
-  };
-
   const handleArchive = () => {
     if (ticket.isArchived) {
       restoreTicket(ticket.id);
@@ -378,7 +326,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const canManageApproval = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
   const canCloseTicket = canManageApproval && ticket.statusWOAgent !== 'Closed';
   const isTicketClosed = ticket.statusWOAgent === 'Closed';
-  const canEditTicket = !isTicketClosed && currentUser.role !== 'installer';
 
   // Lifecycle steps (preserved 7-step MoraJaws contract)
   const lifecycleSteps = [
@@ -535,83 +482,55 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             isCompactUI ? 'px-3.5 py-3' : 'px-5 py-3.5'
           }`}
         >
-          {/* Left: Title + Category + Cust ID + 4 Operational Status Dimensions */}
-          <div className="flex flex-col gap-1.5 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-[#F7F6FA] dark:bg-[#160D29] px-2.5 py-1 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] shadow-inner">
-                <span
-                  id="modal-ticket-title"
-                  className="font-mono font-extrabold text-[15px] sm:text-[17px] text-[#35105E] dark:text-[#DAB9FF] tracking-tight tabular-nums"
-                >
-                  {ticket.woNumber}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyWO}
-                  className="btn-3d-icon w-6 h-6 rounded-md cursor-pointer"
-                  title="Salin Work Order Number"
-                >
-                  <Copy className="w-3 h-3" />
-                </button>
-              </div>
-
-              {hasValue(ticket.ticketCategory) && (
-                <span className="px-2.5 py-1 rounded-full bg-[#35105E] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                  <Zap className="w-3 h-3 text-[#DAB9FF]" />
-                  <span>{ticket.ticketCategory}</span>
-                </span>
-              )}
-
-              <span className="px-2.5 py-1 rounded-full bg-[#F4EAFF] dark:bg-[#261942] text-[#35105E] dark:text-[#E9D5FF] font-mono text-[11px] font-bold flex items-center gap-1 tabular-nums">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#16A36A]" />
-                <span>CUST-ID: {ticket.idCustomer}</span>
+          {/* Left: Title + Category + Cust ID */}
+          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 bg-[#F7F6FA] dark:bg-[#160D29] px-2.5 py-1 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] shadow-inner">
+              <span
+                id="modal-ticket-title"
+                className="font-mono font-extrabold text-[15px] sm:text-[17px] text-[#35105E] dark:text-[#DAB9FF] tracking-tight tabular-nums"
+              >
+                {ticket.woNumber}
               </span>
-
-              <div className="flex items-center text-[15px] font-bold text-[#211A2E] dark:text-white truncate max-w-[260px] sm:max-w-xs">
-                <span className="text-[#8B8495] font-normal mr-1.5">/</span>
-                <span className="truncate">{ticket.customerName}</span>
-              </div>
-
-              {ticket.isArchived && (
-                <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold uppercase">
-                  Archived
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={handleCopyWO}
+                className="btn-3d-icon w-6 h-6 rounded-md cursor-pointer"
+                title="Salin Work Order Number"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
             </div>
 
-            {/* 4 Strictly Independent Status Dimensions */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
-                <span>1. Agent:</span>
-                <StatusAgentBadge status={ticket.statusWOAgent} />
-              </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
-                <span>2. Installer:</span>
-                <StatusInstallerBadge status={ticket.statusWOInstaller} />
-              </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
-                <span>3. WA:</span>
-                <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
-              </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
-                <span>4. Approval:</span>
-                {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' ? (
-                  <StatusApprovalBadge status={ticket.approvalStatus} />
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-[#F1F5F9] dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#475569] dark:text-slate-300 text-[10px] font-bold uppercase">
-                    NONE
-                  </span>
-                )}
-              </div>
+            {hasValue(ticket.ticketCategory) && (
+              <span className="px-2.5 py-1 rounded-full bg-[#35105E] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                <Zap className="w-3 h-3 text-[#DAB9FF]" />
+                <span>{ticket.ticketCategory}</span>
+              </span>
+            )}
+
+            <span className="px-2.5 py-1 rounded-full bg-[#F4EAFF] dark:bg-[#261942] text-[#35105E] dark:text-[#E9D5FF] font-mono text-[11px] font-bold flex items-center gap-1 tabular-nums">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#16A36A]" />
+              <span>CUST-ID: {ticket.idCustomer}</span>
+            </span>
+
+            <div className="flex items-center text-[15px] font-bold text-[#211A2E] dark:text-white truncate max-w-[260px] sm:max-w-xs">
+              <span className="text-[#8B8495] font-normal mr-1.5">/</span>
+              <span className="truncate">{ticket.customerName}</span>
             </div>
+
+            {ticket.isArchived && (
+              <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold uppercase">
+                Archived
+              </span>
+            )}
           </div>
 
           {/* Right: 3D Tactile Header Action Utilities */}
-          <div className="flex flex-wrap items-center gap-2 self-end lg:self-center shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-2 w-full lg:w-auto shrink-0">
             <button
               type="button"
               onClick={scrollToChat}
-              className="btn-3d-ceramic px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer lg:hidden"
+              className="btn-3d-ceramic h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer lg:hidden"
               title="Buka & gulir ke LiveChat"
             >
               <MessageSquare className="w-3.5 h-3.5 text-[#7135B5]" />
@@ -626,7 +545,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             <button
               type="button"
               onClick={() => onOpenWhatsApp(ticket)}
-              className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+              className="btn-3d-success h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               title="Kirim / Update Status WhatsApp Pelanggan"
             >
               <Phone className="w-3.5 h-3.5" />
@@ -637,7 +556,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowCloseModal(v => !v)}
-                className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                className="btn-3d-primary h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Close WO</span>
@@ -648,47 +567,17 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowReopenModal(v => !v)}
-                className="btn-3d-warning px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                className="btn-3d-warning h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reopen</span>
               </button>
             )}
 
-            {canEditTicket &&
-              (isEditing ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleSaveEdit}
-                    className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Simpan</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="btn-3d-ceramic px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleStartEdit}
-                  className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
-                  <span>Edit</span>
-                </button>
-              ))}
-
             <button
               type="button"
               onClick={handleArchive}
-              className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+              className="btn-3d-ceramic h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               title={ticket.isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan Tiket'}
             >
               <Archive className="w-3.5 h-3.5 text-[#766B83] dark:text-[#CEC0E8]" />
@@ -699,7 +588,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="btn-3d-danger px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                className="btn-3d-danger h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                 title="Hapus Work Order (Khusus Management Data)"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -707,10 +596,12 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </button>
             )}
 
+            <div className="hidden sm:block h-5 w-px bg-[#E9E5F0] dark:bg-[#35105E] mx-0.5" aria-hidden="true" />
+
             <button
               type="button"
               onClick={onClose}
-              className="btn-3d-icon w-9 h-9 rounded-xl cursor-pointer hover:text-[#BA1A1A]"
+              className="btn-3d-icon w-8 h-8 rounded-lg cursor-pointer hover:text-[#BA1A1A] ml-auto sm:ml-0"
               aria-label="Tutup Dialog"
               title="Tutup Modal (Esc)"
             >
@@ -1183,16 +1074,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Nama Pelanggan</div>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editFormData.customerName ?? ''}
-                        onChange={e => setEditFormData(prev => ({ ...prev, customerName: e.target.value }))}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-sm font-bold"
-                      />
-                    ) : (
-                      <div className="font-bold text-[16px] text-[#211A2E] dark:text-white">{ticket.customerName}</div>
-                    )}
+                    <div className="font-bold text-[16px] text-[#211A2E] dark:text-white">{ticket.customerName}</div>
                     <div className="font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
                       Cust ID: {ticket.idCustomer}{ticket.ticketNumber ? ` · Tiket: ${ticket.ticketNumber}` : ''}
                     </div>
@@ -1200,18 +1082,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
                   <div className="space-y-1.5">
                     <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Kontak Pelanggan</div>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editFormData.customerPhone ?? ''}
-                        onChange={e => setEditFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-sm font-mono font-bold"
-                      />
-                    ) : (
-                      <div className="font-mono font-bold text-[15px] text-[#211A2E] dark:text-white tabular-nums">
-                        {ticket.customerPhone || '-'}
-                      </div>
-                    )}
+                    <div className="font-mono font-bold text-[15px] text-[#211A2E] dark:text-white tabular-nums">
+                      {ticket.customerPhone || '-'}
+                    </div>
 
                     <div className="flex items-center gap-2 pt-0.5">
                       <button
@@ -1240,20 +1113,11 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Alamat Instalasi</div>
-                      {isEditing ? (
-                        <textarea
-                          rows={2}
-                          value={editFormData.address ?? ''}
-                          onChange={e => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
-                          className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] text-xs"
-                        />
-                      ) : (
-                        <div className="text-[13px] text-[#211A2E] dark:text-white font-medium mt-0.5 leading-relaxed">
-                          {ticket.clusterName && <span className="font-bold text-[#35105E] dark:text-[#DAB9FF]">[{ticket.clusterName}] </span>}
-                          {ticket.address || ticket.streetName || '-'}
-                          {ticket.city && <span className="block text-[11px] text-[#766B83] dark:text-[#CEC0E8]">{ticket.city} {ticket.postalCode || ''}</span>}
-                        </div>
-                      )}
+                      <div className="text-[13px] text-[#211A2E] dark:text-white font-medium mt-0.5 leading-relaxed">
+                        {ticket.clusterName && <span className="font-bold text-[#35105E] dark:text-[#DAB9FF]">[{ticket.clusterName}] </span>}
+                        {ticket.address || ticket.streetName || '-'}
+                        {ticket.city && <span className="block text-[11px] text-[#766B83] dark:text-[#CEC0E8]">{ticket.city} {ticket.postalCode || ''}</span>}
+                      </div>
                     </div>
 
                     {mapsQuery && (
@@ -1315,19 +1179,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
                   <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
                     <span className="text-[10px] font-bold uppercase text-[#8B8495]">Slot Waktu</span>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editFormData.slotTime ?? ''}
-                        onChange={e => setEditFormData(prev => ({ ...prev, slotTime: e.target.value }))}
-                        className="w-full mt-1 px-2 py-1 rounded border border-[#D8CCF3] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] text-xs font-bold"
-                      />
-                    ) : (
-                      <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 flex items-center gap-1 tabular-nums">
-                        <Clock className="w-3.5 h-3.5 text-[#D97706]" />
-                        <span>{ticket.slotTime || 'Belum Ditentukan'}</span>
-                      </div>
-                    )}
+                    <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 flex items-center gap-1 tabular-nums">
+                      <Clock className="w-3.5 h-3.5 text-[#D97706]" />
+                      <span>{ticket.slotTime || 'Belum Ditentukan'}</span>
+                    </div>
                     <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
                       Upload: {ticket.dateUpload || ticket.createdAt?.slice(0, 10) || '-'}
                     </span>
@@ -1353,22 +1208,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-[10px] font-bold uppercase text-[#8B8495]">Koordinator Lapangan (Korlap)</div>
-                      {isEditing && currentUser.role === 'super_admin' ? (
-                        <select
-                          value={selectedLeader}
-                          onChange={e => setSelectedLeader(e.target.value)}
-                          className="w-full mt-0.5 px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#D8CCF3] rounded font-semibold"
-                        >
-                          <option value="">-- Belum Ditugaskan --</option>
-                          {leadersList.map(lead => (
-                            <option key={lead} value={lead}>{lead}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
-                          {ticket.leaderName || '-'} {ticket.leaderContact ? `(${ticket.leaderContact})` : ''}
-                        </div>
-                      )}
+                      <div className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
+                        {ticket.leaderName || '-'} {ticket.leaderContact ? `(${ticket.leaderContact})` : ''}
+                      </div>
                     </div>
                   </div>
 
@@ -1380,41 +1222,28 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-[10px] font-bold uppercase text-[#8B8495]">Teknisi Eksekutor</div>
-                      {isEditing && currentUser.role === 'leader' ? (
-                        <select
-                          value={selectedInstaller}
-                          onChange={e => setSelectedInstaller(e.target.value)}
-                          className="w-full mt-0.5 px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#D8CCF3] rounded font-semibold"
-                        >
-                          <option value="">-- Belum Ditugaskan --</option>
-                          {installersList.map(inst => (
-                            <option key={inst} value={inst}>{inst}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
-                            {ticket.installerName || <em className="text-[#D97706] font-normal">Belum Ditugaskan</em>}
-                          </span>
-                          {!isEditing && currentUser.role === 'leader' && (
-                            <select
-                              value={ticket.installerName || ''}
-                              onChange={e => {
-                                if (e.target.value !== ticket.installerName) {
-                                  assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
-                                }
-                              }}
-                              className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#A78BFA] rounded font-semibold text-[#5B35B1] dark:text-[#DAB9FF] cursor-pointer"
-                              title="Tugaskan Teknisi (Wewenang Khusus Leader)"
-                            >
-                              <option value="">-- Assign Teknisi --</option>
-                              {installersList.map(inst => (
-                                <option key={inst} value={inst}>{inst}</option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
+                          {ticket.installerName || <em className="text-[#D97706] font-normal">Belum Ditugaskan</em>}
+                        </span>
+                        {currentUser.role === 'leader' && (
+                          <select
+                            value={ticket.installerName || ''}
+                            onChange={e => {
+                              if (e.target.value !== ticket.installerName) {
+                                assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
+                              }
+                            }}
+                            className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#A78BFA] rounded font-semibold text-[#5B35B1] dark:text-[#DAB9FF] cursor-pointer"
+                            title="Tugaskan Teknisi (Wewenang Khusus Leader)"
+                          >
+                            <option value="">-- Assign Teknisi --</option>
+                            {installersList.map(inst => (
+                              <option key={inst} value={inst}>{inst}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

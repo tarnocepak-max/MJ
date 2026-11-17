@@ -12,6 +12,8 @@ import {
 } from '../common/Badge';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 import { TicketMobileCard } from './TicketMobileCard';
+import { WorkOrderFilterSheet } from './WorkOrderFilterSheet';
+import { WorkOrderQuickUpdateSheet } from './WorkOrderQuickUpdateSheet';
 import {
   Search,
   SlidersHorizontal,
@@ -60,7 +62,8 @@ import {
   Server,
   BadgeCheck,
   XCircle,
-  Filter
+  Filter,
+  Plus
 } from 'lucide-react';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
@@ -222,7 +225,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
   // Table presentation mode: 'stitch' (rich 9-col grouped view) vs 'canonical' (46-col configurable view)
   const [tableStyleMode, setTableStyleMode] = useState<'stitch' | 'canonical'>('stitch');
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [quickUpdateTicket, setQuickUpdateTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
     setLayoutMode('auto');
@@ -1592,9 +1596,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             {isCompactUI && (
               <button
                 type="button"
-                onClick={() => setShowMobileFilters(prev => !prev)}
-                className={`min-h-[42px] px-3 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors ${
-                  showMobileFilters ||
+                onClick={() => setShowFilterSheet(true)}
+                aria-label="Buka Filter Lanjutan"
+                className={`min-h-[44px] px-3.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors ${
                   selectedArea !== 'ALL' ||
                   selectedContractor !== 'ALL' ||
                   selectedAgentStatus !== 'ALL' ||
@@ -1602,11 +1606,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   selectedWhatsAppStatus !== 'ALL' ||
                   selectedApprovalStatus !== 'ALL' ||
                   selectedCategory !== 'ALL'
-                    ? 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border-[#7135B5]'
-                    : 'bg-[#F7F6FA] dark:bg-[#160D29] text-[#4B4452] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E]'
+                    ? 'bg-[#006194] text-white border-[#006194] shadow-xs'
+                    : 'bg-[#f0f3ff] dark:bg-[#160D29] text-[#111c2d] dark:text-[#CEC0E8] border-[#d8e3fb] dark:border-[#35105E]'
                 }`}
               >
-                <Filter className="w-3.5 h-3.5" />
+                <Filter className="w-4 h-4" />
                 <span>Filter</span>
               </button>
             )}
@@ -1682,8 +1686,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           </div>
         )}
 
-        {/* 6-Column Filter Matrix (Always shown on desktop; collapsible on mobile/compact UI) */}
-        {(!isCompactUI || showMobileFilters) && (
+        {/* 6-Column Filter Matrix (Desktop; mobile uses WorkOrderFilterSheet) */}
+        {!isCompactUI && (
           <div
             className={`grid gap-2 text-xs ${
               isCompactUI
@@ -2239,9 +2243,149 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       {/* 3. DYNAMIC WORK ORDER TABLE OR MOBILE CARDS */}
       {effectiveLayout === 'cards' ? (
         <div className="space-y-3">
+          {/* Stitch Screen 1 Mobile/Cards Operational Header + Segmented Chips + Sort */}
+          <div className="mj-stitch-card rounded-2xl p-3.5 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="font-display font-bold text-[17px] text-[#111c2d] dark:text-white tracking-tight">
+                  Daftar Work Order
+                </h2>
+                <p className="text-[11px] text-[#3f4850] dark:text-[#CEC0E8]">
+                  Monitoring real-time &amp; penugasan lapangan
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ffdad6]/85 dark:bg-rose-950/60 text-[#93000a] dark:text-rose-200 text-[11px] font-bold shrink-0 tabular-nums">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a] animate-pulse" />
+                <span>
+                  {filteredTickets.length} WO • {approvalCounts.butuhApproval + approvalCounts.rejected} Perlu Aksi
+                </span>
+              </div>
+            </div>
+
+            {/* Horizontal Segmented Quick Filter Chips */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+              {[
+                {
+                  id: 'ALL',
+                  label: 'Semua',
+                  count: approvalCounts.totalToday,
+                  active: selectedApprovalStatus === 'ALL' && selectedInstallerStatus === 'ALL',
+                  onClick: () => {
+                    setSelectedApprovalStatus('ALL');
+                    setSelectedInstallerStatus('ALL');
+                    setCurrentPage(1);
+                  }
+                },
+                {
+                  id: 'BUTUH_APPROVAL',
+                  label: 'Butuh Approval',
+                  count: approvalCounts.butuhApproval,
+                  tone: 'warn',
+                  active: selectedApprovalStatus === 'BUTUH APPROVAL',
+                  onClick: () => {
+                    setSelectedApprovalStatus(prev => (prev === 'BUTUH APPROVAL' ? 'ALL' : 'BUTUH APPROVAL'));
+                    setCurrentPage(1);
+                  }
+                },
+                {
+                  id: 'ON_FIELD',
+                  label: 'Dalam Pengerjaan',
+                  count: approvalCounts.diLapangan,
+                  active: selectedInstallerStatus === 'In Progress',
+                  onClick: () => {
+                    setSelectedInstallerStatus(prev => (prev === 'In Progress' ? 'ALL' : 'In Progress'));
+                    setCurrentPage(1);
+                  }
+                },
+                {
+                  id: 'REJECTED',
+                  label: 'Perlu Revisi',
+                  count: approvalCounts.rejected,
+                  tone: 'danger',
+                  active: selectedApprovalStatus === 'REJECTED',
+                  onClick: () => {
+                    setSelectedApprovalStatus(prev => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'));
+                    setCurrentPage(1);
+                  }
+                },
+                {
+                  id: 'APPROVED',
+                  label: 'Disetujui',
+                  count: approvalCounts.approved,
+                  active: selectedApprovalStatus === 'APPROVED',
+                  onClick: () => {
+                    setSelectedApprovalStatus(prev => (prev === 'APPROVED' ? 'ALL' : 'APPROVED'));
+                    setCurrentPage(1);
+                  }
+                }
+              ].map(chip => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={chip.onClick}
+                  className={`min-h-[38px] px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-all ${
+                    chip.active
+                      ? chip.tone === 'danger'
+                        ? 'bg-[#ba1a1a] text-white shadow-xs'
+                        : 'bg-[#111c2d] dark:bg-[#006194] text-white shadow-xs'
+                      : chip.tone === 'danger' && chip.count > 0
+                      ? 'bg-[#ffdad6] dark:bg-rose-950/60 text-[#93000a] dark:text-rose-200'
+                      : chip.tone === 'warn' && chip.count > 0
+                      ? 'bg-[#ffddb8] dark:bg-amber-950/60 text-[#633c00] dark:text-amber-200'
+                      : 'bg-[#f0f3ff] dark:bg-[#160D29] text-[#111c2d] dark:text-[#E9D5FF] hover:bg-[#e7eeff]'
+                  }`}
+                >
+                  <span>{chip.label}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
+                      chip.active ? 'bg-white/20 text-white' : 'bg-white/80 dark:bg-black/25 text-[#111c2d] dark:text-[#E9D5FF]'
+                    }`}
+                  >
+                    {chip.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Compact Sort Bar */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#e7eeff] dark:border-[#35105E]">
+              <span className="text-[11px] font-semibold text-[#3f4850] dark:text-[#CEC0E8] truncate">
+                Menampilkan {paginatedTickets.length} dari {sortedTickets.length} WO
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#006194] dark:text-[#93ccff]" />
+                <select
+                  aria-label="Urutkan Work Order"
+                  value={`${sortField}:${sortDirection || 'desc'}`}
+                  onChange={e => {
+                    const [field, dir] = e.target.value.split(':');
+                    setSortField(field);
+                    setSortDirection((dir as SortDirection) || 'desc');
+                    setCurrentPage(1);
+                  }}
+                  className="bg-[#f0f3ff] dark:bg-[#160D29] text-[#111c2d] dark:text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-[#d8e3fb] dark:border-[#35105E] focus:outline-none cursor-pointer"
+                >
+                  <option value="updatedAt:desc">Terbaru Diperbarui</option>
+                  <option value="slotTime:asc">Slot Waktu Terdekat</option>
+                  <option value="statusWOInstaller:asc">Status Lapangan</option>
+                  <option value="woNumber:asc">Nomor WO (A-Z)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {paginatedTickets.length === 0 ? (
-            <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] py-12 text-center text-[#8B8495] text-xs">
-              Tidak ada tiket Work Order yang cocok dengan filter pencarian.
+            <div className="mj-stitch-card rounded-2xl py-12 px-4 text-center text-[#3f4850] dark:text-[#CEC0E8] text-xs space-y-2">
+              <p className="font-semibold">Tidak ada tiket Work Order yang cocok dengan filter pencarian.</p>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-[#e7eeff] dark:bg-[#261942] text-[#006194] dark:text-[#93ccff] font-bold cursor-pointer"
+                >
+                  Reset Semua Filter
+                </button>
+              )}
             </div>
           ) : (
             <div
@@ -2257,6 +2401,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   onToggleSelect={handleToggleSelect}
                   onSelectTicket={onSelectTicket}
                   onOpenWhatsApp={onOpenWhatsApp}
+                  onQuickUpdate={t => setQuickUpdateTicket(t)}
                 />
               ))}
             </div>
@@ -3513,6 +3658,73 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             setTicketToDelete(null);
           }}
         />
+      )}
+
+      {/* Stitch Mobile Filter Bottom Sheet */}
+      <WorkOrderFilterSheet
+        isOpen={showFilterSheet}
+        onClose={() => setShowFilterSheet(false)}
+        totalMatchedCount={sortedTickets.length}
+        selectedArea={selectedArea}
+        onAreaChange={val => {
+          setSelectedArea(val);
+          setCurrentPage(1);
+        }}
+        areaOptions={areaOptions}
+        selectedContractor={selectedContractor}
+        onContractorChange={val => {
+          setSelectedContractor(val);
+          setCurrentPage(1);
+        }}
+        contractorOptions={contractorOptions}
+        selectedAgentStatus={selectedAgentStatus}
+        onAgentStatusChange={val => {
+          setSelectedAgentStatus(val);
+          setCurrentPage(1);
+        }}
+        selectedInstallerStatus={selectedInstallerStatus}
+        onInstallerStatusChange={val => {
+          setSelectedInstallerStatus(val);
+          setCurrentPage(1);
+        }}
+        selectedWhatsAppStatus={selectedWhatsAppStatus}
+        onWhatsAppStatusChange={val => {
+          setSelectedWhatsAppStatus(val);
+          setCurrentPage(1);
+        }}
+        selectedApprovalStatus={selectedApprovalStatus}
+        onApprovalStatusChange={val => {
+          setSelectedApprovalStatus(val);
+          setCurrentPage(1);
+        }}
+        approvalCounts={approvalCounts}
+        selectedCategory={selectedCategory}
+        onCategoryChange={val => {
+          setSelectedCategory(val);
+          setCurrentPage(1);
+        }}
+        ticketCategories={ticketCategories}
+        onResetAll={resetAllFilters}
+      />
+
+      {/* Stitch Screen 3: Update Status Work Order Quick Sheet */}
+      <WorkOrderQuickUpdateSheet
+        ticket={quickUpdateTicket}
+        isOpen={Boolean(quickUpdateTicket)}
+        onClose={() => setQuickUpdateTicket(null)}
+        onOpenFullReport={t => onSelectTicket(t, 'report')}
+      />
+
+      {/* Dispatch-Exclusive Mobile Floating Action Button (+ Form Sameday) */}
+      {isCompactUI && currentUser.role === 'dispatch' && (
+        <button
+          type="button"
+          onClick={() => onNavigate('form_sameday')}
+          className="fixed bottom-20 right-4 z-30 h-12 px-4 rounded-2xl bg-[#006194] hover:bg-[#004b73] text-white text-xs font-bold inline-flex items-center gap-2 shadow-[0_8px_24px_rgba(0,97,148,0.38)] active:scale-95 transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Form Sameday</span>
+        </button>
       )}
     </div>
   );

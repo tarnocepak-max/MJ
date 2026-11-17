@@ -40,7 +40,13 @@ import {
   Calendar,
   Router,
   Copy,
-  Check
+  Check,
+  BadgeCheck,
+  Phone,
+  Info,
+  Crosshair,
+  Gauge,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
@@ -84,6 +90,49 @@ const formatWibTime = (isoOrDate?: string): string => {
   }
 };
 
+const renderHighlightedText = (text: string, isMe: boolean): React.ReactNode => {
+  const tokenRegex = /(-?\d+(?:[.,]\d+)?\s*dBm|#[A-Za-z0-9_-]+|SN:\s*[A-Za-z0-9_-]+)/gi;
+  const parts = text.split(tokenRegex);
+  if (parts.length <= 1) return text;
+
+  return parts.map((part, idx) => {
+    if (!part) return null;
+    if (/^-?\d+(?:[.,]\d+)?\s*dBm$/i.test(part)) {
+      const numeric = parseFloat(part.replace(',', '.'));
+      const isCritical = !Number.isNaN(numeric) && numeric < -27;
+      return (
+        <span
+          key={idx}
+          className={`inline-block px-1.5 py-0.5 rounded font-mono text-[11.5px] font-bold mx-0.5 ${
+            isMe
+              ? 'bg-white/20 text-white'
+              : isCritical
+              ? 'bg-[#ffdad6] text-[#93000a] dark:bg-rose-950/80 dark:text-rose-200'
+              : 'bg-[#e7eeff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
+          }`}
+        >
+          {part}
+        </span>
+      );
+    }
+    if (/^#[A-Za-z0-9_-]+$/i.test(part) || /^SN:\s*[A-Za-z0-9_-]+$/i.test(part)) {
+      return (
+        <span
+          key={idx}
+          className={`inline-block px-1.5 py-0.5 rounded font-mono text-[11.5px] font-bold mx-0.5 ${
+            isMe
+              ? 'bg-white/20 text-white'
+              : 'bg-[#f0f3ff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
+          }`}
+        >
+          {part}
+        </span>
+      );
+    }
+    return <React.Fragment key={idx}>{part}</React.Fragment>;
+  });
+};
+
 export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   onSelectTicket,
   onOpenWhatsApp,
@@ -124,6 +173,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [brokenImageIds, setBrokenImageIds] = useState<Record<string, boolean>>({});
@@ -532,6 +582,53 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     }, 30);
   };
 
+  const handleShareGps = () => {
+    if (isLeader || isLocating || !activeTicket) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast.error('Perangkat atau browser ini tidak mendukung Geolocation GPS.');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setIsLocating(false);
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        insertQuickReply(`Lokasi terverifikasi GPS: ${lat}, ${lng} (https://maps.google.com/?q=${lat},${lng})`);
+        toast.success('Koordinat GPS disisipkan ke pesan.');
+      },
+      () => {
+        setIsLocating(false);
+        toast.info('Izin GPS belum diaktifkan. Silakan ketik patokan lokasi manual.');
+      },
+      { enableHighAccuracy: true, timeout: 7000 }
+    );
+  };
+
+  const handleInsertTelemetry = () => {
+    if (isLeader || !activeTicket) return;
+    const parts: string[] = [];
+    if (activeTicket.fatCode) parts.push(`FAT: ${activeTicket.fatCode}${activeTicket.fatPort ? ` (${activeTicket.fatPort})` : ''}`);
+    if (activeTicket.rosetRedamanDbm !== undefined && activeTicket.rosetRedamanDbm !== null) {
+      parts.push(`OPM Roset: ${activeTicket.rosetRedamanDbm} dBm`);
+    }
+    if (activeTicket.ontSerialNumber) parts.push(`SN: ${activeTicket.ontSerialNumber}`);
+    const text =
+      parts.length > 0
+        ? `Update telemetri ${activeTicket.woNumber} — ${parts.join(' | ')}.`
+        : `Update hasil ukur OPM ${activeTicket.fatCode || 'FAT'} untuk ${activeTicket.woNumber}: ... dBm`;
+    insertQuickReply(text);
+  };
+
+  const handleTriggerIssue = () => {
+    if (isLeader || !activeTicket) return;
+    if (isInstaller) {
+      const issueCat = activeCategories.find(c => String(c.name).toUpperCase() === 'ISSUE')?.name || 'ISSUE';
+      handleCategoryChangeForActiveTicket(issueCat);
+    }
+    insertQuickReply(`Kendala lapangan pada ${activeTicket.woNumber} (${activeTicket.fatCode || activeTicket.area || 'lokasi'}): `);
+  };
+
   const quickReplyChips = useMemo(() => {
     if (isInstaller) {
       return [
@@ -656,19 +753,19 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     switch (role) {
       case 'dispatch':
         return (
-          <span className="px-1.5 py-0.5 rounded bg-[#F0E3FF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+          <span className="px-1.5 py-0.5 rounded bg-[#dbe1ff] dark:bg-sky-950/80 text-[#004b73] dark:text-sky-200 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
             DISPATCH
           </span>
         );
       case 'installer':
         return (
-          <span className="px-1.5 py-0.5 rounded bg-[#E9DDFF] dark:bg-[#22123F] text-[#22005C] dark:text-[#E9DDFF] font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
-            TEKNISI FIELD
+          <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+            TEKNISI
           </span>
         );
       case 'leader':
         return (
-          <span className="px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950/70 dark:text-amber-300 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+          <span className="px-1.5 py-0.5 rounded bg-[#ffddb8] text-[#653e00] dark:bg-amber-950/70 dark:text-amber-300 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
             KORLAP
           </span>
         );
@@ -720,61 +817,61 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
           setSelectedTicketId(t.id);
           setMobilePane('chat');
         }}
-        className={`relative w-full text-left p-3 rounded-xl transition-all duration-100 cursor-pointer active:translate-y-0.5 ${
+        className={`relative w-full text-left p-3 rounded-2xl transition-all duration-150 cursor-pointer border ${
           isSelected
-            ? 'bg-[#F0E3FF] dark:bg-[#2B1554] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_0_#dab9ff,0_6px_14px_-3px_rgba(88,20,156,0.15)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_3px_0_#35105E]'
-            : 'bg-white dark:bg-[#1E1236] hover:bg-[#F9F0FF] dark:hover:bg-[#251644] shadow-[0_2px_0_#e8ddff,0_4px_8px_-2px_rgba(31,22,56,0.05)] dark:shadow-[0_2px_0_#241345]'
+            ? 'bg-[#f0f3ff] dark:bg-[#2B1554] border-[#006194]/40 dark:border-[#A78BFA]/50 shadow-sm'
+            : 'bg-white dark:bg-[#1E1236] border-[#d8e3fb]/80 dark:border-[#35105E] hover:bg-[#f0f3ff]/60 dark:hover:bg-[#251644]'
         }`}
       >
         {isSelected && (
           <span
             aria-hidden="true"
-            className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full bg-[#7135B5] dark:bg-[#A78BFA]"
+            className="absolute left-1.5 top-3 bottom-3 w-1 rounded-full bg-[#006194] dark:bg-[#A78BFA]"
           />
         )}
-        <div className={`${isSelected ? 'pl-3.5' : ''} flex flex-col gap-1`}>
+        <div className={`${isSelected ? 'pl-3' : ''} flex flex-col gap-1`}>
           <div className="flex items-center justify-between gap-2">
             <span
               className={`text-[11px] font-mono font-bold tracking-wider truncate tabular-nums ${
-                isSelected ? 'text-[#58149C] dark:text-[#D8B4FE]' : 'text-[#4B4452] dark:text-[#CEC0E8]'
+                isSelected ? 'text-[#006194] dark:text-[#D8B4FE]' : 'text-[#3f4850] dark:text-[#CEC0E8]'
               }`}
             >
               {t.woNumber}
             </span>
-            <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A78BFA] shrink-0 tabular-nums">
+            <span className="text-[11px] font-mono text-[#707881] dark:text-[#A78BFA] shrink-0 tabular-nums">
               {lastTime ? formatWibTime(lastTime) : t.slotTime || '-'}
             </span>
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <h4 className="font-display text-[13.5px] font-bold text-[#1F182C] dark:text-white truncate">
+            <h4 className="font-display text-[13.5px] font-bold text-[#111c2d] dark:text-white truncate">
               {t.customerName}
             </h4>
             <div className="flex items-center gap-1.5 shrink-0">
               {isUrgent && (
-                <span className="px-1.5 py-0.5 rounded-full bg-[#DC4C5A] text-white text-[9px] font-extrabold uppercase tracking-wider">
+                <span className="px-1.5 py-0.5 rounded-full bg-[#ba1a1a] text-white text-[9px] font-extrabold uppercase tracking-wider">
                   EXPRESS
                 </span>
               )}
               {!isUrgent && isB2B && (
-                <span className="px-1.5 py-0.5 rounded-full bg-[#E9DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] text-[9.5px] font-bold">
+                <span className="px-1.5 py-0.5 rounded-full bg-[#dbe1ff] dark:bg-[#35105E] text-[#004b73] dark:text-[#D8B4FE] text-[9.5px] font-bold">
                   B2B
                 </span>
               )}
               {unread > 0 ? (
-                <span className="min-w-[20px] h-5 px-1 rounded-full bg-[#7135B5] text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs tabular-nums">
+                <span className="min-w-[20px] h-5 px-1 rounded-full bg-[#006194] text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs tabular-nums">
                   {unread > 99 ? '99+' : unread}
                 </span>
               ) : (
-                <span className="w-2 h-2 rounded-full bg-[#CBC3D5] dark:bg-[#4B386B]" />
+                <span className="w-2 h-2 rounded-full bg-[#bfc7d2] dark:bg-[#4B386B]" />
               )}
             </div>
           </div>
 
-          <p className="text-xs text-[#494453] dark:text-[#CEC0E8] truncate">
+          <p className="text-xs text-[#3f4850] dark:text-[#CEC0E8] truncate">
             {lastMsg ? (
               <>
-                <span className={`font-semibold ${isSelected ? 'text-[#58149C] dark:text-[#D8B4FE]' : 'text-[#4B4452] dark:text-[#E9D5FF]'}`}>
+                <span className={`font-semibold ${isSelected ? 'text-[#006194] dark:text-[#D8B4FE]' : 'text-[#111c2d] dark:text-[#E9D5FF]'}`}>
                   {lastMsg.senderName?.split(' ')[0]}:
                 </span>{' '}
                 {lastMsg.text || (lastMsg.attachments?.length ? `[${lastMsg.attachments.length} Foto Bukti]` : '')}
@@ -791,28 +888,28 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {t.slotTime && (
-              <span className="px-1.5 py-0.5 rounded bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] text-[10px] font-medium tracking-wide truncate max-w-[110px]">
+              <span className="px-1.5 py-0.5 rounded bg-[#f0f3ff] dark:bg-[#160D29] text-[#3f4850] dark:text-[#CEC0E8] text-[10px] font-medium tracking-wide truncate max-w-[110px]">
                 {t.slotTime}
               </span>
             )}
             <span
               className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
                 isSelected
-                  ? 'bg-[#E9DDFF] text-[#431599] dark:bg-[#35105E] dark:text-[#E9D5FF]'
-                  : 'bg-[#F4EAFF] text-[#4B4452] dark:bg-[#22123F] dark:text-[#CEC0E8]'
+                  ? 'bg-[#e7eeff] text-[#004b73] dark:bg-[#35105E] dark:text-[#E9D5FF]'
+                  : 'bg-[#f0f3ff] text-[#3f4850] dark:bg-[#22123F] dark:text-[#CEC0E8]'
               }`}
             >
               {t.statusWOInstaller || 'ASSIGNED'}
             </span>
             {approvalBadgeText && (
-              <span className="px-1.5 py-0.5 rounded bg-[#FFDAD6] text-[#93000A] dark:bg-rose-950/70 dark:text-rose-200 text-[10px] font-bold uppercase">
+              <span className="px-1.5 py-0.5 rounded bg-[#ffdad6] text-[#93000a] dark:bg-rose-950/70 dark:text-rose-200 text-[10px] font-bold uppercase">
                 {approvalBadgeText}
               </span>
             )}
             {categoryLabel && (
               <span
                 className="font-mono text-[10px] font-bold truncate"
-                style={{ color: catConfig?.color || '#7135B5' }}
+                style={{ color: catConfig?.color || '#006194' }}
               >
                 #{categoryLabel}
               </span>
@@ -824,9 +921,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full min-h-0 flex-1 overflow-hidden bg-[#F8F1FF] dark:bg-[#140827]">
+    <div className="flex flex-col w-full h-full min-h-0 flex-1 overflow-hidden bg-[#f9f9ff] dark:bg-[#140827]">
       {/* Main Fullscreen Workspace */}
-      <div className="flex-1 flex min-h-0 overflow-hidden relative bg-[#F8F1FF] dark:bg-[#140827]">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative bg-[#f9f9ff] dark:bg-[#140827]">
         {/* LEFT PANEL: Live Feeds Queue Strip */}
         <aside
           className={`${
@@ -835,10 +932,10 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 ? 'flex w-full'
                 : 'hidden'
               : 'flex w-72 lg:w-80 xl:w-96'
-          } flex-shrink-0 flex-col bg-white dark:bg-[#1A0E2E] shadow-md z-10 min-h-0 overflow-hidden border-r border-[#E9E5F0] dark:border-[#35105E]`}
+          } flex-shrink-0 flex-col bg-white dark:bg-[#1A0E2E] shadow-sm z-10 min-h-0 overflow-hidden border-r border-[#d8e3fb] dark:border-[#35105E]`}
         >
           {/* Panel Header: Search, Live Counts & Filter Chips */}
-          <div className="p-3 bg-[#F9F0FF]/80 dark:bg-[#201138] flex flex-col gap-2.5 border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0 relative">
+          <div className="p-3 bg-[#f9f9ff] dark:bg-[#201138] flex flex-col gap-2.5 border-b border-[#d8e3fb] dark:border-[#35105E] shrink-0 relative">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span
@@ -1068,163 +1165,105 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
           </div>
         </aside>
 
-        {/* CENTER/MAIN: 100% Fullscreen Chat Workspace */}
+        {/* CENTER/MAIN: STITCH SCREEN 4 WAR ROOM CHAT WORKSPACE */}
         <section
           className={`${
             isCompactUI && mobilePane === 'queue' ? 'hidden' : 'flex'
-          } flex-1 flex-col h-full bg-[#F8F1FF] dark:bg-[#140827] min-w-0 relative overflow-hidden`}
+          } flex-1 flex-col h-full bg-[#f9f9ff] dark:bg-[#140827] min-w-0 relative overflow-hidden`}
         >
           {activeTicket ? (
             <>
-              {/* TOP CONVERSATION BAR / TELEMETRY CONSOLE */}
-              <header className="min-h-[76px] bg-white dark:bg-[#1A0E2E] px-3.5 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between gap-3 shadow-sm z-20 flex-shrink-0 border-b border-[#E9E5F0] dark:border-[#35105E]">
-                {/* Left: Ticket Identity & Telemetry Tags */}
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  {isCompactUI && (
+              {/* TOP CONVERSATION HEADER + FLOATING CONTEXT STRIP (Stitch Screen 4) */}
+              <header className="bg-white dark:bg-[#1A0E2E] px-3.5 sm:px-5 py-2.5 z-20 flex-shrink-0 border-b border-[#d8e3fb] dark:border-[#35105E] space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between gap-2.5">
+                  {/* Left: Back (mobile), Monogram Avatar, War Room Title & Live Status */}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {isCompactUI && (
+                      <button
+                        type="button"
+                        onClick={() => setMobilePane('queue')}
+                        className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#111c2d] dark:text-white transition-colors shrink-0 cursor-pointer"
+                        aria-label="Kembali ke daftar antrean"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    <div className="relative shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-[#e7eeff] dark:bg-[#261942] text-[#006194] dark:text-sky-300 font-display font-bold text-xs flex items-center justify-center border border-[#d8e3fb] dark:border-[#4B386B]">
+                        {getInitials(activeTicket.installerName || activeTicket.customerName)}
+                      </div>
+                      <span
+                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-[#1A0E2E] ${
+                          isStreamLive ? 'bg-[#16A36A]' : 'bg-amber-500'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-display text-sm sm:text-[15px] font-bold text-[#111c2d] dark:text-white truncate">
+                          Dispatch War Room Chat
+                        </span>
+                        <BadgeCheck className="w-4 h-4 text-[#006194] dark:text-sky-400 shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#3f4850] dark:text-[#CEC0E8] truncate">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            isStreamLive ? 'bg-[#006194]' : 'bg-amber-500'
+                          }`}
+                        />
+                        <span className="truncate font-medium">
+                          {isStreamLive ? 'Radio & Dispatch Active' : 'Mode Sinkronisasi Lokal'} ·{' '}
+                          <span className="font-mono font-bold text-[#006194] dark:text-sky-300">
+                            {activeTicket.woNumber}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Action Icons & Detail Drawer Toggle */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0 relative">
                     <button
                       type="button"
-                      onClick={() => setMobilePane('queue')}
-                      className="btn-3d-icon w-9 h-9 shrink-0 cursor-pointer"
-                      aria-label="Kembali ke daftar antrean"
+                      onClick={handleCallKorlap}
+                      className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#111c2d] dark:text-[#E9D5FF] transition-colors cursor-pointer"
+                      title={korlapContact ? `Hubungi ${korlapContact.label}: ${korlapContact.phone}` : 'Nomor Korlap belum tersedia'}
+                      aria-label="Panggilan Korlap"
                     >
-                      <ArrowLeft className="w-4 h-4" />
+                      <Phone className="w-4 h-4" />
                     </button>
-                  )}
 
-                  {/* Tactile Expand / Ticket Detail Drawer Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => setIsDetailDrawerOpen(prev => !prev)}
-                    className={`btn-3d-icon w-10 h-10 rounded-xl shrink-0 cursor-pointer ${
-                      isDetailDrawerOpen ? 'text-[#58149C] dark:text-[#D8B4FE] border-[#A78BFA]' : ''
-                    }`}
-                    title="Buka / Tutup Ringkasan WO (Shift + D)"
-                    aria-label="Toggle Ringkasan WO"
-                  >
-                    {isDetailDrawerOpen ? (
-                      <PanelRightClose className="w-5 h-5" />
-                    ) : (
-                      <PanelRightOpen className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {/* Customer & Ticket Telemetry */}
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-display text-sm sm:text-base font-bold text-[#1F182C] dark:text-white truncate">
-                        {activeTicket.customerName}
-                      </span>
-                      <span className="font-mono text-xs font-bold text-[#431599] dark:text-[#D8B4FE] px-2 py-0.5 rounded bg-[#E9DDFF] dark:bg-[#35105E] tabular-nums">
-                        {activeTicket.woNumber}
-                      </span>
-                      <span className="text-xs text-[#7A7484] dark:text-[#A78BFA] font-medium hidden sm:inline tabular-nums">
-                        (ID: {activeTicket.idCustomer || activeTicket.customerId || '-'})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[#494453] dark:text-[#CEC0E8] text-xs flex-wrap">
-                      <span className="flex items-center gap-1 font-medium tabular-nums">
-                        <Clock className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA] shrink-0" />
-                        <span>{activeTicket.slotTime || 'Slot Aktif'}</span>
-                      </span>
-                      <span className="text-[#7A7484] font-bold" aria-hidden="true">•</span>
-                      <span className="flex items-center gap-1 font-medium truncate max-w-[200px] sm:max-w-sm">
-                        <MapPin className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA] shrink-0" />
-                        <span className="truncate">
-                          {activeTicket.clusterName || activeTicket.address || activeTicket.area || '-'}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: 4-Dimension Semantic Badges & 3D Action Matrix */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Semantic Badges Deck (Desktop 2XL Expanded) */}
-                  <div className="hidden 2xl:flex items-center gap-1.5 mr-1">
-                    <span className="px-2 py-1 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] text-[10.5px] font-bold text-[#1F182C] dark:text-[#E9D5FF] whitespace-nowrap">
-                      AGENT:{' '}
-                      <span className="text-[#431599] dark:text-[#D8B4FE] font-extrabold uppercase">
-                        {activeTicket.statusWOAgent || 'ASSIGNED'}
-                      </span>
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-[#E9DDFF] dark:bg-[#2B1554] text-[10.5px] font-bold text-[#1F1634] dark:text-[#E9D5FF] whitespace-nowrap">
-                      TEKNISI:{' '}
-                      <span className="text-[#431599] dark:text-[#D8B4FE] font-extrabold uppercase">
-                        {activeTicket.statusWOInstaller || 'ASSIGNED'}
-                      </span>
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-[#F0E3FF] dark:bg-[#261942] text-[10.5px] font-bold text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap">
-                      WA:{' '}
-                      <span className="text-[#1F182C] dark:text-white font-extrabold uppercase">
-                        {activeTicket.statusWhatsApp || '-'}
-                      </span>
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap ${
-                        activeTicket.approvalStatus === 'BUTUH APPROVAL'
-                          ? 'bg-[#FFDAD6] text-[#93000A] dark:bg-rose-950/80 dark:text-rose-200 animate-pulse'
-                          : activeTicket.approvalStatus === 'APPROVED'
-                          ? 'bg-[#ECFDF5] text-[#047857] dark:bg-emerald-950/60 dark:text-emerald-300'
-                          : 'bg-[#F7F6FA] text-[#494453] dark:bg-[#22123F] dark:text-[#CEC0E8]'
+                    <button
+                      type="button"
+                      onClick={() => setIsDetailDrawerOpen(prev => !prev)}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                        isDetailDrawerOpen
+                          ? 'bg-[#e7eeff] text-[#006194] dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                          : 'hover:bg-[#f0f3ff] dark:hover:bg-[#261942] text-[#111c2d] dark:text-[#E9D5FF]'
                       }`}
+                      title="Buka / Tutup Ringkasan WO (Shift + D)"
+                      aria-label="Toggle Ringkasan WO"
                     >
-                      APPROVAL:{' '}
-                      <span className="font-extrabold uppercase">
-                        {activeTicket.approvalStatus === 'BUTUH APPROVAL'
-                          ? 'BUTUH ACC'
-                          : activeTicket.approvalStatus || 'PENDING'}
-                      </span>
-                    </span>
-                  </div>
+                      <Info className="w-4 h-4" />
+                    </button>
 
-                  {/* 3D Tactile Action Buttons */}
-                  <div className="flex items-center gap-2 relative">
                     {onSelectTicket && (
                       <button
                         type="button"
                         onClick={() => onSelectTicket(activeTicket, 'overview')}
-                        className="btn-3d-secondary hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                        className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#f0f3ff] dark:bg-[#261942] hover:bg-[#e7eeff] text-[#004b73] dark:text-[#E9D5FF] text-xs font-bold cursor-pointer whitespace-nowrap transition-colors"
                       >
-                        <ExternalLink className="w-4 h-4 text-[#63597B] dark:text-[#D8B4FE]" />
-                        <span>Buka Detail Tiket</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Detail WO</span>
                       </button>
                     )}
-
-                    {onOpenWhatsApp ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenWhatsApp(activeTicket)}
-                        className="btn-3d-emerald flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span className="hidden sm:inline">WhatsApp (Pelanggan)</span>
-                      </button>
-                    ) : activeTicket.customerPhone ? (
-                      <a
-                        href={`https://wa.me/${activeTicket.customerPhone.replace(/\D/g, '').replace(/^0/, '62')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-3d-emerald flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span className="hidden sm:inline">WhatsApp (Pelanggan)</span>
-                      </a>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      onClick={handleCallKorlap}
-                      className="btn-3d-secondary hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
-                      title={korlapContact ? `Hubungi ${korlapContact.label}: ${korlapContact.phone}` : 'Nomor Korlap belum tersedia'}
-                    >
-                      <PhoneCall className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE]" />
-                      <span>Panggilan Korlap</span>
-                    </button>
 
                     <button
                       type="button"
                       onClick={() => setIsMoreMenuOpen(prev => !prev)}
-                      className="btn-3d-icon w-10 h-10 rounded-xl cursor-pointer"
+                      className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#111c2d] dark:text-[#E9D5FF] transition-colors cursor-pointer"
                       aria-label="Opsi lainnya"
                       title="Opsi Lainnya"
                     >
@@ -1232,16 +1271,16 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     </button>
 
                     {isMoreMenuOpen && (
-                      <div className="absolute right-0 top-12 z-30 w-56 rounded-xl bg-white dark:bg-[#1E1236] border border-[#D8CCF3] dark:border-[#35105E] shadow-xl p-1.5 space-y-1 text-xs">
+                      <div className="absolute right-0 top-11 z-30 w-56 rounded-2xl bg-white dark:bg-[#1E1236] border border-[#d8e3fb] dark:border-[#35105E] shadow-xl p-1.5 space-y-1 text-xs">
                         <button
                           type="button"
                           onClick={() => {
                             setIsMoreMenuOpen(false);
                             setIsDetailDrawerOpen(prev => !prev);
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#111c2d] dark:text-white hover:bg-[#f0f3ff] dark:hover:bg-[#35105E] cursor-pointer"
                         >
-                          <PanelRightOpen className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <PanelRightOpen className="w-3.5 h-3.5 text-[#006194]" />
                           <span>{isDetailDrawerOpen ? 'Tutup Ringkasan WO' : 'Buka Ringkasan WO'}</span>
                         </button>
                         {onSelectTicket && (
@@ -1251,9 +1290,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               setIsMoreMenuOpen(false);
                               onSelectTicket(activeTicket, 'report');
                             }}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#111c2d] dark:text-white hover:bg-[#f0f3ff] dark:hover:bg-[#35105E] cursor-pointer"
                           >
-                            <FileText className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <FileText className="w-3.5 h-3.5 text-[#006194]" />
                             <span>Buka Tab Laporan Teknisi</span>
                           </button>
                         )}
@@ -1263,25 +1302,14 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                             setIsMoreMenuOpen(false);
                             handleCopyWoSummary();
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#111c2d] dark:text-white hover:bg-[#f0f3ff] dark:hover:bg-[#35105E] cursor-pointer"
                         >
                           {copiedWoId === activeTicket.id ? (
                             <Check className="w-3.5 h-3.5 text-[#16A36A]" />
                           ) : (
-                            <Copy className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <Copy className="w-3.5 h-3.5 text-[#006194]" />
                           )}
                           <span>Salin Ringkasan WO</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsMoreMenuOpen(false);
-                            handleCallKorlap();
-                          }}
-                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer lg:hidden"
-                        >
-                          <PhoneCall className="w-3.5 h-3.5 text-[#7135B5]" />
-                          <span>Panggilan Korlap</span>
                         </button>
                         {canManageCategories && (
                           <button
@@ -1290,9 +1318,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               setIsMoreMenuOpen(false);
                               setIsSettingsOpen(true);
                             }}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#111c2d] dark:text-white hover:bg-[#f0f3ff] dark:hover:bg-[#35105E] cursor-pointer"
                           >
-                            <Settings className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <Settings className="w-3.5 h-3.5 text-[#006194]" />
                             <span>Kelola Kategori Chat</span>
                           </button>
                         )}
@@ -1302,46 +1330,108 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                             setIsMoreMenuOpen(false);
                             handleRefreshQueue();
                           }}
-                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#111c2d] dark:text-white hover:bg-[#f0f3ff] dark:hover:bg-[#35105E] cursor-pointer"
                         >
-                          <RefreshCw className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <RefreshCw className="w-3.5 h-3.5 text-[#006194]" />
                           <span>Sinkronkan LiveChat</span>
                         </button>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* FLOATING OPERATIONAL CONTEXT STRIP (Stitch Screen 4 Card) */}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#f0f3ff] dark:bg-[#160D29] border border-[#d8e3fb]/80 dark:border-[#35105E] text-[11px]">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <ShieldCheck className="w-4 h-4 text-[#16A36A] shrink-0" />
+                    <span className="font-semibold text-[#111c2d] dark:text-white truncate">
+                      {activeTicket.customerName}
+                    </span>
+                    <span className="hidden sm:inline text-[#707881]">•</span>
+                    <span className="hidden sm:inline font-medium text-[#3f4850] dark:text-[#CEC0E8] truncate">
+                      {activeTicket.installerName || 'Unassigned'} · {activeTicket.area || activeTicket.clusterName || '-'}
+                    </span>
+                    {activeTicket.fatCode && (
+                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-white dark:bg-[#22123F] text-[#006194] dark:text-sky-300 shrink-0">
+                        {activeTicket.fatCode}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {onOpenWhatsApp ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenWhatsApp(activeTicket)}
+                        className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#22123F] border border-[#d8e3fb] dark:border-[#4B386B] text-[#006194] dark:text-sky-300 font-bold text-[10.5px] flex items-center gap-1 hover:bg-[#e7eeff] cursor-pointer"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </button>
+                    ) : activeTicket.customerPhone ? (
+                      <a
+                        href={`https://wa.me/${activeTicket.customerPhone.replace(/\D/g, '').replace(/^0/, '62')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#22123F] border border-[#d8e3fb] dark:border-[#4B386B] text-[#006194] dark:text-sky-300 font-bold text-[10.5px] flex items-center gap-1 hover:bg-[#e7eeff]"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </a>
+                    ) : null}
+
+                    <span
+                      className={`px-2 py-1 rounded-lg font-bold text-[10.5px] uppercase tracking-wide ${
+                        activeTicket.approvalStatus === 'BUTUH APPROVAL'
+                          ? 'bg-[#ba1a1a] text-white'
+                          : activeTicket.approvalStatus === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
+                          : 'bg-[#dbe1ff] text-[#004b73] dark:bg-[#35105E] dark:text-[#E9D5FF]'
+                      }`}
+                    >
+                      {activeTicket.approvalStatus === 'BUTUH APPROVAL'
+                        ? 'BUTUH ACC'
+                        : activeTicket.statusWOInstaller || 'ASSIGNED'}
+                    </span>
+                  </div>
+                </div>
               </header>
 
               {/* EXPANDED CHAT STREAM */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 lg:px-8 py-4 space-y-4">
-                {/* Timeline Separator (3D Inset Badge) */}
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 sm:px-5 lg:px-8 py-4 space-y-4">
+                {/* Timeline Date & Checkpoint Pill */}
                 <div className="flex items-center justify-center my-1">
-                  <div className="px-4 py-1.5 rounded-full bg-[#F4EAFF] dark:bg-[#22123F] text-[#494453] dark:text-[#D8B4FE] text-[11px] font-bold flex items-center gap-1.5 shadow-[inset_0_1px_2px_rgba(31,22,56,0.06),0_1px_0_rgba(255,255,255,0.9)] dark:shadow-none">
-                    <Calendar className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA]" />
-                    <span>Hari Ini — {formattedTodayLabel}</span>
+                  <div className="px-4 py-1.5 rounded-full bg-[#e7eeff] dark:bg-[#22123F] text-[#3f4850] dark:text-[#D8B4FE] text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs max-w-full">
+                    <MapPin className="w-3.5 h-3.5 text-[#006194] dark:text-sky-400 shrink-0" />
+                    <span className="truncate">
+                      {activeTicket.checkInAt
+                        ? `${activeTicket.installerName || 'Teknisi'} tiba & Check-in (${formatJakartaTimeOnly(
+                            activeTicket.checkInAt
+                          )} WIB) • ${activeTicket.clusterName || activeTicket.area || '-'}`
+                        : `Hari Ini — ${formattedTodayLabel} • ${activeTicket.area || activeTicket.clusterName || '-'}`}
+                    </span>
                   </div>
                 </div>
 
                 {/* Real System Telemetry Event: Assignment / Distribution */}
                 {(activeTicket.assignedAt || activeTicket.dateAssignTechnician || activeTicket.installerName) && (
                   <div className="flex items-start gap-2.5 max-w-3xl mx-auto w-full">
-                    <div className="w-9 h-9 rounded-xl bg-[#F4EAFF] dark:bg-[#22123F] flex items-center justify-center text-[#7135B5] dark:text-[#D8B4FE] shrink-0 shadow-[0_2px_0_#dab9ff] dark:shadow-none">
+                    <div className="w-8 h-8 rounded-full bg-[#dee8ff] dark:bg-[#22123F] flex items-center justify-center text-[#006194] dark:text-sky-300 shrink-0 mt-0.5">
                       <Bot className="w-4 h-4" />
                     </div>
-                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-2xl p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_0_#e8ddff,0_6px_14px_-2px_rgba(31,22,56,0.06)] dark:shadow-[0_3px_0_#241345]">
+                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-2xl rounded-tl-sm p-3.5 border border-[#d8e3fb]/80 dark:border-[#35105E] shadow-2xs">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10.5px] font-bold text-[#7135B5] dark:text-[#D8B4FE] uppercase tracking-wider">
+                        <span className="text-[10.5px] font-bold text-[#006194] dark:text-sky-300 uppercase tracking-wider">
                           Telemetri Penugasan Work Order
                         </span>
-                        <span className="font-mono text-[11px] text-[#7A7484] dark:text-[#A78BFA] tabular-nums">
+                        <span className="font-mono text-[11px] text-[#707881] dark:text-[#A78BFA] tabular-nums">
                           {activeTicket.assignedAt
                             ? formatWibTime(activeTicket.assignedAt)
                             : activeTicket.dateAssignTechnician || activeTicket.slotTime || '-'}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-[13px] text-[#1F182C] dark:text-[#F5F1FF] leading-relaxed">
-                        <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">[SYSTEM]</span>{' '}
+                      <p className="text-xs sm:text-[13px] text-[#111c2d] dark:text-[#F5F1FF] leading-relaxed">
+                        <span className="font-mono font-bold text-[#006194] dark:text-sky-300">[SYSTEM]</span>{' '}
                         {activeTicket.woNumber} terdistribusi ke mitra{' '}
                         <strong>{activeTicket.contactorName || activeTicket.contractorName || '-'}</strong>. Teknisi{' '}
                         <strong>{activeTicket.installerName || 'Unassigned'}</strong> ditugaskan pada{' '}
@@ -1354,7 +1444,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         )}
                       </p>
                       {(activeTicket.fatCode || activeTicket.fatPort || activeTicket.area) && (
-                        <div className="mt-2 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#494453] dark:text-[#CEC0E8] font-mono">
+                        <div className="mt-2 pt-2 border-t border-[#d8e3fb]/70 dark:border-[#35105E] flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#3f4850] dark:text-[#CEC0E8] font-mono">
                           {activeTicket.area && <span>Area: {activeTicket.area}</span>}
                           {activeTicket.fatCode && (
                             <span>
@@ -1375,12 +1465,12 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                 {/* Chat Message Stream */}
                 {activeMessages.length === 0 ? (
-                  <div className="max-w-xl mx-auto my-8 p-6 rounded-2xl bg-white dark:bg-[#1E1236] shadow-[0_3px_0_#e8ddff,0_8px_18px_-4px_rgba(31,22,56,0.06)] dark:shadow-[0_3px_0_#241345] text-center space-y-2.5">
-                    <MessageSquare className="w-9 h-9 text-[#A78BFA] mx-auto" />
-                    <div className="font-display font-bold text-sm text-[#1F182C] dark:text-white">
+                  <div className="max-w-xl mx-auto my-8 p-6 rounded-2xl bg-white dark:bg-[#1E1236] border border-[#d8e3fb] dark:border-[#35105E] shadow-xs text-center space-y-2.5">
+                    <MessageSquare className="w-9 h-9 text-[#006194] dark:text-sky-400 mx-auto" />
+                    <div className="font-display font-bold text-sm text-[#111c2d] dark:text-white">
                       Belum Ada Pesan pada Channel {activeTicket.woNumber}
                     </div>
-                    <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
+                    <p className="text-xs text-[#3f4850] dark:text-[#CEC0E8] leading-relaxed">
                       {isLeader
                         ? 'Menunggu komunikasi antara Dispatch dan Teknisi Lapangan. Anda berada dalam mode pemantauan (Read-Only).'
                         : 'Mulai koordinasi lapangan antara Dispatch dan Teknisi. Unggah foto redaman OPM, perangkat ONT, atau kendala fisik.'}
@@ -1395,77 +1485,81 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <div
                         key={msg.id}
                         className={`flex items-start gap-2.5 max-w-3xl w-full ${
-                          isMe ? 'ml-auto flex-row-reverse' : ''
+                          isMe ? 'ml-auto justify-end' : 'justify-start'
                         }`}
                       >
-                        {/* 3D Square-Rounded Avatar */}
-                        <div className="relative flex-shrink-0">
-                          <div
-                            className={`w-9 h-9 rounded-xl font-display text-xs font-bold flex items-center justify-center shadow-sm ${
-                              isTechBubble
-                                ? 'bg-[#63597B] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_0_#2a0053]'
-                                : 'bg-[#7135B5] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_0_#35105e]'
-                            }`}
-                          >
-                            {getInitials(msg.senderName)}
-                          </div>
-                          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-white dark:bg-[#1A0E2E] rounded-full flex items-center justify-center shadow-xs">
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                isTechBubble ? 'bg-[#10B981]' : 'bg-[#7135B5]'
+                        {!isMe && (
+                          <div className="relative flex-shrink-0 mt-1">
+                            <div
+                              className={`w-8 h-8 rounded-full font-display text-[11px] font-bold flex items-center justify-center ${
+                                isTechBubble
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                                  : 'bg-[#dee8ff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
                               }`}
-                            />
-                          </span>
-                        </div>
+                            >
+                              {getInitials(msg.senderName)}
+                            </div>
+                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A36A] border-2 border-[#f9f9ff] dark:border-[#140827]" />
+                          </div>
+                        )}
 
                         <div
-                          className={`flex flex-col gap-1 min-w-0 ${
+                          className={`flex flex-col gap-1 min-w-0 max-w-[85%] sm:max-w-[78%] ${
                             isMe ? 'items-end' : 'items-start'
                           }`}
                         >
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            {isMe && (
-                              <span className="font-mono text-[11px] text-[#7A7484] dark:text-[#A78BFA] tabular-nums">
-                                {formatWibTime(msg.timestamp)}
-                              </span>
-                            )}
-                            {!isMe && (
-                              <span className="font-display font-bold text-[#1F182C] dark:text-white">
-                                {msg.senderName}
-                              </span>
-                            )}
-                            {getRoleBadge(msg.senderRole)}
-                            {isMe && (
-                              <span className="font-display font-bold text-[#1F182C] dark:text-white">
-                                {msg.senderName}
-                              </span>
-                            )}
-                            {!isMe && (
-                              <span className="font-mono text-[11px] text-[#7A7484] dark:text-[#A78BFA] tabular-nums">
-                                {formatWibTime(msg.timestamp)}
-                              </span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs px-0.5">
+                            {isMe ? (
+                              <>
+                                <span className="font-mono text-[10.5px] text-[#707881] dark:text-[#A78BFA] tabular-nums">
+                                  {formatWibTime(msg.timestamp)}
+                                </span>
+                                <span className="font-display font-bold text-[#006194] dark:text-sky-300">
+                                  Anda ({msg.senderName?.split(' ')[0] || 'User'})
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-display font-bold text-[#111c2d] dark:text-white">
+                                  {msg.senderName}
+                                </span>
+                                {getRoleBadge(msg.senderRole)}
+                                <span className="font-mono text-[10.5px] text-[#707881] dark:text-[#A78BFA] tabular-nums">
+                                  {formatWibTime(msg.timestamp)}
+                                </span>
+                              </>
                             )}
                           </div>
 
-                          {/* Tactile Extruded Speech Bubble */}
+                          {/* Stitch Screen 4 Speech Bubble */}
                           <div
-                            className={`max-w-xl p-3.5 rounded-2xl text-[13.5px] leading-relaxed space-y-2.5 ${
+                            className={`p-3.5 rounded-2xl text-[13.5px] leading-relaxed space-y-2 ${
                               isMe
-                                ? 'rounded-tr-sm bg-[#F0E3FF] dark:bg-[#2B1554] text-[#1F182C] dark:text-[#F5F1FF] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_3px_0_#dab9ff,0_8px_16px_-4px_rgba(88,20,156,0.12)] dark:shadow-[0_3px_0_#35105E]'
-                                : 'rounded-tl-sm bg-white dark:bg-[#1E1236] text-[#1F182C] dark:text-[#F5F1FF] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_0_#e8ddff,0_6px_14px_-2px_rgba(31,22,56,0.06)] dark:shadow-[0_3px_0_#241345]'
+                                ? 'rounded-tr-sm bg-[#006194] text-white shadow-md'
+                                : 'rounded-tl-sm bg-white dark:bg-[#1E1236] text-[#111c2d] dark:text-[#F5F1FF] border border-[#d8e3fb]/80 dark:border-[#35105E] shadow-xs'
                             }`}
                           >
-                            {msg.category && (
+                            {msg.category && String(msg.category).toUpperCase() !== 'UNCLASSIFIED' && (
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="px-2 py-0.5 rounded-full bg-[#E4D6FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] text-[10.5px] font-bold flex items-center gap-1">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                                    isMe
+                                      ? 'bg-white/20 text-white'
+                                      : 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#E9D5FF]'
+                                  }`}
+                                >
                                   <Radio className="w-3 h-3" />
                                   <span>
                                     #{msg.category}
-                                    {msg.isCheckIn ? ' LAPANGAN' : ''}
+                                    {msg.isCheckIn ? ' · CHECK-IN' : ''}
                                   </span>
                                 </span>
                                 {activeTicket.fatCode && msg.isCheckIn && (
-                                  <span className="font-mono text-[11px] font-bold text-[#431599] dark:text-[#D8B4FE]">
+                                  <span
+                                    className={`font-mono text-[10.5px] font-bold ${
+                                      isMe ? 'text-sky-100' : 'text-[#006194] dark:text-sky-300'
+                                    }`}
+                                  >
                                     {activeTicket.fatCode}
                                     {activeTicket.fatPort ? ` ${activeTicket.fatPort}` : ''}
                                   </span>
@@ -1474,7 +1568,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                             )}
 
                             {msg.text && (
-                              <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                              <p className="whitespace-pre-wrap break-words">
+                                {renderHighlightedText(msg.text, isMe)}
+                              </p>
                             )}
 
                             {msg.attachments && msg.attachments.length > 0 && (
@@ -1485,19 +1581,19 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                   return (
                                     <div
                                       key={att.id}
-                                      className="rounded-xl overflow-hidden bg-white dark:bg-[#160D29] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_0_#cec3d4] dark:shadow-[0_2px_0_#241345]"
+                                      className="rounded-xl overflow-hidden bg-white dark:bg-[#160D29] p-1.5 border border-[#d8e3fb] dark:border-[#35105E] shadow-2xs"
                                     >
                                       {isBroken || !previewUrl ? (
-                                        <div className="h-36 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] flex flex-col items-center justify-center p-3 text-center gap-1">
-                                          <ImageIcon className="w-6 h-6 text-[#7135B5]" />
-                                          <span className="text-[11px] font-semibold truncate max-w-full text-[#1F182C] dark:text-white">
+                                        <div className="h-36 rounded-lg bg-[#f0f3ff] dark:bg-[#22123F] flex flex-col items-center justify-center p-3 text-center gap-1">
+                                          <ImageIcon className="w-6 h-6 text-[#006194]" />
+                                          <span className="text-[11px] font-semibold truncate max-w-full text-[#111c2d] dark:text-white">
                                             {att.fileName}
                                           </span>
                                         </div>
                                       ) : (
                                         <div
                                           onClick={() => setZoomImage(previewUrl)}
-                                          className="relative w-full h-36 rounded-lg overflow-hidden bg-[#E1D5F1] dark:bg-[#140827] group cursor-pointer"
+                                          className="relative w-full h-36 rounded-lg overflow-hidden bg-slate-900/10 dark:bg-[#140827] group cursor-pointer"
                                         >
                                           <img
                                             src={previewUrl}
@@ -1508,23 +1604,28 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                             }
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                           />
-                                          <div className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-[#342D42]/85 backdrop-blur-xs text-[#F7EDFF] font-mono text-[10.5px] font-bold max-w-[90%] truncate">
-                                            {att.fileSize > 0 ? formatFileSize(att.fileSize) : 'Bukti Lapangan'}
+                                          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between gap-2">
+                                            <span className="px-2 py-0.5 rounded bg-black/70 text-white font-mono text-[10px] font-bold truncate">
+                                              {att.fileSize > 0 ? formatFileSize(att.fileSize) : 'Bukti Lapangan'}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-full bg-[#16A36A] text-white text-[9.5px] font-bold shrink-0">
+                                              Terverifikasi
+                                            </span>
                                           </div>
                                         </div>
                                       )}
-                                      <div className="mt-2 flex items-center justify-between gap-2">
-                                        <span className="text-[11px] font-medium text-[#494453] dark:text-[#CEC0E8] truncate">
+                                      <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
+                                        <span className="text-[11px] font-medium text-[#3f4850] dark:text-[#CEC0E8] truncate">
                                           {att.fileName}
                                         </span>
                                         {previewUrl && !isBroken && (
                                           <button
                                             type="button"
                                             onClick={() => setZoomImage(previewUrl)}
-                                            className="px-2 py-1 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] text-[10.5px] font-bold flex items-center gap-1 shrink-0 shadow-[0_2px_0_#dab9ff] dark:shadow-none active:translate-y-0.5 transition-all cursor-pointer"
+                                            className="px-2 py-0.5 rounded-lg bg-[#f0f3ff] dark:bg-[#22123F] text-[#006194] dark:text-sky-300 text-[10.5px] font-bold flex items-center gap-1 shrink-0 cursor-pointer hover:bg-[#e7eeff]"
                                           >
                                             <Maximize2 className="w-3 h-3" />
-                                            <span>Lihat Foto Penuh</span>
+                                            <span>Perbesar</span>
                                           </button>
                                         )}
                                       </div>
@@ -1533,72 +1634,52 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                 })}
                               </div>
                             )}
-                          </div>
 
-                          {isMe && (
-                            <div className="flex items-center gap-1.5 text-[11px] text-[#7A7484] dark:text-[#A78BFA]">
-                              <MessageStatusReceipt
-                                message={msg}
-                                senderId={currentUser?.id}
-                                variant="onLight"
-                                showLabel={true}
-                              />
-                            </div>
-                          )}
+                            {isMe && (
+                              <div className="flex justify-end pt-0.5">
+                                <MessageStatusReceipt
+                                  message={msg}
+                                  senderId={currentUser?.id}
+                                  variant="onDark"
+                                  showLabel={true}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })
                 )}
 
-                {/* Live Device / OPM / Check-in Telemetry Cards (Real Data Only) */}
+                {/* Live Device / OPM / Check-in Telemetry Terminal Card (Real Data Only) */}
                 {(activeTicket.ontSerialNumber || activeTicket.rosetRedamanDbm !== undefined) && (
-                  <div className="max-w-xl ml-auto p-2.5 rounded-xl bg-white/90 dark:bg-[#1E1236] shadow-[0_2px_0_#e8ddff] dark:shadow-[0_2px_0_#241345] flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 font-mono font-semibold text-[#1F182C] dark:text-white">
-                      <Router className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />
+                  <div className="max-w-xl ml-auto rounded-2xl bg-[#263143] text-[#ecf1ff] p-3.5 font-mono text-[11px] space-y-1.5 shadow-sm border border-[#3f4850]/50">
+                    <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-[#93ccff]">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <Router className="w-3.5 h-3.5" />
+                        <span>Telemetry Diagnostik Lapangan</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                        {activeTicket.checkInAt ? 'PASSED' : 'RECORDED'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span>
                         SN: {activeTicket.ontSerialNumber || '-'}
                         {activeTicket.dropcoreLengthMeter || activeTicket.dropcoreLength
                           ? ` | Dropcore: ${activeTicket.dropcoreLengthMeter || activeTicket.dropcoreLength}m`
                           : ''}
                       </span>
-                    </div>
-                    {activeTicket.rosetRedamanDbm !== undefined && activeTicket.rosetRedamanDbm !== null && (
-                      <span className="font-mono text-[11px] font-bold text-[#10B981] tabular-nums">
-                        OPM: {activeTicket.rosetRedamanDbm} dBm
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {activeTicket.checkInAt && (
-                  <div className="flex items-start gap-2.5 max-w-3xl mx-auto w-full">
-                    <div className="w-9 h-9 rounded-xl bg-[#16A36A]/15 flex items-center justify-center text-[#16A36A] shrink-0">
-                      <ShieldCheck className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-2xl p-3.5 border border-[#16A36A]/25 shadow-2xs">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10.5px] font-bold text-[#16A36A] uppercase tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Audit Telemetry System Verification</span>
+                      {activeTicket.rosetRedamanDbm !== undefined && activeTicket.rosetRedamanDbm !== null && (
+                        <span
+                          className={`font-bold tabular-nums ${
+                            Number(activeTicket.rosetRedamanDbm) < -27 ? 'text-rose-300' : 'text-emerald-300'
+                          }`}
+                        >
+                          Rx Power: {activeTicket.rosetRedamanDbm} dBm
                         </span>
-                        <span className="font-mono text-[11px] text-[#7A7484] tabular-nums">
-                          {formatJakartaTimeOnly(activeTicket.checkInAt)} WIB
-                        </span>
-                      </div>
-                      <p className="text-xs sm:text-[13px] text-[#1F182C] dark:text-[#F5F1FF]">
-                        <span className="font-mono font-bold text-[#35105E] dark:text-[#D8B4FE]">
-                          [AUDIT TELEMETRY]
-                        </span>{' '}
-                        Check-in LiveChat kategori <strong>#PROGRESS</strong> terverifikasi pada{' '}
-                        <span className="font-mono font-semibold">
-                          {formatJakartaTimeOnly(activeTicket.checkInAt)} WIB
-                        </span>
-                        . Stage installer saat ini:{' '}
-                        <span className="px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono font-bold text-[#3977C9] dark:text-sky-300 uppercase">
-                          {activeTicket.statusWOInstaller}
-                        </span>
-                      </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1608,7 +1689,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
               {/* Error Banner */}
               {errorMessage && (
-                <div className="mx-4 mb-2 p-2.5 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/60 border border-[#DC4C5A]/30 text-[#DC4C5A] dark:text-rose-300 text-xs flex items-center justify-between gap-2 shrink-0">
+                <div className="mx-4 mb-2 p-2.5 rounded-xl bg-[#ffdad6] dark:bg-rose-950/60 border border-[#ba1a1a]/30 text-[#93000a] dark:text-rose-200 text-xs flex items-center justify-between gap-2 shrink-0">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{errorMessage}</span>
@@ -1625,44 +1706,44 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
               {/* Pending Attachments Strip */}
               {pendingAttachments.length > 0 && (
-                <div className="px-4 py-2 bg-[#F5F1FF] dark:bg-[#22123F] border-t border-[#D8CCF3] dark:border-[#35105E] flex items-center gap-2.5 overflow-x-auto shrink-0">
+                <div className="px-4 py-2 bg-[#f0f3ff] dark:bg-[#22123F] border-t border-[#d8e3fb] dark:border-[#35105E] flex items-center gap-2.5 overflow-x-auto shrink-0">
                   {pendingAttachments.map(att => (
                     <div
                       key={att.id}
-                      className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-[#7135B5] shrink-0"
+                      className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-[#006194] shrink-0"
                     >
                       <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setPendingAttachments(prev => prev.filter(a => a.id !== att.id))}
-                        className="absolute top-1 right-1 p-0.5 bg-[#DC4C5A] text-white rounded-full cursor-pointer"
+                        className="absolute top-1 right-1 p-0.5 bg-[#ba1a1a] text-white rounded-full cursor-pointer"
                         aria-label="Hapus lampiran"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
-                  <span className="text-xs font-semibold text-[#35105E] dark:text-[#D8B4FE]">
+                  <span className="text-xs font-semibold text-[#004b73] dark:text-[#D8B4FE]">
                     {pendingAttachments.length} foto siap dikirim
                   </span>
                 </div>
               )}
 
-              {/* BOTTOM INTERACTION CONSOLE: Read-Only Leader OR Quick Reply Tactile Chips + Composer */}
+              {/* BOTTOM INTERACTION CONSOLE: Read-Only Leader OR Stitch Quick Chips + Composer */}
               {isLeader ? (
-                <div className="p-4 bg-gradient-to-r from-[#F5F1FF] to-[#E9D5FF]/40 dark:from-[#22123F] dark:to-[#1A0E2E] border-t border-[#D8CCF3] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                <div className="p-4 bg-amber-50 dark:bg-[#22123F] border-t border-amber-200 dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pb-safe">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-[#35105E] text-white flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
                       <Shield className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <div className="font-bold text-xs text-[#35105E] dark:text-[#D8B4FE] flex items-center gap-2 flex-wrap">
+                      <div className="font-bold text-xs text-amber-950 dark:text-[#D8B4FE] flex items-center gap-2 flex-wrap">
                         <span>Mode Pantau: Leader / Korlap (Read-Only)</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950 dark:text-amber-300">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/80 text-amber-900 dark:bg-amber-950 dark:text-amber-300">
                           Hanya Pantau Percakapan
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-0.5 truncate">
+                      <p className="text-[11px] text-amber-800 dark:text-[#CEC0E8] mt-0.5 truncate">
                         Korlap memantau percakapan area {currentUser?.area || activeTicket.area || '-'} ·{' '}
                         {currentUser?.contractor || activeTicket.contactorName || activeTicket.contractorName || '-'}.
                         Pengiriman pesan dibatasi untuk Dispatch & Teknisi Lapangan.
@@ -1675,70 +1756,97 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   </div>
                 </div>
               ) : (
-                <footer className="bg-white dark:bg-[#1A0E2E] px-4 lg:px-6 py-3 flex flex-col gap-2.5 shadow-xl z-20 flex-shrink-0 border-t border-[#E9E5F0] dark:border-[#35105E]">
-                  {/* QUICK REPLY TACTILE CHIPS ROW */}
-                  <div className="flex items-center gap-2 overflow-x-auto py-0.5 no-scrollbar">
-                    <span className="text-[10.5px] text-[#7A7484] dark:text-[#A78BFA] uppercase font-bold tracking-wider flex-shrink-0 flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 text-[#7135B5]" />
-                      <span>Aksi Cepat:</span>
-                    </span>
-                    {quickReplyChips.map(chip => {
-                      const chipClass =
-                        chip.tone === 'emerald'
-                          ? 'btn-3d-emerald'
-                          : chip.tone === 'violet'
-                          ? 'btn-3d-primary'
-                          : 'tactile-chip text-[#1F182C] dark:text-[#E9D5FF]';
-                      return (
-                        <button
-                          key={chip.id}
-                          type="button"
-                          onClick={() => insertQuickReply(chip.text)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap cursor-pointer active:translate-y-0.5 transition-all ${chipClass}`}
-                        >
-                          {chip.tone === 'emerald' ? (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          ) : chip.tone === 'violet' ? (
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                          ) : (
-                            <Tag className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA]" />
-                          )}
-                          <span>{chip.label}</span>
-                        </button>
-                      );
-                    })}
+                <footer className="bg-white dark:bg-[#1A0E2E] px-3.5 lg:px-6 pt-2.5 pb-safe flex flex-col gap-2 shadow-sm z-20 flex-shrink-0 border-t border-[#d8e3fb] dark:border-[#35105E]">
+                  {/* STITCH QUICK ACTION CHIPS ROW */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+                    <button
+                      type="button"
+                      onClick={handleShareGps}
+                      disabled={isLocating}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f0f3ff] dark:bg-[#261942] hover:bg-[#e7eeff] text-[#006194] dark:text-sky-300 text-xs font-bold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                    >
+                      {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crosshair className="w-3.5 h-3.5" />}
+                      <span>Share GPS</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleInsertTelemetry}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ffddb8]/70 dark:bg-amber-950/60 hover:bg-[#ffddb8] text-[#653e00] dark:text-amber-300 text-xs font-bold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                    >
+                      <Gauge className="w-3.5 h-3.5" />
+                      <span>Telemetri OPM</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f0f3ff] dark:bg-[#261942] hover:bg-[#e7eeff] text-[#006194] dark:text-sky-300 text-xs font-bold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Foto Bukti</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleTriggerIssue}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ffdad6] dark:bg-rose-950/70 hover:brightness-95 text-[#93000a] dark:text-rose-200 text-xs font-bold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Kendala</span>
+                    </button>
+
+                    <span className="h-4 w-px bg-[#d8e3fb] dark:bg-[#35105E] shrink-0 mx-0.5" />
+
+                    {quickReplyChips.map(chip => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => insertQuickReply(chip.text)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#f0f3ff] dark:bg-[#22123F] hover:bg-[#e7eeff] text-[#3f4850] dark:text-[#E9D5FF] text-xs font-semibold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                      >
+                        <Zap className="w-3 h-3 text-[#006194]" />
+                        <span>{chip.label}</span>
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Installer Mandatory Category Warning & Selector (Strictly Installer only; Dispatch has ZERO dropdown clutter) */}
+                  {/* Installer Mandatory Category Pills & Selector (Strictly Installer only) */}
                   {isInstaller && (
                     <div
                       className={`px-3 py-2 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
                         !installerCategory || installerCategory.toUpperCase() === 'UNCLASSIFIED'
-                          ? 'bg-[#FEF3C7] dark:bg-amber-950/60 border border-[#E59A27]/40 text-[#92400E] dark:text-amber-200'
-                          : 'bg-[#F8F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] text-[#35105E] dark:text-[#D8B4FE]'
+                          ? 'bg-[#ffddb8]/60 dark:bg-amber-950/60 border border-[#825100]/25 text-[#653e00] dark:text-amber-200'
+                          : 'bg-[#f0f3ff] dark:bg-[#22123F] border border-[#d8e3fb] dark:border-[#35105E] text-[#004b73] dark:text-[#D8B4FE]'
                       }`}
                     >
                       <div className="flex items-center gap-2 font-semibold">
                         <Tag className="w-3.5 h-3.5 shrink-0" />
                         <span>
                           {!installerCategory || installerCategory.toUpperCase() === 'UNCLASSIFIED'
-                            ? 'Pilih kategori chat wajib sebelum kirim (pilih PROGRESS untuk Check-in otomatis).'
+                            ? 'Pilih kategori wajib (pilih #PROGRESS untuk Check-in lokasi):'
                             : `Kategori Aktif Teknisi: #${installerCategory}`}
                         </span>
                       </div>
-                      <select
-                        value={installerCategory}
-                        onChange={e => handleCategoryChangeForActiveTicket(e.target.value)}
-                        className="px-3 py-1 bg-white dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#35105E] rounded-lg font-bold text-xs text-[#1F182C] dark:text-white cursor-pointer"
-                        title="Pilih Kategori Chat Wajib"
-                      >
-                        <option value="">-- Pilih Kategori Wajib --</option>
-                        {activeCategories.map(cat => (
-                          <option key={cat.id} value={cat.name}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {activeCategories.map(cat => {
+                          const isSelected = installerCategory.toUpperCase() === String(cat.name).toUpperCase();
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => handleCategoryChangeForActiveTicket(cat.name)}
+                              className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'bg-[#006194] text-white shadow-2xs'
+                                  : 'bg-white dark:bg-[#160D29] text-[#004b73] dark:text-[#E9D5FF] border border-[#d8e3fb] dark:border-[#35105E]'
+                              }`}
+                            >
+                              #{cat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -1760,65 +1868,64 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     className="hidden"
                   />
 
-                  {/* ERGONOMIC CHAT COMPOSER */}
-                  <form onSubmit={handleSendMessage} className="flex items-center gap-2.5 w-full relative">
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="btn-3d-icon w-11 h-11 rounded-xl flex-shrink-0 cursor-pointer"
-                      title="Unggah Bukti Foto Lapangan"
-                      aria-label="Ambil Foto"
-                    >
-                      <Camera className="w-5 h-5" />
-                    </button>
+                  {/* ERGONOMIC STITCH CHAT COMPOSER */}
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-2 w-full relative">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0 bg-[#f0f3ff] dark:bg-[#160D29] rounded-2xl p-1.5 border border-[#d8e3fb] dark:border-[#4B386B] shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#006194] dark:text-[#DAB9FF] hover:bg-[#e7eeff] flex items-center justify-center flex-shrink-0 cursor-pointer shadow-2xs"
+                        title="Lampirkan Berkas Foto"
+                        aria-label="Lampirkan Berkas"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="btn-3d-icon w-11 h-11 rounded-xl flex-shrink-0 cursor-pointer"
-                      title="Lampirkan Berkas Foto"
-                      aria-label="Lampirkan Berkas"
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="hidden sm:flex w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#006194] dark:text-[#DAB9FF] hover:bg-[#e7eeff] items-center justify-center flex-shrink-0 cursor-pointer shadow-2xs"
+                        title="Ambil Foto Lapangan"
+                        aria-label="Ambil Foto"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowTemplateMenu(prev => !prev)}
-                      className="btn-3d-icon hidden sm:inline-flex w-11 h-11 rounded-xl flex-shrink-0 cursor-pointer"
-                      title="Sisipkan Template SOP"
-                      aria-label="Template SOP"
-                    >
-                      <FileText className="w-5 h-5" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowTemplateMenu(prev => !prev)}
+                        className="hidden md:flex w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#006194] dark:text-[#DAB9FF] hover:bg-[#e7eeff] items-center justify-center flex-shrink-0 cursor-pointer shadow-2xs"
+                        title="Sisipkan Template SOP"
+                        aria-label="Template SOP"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
 
-                    {showTemplateMenu && (
-                      <div className="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1A0E2E] rounded-xl border border-[#D8CCF3] dark:border-[#35105E] shadow-xl p-2 z-30 space-y-1">
-                        <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#35105E] dark:text-[#D8B4FE] border-b border-[#E9E5F0] dark:border-[#35105E]">
-                          <span>Template Cepat SOP</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowTemplateMenu(false)}
-                            className="cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                      {showTemplateMenu && (
+                        <div className="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#d8e3fb] dark:border-[#35105E] shadow-xl p-2 z-30 space-y-1">
+                          <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#004b73] dark:text-[#D8B4FE] border-b border-[#d8e3fb] dark:border-[#35105E]">
+                            <span>Template Cepat SOP</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowTemplateMenu(false)}
+                              className="cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {quickReplyChips.map(tpl => (
+                            <button
+                              key={tpl.id}
+                              type="button"
+                              onClick={() => insertQuickReply(tpl.text)}
+                              className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs text-[#111c2d] dark:text-[#E9D5FF] hover:bg-[#f0f3ff] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
+                            >
+                              {tpl.text}
+                            </button>
+                          ))}
                         </div>
-                        {quickReplyChips.map(tpl => (
-                          <button
-                            key={tpl.id}
-                            type="button"
-                            onClick={() => insertQuickReply(tpl.text)}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
-                          >
-                            {tpl.text}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                      )}
 
-                    {/* Debossed Chat Input Field */}
-                    <div className="relative flex-1 flex items-center min-w-0">
                       <textarea
                         ref={composerRef}
                         rows={1}
@@ -1830,28 +1937,25 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                             handleSendMessage();
                           }
                         }}
-                        placeholder={`Ketik pesan koordinasi ${isInstaller ? 'lapangan' : 'dispatch'} untuk ${activeTicket.woNumber} (${
-                          activeTicket.installerName || activeTicket.customerName
-                        })... Tekan Enter untuk kirim`}
-                        className="tactile-debossed-input w-full px-4 py-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-xs sm:text-sm text-[#1F182C] dark:text-white placeholder:text-[#7A7484] focus:outline-none focus:bg-white dark:focus:bg-[#1E1236] resize-none transition-all"
+                        placeholder={`Ketik pesan koordinasi operasional ${activeTicket.woNumber}...`}
+                        className="flex-1 min-w-0 bg-transparent px-2 py-2 text-xs sm:text-sm text-[#111c2d] dark:text-white placeholder:text-[#707881] focus:outline-none resize-none"
                       />
-                    </div>
 
-                    {/* PRIMARY TACTILE SEND BUTTON */}
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || (!inputText.trim() && pendingAttachments.length === 0)}
-                      className="tactile-btn-primary bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-display text-xs sm:text-sm font-bold disabled:opacity-45 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer whitespace-nowrap"
-                    >
-                      {isSubmitting ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <span>Kirim</span>
-                          <Send className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || (!inputText.trim() && pendingAttachments.length === 0)}
+                        className="h-10 px-4 rounded-xl bg-[#006194] hover:bg-[#004b73] text-white flex items-center justify-center gap-1.5 font-display text-xs sm:text-sm font-bold disabled:opacity-45 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer whitespace-nowrap shadow-sm transition-colors"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <span className="hidden sm:inline">Kirim</span>
+                            <Send className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </form>
                 </footer>
               )}

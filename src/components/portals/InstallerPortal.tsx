@@ -7,6 +7,7 @@ import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusB
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from '../tickets/TechnicalReportForm';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
+import { WorkOrderQuickUpdateSheet } from '../tickets/WorkOrderQuickUpdateSheet';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
@@ -45,7 +46,9 @@ import {
   WifiOff,
   Package,
   ShieldAlert,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Zap,
+  ArrowUpDown
 } from 'lucide-react';
 
 export type StatusFilterCategory = 'all' | 'pending' | 'butuh_approval' | 'revision' | 'done' | 'reschedule' | 'cancel';
@@ -208,6 +211,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   const [statusFilter, setStatusFilter] = useState<StatusFilterCategory>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'slot' | 'status' | 'wo'>('slot');
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Record<string, boolean>>({});
   const [materialStripDismissed, setMaterialStripDismissed] = useState(false);
 
@@ -224,6 +228,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   }, [activeKpiDrilldown]);
 
   const [fullviewTicket, setFullviewTicket] = useState<Ticket | null>(null);
+  const [quickUpdateTicket, setQuickUpdateTicket] = useState<Ticket | null>(null);
   const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'details' | 'chat'>('details');
   const [chatInitialCategory, setChatInitialCategory] = useState<string | undefined>(undefined);
@@ -264,7 +269,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   }, [myTickets]);
 
   const filteredTickets = useMemo(() => {
-    return myTickets.filter(t => {
+    const matched = myTickets.filter(t => {
       if (activeKpiDrilldown && !matchesKpiFilter(t, activeKpiDrilldown.filterKey)) {
         return false;
       }
@@ -292,7 +297,17 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
       return true;
     });
-  }, [myTickets, statusFilter, searchQuery, activeKpiDrilldown]);
+
+    return [...matched].sort((a, b) => {
+      if (sortBy === 'wo') {
+        return String(a.woNumber || '').localeCompare(String(b.woNumber || ''));
+      }
+      if (sortBy === 'status') {
+        return String(a.statusWOInstaller || '').localeCompare(String(b.statusWOInstaller || ''));
+      }
+      return String(a.slotTime || '').localeCompare(String(b.slotTime || ''));
+    });
+  }, [myTickets, statusFilter, searchQuery, activeKpiDrilldown, sortBy]);
 
   // Real operational alerts derived from live assigned Work Orders (no dummy values)
   const criticalRevisionTicket = useMemo(
@@ -517,48 +532,48 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* 2. TOP HEADER & SEARCH/FILTER WORKSPACE                      */}
+      {/* 2. TOP HEADER & SEARCH/FILTER WORKSPACE (STITCH SCREEN 1)    */}
       {/* ============================================================ */}
-      <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 space-y-3.5">
+      <div className="mj-stitch-card rounded-2xl p-4 sm:p-5 space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_3px_0_#2A0053]">
+            <div className="w-11 h-11 rounded-2xl bg-[#006194] text-white flex items-center justify-center shrink-0 shadow-sm">
               <Wrench className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-[16px] sm:text-[17px] font-bold text-[#1F1638] dark:text-white tracking-tight">
-                  Tugas Saya (Field Ops)
+                <h2 className="font-display text-[17px] sm:text-[18px] font-bold text-[#111c2d] dark:text-white tracking-tight">
+                  Daftar Work Order
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#7135B5]/50">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#DAB9FF]">
                   {effectiveInstallerName}
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
                     isOnline
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50'
-                      : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-[#ffddb8] dark:bg-amber-950/60 text-[#633c00] dark:text-amber-300'
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
                   <span>{isOnline ? 'Online Sync' : 'Offline Cache'}</span>
                 </span>
               </div>
-              <p className="text-[11.5px] text-[#7D7484] dark:text-[#CEC0E8] mt-0.5">
-                Jadwal hari ini ({todayWIB}) • Pantau telemetry OPM, Check-in #PROGRESS, dan kirim laporan QC lapangan.
+              <p className="text-[11.5px] text-[#3f4850] dark:text-[#CEC0E8] mt-0.5">
+                Jadwal {todayWIB} • {counts.pending} Aktif • {counts.revision + counts.butuh_approval} Perlu Tindak Lanjut
               </p>
             </div>
           </div>
 
           {currentUser.role !== 'installer' && (
-            <div className="flex items-center gap-2 bg-[#F8F1FF] dark:bg-[#160D29] p-2 rounded-xl border border-[#E8DDFF] dark:border-[#35105E]">
-              <span className="text-xs font-semibold text-[#4B4452] dark:text-[#CEC0E8] whitespace-nowrap">
+            <div className="flex items-center gap-2 bg-[#f0f3ff] dark:bg-[#160D29] p-2 rounded-xl border border-[#d8e3fb] dark:border-[#35105E]">
+              <span className="text-xs font-semibold text-[#3f4850] dark:text-[#CEC0E8] whitespace-nowrap">
                 Teknisi:
               </span>
               <select
                 value={selectedInstallerName}
                 onChange={e => setSelectedInstallerName(e.target.value)}
-                className="tactile-debossed-input px-2.5 py-1.5 text-xs bg-white dark:bg-[#22123F] rounded-lg font-semibold text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#58149C]"
+                className="px-2.5 py-1.5 text-xs bg-white dark:bg-[#22123F] rounded-lg font-semibold text-[#111c2d] dark:text-white border border-[#d8e3fb] dark:border-[#4b386b] focus:outline-none focus:ring-2 focus:ring-[#006194]"
               >
                 {myInstallers.map(inst => (
                   <option key={inst.id} value={inst.name}>
@@ -570,22 +585,147 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           )}
         </div>
 
-        {/* Search & Filter Controls */}
-        <div className="pt-3 border-t border-[#E8DDFF] dark:border-[#35105E] flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-[#7D7484] absolute left-3 top-2.5" />
+        {/* Horizontal Segmented Filter Chips */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setStatusFilter('all');
+            }}
+            className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
+              statusFilter === 'all' && !activeKpiDrilldown
+                ? 'bg-[#111c2d] dark:bg-[#006194] text-white shadow-xs'
+                : 'bg-[#f0f3ff] text-[#111c2d] hover:bg-[#e7eeff] dark:bg-[#160D29] dark:text-[#CEC0E8]'
+            }`}
+          >
+            <span>Semua</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${statusFilter === 'all' && !activeKpiDrilldown ? 'bg-white/20 text-white' : 'bg-white dark:bg-black/25'}`}>
+              {counts.all}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setStatusFilter('pending');
+            }}
+            className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
+              statusFilter === 'pending'
+                ? 'bg-[#006194] text-white shadow-xs'
+                : 'bg-[#e7eeff] text-[#006194] hover:bg-[#dee8ff] dark:bg-[#261942] dark:text-[#93ccff]'
+            }`}
+          >
+            <span>Aktif</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${statusFilter === 'pending' ? 'bg-white/20 text-white' : 'bg-white dark:bg-black/25'}`}>
+              {counts.pending}
+            </span>
+          </button>
+
+          {counts.revision > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveKpiDrilldown(null);
+                setStatusFilter('revision');
+              }}
+              className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                statusFilter === 'revision'
+                  ? 'bg-[#ba1a1a] text-white shadow-xs'
+                  : 'bg-[#ffdad6] text-[#93000a] hover:bg-[#ffdad6]/80 dark:bg-rose-950/80 dark:text-rose-200'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              <span>Revisi</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums bg-white/60 dark:bg-black/25">
+                {counts.revision}
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setStatusFilter('butuh_approval');
+            }}
+            className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              statusFilter === 'butuh_approval'
+                ? 'bg-[#825100] text-white shadow-xs'
+                : 'bg-[#ffddb8] text-[#633c00] hover:bg-[#ffddb8]/80 dark:bg-amber-950/70 dark:text-amber-200'
+            }`}
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>Butuh Approval ({counts.butuh_approval})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setStatusFilter('done');
+            }}
+            className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
+              statusFilter === 'done'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+            }`}
+          >
+            Selesai ({counts.done})
+          </button>
+
+          {counts.reschedule > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveKpiDrilldown(null);
+                setStatusFilter('reschedule');
+              }}
+              className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
+                statusFilter === 'reschedule'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300'
+              }`}
+            >
+              Reschedule ({counts.reschedule})
+            </button>
+          )}
+
+          {counts.cancel > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveKpiDrilldown(null);
+                setStatusFilter('cancel');
+              }}
+              className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
+                statusFilter === 'cancel'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300'
+              }`}
+            >
+              Cancel ({counts.cancel})
+            </button>
+          )}
+        </div>
+
+        {/* Search & Sort Controls */}
+        <div className="pt-2 border-t border-[#e7eeff] dark:border-[#35105E] flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 text-[#707881] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="Cari nomor WO, nama pelanggan, cluster, atau telepon..."
+              placeholder="Cari no. WO, pelanggan, cluster, telepon..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="tactile-debossed-input w-full pl-9 pr-8 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#58149C]"
+              className="w-full min-h-[44px] pl-10 pr-9 py-2 bg-[#f0f3ff] dark:bg-[#160D29] rounded-full text-xs text-[#111c2d] dark:text-white placeholder:text-[#707881] focus:outline-none focus:ring-2 focus:ring-[#006194]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#707881] hover:text-[#111c2d] dark:hover:text-white cursor-pointer"
                 aria-label="Hapus pencarian"
               >
                 <X className="w-4 h-4" />
@@ -593,116 +733,18 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-[#7D7484] dark:text-[#CEC0E8] font-semibold text-[11px] mr-1 flex items-center gap-1">
-              <Filter className="w-3 h-3" /> Filter:
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveKpiDrilldown(null);
-                setStatusFilter('all');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === 'all' && !activeKpiDrilldown
-                  ? 'bg-[#342B4E] text-white shadow-[0_2px_0_#160D29]'
-                  : 'bg-[#F8F1FF] text-[#4B4452] hover:bg-[#EEE4FF] dark:bg-[#160D29] dark:text-[#CEC0E8]'
-              }`}
+          <div className="flex items-center gap-1.5 bg-[#f0f3ff] dark:bg-[#160D29] px-2.5 min-h-[44px] rounded-xl border border-[#d8e3fb] dark:border-[#35105E] shrink-0">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#006194] dark:text-[#93ccff]" />
+            <select
+              aria-label="Urutkan Tugas"
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as 'slot' | 'status' | 'wo')}
+              className="bg-transparent text-xs font-bold text-[#111c2d] dark:text-white focus:outline-none cursor-pointer"
             >
-              Semua ({counts.all})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveKpiDrilldown(null);
-                setStatusFilter('pending');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === 'pending'
-                  ? 'bg-[#58149C] text-white shadow-[0_2px_0_#2A0053]'
-                  : 'bg-[#F3EAFF] text-[#58149C] hover:bg-[#E8DDFF] dark:bg-[#261942] dark:text-[#DAB9FF]'
-              }`}
-            >
-              Aktif ({counts.pending})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveKpiDrilldown(null);
-                setStatusFilter('butuh_approval');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                statusFilter === 'butuh_approval'
-                  ? 'bg-amber-600 text-white shadow-[0_2px_0_#92400E]'
-                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50'
-              }`}
-            >
-              <AlertCircle className="w-3 h-3" />
-              <span>Butuh Approval ({counts.butuh_approval})</span>
-            </button>
-            {counts.revision > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveKpiDrilldown(null);
-                  setStatusFilter('revision');
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  statusFilter === 'revision'
-                    ? 'bg-[#BA1A1A] text-white shadow-[0_2px_0_#7F1D1D]'
-                    : 'bg-[#FEF2F2] text-[#BA1A1A] hover:bg-rose-100 dark:bg-rose-950/80 dark:text-rose-200 border border-rose-200'
-                }`}
-              >
-                <AlertTriangle className="w-3 h-3" />
-                <span>Revisi ({counts.revision})</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveKpiDrilldown(null);
-                setStatusFilter('done');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                statusFilter === 'done'
-                  ? 'bg-emerald-600 text-white shadow-[0_2px_0_#065F46]'
-                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
-              }`}
-            >
-              Selesai ({counts.done})
-            </button>
-            {counts.reschedule > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveKpiDrilldown(null);
-                  setStatusFilter('reschedule');
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  statusFilter === 'reschedule'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300'
-                }`}
-              >
-                Reschedule ({counts.reschedule})
-              </button>
-            )}
-            {counts.cancel > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveKpiDrilldown(null);
-                  setStatusFilter('cancel');
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  statusFilter === 'cancel'
-                    ? 'bg-rose-600 text-white'
-                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300'
-                }`}
-              >
-                Cancel ({counts.cancel})
-              </button>
-            )}
+              <option value="slot">Slot Waktu</option>
+              <option value="status">Status</option>
+              <option value="wo">No. WO</option>
+            </select>
           </div>
         </div>
       </div>
@@ -1219,6 +1261,18 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                         )}
                       </button>
 
+                      {!ticketClosed && currentUser.role !== 'leader' && (
+                        <button
+                          type="button"
+                          onClick={() => setQuickUpdateTicket(ticket)}
+                          className="px-4 py-2 min-h-[42px] bg-[#006194] hover:bg-[#004b73] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          title="Update status cepat, log #PROGRESS, foto & tanda tangan PIC"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>Update Cepat</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleOpenTicket(ticket)}
@@ -1467,6 +1521,14 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           <TicketLiveChat ticket={chatModalTicket} initialCategory={chatInitialCategory} />
         )}
       </ResponsiveModal>
+
+      {/* Stitch Screen 3: Quick Status, Photo, Log & Signature Bottom Sheet */}
+      <WorkOrderQuickUpdateSheet
+        ticket={quickUpdateTicket}
+        isOpen={Boolean(quickUpdateTicket)}
+        onClose={() => setQuickUpdateTicket(null)}
+        onOpenFullReport={t => handleOpenTicket(t)}
+      />
     </div>
   );
 };

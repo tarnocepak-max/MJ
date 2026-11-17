@@ -68,7 +68,7 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
   return (
     <nav
       aria-label="Navigasi Bawah Teknisi"
-      className="fixed bottom-0 inset-x-0 z-40 bg-white/98 dark:bg-[#160D29]/98 backdrop-blur-xl border-t border-[#e8ddff] dark:border-[#35105E] shadow-[0_-2px_8px_rgba(31,22,56,0.08)] pb-[env(safe-area-inset-bottom,0px)] transition-colors select-none"
+      className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#160D29]/98 backdrop-blur-xl border-t border-[#d8e3fb] dark:border-[#35105E] shadow-[0_-2px_12px_rgba(17,28,45,0.06)] pb-[env(safe-area-inset-bottom,0px)] transition-colors select-none"
     >
       <div className="max-w-3xl mx-auto grid grid-cols-4 items-center px-1 sm:px-4 h-16">
         {tabs.map((tab) => {
@@ -80,20 +80,20 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className={`relative flex flex-col items-center justify-center h-full min-h-[48px] px-1 transition-all cursor-pointer group active:translate-y-0.5 ${
+              className={`relative flex flex-col items-center justify-center h-full min-h-[48px] px-1 transition-all cursor-pointer group active:scale-95 ${
                 isActive
-                  ? 'text-[#58149c] dark:text-[#dab9ff]'
-                  : 'text-[#7d7484] dark:text-[#cec0e8]/75 hover:text-[#58149c] dark:hover:text-[#dab9ff]'
+                  ? 'text-[#006194] dark:text-[#93ccff]'
+                  : 'text-[#3f4850] dark:text-[#cec0e8]/75 hover:text-[#006194] dark:hover:text-[#93ccff]'
               }`}
             >
               {isActive && (
-                <span className="absolute top-0 w-10 h-[3px] bg-[#58149c] dark:bg-[#dab9ff] rounded-b-full shadow-[0_2px_6px_rgba(88,20,156,0.35)]" />
+                <span className="absolute top-0 w-10 h-[3px] bg-[#006194] dark:bg-[#93ccff] rounded-b-full" />
               )}
 
               <div
                 className={`relative flex items-center justify-center p-1.5 rounded-xl transition-all ${
                   isActive
-                    ? 'bg-[#f3eaff] dark:bg-[#35105E] shadow-[inset_0_1px_0_#ffffff,0_2px_0_#cec3d4] dark:shadow-none'
+                    ? 'bg-[#e7eeff] dark:bg-[#35105E]'
                     : ''
                 }`}
               >
@@ -101,8 +101,8 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
                   strokeWidth={isActive ? 2.3 : 1.9}
                   className={`w-5 h-5 transition-transform group-active:scale-95 ${
                     isActive
-                      ? 'text-[#58149c] dark:text-[#dab9ff]'
-                      : 'text-[#7d7484] dark:text-[#cec0e8]/75 group-hover:text-[#58149c]'
+                      ? 'text-[#006194] dark:text-[#93ccff]'
+                      : 'text-[#3f4850] dark:text-[#cec0e8]/75 group-hover:text-[#006194]'
                   }`}
                 />
 
@@ -125,8 +125,8 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
               <span
                 className={`mt-0.5 text-[10.5px] sm:text-[11px] tracking-tight truncate max-w-[84px] sm:max-w-none text-center ${
                   isActive
-                    ? 'font-extrabold text-[#58149c] dark:text-[#dab9ff]'
-                    : 'font-semibold text-[#7d7484] dark:text-[#cec0e8]/75'
+                    ? 'font-extrabold text-[#006194] dark:text-[#93ccff]'
+                    : 'font-semibold text-[#3f4850] dark:text-[#cec0e8]/75'
                 }`}
               >
                 {tab.label}

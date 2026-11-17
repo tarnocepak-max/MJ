@@ -59,12 +59,19 @@ import {
   Trash2,
   Package,
   ShieldAlert,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Zap,
+  MoreVertical,
+  ExternalLink,
+  Building2,
+  Share2,
+  CheckSquare
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
+import { WorkOrderQuickUpdateSheet } from '../tickets/WorkOrderQuickUpdateSheet';
 
 interface InstallerTicketFullviewProps {
   ticket: Ticket;
@@ -225,7 +232,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     getTicketUnreadCount,
     hierarchicalStatuses,
     chatCategories,
-    setTicketChatCategory
+    setTicketChatCategory,
+    ticketActivities
   } = useApp();
   const { toast } = useToast();
   const { showGlobalError, startLoading, stopLoading } = useAnimation();
@@ -253,6 +261,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   });
   const [showKendalaModal, setShowKendalaModal] = useState(false);
   const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
+  const [showQuickUpdateSheet, setShowQuickUpdateSheet] = useState(false);
+  const [showEscalationMenu, setShowEscalationMenu] = useState(false);
+  const checkoutFormRef = useRef<HTMLFormElement>(null);
+  const photoSectionRef = useRef<HTMLElement>(null);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [savedReportSnapshot, setSavedReportSnapshot] = useState<{
@@ -1320,10 +1332,92 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const woBadgeLabel = activeTicket.appointmentType || activeTicket.ticketCategory || 'FTTH Install';
   const isSignatureReady = Boolean(customerSignatureUrl) && customerConsentConfirmed;
 
+  const relatedActivities = useMemo(() => {
+    return (ticketActivities || [])
+      .filter(a => a.ticketId === activeTicket.id || a.woNumber === activeTicket.woNumber)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [ticketActivities, activeTicket.id, activeTicket.woNumber]);
+
+  const lifecycleSteps = useMemo(() => {
+    const isAssigned = Boolean(activeTicket.installerName || activeTicket.assignedTo);
+    const isStarted =
+      Boolean(activeTicket.workStartedAt) ||
+      ['En Route', 'On Site', 'In Progress', 'Completed', 'Installed'].includes(
+        String(activeTicket.statusWOInstaller || '')
+      );
+    const isCheckedIn = Boolean(activeTicket.checkInAt) || hasValidProgressFromCurrentTechnician;
+    const isReported =
+      Boolean(activeTicket.checkOutAt) ||
+      (activeTicket.progressReports && activeTicket.progressReports.length > 0) ||
+      ['Completed', 'Installed'].includes(String(activeTicket.statusWOInstaller || ''));
+    const isApproved = activeTicket.approvalStatus === 'APPROVED';
+
+    const steps = [
+      {
+        key: 'import',
+        label: 'Diterbitkan',
+        time: activeTicket.createdAt ? formatJakartaTimeOnly(activeTicket.createdAt) : '—',
+        done: true,
+        active: false
+      },
+      {
+        key: 'assign',
+        label: 'Assignment',
+        time: activeTicket.assignedAt ? formatJakartaTimeOnly(activeTicket.assignedAt) : isAssigned ? 'Terjadwal' : '—',
+        done: isAssigned,
+        active: !isAssigned
+      },
+      {
+        key: 'start',
+        label: 'Mulai / OTW',
+        time: activeTicket.workStartedAt ? formatJakartaTimeOnly(activeTicket.workStartedAt) : isStarted ? activeTicket.statusWOInstaller || 'Aktif' : '—',
+        done: isStarted,
+        active: isAssigned && !isStarted
+      },
+      {
+        key: 'checkin',
+        label: 'Check-in',
+        time: isCheckedIn ? validatedCheckInTime : 'Belum',
+        done: isCheckedIn,
+        active: isStarted && !isCheckedIn
+      },
+      {
+        key: 'report',
+        label: 'Report QC',
+        time: activeTicket.checkOutAt ? formatJakartaTimeOnly(activeTicket.checkOutAt) : isReported ? 'Terkirim' : 'Proses',
+        done: isReported,
+        active: isCheckedIn && !isReported
+      },
+      {
+        key: 'approval',
+        label: 'Approval',
+        time: isApproved ? 'Disetujui' : canonicalApproval === 'REVISION' ? 'Revisi' : isReported ? 'Review' : '—',
+        done: isApproved,
+        active: isReported && !isApproved
+      },
+      {
+        key: 'closed',
+        label: 'Closed',
+        time: ticketClosed ? 'Selesai' : '—',
+        done: ticketClosed,
+        active: false
+      }
+    ];
+
+    const completedCount = steps.filter(s => s.done).length;
+    const pct = Math.round((completedCount / steps.length) * 100);
+    return { steps, completedCount, total: steps.length, pct };
+  }, [activeTicket, hasValidProgressFromCurrentTechnician, validatedCheckInTime, canonicalApproval, ticketClosed]);
+
+  const rawCustomerPhone = String(activeTicket.customerPhone || '').trim();
+  const telCustomerHref = rawCustomerPhone ? `tel:${rawCustomerPhone.replace(/[^\d+]/g, '')}` : '';
+  const rawInstallerPhone = String(activeTicket.installerContact || '').trim();
+  const telInstallerHref = rawInstallerPhone ? `tel:${rawInstallerPhone.replace(/[^\d+]/g, '')}` : '';
+
   return (
-    <div className="bg-[#F5F1FF] dark:bg-[#140827] min-h-screen -m-3 sm:-m-5 lg:-m-6 flex flex-col text-[#211A2E] dark:text-[#F5EEFF] transition-colors">
-      {/* Main Container matching mobile 3D tactile design & expanding to 12-col enterprise grid on desktop */}
-      <div className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-5 lg:px-6 pt-3 pb-28 space-y-3.5">
+    <div className="bg-[#f9f9ff] dark:bg-[#140827] min-h-screen -m-3 sm:-m-5 lg:-m-6 flex flex-col text-[#111c2d] dark:text-[#F5EEFF] transition-colors">
+      {/* Main Container matching Stitch Task Focus mobile design & expanding to 12-col enterprise grid on desktop */}
+      <div className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-5 lg:px-6 pt-3 pb-36 space-y-3.5">
 
         {/* ============================================================ */}
         {/* NAVIGATION & STAGE CONTEXT BAR                               */}
@@ -1533,26 +1627,26 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           )}
 
           {/* Site Quick Specs + Quick Address/WA Actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-dashed border-[#D8CCF3] dark:border-[#35105E]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-dashed border-[#d8e3fb] dark:border-[#35105E]">
             <button
               type="button"
               onClick={handleCopyAddress}
-              className="flex items-center gap-1.5 text-left text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] dark:hover:text-white transition-colors cursor-pointer min-w-0"
+              className="flex items-center gap-1.5 text-left text-[#3f4850] dark:text-[#CEC0E8] hover:text-[#006194] dark:hover:text-white transition-colors cursor-pointer min-w-0"
               title="Ketuk untuk menyalin alamat pelanggan"
             >
               {copiedAddress ? (
                 <Check className="w-4 h-4 text-[#16A36A] shrink-0" />
               ) : (
-                <MapPin className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+                <MapPin className="w-4 h-4 text-[#006194] dark:text-[#93ccff] shrink-0" />
               )}
               <span className="text-[11.5px] font-medium truncate">
                 {activeTicket.streetName || activeTicket.address || activeTicket.clusterName || 'Alamat belum tercatat'}
               </span>
             </button>
 
-            <div className="flex items-center gap-1.5 text-[#766B83] dark:text-[#CEC0E8] min-w-0">
-              <GitBranch className="w-4 h-4 text-[#431599] dark:text-[#A78BFA] shrink-0" />
-              <span className="text-[11.5px] font-mono font-bold text-[#160D29] dark:text-white truncate">
+            <div className="flex items-center gap-1.5 text-[#3f4850] dark:text-[#CEC0E8] min-w-0">
+              <GitBranch className="w-4 h-4 text-[#006194] dark:text-[#93ccff] shrink-0" />
+              <span className="text-[11.5px] font-mono font-bold text-[#111c2d] dark:text-white truncate">
                 {activeTicket.fatCode || activeTicket.fdtCode || '-'}
                 {fatPort || activeTicket.fatPort ? ` #${String(fatPort || activeTicket.fatPort).replace(/^#/, '')}` : ''}
               </span>
@@ -1562,7 +1656,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               <button
                 type="button"
                 onClick={handleOpenMaps}
-                className="px-2.5 py-1 rounded-lg bg-[#F5F1FF] dark:bg-[#261942] border border-[#D8CCF3] dark:border-[#4B386B] text-[#431599] dark:text-[#D8B4FE] text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer hover:bg-[#EDE4FF]"
+                className="px-2.5 py-1 rounded-lg bg-[#f0f3ff] dark:bg-[#261942] border border-[#d8e3fb] dark:border-[#4B386B] text-[#006194] dark:text-[#93ccff] text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer hover:bg-[#e7eeff]"
               >
                 <Navigation className="w-3 h-3" />
                 <span>Maps</span>
@@ -1585,6 +1679,358 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               )}
             </div>
           </div>
+
+          {/* Stitch Screen 2: Horizontal Lifecycle Stepper */}
+          <div className="mt-3 pt-3 border-t border-[#e7eeff] dark:border-[#35105E] space-y-2.5">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="uppercase tracking-wider text-[#3f4850] dark:text-[#CEC0E8]">
+                Tahapan Eksekusi ({lifecycleSteps.completedCount}/{lifecycleSteps.total})
+              </span>
+              <span className="font-mono text-[#006194] dark:text-[#93ccff] tabular-nums">
+                {lifecycleSteps.pct}% Complete
+              </span>
+            </div>
+            <div className="flex items-start gap-2 overflow-x-auto no-scrollbar pb-1">
+              {lifecycleSteps.steps.map((step, idx) => (
+                <React.Fragment key={step.key}>
+                  <div className="flex flex-col items-center shrink-0 min-w-[66px] text-center">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                        step.done
+                          ? 'bg-[#006194] text-white shadow-xs'
+                          : step.active
+                          ? 'bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] ring-2 ring-[#006194] animate-pulse'
+                          : 'bg-[#f0f3ff] dark:bg-[#160D29] text-[#707881] dark:text-[#CEC0E8]/60'
+                      }`}
+                    >
+                      {step.done ? <Check className="w-3.5 h-3.5" /> : idx + 1}
+                    </div>
+                    <span
+                      className={`text-[10.5px] font-bold mt-1 leading-tight ${
+                        step.done || step.active
+                          ? 'text-[#111c2d] dark:text-white'
+                          : 'text-[#707881] dark:text-[#CEC0E8]/65'
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                    <span className="font-mono text-[9.5px] text-[#3f4850] dark:text-[#CEC0E8]/75 tabular-nums">
+                      {step.time}
+                    </span>
+                  </div>
+                  {idx < lifecycleSteps.steps.length - 1 && (
+                    <div
+                      aria-hidden="true"
+                      className={`h-0.5 w-6 mt-3.5 shrink-0 rounded-full ${
+                        step.done ? 'bg-[#006194]' : 'bg-[#d8e3fb] dark:bg-[#35105E]'
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================ */}
+        {/* STITCH SCREEN 2: PELANGGAN & LOKASI + DESKRIPSI SOP + TIM    */}
+        {/* ============================================================ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Pelanggan & Lokasi Card */}
+          <section className="lg:col-span-6 mj-stitch-card rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <h2 className="font-display font-bold text-[15px] text-[#111c2d] dark:text-white">
+                  Pelanggan &amp; Lokasi
+                </h2>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#f0f3ff] dark:bg-[#261942] text-[#006194] dark:text-[#93ccff] font-mono text-[10.5px] font-bold">
+                ID: {activeTicket.idCustomer || activeTicket.customerId || '-'}
+              </span>
+            </div>
+
+            {/* Tonal Address Block */}
+            <div className="mj-stitch-tonal-well rounded-xl p-3 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#3f4850] dark:text-[#CEC0E8]">
+                  Pelanggan / Lokasi Instalasi
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyAddress}
+                  className="text-[10.5px] font-bold text-[#006194] dark:text-[#93ccff] inline-flex items-center gap-1 cursor-pointer hover:underline"
+                >
+                  {copiedAddress ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedAddress ? 'Tersalin' : 'Salin Alamat'}</span>
+                </button>
+              </div>
+              <div className="font-display font-bold text-sm text-[#111c2d] dark:text-white">
+                {activeTicket.customerName}
+              </div>
+              <div className="flex items-start gap-1.5 text-xs text-[#3f4850] dark:text-[#CEC0E8] leading-relaxed">
+                <MapPin className="w-3.5 h-3.5 text-[#006194] dark:text-[#93ccff] shrink-0 mt-0.5" />
+                <span>
+                  {[activeTicket.streetName || activeTicket.address, activeTicket.clusterName, activeTicket.area]
+                    .filter(Boolean)
+                    .join(', ') || 'Alamat belum tercatat'}
+                </span>
+              </div>
+            </div>
+
+            {/* PIC Contact & Direct Call / WhatsApp */}
+            <div className="mj-stitch-tonal-well rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-[#dee8ff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-display font-bold text-xs flex items-center justify-center shrink-0">
+                    {(activeTicket.customerName || 'P').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10.5px] text-[#3f4850] dark:text-[#CEC0E8]">PIC Pelanggan</div>
+                    <div className="text-xs font-bold text-[#111c2d] dark:text-white truncate">
+                      {activeTicket.customerName}
+                    </div>
+                  </div>
+                </div>
+                <span className="font-mono text-xs font-bold text-[#111c2d] dark:text-white shrink-0">
+                  {rawCustomerPhone || '-'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {telCustomerHref ? (
+                  <a
+                    href={telCustomerHref}
+                    className="min-h-[42px] px-3 rounded-xl bg-white dark:bg-[#261942] hover:bg-[#e7eeff] text-[#006194] dark:text-[#93ccff] text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-2xs"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Panggil PIC</span>
+                  </a>
+                ) : (
+                  <span className="min-h-[42px] px-3 rounded-xl bg-white/60 dark:bg-[#261942]/40 text-[#707881] text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>No. Telp Kosong</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (waUrlObj.url) {
+                      window.open(waUrlObj.url, '_blank', 'noopener,noreferrer');
+                    } else {
+                      onOpenWhatsApp(activeTicket);
+                    }
+                  }}
+                  className="min-h-[42px] px-3 rounded-xl bg-white dark:bg-[#261942] hover:bg-emerald-50 text-emerald-700 dark:text-emerald-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pure CSS/SVG Interactive Google Maps Route Banner (Zero external broken map URLs) */}
+            <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-[#dee8ff] via-[#e7eeff] to-[#cce5ff] dark:from-[#160D29] dark:via-[#22123F] dark:to-[#35105E] p-3.5 border border-[#d8e3fb] dark:border-[#4B386B]">
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 opacity-25 pointer-events-none"
+                style={{
+                  backgroundImage:
+                    'radial-gradient(#006194 1px, transparent 1px)',
+                  backgroundSize: '16px 16px'
+                }}
+              />
+              <div className="relative z-10 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#006194] dark:text-[#93ccff]">
+                    Navigasi Rute Cepat
+                  </div>
+                  <div className="font-display font-bold text-xs text-[#111c2d] dark:text-white truncate mt-0.5">
+                    {activeTicket.clusterName || activeTicket.area || activeTicket.streetName || 'Koordinat Pelanggan'}
+                  </div>
+                  <div className="text-[10.5px] font-mono text-[#3f4850] dark:text-[#CEC0E8] mt-0.5">
+                    FAT {activeTicket.fatCode || '-'} • Slot {activeTicket.slotTime || '-'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenMaps}
+                  className="min-h-[42px] px-3.5 rounded-xl bg-[#006194] hover:bg-[#004b73] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Google Maps</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Deskripsi & SOP + Tim Teknisi + Riwayat Log Lapangan */}
+          <div className="lg:col-span-6 space-y-3.5">
+            {/* Deskripsi & Ruang Lingkup / SOP FTTH */}
+            <section className="mj-stitch-card rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#ffddb8]/70 dark:bg-amber-950/60 text-[#825100] dark:text-amber-300 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[15px] text-[#111c2d] dark:text-white">
+                    Deskripsi &amp; Instruksi SOP
+                  </h2>
+                </div>
+                <span className="px-2 py-0.5 rounded-md bg-[#f0f3ff] dark:bg-[#261942] font-mono text-[10px] font-bold text-[#006194] dark:text-[#93ccff]">
+                  {woBadgeLabel}
+                </span>
+              </div>
+
+              {(activeTicket.remarksAgent || activeTicket.remarks || activeTicket.remarksWOInstaller) && (
+                <div className="mj-stitch-tonal-well rounded-xl p-3 text-xs text-[#111c2d] dark:text-[#F5EEFF] leading-relaxed">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#3f4850] dark:text-[#CEC0E8] mb-1">
+                    Catatan Work Order / Dispatch
+                  </div>
+                  <p>{activeTicket.remarksAgent || activeTicket.remarks || activeTicket.remarksWOInstaller}</p>
+                </div>
+              )}
+
+              <div className="mj-stitch-tonal-well rounded-xl p-3 space-y-1.5 text-xs">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#3f4850] dark:text-[#CEC0E8]">
+                  Instruksi Kerja Standar (SOP FTTH)
+                </div>
+                <ol className="space-y-1.5 text-[#111c2d] dark:text-[#F5EEFF]">
+                  <li className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      1
+                    </span>
+                    <span>
+                      Kirim pesan LiveChat kategori <strong className="font-mono">#PROGRESS</strong> saat tiba di lokasi untuk membuka Check-in.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      2
+                    </span>
+                    <span>
+                      Verifikasi redaman OPM pada roset (ambang SOP: <strong className="font-mono">-15 s/d -24 dBm</strong>) &amp; kesesuaian SN ONT.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      3
+                    </span>
+                    <span>
+                      Unggah 4 titik bukti foto SOP, isi 3-Tier Checkout &amp; tanda tangan pelanggan sebelum mengirim ke Dispatch.
+                    </span>
+                  </li>
+                </ol>
+              </div>
+            </section>
+
+            {/* Tim & Mitra Vendor */}
+            <section className="mj-stitch-card rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[15px] text-[#111c2d] dark:text-white">
+                    Tim &amp; Mitra Vendor
+                  </h2>
+                </div>
+                <span className="text-[11px] font-semibold text-[#3f4850] dark:text-[#CEC0E8]">
+                  {activeTicket.area || 'Area Umum'}
+                </span>
+              </div>
+
+              <div className="mj-stitch-tonal-well rounded-xl p-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-[#006194] text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
+                    {(activeTicket.installerName || 'T').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-[#111c2d] dark:text-white truncate">
+                        {activeTicket.installerName || 'Belum Ditugaskan'}
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] text-[9.5px] font-bold">
+                        Teknisi
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#3f4850] dark:text-[#CEC0E8] truncate">
+                      Korlap Leader: {activeTicket.leaderName || '-'}
+                    </div>
+                  </div>
+                </div>
+                {telInstallerHref && (
+                  <a
+                    href={telInstallerHref}
+                    aria-label="Hubungi teknisi"
+                    className="w-9 h-9 rounded-full bg-white dark:bg-[#261942] text-[#006194] dark:text-[#93ccff] flex items-center justify-center shrink-0 shadow-2xs"
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs px-1 pt-0.5">
+                <span className="text-[#3f4850] dark:text-[#CEC0E8]">Mitra Vendor:</span>
+                <span className="font-bold text-[#111c2d] dark:text-white">
+                  {activeTicket.contactorName || activeTicket.contractorName || '-'}
+                </span>
+              </div>
+            </section>
+
+            {/* Riwayat Log Lapangan */}
+            <section className="mj-stitch-card rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#93ccff] flex items-center justify-center shrink-0">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[15px] text-[#111c2d] dark:text-white">
+                    Riwayat Log Lapangan
+                  </h2>
+                </div>
+                {!ticketClosed && currentUser.role !== 'leader' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickUpdateSheet(true)}
+                    className="text-xs font-bold text-[#006194] dark:text-[#93ccff] inline-flex items-center gap-1 cursor-pointer hover:underline"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>+ Tambah Log</span>
+                  </button>
+                )}
+              </div>
+
+              {relatedActivities.length === 0 && progressHistory.length === 0 ? (
+                <div className="mj-stitch-tonal-well rounded-xl p-3 text-xs text-[#3f4850] dark:text-[#CEC0E8] text-center">
+                  Belum ada log aktivitas lapangan untuk Work Order ini.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {relatedActivities.slice(0, 8).map(act => (
+                    <div
+                      key={act.id}
+                      className="mj-stitch-tonal-well rounded-xl p-2.5 text-xs space-y-1 border-l-3 border-[#006194]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#111c2d] dark:text-white truncate">
+                          {act.performedBy || 'Sistem'}
+                        </span>
+                        <span className="font-mono text-[10px] text-[#3f4850] dark:text-[#CEC0E8] shrink-0 tabular-nums">
+                          {formatJakartaTimeOnly(act.timestamp)}
+                        </span>
+                      </div>
+                      <p className="text-[11.5px] text-[#3f4850] dark:text-[#CEC0E8] leading-snug">
+                        {act.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         </div>
 
         {/* ============================================================ */}
@@ -1595,7 +2041,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           {/* ========================================================== */}
           {/* LEFT COLUMN (7/12 on desktop): STITCH 3-TIER CHECKOUT FLOW */}
           {/* ========================================================== */}
-          <form onSubmit={handleOpenQcSheet} className="lg:col-span-7 space-y-3.5">
+          <form ref={checkoutFormRef} onSubmit={handleOpenQcSheet} className="lg:col-span-7 space-y-3.5">
 
             {/* Error Alert */}
             {reportError && (
@@ -1949,7 +2395,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             {/* -------------------------------------------------------- */}
             {/* SECTION 3: BUKTI FOTO FISIK (4 TITIK SOP)                */}
             {/* -------------------------------------------------------- */}
-            <section className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
+            <section ref={photoSectionRef} className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#35105E] to-[#160D29] text-white flex items-center justify-center border-t border-white/30 shadow-[0_2px_0_#160D29]">
@@ -2258,24 +2704,27 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               onClick={() => {
                 if (!isChatActive) setIsChatActive(true);
               }}
-              className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 flex flex-col h-[560px] lg:h-[620px]"
+              className="mj-stitch-card rounded-2xl p-4 flex flex-col h-[560px] lg:h-[620px]"
             >
               {/* Chat Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0 gap-2 flex-wrap">
+              <div className="flex items-center justify-between pb-3 border-b border-[#d8e3fb] dark:border-[#35105E] shrink-0 gap-2 flex-wrap">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center font-bold border border-[#D8CCF3] dark:border-[#5B35B1]">
-                    <MessageSquare className="w-4 h-4" />
+                  <div className="relative">
+                    <div className="w-9 h-9 rounded-full bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#D8B4FE] flex items-center justify-center font-bold border border-[#d8e3fb] dark:border-[#5B35B1]">
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#16A36A] border-2 border-white dark:border-[#1E1238]" />
                   </div>
                   <div>
-                    <h3 className="font-display font-bold text-[14px] text-[#160D29] dark:text-white flex items-center gap-2">
+                    <h3 className="font-display font-bold text-[14px] text-[#111c2d] dark:text-white flex items-center gap-2">
                       <span>Live Chat Room</span>
                       {unreadChatCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DC4C5A] text-white tabular-nums">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ba1a1a] text-white tabular-nums">
                           {unreadChatCount > 99 ? '99+' : unreadChatCount} Baru
                         </span>
                       )}
                     </h3>
-                    <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] font-mono">
+                    <div className="text-[11px] text-[#3f4850] dark:text-[#CEC0E8] font-mono">
                       WO: {activeTicket.woNumber}
                     </div>
                   </div>
@@ -2285,10 +2734,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   {chatCategory && (
                     <span
                       className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-2xs flex items-center gap-1"
-                      style={{ backgroundColor: currentChatCategoryObj?.color || '#7135B5' }}
+                      style={{ backgroundColor: currentChatCategoryObj?.color || '#006194' }}
                     >
                       <Tag className="w-2.5 h-2.5" />
-                      <span>{chatCategory}</span>
+                      <span>#{chatCategory}</span>
                     </span>
                   )}
                   <span className="inline-flex items-center gap-1 text-[10.5px] text-[#16A36A] dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-700">
@@ -2299,16 +2748,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
 
               {/* Chat Conversation Area */}
-              <div className="flex-1 p-3 my-3 overflow-y-auto space-y-3 bg-[#F5F1FF]/70 dark:bg-[#140827]/80 rounded-xl border border-[#D8CCF3]/60 dark:border-[#35105E]">
+              <div className="flex-1 p-3 my-3 overflow-y-auto space-y-3 bg-[#f9f9ff] dark:bg-[#140827]/80 rounded-xl border border-[#d8e3fb] dark:border-[#35105E]">
                 {messages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-5 text-[#8B8495] space-y-2">
-                    <div className="w-10 h-10 rounded-2xl bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center shadow-xs">
+                  <div className="h-full flex flex-col items-center justify-center text-center p-5 text-[#707881] space-y-2">
+                    <div className="w-10 h-10 rounded-2xl bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#D8B4FE] flex items-center justify-center shadow-xs">
                       <MessageCircle className="w-5 h-5" />
                     </div>
-                    <h4 className="font-bold text-[#211A2E] dark:text-white text-xs">
+                    <h4 className="font-bold text-[#111c2d] dark:text-white text-xs">
                       Belum Ada Pesan Koordinasi
                     </h4>
-                    <p className="text-[11px] max-w-xs text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
+                    <p className="text-[11px] max-w-xs text-[#3f4850] dark:text-[#CEC0E8] leading-relaxed">
                       Pilih kategori <strong>PROGRESS</strong> lalu kirim pesan pertama untuk Check-in lapangan otomatis sebelum mengisi laporan checkout.
                     </p>
                   </div>
@@ -2326,24 +2775,24 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
                       >
                         <div className="flex items-center gap-1.5 text-[10.5px]">
-                          <span className="font-bold text-[#211A2E] dark:text-[#E9D5FF]">
+                          <span className={`font-bold ${isMe ? 'text-[#006194] dark:text-sky-300' : 'text-[#111c2d] dark:text-[#E9D5FF]'}`}>
                             {isMe ? 'Anda' : msg.senderName}
                           </span>
                           {msg.category && (
-                            <span className="font-mono text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-[#E9D5FF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE]">
+                            <span className="font-mono text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#D8B4FE]">
                               #{msg.category}
                             </span>
                           )}
-                          <span className="text-[10px] text-[#8B8495] font-mono tabular-nums">
+                          <span className="text-[10px] text-[#707881] font-mono tabular-nums">
                             {formattedTime}
                           </span>
                         </div>
 
                         <div
-                          className={`max-w-[85%] rounded-2xl px-3.5 py-2 shadow-2xs space-y-1.5 text-xs ${
+                          className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-xs space-y-1.5 text-xs ${
                             isMe
-                              ? 'bg-[#5B35B1] text-white rounded-tr-xs'
-                              : 'bg-white dark:bg-[#22123F] text-[#211A2E] dark:text-[#F5EEFF] border border-[#D8CCF3] dark:border-[#35105E] rounded-tl-xs'
+                              ? 'bg-[#006194] text-white rounded-tr-xs'
+                              : 'bg-white dark:bg-[#22123F] text-[#111c2d] dark:text-[#F5EEFF] border border-[#d8e3fb] dark:border-[#35105E] rounded-tl-xs'
                           }`}
                         >
                           {msg.text && (
@@ -2369,15 +2818,18 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               ))}
                             </div>
                           )}
+
+                          {isMe && (
+                            <div className="flex justify-end pt-0.5">
+                              <MessageStatusReceipt
+                                message={msg}
+                                senderId={currentUser.id}
+                                variant="onDark"
+                                showLabel={true}
+                              />
+                            </div>
+                          )}
                         </div>
-                        {isMe && (
-                          <MessageStatusReceipt
-                            message={msg}
-                            senderId={currentUser.id}
-                            variant="onLight"
-                            showLabel={true}
-                          />
-                        )}
                       </div>
                     );
                   })
@@ -2387,7 +2839,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
               {/* Chat Error Alert */}
               {chatError && (
-                <div className="mb-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-[#BA1A1A] dark:text-rose-300 text-xs flex items-center gap-1.5 shrink-0">
+                <div className="mb-2 p-2 rounded-xl bg-[#ffdad6] dark:bg-rose-950/60 border border-[#ba1a1a]/30 text-[#93000a] dark:text-rose-300 text-xs flex items-center gap-1.5 shrink-0">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>{chatError}</span>
                 </div>
@@ -2395,21 +2847,21 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
               {/* Pending Attachments Preview */}
               {chatAttachments.length > 0 && (
-                <div className="mb-2 p-2 bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#4B386B] rounded-xl flex items-center gap-2 overflow-x-auto shrink-0">
+                <div className="mb-2 p-2 bg-[#f0f3ff] dark:bg-[#22123F] border border-[#d8e3fb] dark:border-[#4B386B] rounded-xl flex items-center gap-2 overflow-x-auto shrink-0">
                   {chatAttachments.map(att => (
-                    <div key={att.id} className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-[#7135B5]">
+                    <div key={att.id} className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-[#006194]">
                       <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => handleRemoveAttachment(att.id)}
-                        className="absolute top-0.5 right-0.5 p-0.5 bg-[#DC4C5A] text-white rounded-full cursor-pointer"
+                        className="absolute top-0.5 right-0.5 p-0.5 bg-[#ba1a1a] text-white rounded-full cursor-pointer"
                         title="Hapus lampiran"
                       >
                         <X className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   ))}
-                  <span className="text-[11px] text-[#431599] dark:text-[#D8B4FE] font-semibold">
+                  <span className="text-[11px] text-[#004b73] dark:text-[#D8B4FE] font-semibold">
                     {chatAttachments.length} foto siap dikirim
                   </span>
                 </div>
@@ -2425,7 +2877,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   <select
                     value={chatCategory}
                     onChange={e => handleChatCategorySelect(e.target.value)}
-                    className="tactile-debossed-input w-full px-3 py-1.5 rounded-xl bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5] cursor-pointer"
+                    className="w-full px-3 py-1.5 rounded-xl bg-[#f0f3ff] dark:bg-[#160D29] border border-[#d8e3fb] dark:border-[#4B386B] text-[#111c2d] dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#006194] cursor-pointer"
                   >
                     <option value="">-- Pilih Kategori Chat Wajib (mis. PROGRESS) --</option>
                     {activeChatCategories.map(cat => (
@@ -2435,7 +2887,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     ))}
                   </select>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-[#f0f3ff] dark:bg-[#160D29] p-1 rounded-2xl border border-[#d8e3fb] dark:border-[#4B386B]">
                     <input
                       type="file"
                       ref={chatFileInputRef}
@@ -2447,7 +2899,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     <button
                       type="button"
                       onClick={() => chatFileInputRef.current?.click()}
-                      className="tactile-btn-secondary p-2.5 rounded-xl bg-white dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#4B386B] shrink-0 cursor-pointer"
+                      className="p-2.5 rounded-xl bg-white dark:bg-[#22123F] text-[#006194] dark:text-[#D8B4FE] border border-[#d8e3fb] dark:border-[#4B386B] shrink-0 cursor-pointer"
                       title="Lampirkan foto ke chat"
                     >
                       <Paperclip className="w-4 h-4" />
@@ -2460,7 +2912,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       onFocus={() => setIsChatActive(true)}
                       onChange={e => setChatInputText(e.target.value)}
                       placeholder={!chatCategory ? 'Pilih kategori chat dahulu...' : 'Tulis pesan koordinasi...'}
-                      className="tactile-debossed-input flex-1 px-3.5 py-2.5 bg-[#F5F1FF] dark:bg-[#160D29] rounded-xl text-xs text-[#160D29] dark:text-white placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+                      className="flex-1 px-2.5 py-2 bg-transparent text-xs text-[#111c2d] dark:text-white placeholder:text-[#707881] focus:outline-none"
                     />
 
                     <button
@@ -2471,7 +2923,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         chatCategory.toUpperCase() === 'UNCLASSIFIED' ||
                         (!chatInputText.trim() && chatAttachments.length === 0)
                       }
-                      className="tactile-micro-key p-2.5 bg-gradient-to-b from-[#7135B5] to-[#5B35B1] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
+                      className="p-2.5 bg-[#006194] hover:bg-[#004b73] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center shrink-0 cursor-pointer shadow-xs transition-colors"
                       title="Kirim pesan"
                     >
                       <Send className="w-4 h-4" />
@@ -3022,6 +3474,93 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           </div>
         </div>
       )}
+
+      {/* ============================================================== */}
+      {/* STITCH SCREEN 2: STICKY ERGONOMIC BOTTOM ACTION BAR            */}
+      {/* ============================================================== */}
+      {!ticketClosed && currentUser.role !== 'leader' && (
+        <div className="fixed bottom-0 inset-x-0 z-35 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-t border-[#e7eeff] dark:border-[#35105E] shadow-[0_-4px_18px_rgba(17,28,45,0.08)] px-3.5 py-2.5 pb-safe">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 relative">
+            <button
+              type="button"
+              onClick={() => setShowQuickUpdateSheet(true)}
+              className="flex-1 min-h-[46px] px-4 rounded-xl bg-[#006194] hover:bg-[#004b73] text-white text-xs sm:text-[13px] font-bold inline-flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Zap className="w-4 h-4 shrink-0" />
+              <span>Update Status / Log</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                photoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => photoInputRefs.current.opm?.click(), 220);
+              }}
+              aria-label="Unggah Bukti Foto SOP"
+              title="Unggah Bukti Foto SOP"
+              className="w-12 min-h-[46px] rounded-xl bg-[#e7eeff] dark:bg-[#261942] hover:bg-[#dee8ff] text-[#006194] dark:text-[#93ccff] flex items-center justify-center shrink-0 cursor-pointer"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowEscalationMenu(prev => !prev)}
+                aria-label="Opsi Eskalasi & Kendala"
+                title="Opsi Eskalasi & Kendala"
+                className="w-12 min-h-[46px] rounded-xl bg-[#ffdad6]/75 dark:bg-rose-950/60 hover:bg-[#ffdad6] text-[#ba1a1a] dark:text-rose-200 flex items-center justify-center cursor-pointer"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+
+              {showEscalationMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowEscalationMenu(false)}
+                  />
+                  <div className="absolute bottom-14 right-0 z-20 w-64 rounded-2xl bg-white dark:bg-[#1E1238] border border-[#d8e3fb] dark:border-[#4B386B] shadow-xl p-1.5 space-y-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEscalationMenu(false);
+                        setShowQuickUpdateSheet(true);
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#f0f3ff] dark:hover:bg-[#261942] font-semibold text-[#111c2d] dark:text-white flex items-center gap-2 cursor-pointer"
+                    >
+                      <Clock className="w-4 h-4 text-[#006194] dark:text-[#93ccff]" />
+                      <span>Tunda / Ubah Status Lapangan</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEscalationMenu(false);
+                        setShowKendalaModal(true);
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-[#ffdad6]/40 dark:hover:bg-rose-950/50 font-bold text-[#ba1a1a] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>Laporkan Kendala / Reschedule (#ISSUE)</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stitch Screen 3: Update Status Work Order Quick Sheet */}
+      <WorkOrderQuickUpdateSheet
+        ticket={activeTicket}
+        isOpen={showQuickUpdateSheet}
+        onClose={() => setShowQuickUpdateSheet(false)}
+        onOpenFullReport={() => {
+          setShowQuickUpdateSheet(false);
+          checkoutFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+      />
 
       {/* ============================================================== */}
       {/* LIGHTBOX MODAL: FULLSIZE IMAGE VIEW                            */}
