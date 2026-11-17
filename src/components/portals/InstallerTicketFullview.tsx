@@ -1,7 +1,12 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Ticket, TicketStatusWOInstaller, ProgressReportEntry, ChatAttachment } from '../../types/index.ts';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  Ticket,
+  ProgressReportEntry,
+  ChatAttachment,
+  TechnicalPhotoSlot
+} from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
-import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
+import { StatusInstallerBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
 import {
   isTicketClosed,
   getTicketCanonicalApprovalStatus,
@@ -14,39 +19,44 @@ import { formatJakartaTimeOnly, getTicketWorkStatus } from '../../services/workS
 import { MessageStatusReceipt } from '../chat/MessageStatusReceipt';
 import {
   ArrowLeft,
+  ArrowRight,
   Phone,
   MessageSquare,
   MapPin,
   CheckCircle2,
   Navigation,
   Clock,
-  Calendar,
-  Building2,
-  User,
-  Wrench,
   Radio,
   Copy,
   Check,
   Send,
-  Save,
   Camera,
   Maximize2,
   FileText,
   MessageCircle,
-  Edit3,
   History,
   Paperclip,
   AlertCircle,
   X,
   Shield,
-  ExternalLink,
   ChevronRight,
+  ChevronDown,
   Sparkles,
-  Info,
   Tag,
   Play,
   Lock,
-  AlertTriangle
+  LockOpen,
+  GitBranch,
+  QrCode,
+  Cable,
+  PenTool,
+  RefreshCw,
+  HardDriveDownload,
+  Timer,
+  AlertTriangle,
+  User,
+  Wrench,
+  Trash2
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
@@ -56,6 +66,141 @@ interface InstallerTicketFullviewProps {
   ticket: Ticket;
   onBack: () => void;
   onOpenWhatsApp: (ticket: Ticket) => void;
+}
+
+type PhotoSlotKey = TechnicalPhotoSlot['slotKey'];
+
+interface PhotoSlotDefinition {
+  slotKey: PhotoSlotKey;
+  title: string;
+  defaultTag: string;
+  verifiedTag: string;
+  emptyHint: string;
+}
+
+const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
+  {
+    slotKey: 'opm',
+    title: '1. Redaman OPM',
+    defaultTag: 'OPM',
+    verifiedTag: 'EXIF OK',
+    emptyHint: 'Foto layar Optical Power Meter di roset pelanggan'
+  },
+  {
+    slotKey: 'barcode_sn',
+    title: '2. Barcode & MAC',
+    defaultTag: 'SN ONT',
+    verifiedTag: 'MATCH',
+    emptyHint: 'Foto stiker Serial Number & MAC Address ONT'
+  },
+  {
+    slotKey: 'fat_pole',
+    title: '3. FAT & Port Lapangan',
+    defaultTag: 'FAT / Tiang',
+    verifiedTag: 'GPS OK',
+    emptyHint: 'Foto port aktif & label kotak FAT di tiang'
+  },
+  {
+    slotKey: 'customer_install',
+    title: '4. Instalasi Pelanggan',
+    defaultTag: 'Lokasi ONT',
+    verifiedTag: 'VALID',
+    emptyHint: 'Foto perangkat ONT terpasang & lampu indikator menyala'
+  }
+];
+
+function formatBytesToLabel(bytes?: number): string {
+  if (!bytes || bytes <= 0) return 'Tersimpan';
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function formatDurationClock(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const hrs = Math.floor(safe / 3600);
+  const mins = Math.floor((safe % 3600) / 60);
+  const secs = safe % 60;
+  return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function compressImageToDataUrl(file: File, maxDim = 1280, quality = 0.78): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+    reader.onload = () => {
+      const src = String(reader.result || '');
+      const img = new Image();
+      img.onerror = () => resolve(src);
+      img.onload = () => {
+        try {
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
+          const scale = Math.min(1, maxDim / Math.max(width, height, 1));
+          const targetW = Math.max(1, Math.round(width * scale));
+          const targetH = Math.max(1, Math.round(height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(src);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+          const compressed = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressed || src);
+        } catch {
+          resolve(src);
+        }
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function buildInitialPhotoSlots(ticket: Ticket): Record<PhotoSlotKey, TechnicalPhotoSlot | null> {
+  const map: Record<PhotoSlotKey, TechnicalPhotoSlot | null> = {
+    opm: null,
+    barcode_sn: null,
+    fat_pole: null,
+    customer_install: null
+  };
+
+  const existingSlots = ticket.technicalReport?.photoSlots;
+  if (Array.isArray(existingSlots)) {
+    existingSlots.forEach(slot => {
+      if (slot && slot.url && slot.slotKey in map) {
+        map[slot.slotKey] = slot;
+      }
+    });
+  }
+
+  const legacyPhotos = Array.isArray(ticket.technicalReport?.photos) ? ticket.technicalReport!.photos : [];
+  const fallbacks = [
+    ticket.technicalReport?.photoAfterUrl || legacyPhotos[0],
+    legacyPhotos[1],
+    ticket.technicalReport?.photoBeforeUrl || legacyPhotos[2],
+    legacyPhotos[3]
+  ];
+
+  PHOTO_SLOT_DEFINITIONS.forEach((def, idx) => {
+    if (!map[def.slotKey] && fallbacks[idx]) {
+      map[def.slotKey] = {
+        slotKey: def.slotKey,
+        title: def.title,
+        url: fallbacks[idx]!,
+        capturedAt: ticket.technicalReport?.submittedAt
+          ? formatJakartaTimeOnly(ticket.technicalReport.submittedAt)
+          : undefined,
+        statusTag: def.verifiedTag
+      };
+    }
+  });
+
+  return map;
 }
 
 export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = ({
@@ -68,18 +213,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     updateTicketStatus,
     startWorkOnTicket,
     saveProgressReport,
-    rootCauseCategories,
     currentUser,
     getMessagesForTicket,
     refreshMessagesForTicket,
     sendTicketMessage,
     markTicketMessagesAsRead,
     getTicketUnreadCount,
-    reportDropdownCategories,
-    isDropdownCategoriesLoading,
     hierarchicalStatuses,
-    getReasonsForStatus,
-    getRemarksForReason,
     chatCategories,
     setTicketChatCategory
   } = useApp();
@@ -94,11 +234,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const [serverProgressTriggerByTicket, setServerProgressTriggerByTicket] = useState<Record<string, boolean>>({});
   const triggerKey = `${activeTicket.id}::${currentUser?.id || ''}`;
+  const draftStorageKey = `mj_checkout_draft_${activeTicket.id}`;
 
   const workSession = useMemo(() => getTicketWorkStatus(activeTicket), [activeTicket]);
   const unreadChatCount = getTicketUnreadCount(activeTicket.id);
-
-  // UI helpers
   const [copiedAddress, setCopiedAddress] = useState(false);
 
   // Success Confirmation Alert Modal State
@@ -112,11 +251,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   } | null>(null);
 
   // -------------------------------------------------------------
-  // FORM REPORT STATE (Report Status Pembaruan)
-  // Mapping 3 Tingkat:
-  // Level 1: Report Status (Status WO)
-  // Level 2: Reason Report (Reason WO)
-  // Level 3: Rootcause (Remarks)
+  // 3-TIER CASCADE REPORT STATE
   // -------------------------------------------------------------
   const latestReport = activeTicket.progressReports?.[0];
   const ticketClosed = isTicketClosed(activeTicket);
@@ -129,34 +264,290 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     '';
 
   const [reportStatus, setReportStatus] = useState<string>(() => {
-    return latestReport?.reportStatus || activeTicket.statusWOInstaller || '';
+    return latestReport?.reportStatus || activeTicket.reportStatusLabel || '';
   });
   const [reportStatusId, setReportStatusId] = useState<string>(() => {
     return latestReport?.reportStatusId || activeTicket.reportStatusId || '';
   });
 
   const [reasonReport, setReasonReport] = useState<string>(() => {
-    return latestReport?.reasonReport || '';
+    return latestReport?.reasonReport || activeTicket.reasonReportLabel || '';
   });
   const [reasonReportId, setReasonReportId] = useState<string>(() => {
     return latestReport?.reasonReportId || activeTicket.reasonReportId || '';
   });
 
   const [rootCause, setRootCause] = useState<string>(() => {
-    return latestReport?.rootCause || activeTicket.technicalReport?.rootCause || '';
+    return latestReport?.rootCause || activeTicket.rootcauseLabel || activeTicket.technicalReport?.rootCause || '';
   });
   const [rootcauseId, setRootcauseId] = useState<string>(() => {
     return latestReport?.rootcauseId || activeTicket.rootcauseId || '';
   });
 
   const [remarksReport, setRemarksReport] = useState<string>(() => {
-    return latestReport?.remarksReport || activeTicket.remarksWOInstaller || activeTicket.technicalReport?.technicalDescription || '';
+    return (
+      latestReport?.remarksReport ||
+      activeTicket.remarksWOInstaller ||
+      activeTicket.technicalReport?.technicalDescription ||
+      ''
+    );
   });
 
+  // -------------------------------------------------------------
+  // TELEMETRY, 4-POINT PHOTO EVIDENCE & CUSTOMER SIGN-OFF STATE
+  // -------------------------------------------------------------
+  const [opmDbm, setOpmDbm] = useState<string>(() => {
+    const raw =
+      activeTicket.technicalReport?.opticalPowerDbm ||
+      activeTicket.technicalReport?.opticalPowerRx ||
+      (activeTicket.rosetRedamanDbm !== undefined && activeTicket.rosetRedamanDbm !== null
+        ? String(activeTicket.rosetRedamanDbm)
+        : '');
+    return raw.replace(/\s*dBm$/i, '').trim();
+  });
+
+  const [ontSerialNumber, setOntSerialNumber] = useState<string>(() => {
+    return (
+      activeTicket.technicalReport?.deviceSerialNumber ||
+      activeTicket.ontSerialNumber ||
+      activeTicket.routerSerialNumber ||
+      ''
+    );
+  });
+
+  const [dropcoreLength, setDropcoreLength] = useState<string>(() => {
+    const raw =
+      activeTicket.technicalReport?.dropcoreLength ||
+      activeTicket.dropcoreLength ||
+      (activeTicket.dropcoreLengthMeter !== undefined && activeTicket.dropcoreLengthMeter !== null
+        ? String(activeTicket.dropcoreLengthMeter)
+        : '');
+    return raw.replace(/[^\d.]/g, '');
+  });
+
+  const [fatPort, setFatPort] = useState<string>(() => {
+    return activeTicket.technicalReport?.fatPort || activeTicket.fatPort || '';
+  });
+
+  const [photoSlots, setPhotoSlots] = useState<Record<PhotoSlotKey, TechnicalPhotoSlot | null>>(() =>
+    buildInitialPhotoSlots(activeTicket)
+  );
+  const [uploadingSlot, setUploadingSlot] = useState<PhotoSlotKey | null>(null);
+  const photoInputRefs = useRef<Record<PhotoSlotKey, HTMLInputElement | null>>({
+    opm: null,
+    barcode_sn: null,
+    fat_pole: null,
+    customer_install: null
+  });
+
+  // Customer Digital Signature Canvas
+  const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDrawingSignatureRef = useRef(false);
+  const [customerSignatureUrl, setCustomerSignatureUrl] = useState<string>(() => {
+    return (
+      activeTicket.customerSignatureUrl ||
+      activeTicket.technicalReport?.customerSignatureUrl ||
+      ''
+    );
+  });
+  const [customerConsentConfirmed, setCustomerConsentConfirmed] = useState<boolean>(() => {
+    return Boolean(
+      activeTicket.technicalReport?.customerConsentConfirmed ||
+        activeTicket.customerSignatureUrl ||
+        activeTicket.technicalReport?.customerSignatureUrl
+    );
+  });
+
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [showSnScannerTip, setShowSnScannerTip] = useState(false);
+  const snInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Level 1: Status WO options (Active only)
+  // Restore local draft when switching tickets (only when ticket is still editable)
+  useEffect(() => {
+    if (ticketClosed) return;
+    try {
+      const raw = localStorage.getItem(draftStorageKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft && typeof draft === 'object') {
+        if (draft.reportStatus) setReportStatus(draft.reportStatus);
+        if (draft.reportStatusId) setReportStatusId(draft.reportStatusId);
+        if (draft.reasonReport) setReasonReport(draft.reasonReport);
+        if (draft.reasonReportId) setReasonReportId(draft.reasonReportId);
+        if (draft.rootCause) setRootCause(draft.rootCause);
+        if (draft.rootcauseId) setRootcauseId(draft.rootcauseId);
+        if (typeof draft.remarksReport === 'string' && draft.remarksReport.trim()) {
+          setRemarksReport(draft.remarksReport);
+        }
+        if (typeof draft.opmDbm === 'string' && draft.opmDbm.trim()) setOpmDbm(draft.opmDbm);
+        if (typeof draft.ontSerialNumber === 'string' && draft.ontSerialNumber.trim()) {
+          setOntSerialNumber(draft.ontSerialNumber);
+        }
+        if (typeof draft.dropcoreLength === 'string' && draft.dropcoreLength.trim()) {
+          setDropcoreLength(draft.dropcoreLength);
+        }
+        if (typeof draft.fatPort === 'string' && draft.fatPort.trim()) {
+          setFatPort(draft.fatPort);
+        }
+        if (draft.photoSlots && typeof draft.photoSlots === 'object') {
+          setPhotoSlots(prev => ({ ...prev, ...draft.photoSlots }));
+        }
+        if (typeof draft.customerSignatureUrl === 'string' && draft.customerSignatureUrl) {
+          setCustomerSignatureUrl(draft.customerSignatureUrl);
+        }
+        if (typeof draft.customerConsentConfirmed === 'boolean') {
+          setCustomerConsentConfirmed(draft.customerConsentConfirmed);
+        }
+        if (draft.savedAt) {
+          setDraftSavedAt(draft.savedAt);
+        }
+      }
+    } catch {
+      // Ignore malformed draft
+    }
+  }, [draftStorageKey, ticketClosed]);
+
+  const persistDraftToDevice = useCallback(
+    (notify = false) => {
+      if (ticketClosed) return;
+      try {
+        const nowIso = new Date().toISOString();
+        const payload = {
+          reportStatus,
+          reportStatusId,
+          reasonReport,
+          reasonReportId,
+          rootCause,
+          rootcauseId,
+          remarksReport,
+          opmDbm,
+          ontSerialNumber,
+          dropcoreLength,
+          fatPort,
+          photoSlots,
+          customerSignatureUrl,
+          customerConsentConfirmed,
+          savedAt: nowIso
+        };
+        localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+        setDraftSavedAt(nowIso);
+        if (notify) {
+          toast.success(
+            `Draft checkout WO ${activeTicket.woNumber} tersimpan aman di perangkat lokal.`,
+            'Draft Tersimpan'
+          );
+        }
+      } catch {
+        if (notify) {
+          toast.warning('Penyimpanan lokal penuh. Kurangi ukuran foto atau kirim langsung saat online.', 'Draft Penuh');
+        }
+      }
+    },
+    [
+      ticketClosed,
+      reportStatus,
+      reportStatusId,
+      reasonReport,
+      reasonReportId,
+      rootCause,
+      rootcauseId,
+      remarksReport,
+      opmDbm,
+      ontSerialNumber,
+      dropcoreLength,
+      fatPort,
+      photoSlots,
+      customerSignatureUrl,
+      customerConsentConfirmed,
+      draftStorageKey,
+      activeTicket.woNumber,
+      toast
+    ]
+  );
+
+  // Auto-save draft silently with 700ms debounce
+  useEffect(() => {
+    if (ticketClosed) return;
+    const hasAnyInput =
+      Boolean(reportStatus || reasonReport || rootCause || remarksReport.trim() || opmDbm || ontSerialNumber || dropcoreLength || customerSignatureUrl) ||
+      Object.values(photoSlots).some(Boolean);
+    if (!hasAnyInput) return;
+
+    const timer = setTimeout(() => {
+      persistDraftToDevice(false);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [
+    ticketClosed,
+    reportStatus,
+    reasonReport,
+    rootCause,
+    remarksReport,
+    opmDbm,
+    ontSerialNumber,
+    dropcoreLength,
+    fatPort,
+    photoSlots,
+    customerSignatureUrl,
+    customerConsentConfirmed,
+    persistDraftToDevice
+  ]);
+
+  // Draw persisted signature onto canvas when mounted or restored
+  useEffect(() => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(280, Math.round(rect.width || 320));
+    const height = Math.max(108, Math.round(rect.height || 112));
+
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+    }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    if (customerSignatureUrl) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      };
+      img.src = customerSignatureUrl;
+    }
+  }, [customerSignatureUrl]);
+
+  // -------------------------------------------------------------
+  // LIVE WORK DURATION TIMER
+  // -------------------------------------------------------------
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const sessionStartIso = activeTicket.checkInAt || activeTicket.workStartedAt;
+
+  useEffect(() => {
+    if (!sessionStartIso || activeTicket.checkOutAt || ticketClosed) return;
+    const interval = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [sessionStartIso, activeTicket.checkOutAt, ticketClosed]);
+
+  const elapsedClockLabel = useMemo(() => {
+    if (!sessionStartIso) return '00:00:00';
+    const startMs = new Date(sessionStartIso).getTime();
+    if (Number.isNaN(startMs)) return '00:00:00';
+    const endMs = activeTicket.checkOutAt ? new Date(activeTicket.checkOutAt).getTime() : nowTick;
+    return formatDurationClock(Math.max(0, (endMs - startMs) / 1000));
+  }, [sessionStartIso, activeTicket.checkOutAt, nowTick]);
+
+  // -------------------------------------------------------------
+  // 3-TIER HIERARCHICAL OPTIONS & DEPENDENT HANDLERS
+  // -------------------------------------------------------------
   const availableStatusOptions = useMemo(() => {
     if (hierarchicalStatuses && hierarchicalStatuses.length > 0) {
       return hierarchicalStatuses
@@ -166,18 +557,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return [];
   }, [hierarchicalStatuses]);
 
-  // Selected Status Object
   const selectedStatusObj = useMemo(() => {
     if (!reportStatus) return null;
     const norm = reportStatus.trim().toLowerCase();
     return (
       availableStatusOptions.find(
-        s => s.id === reportStatusId || s.name.trim().toLowerCase() === norm || (s.code && s.code.trim().toLowerCase() === norm)
+        s =>
+          s.id === reportStatusId ||
+          s.name.trim().toLowerCase() === norm ||
+          (s.code && s.code.trim().toLowerCase() === norm)
       ) || null
     );
   }, [availableStatusOptions, reportStatus, reportStatusId]);
 
-  // 2. Level 2: Reason WO options (strictly child of chosen Report Status)
   const availableReasonOptions = useMemo(() => {
     if (!selectedStatusObj) return [];
     return (selectedStatusObj.reasons || [])
@@ -185,7 +577,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [selectedStatusObj]);
 
-  // Selected Reason Object
   const selectedReasonObj = useMemo(() => {
     if (!reasonReport || !selectedStatusObj) return null;
     const norm = reasonReport.trim().toLowerCase();
@@ -196,7 +587,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     );
   }, [availableReasonOptions, reasonReport, reasonReportId, selectedStatusObj]);
 
-  // 3. Level 3: Rootcause / Remarks options (strictly sub-child of chosen Reason Report)
   const availableRootcauseOptions = useMemo(() => {
     if (!selectedReasonObj) return [];
     return (selectedReasonObj.remarks || [])
@@ -204,21 +594,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [selectedReasonObj]);
 
-  // Level 3 Remarks Templates for quick buttons
   const availableRemarksTemplates = useMemo(() => {
     return availableRootcauseOptions.map(rm => rm.text || rm.name);
   }, [availableRootcauseOptions]);
 
-  // Cascading Change Handlers (Dependent 3-Tier Interaction Rules)
-  // When Status changes -> Reason & Rootcause are automatically RESET
   const handleReportStatusChange = (newStatusName: string) => {
     setReportStatus(newStatusName);
     const matched = availableStatusOptions.find(
       s => s.name === newStatusName || s.id === newStatusName || (s.code && s.code === newStatusName)
     );
     setReportStatusId(matched?.id || '');
-
-    // Reset Level 2 & Level 3
     setReasonReport('');
     setReasonReportId('');
     setRootCause('');
@@ -226,21 +611,17 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setReportError(null);
   };
 
-  // When Reason changes -> Rootcause is automatically RESET
   const handleReasonReportChange = (newReasonName: string) => {
     setReasonReport(newReasonName);
     const matched = availableReasonOptions.find(
       r => r.name === newReasonName || r.id === newReasonName
     );
     setReasonReportId(matched?.id || '');
-
-    // Reset Level 3
     setRootCause('');
     setRootcauseId('');
     setReportError(null);
   };
 
-  // When Rootcause changes
   const handleRootcauseChange = (newRootcauseText: string) => {
     setRootCause(newRootcauseText);
     const matched = availableRootcauseOptions.find(
@@ -249,185 +630,183 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setRootcauseId(matched?.id || '');
     setReportError(null);
 
-    // If remarksReport is empty, autofill with selected rootcause
     if (!remarksReport.trim()) {
       setRemarksReport(matched?.text || matched?.name || newRootcauseText);
     }
   };
 
-  // Cancel report form edits
-  const handleCancelReport = () => {
-    const prevReport = activeTicket.progressReports?.[0];
-    setReportStatus(prevReport?.reportStatus || activeTicket.statusWOInstaller || '');
-    setReportStatusId(prevReport?.reportStatusId || activeTicket.reportStatusId || '');
-    setReasonReport(prevReport?.reasonReport || '');
-    setReasonReportId(prevReport?.reasonReportId || activeTicket.reasonReportId || '');
-    setRootCause(prevReport?.rootCause || activeTicket.technicalReport?.rootCause || '');
-    setRootcauseId(prevReport?.rootcauseId || activeTicket.rootcauseId || '');
-    setRemarksReport(prevReport?.remarksReport || activeTicket.remarksWOInstaller || '');
-    setReportError(null);
-    toast.info('Perubahan formulir laporan dibatalkan.', 'Dibatalkan');
-  };
+  // -------------------------------------------------------------
+  // OPM CALIBRATION STATUS
+  // -------------------------------------------------------------
+  const opmNumeric = useMemo(() => {
+    const cleaned = opmDbm.replace(/[^\d.-]/g, '').trim();
+    if (!cleaned || cleaned === '-') return NaN;
+    return parseFloat(cleaned);
+  }, [opmDbm]);
 
-  // Save report submission with strict Supabase PostgreSQL write confirmation
-  const handleSaveReport = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (isSubmittingReport) return;
+  const opmStatus = useMemo(() => {
+    if (Number.isNaN(opmNumeric)) {
+      return {
+        label: 'MENUNGGU UKUR',
+        badgeCls: 'bg-[#F4EAFF] text-[#431599] border-[#D8CCF3] dark:bg-[#2E1459] dark:text-[#D8B4FE] dark:border-[#5B35B1]',
+        isOutOfSpec: false
+      };
+    }
+    if (opmNumeric <= -15 && opmNumeric >= -22) {
+      return {
+        label: 'PASS (OPTIMAL)',
+        badgeCls: 'bg-emerald-100 text-[#16A36A] border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700',
+        isOutOfSpec: false
+      };
+    }
+    if (opmNumeric > -24 && opmNumeric < -8) {
+      return {
+        label: 'PASS (SOP OK)',
+        badgeCls: 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-700',
+        isOutOfSpec: false
+      };
+    }
+    return {
+      label: 'OUT OF SPEC (SOP)',
+      badgeCls: 'bg-rose-100 text-[#BA1A1A] border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700',
+      isOutOfSpec: true
+    };
+  }, [opmNumeric]);
 
-    if (ticketClosed) {
-      playErrorSound();
-      const msg = 'Work Order ini sudah berstatus CLOSED (disetujui Dispatch) dan terkunci read-only.';
-      setReportError(msg);
-      toast.error(msg, 'WO Sudah Closed');
+  // -------------------------------------------------------------
+  // 4-POINT SOP PHOTO HANDLERS
+  // -------------------------------------------------------------
+  const uploadedPhotoSlotsList = useMemo(() => {
+    return PHOTO_SLOT_DEFINITIONS.map(def => photoSlots[def.slotKey]).filter(
+      (s): s is TechnicalPhotoSlot => Boolean(s && s.url)
+    );
+  }, [photoSlots]);
+
+  const handlePhotoUploadForSlot = async (slotDef: PhotoSlotDefinition, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('File harus berupa gambar (JPG, PNG, atau WebP).', 'Format Tidak Valid');
       return;
     }
 
-    if (requiresProgressCheckIn) {
-      playErrorSound();
-      const msg = 'Check-in belum tercatat! Kirim minimal 1 pesan LiveChat dengan kategori PROGRESS terlebih dahulu sebelum Save Report.';
-      setReportError(msg);
-      toast.error(msg, 'Check-in Wajib (PROGRESS)');
-      return;
-    }
-
-    // 1. Validasi formulir 3 tingkat
-    if (!reportStatus) {
-      setReportError('Silakan pilih Report Status (Level 1).');
-      return;
-    }
-    if (!reasonReport) {
-      setReportError('Silakan pilih Reason Report (Level 2).');
-      return;
-    }
-    if (!rootCause) {
-      setReportError('Silakan pilih Rootcause (Level 3 - Remarks).');
-      return;
-    }
-    if (!remarksReport.trim()) {
-      setReportError('Remarks Report (catatan hasil penanganan teknisi) wajib diisi.');
-      return;
-    }
-
-    setReportError(null);
-    setIsSubmittingReport(true);
-    startLoading({
-      title: 'MENYIMPAN REPORT KE DATABASE...',
-      subtitle: 'Memverifikasi relasi hierarki 3-tingkat dan menyimpan laporan ke database Supabase PostgreSQL'
-    });
-
+    setUploadingSlot(slotDef.slotKey);
     try {
-      const res = await saveProgressReport(activeTicket.id, {
-        reportStatus,
-        reportStatusId,
-        reasonReport,
-        reasonReportId,
-        rootCause,
-        rootcauseId,
-        remarksReport: remarksReport.trim()
-      });
+      const compressedUrl = await compressImageToDataUrl(file);
+      const capturedAt = formatJakartaTimeOnly(new Date().toISOString());
+      const badgeValue =
+        slotDef.slotKey === 'opm'
+          ? opmDbm
+            ? `${opmDbm} dBm`
+            : slotDef.defaultTag
+          : slotDef.slotKey === 'barcode_sn'
+          ? ontSerialNumber
+            ? ontSerialNumber.slice(0, 10)
+            : slotDef.defaultTag
+          : slotDef.slotKey === 'fat_pole'
+          ? activeTicket.fatCode || slotDef.defaultTag
+          : activeTicket.clusterName || slotDef.defaultTag;
 
-      if (res.success) {
-        playReportSavedSound();
-        setSavedReportSnapshot({
-          status: reportStatus,
-          reason: reasonReport,
-          rootCause,
-          remarks: remarksReport.trim()
-        });
-        setShowSuccessAlert(true);
-        toast.success(
-          `Laporan status "${reportStatus}" (Reason: ${reasonReport}) berhasil disimpan ke Supabase PostgreSQL.`,
-          'REPORT TERSIMPAN'
-        );
-      } else {
-        playErrorSound();
-        const errMsg = res.error || 'Gagal menyimpan laporan ke Supabase PostgreSQL.';
-        setReportError(errMsg);
-        if ((res as any).code === 'CHECK_IN_REQUIRED') {
-          toast.error(errMsg, 'Check-in PROGRESS Diperlukan');
-        } else {
-          showGlobalError({
-            errorCode: 'MJ-DB-002',
-            module: 'Database',
-            operation: 'Save Progress Report',
-            description: 'Gagal menyimpan data laporan.',
-            message: errMsg,
-            technicalDetails: errMsg,
-            severity: 'HIGH',
-            onRetry: () => handleSaveReport()
-          });
+      setPhotoSlots(prev => ({
+        ...prev,
+        [slotDef.slotKey]: {
+          slotKey: slotDef.slotKey,
+          title: slotDef.title,
+          url: compressedUrl,
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          capturedAt,
+          badgeText: badgeValue,
+          statusTag: slotDef.verifiedTag
         }
-      }
-    } catch (err: any) {
-      playErrorSound();
-      const errMsg = err?.message || 'Terjadi kesalahan sistem saat menyimpan laporan.';
-      setReportError(errMsg);
-      showGlobalError({
-        errorCode: 'MJ-DB-002',
-        module: 'Database',
-        operation: 'Save Progress Report Exception',
-        description: 'Terjadi kegagalan komunikasi dengan database Supabase PostgreSQL.',
-        message: errMsg,
-        technicalDetails: errMsg,
-        severity: 'HIGH',
-        onRetry: () => handleSaveReport()
-      });
+      }));
+      toast.success(`Foto "${slotDef.title}" berhasil dilampirkan.`);
+    } catch {
+      toast.error(`Gagal memproses foto "${slotDef.title}".`, 'Upload Foto Gagal');
     } finally {
-      setIsSubmittingReport(false);
-      stopLoading();
+      setUploadingSlot(null);
+      const inputEl = photoInputRefs.current[slotDef.slotKey];
+      if (inputEl) inputEl.value = '';
     }
   };
 
-  // Navigasi konfirmasi teknisi ke Dashboard Installer
-  const handleConfirmRedirect = () => {
-    if (isRedirecting) return;
-    setIsRedirecting(true);
-    setShowSuccessAlert(false);
-    // Redirect ke halaman Dashboard Installer
-    onBack();
+  // -------------------------------------------------------------
+  // CUSTOMER SIGNATURE PAD HANDLERS
+  // -------------------------------------------------------------
+  const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  };
+
+  const handleSignaturePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (ticketClosed) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.setPointerCapture(e.pointerId);
+    isDrawingSignatureRef.current = true;
+    const { x, y } = getCanvasPoint(e);
+    ctx.strokeStyle = document.documentElement.classList.contains('dark') ? '#E9D5FF' : '#35105E';
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const handleSignaturePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingSignatureRef.current || ticketClosed) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { x, y } = getCanvasPoint(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const handleSignaturePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingSignatureRef.current) return;
+    isDrawingSignatureRef.current = false;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {}
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      setCustomerSignatureUrl(dataUrl);
+    } catch {}
+  };
+
+  const handleClearSignature = () => {
+    if (ticketClosed) return;
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    setCustomerSignatureUrl('');
   };
 
   // -------------------------------------------------------------
-  // HISTORY PROGRESS REPORTS LIST
-  // -------------------------------------------------------------
-  const progressHistory: ProgressReportEntry[] = useMemo(() => {
-    const list = [...(activeTicket.progressReports || [])];
-
-    // If there is an existing technical report or remarks not in progressReports, synthesize an entry
-    if (activeTicket.technicalReport && !list.some(r => r.id === activeTicket.technicalReport?.id)) {
-      list.push({
-        id: activeTicket.technicalReport.id || 'rep-legacy',
-        ticketId: activeTicket.id,
-        timestamp: activeTicket.technicalReport.submittedAt || activeTicket.updatedAt || activeTicket.createdAt,
-        submittedBy: activeTicket.technicalReport.submittedBy || activeTicket.installerName || 'Teknisi Lapangan',
-        userRole: 'installer',
-        reportStatus: activeTicket.statusWOInstaller || 'Completed',
-        reasonReport: activeTicket.technicalReport.workResult || 'Laporan Teknis Awal',
-        rootCause: activeTicket.technicalReport.rootCause || 'Redaman Fiber Tinggi',
-        remarksReport:
-          activeTicket.technicalReport.technicalDescription ||
-          activeTicket.remarksWOInstaller ||
-          activeTicket.technicalReport.correctiveAction ||
-          'Pengerjaan telah dilaksanakan sesuai prosedur teknis.',
-        installerName: activeTicket.installerName,
-        appointmentDate: activeTicket.appointmentDate || '',
-        slotTime: activeTicket.slotTime
-      });
-    }
-
-    // Sort newest to oldest
-    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [activeTicket]);
-
-  // -------------------------------------------------------------
-  // LIVE CHAT ROOM STATE & HANDLERS (Synchronized with Contact Center)
+  // LIVE CHAT ROOM STATE & HANDLERS (MUST BE DEFINED BEFORE SUBMIT)
   // -------------------------------------------------------------
   const [chatCategory, setChatCategory] = useState<string>(() => {
     const existing = String(activeTicket.chatCategory || '').trim();
     return existing && existing.toUpperCase() !== 'UNCLASSIFIED' ? existing : '';
   });
 
-  // Active chat categories from shared Supabase app_settings/chat_categories (deduplicated, excluding UNCLASSIFIED)
   const activeChatCategories = useMemo(() => {
     const seen = new Set<string>();
     return chatCategories.filter(c => {
@@ -439,7 +818,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     });
   }, [chatCategories]);
 
-  // Current category object to retrieve theme color
   const currentChatCategoryObj = useMemo(() => {
     return chatCategories.find(c => c.name === chatCategory || c.id === chatCategory) || null;
   }, [chatCategories, chatCategory]);
@@ -450,6 +828,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [chatError, setChatError] = useState<string | null>(null);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [isChatActive, setIsChatActive] = useState(false);
+  const [showHistorySection, setShowHistorySection] = useState(true);
 
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
@@ -458,15 +837,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const messages = getMessagesForTicket(activeTicket.id);
 
-  // Authoritative check against persisted DB LiveChat messages:
-  // (WO ID === opened WO) AND (senderId === logged-in technician User ID) AND (category === 'PROGRESS')
-  const hasPersistedProgressFromCurrentTechnician = useMemo(() => {
+  // Authoritative check against persisted DB LiveChat messages for PROGRESS check-in
+  const persistedProgressMessage = useMemo(() => {
     const cleanUid = String(currentUser?.id || '').trim();
-    if (!cleanUid) return false;
+    if (!cleanUid) return undefined;
     const targetId = String(activeTicket.id || '').trim();
     const targetWo = String(activeTicket.woNumber || '').trim().toUpperCase();
 
-    return (messages || []).some(m => {
+    return (messages || []).find(m => {
       if (!m || !m.id) return false;
       const msgId = String(m.id).trim();
       if (
@@ -500,17 +878,21 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     });
   }, [messages, activeTicket.id, activeTicket.woNumber, currentUser?.id]);
 
+  const hasPersistedProgressFromCurrentTechnician = Boolean(persistedProgressMessage);
+
   const hasValidProgressFromCurrentTechnician =
     currentUser.role === 'installer' &&
     (hasPersistedProgressFromCurrentTechnician || Boolean(serverProgressTriggerByTicket[triggerKey]));
 
-  const isReportStatusSectionVisible =
-    currentUser.role !== 'installer' ? true : (hasValidProgressFromCurrentTechnician || ticketClosed);
-
   const requiresProgressCheckIn =
     currentUser.role === 'installer' && !hasValidProgressFromCurrentTechnician;
 
-  // Reset explicit LiveChat activation & sync authoritative DB LiveChat state when opening/switching ticket
+  const validatedCheckInTime = useMemo(() => {
+    const iso = persistedProgressMessage?.timestamp || activeTicket.checkInAt;
+    if (!iso) return '-';
+    return formatJakartaTimeOnly(iso);
+  }, [persistedProgressMessage?.timestamp, activeTicket.checkInAt]);
+
   useEffect(() => {
     setIsChatActive(false);
     let cancelled = false;
@@ -527,7 +909,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     };
   }, [activeTicket.id, currentUser?.id, refreshMessagesForTicket]);
 
-  // Sync category when activeTicket.chatCategory changes from Supabase PostgreSQL
   useEffect(() => {
     const existing = String(activeTicket.chatCategory || '').trim();
     if (existing && existing.toUpperCase() !== 'UNCLASSIFIED') {
@@ -537,7 +918,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     }
   }, [activeTicket.id, activeTicket.chatCategory]);
 
-  // Handle changing chat category synchronized to Supabase app_settings & ticket
   const handleChatCategorySelect = async (newCat: string) => {
     setChatCategory(newCat);
     setChatError(null);
@@ -560,7 +940,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     toast.info('Kategori PROGRESS dipilih. Kirim pesan untuk mencatat Check-in otomatis.', 'Siap Check-in');
   };
 
-  // Mark messages as read ONLY when Installer explicitly activates/focuses LiveChat Room AND tab is visible
   useEffect(() => {
     const tryMarkRead = () => {
       if (!isChatActive) return;
@@ -575,12 +954,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [isChatActive, activeTicket.id, messages.length, markTicketMessagesAsRead]);
 
-  // Auto scroll chat to bottom
   useEffect(() => {
     chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  // Handle chat attachment
   const handleChatFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -628,7 +1005,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setChatAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  // Handle sending chat message
   const handleSendChatMessage = async (e?: React.FormEvent, directText?: string) => {
     if (e) e.preventDefault();
     if (isSendingChat) return;
@@ -672,7 +1048,175 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     }
   };
 
-  // WhatsApp click-to-chat
+  // -------------------------------------------------------------
+  // SAVE PROGRESS REPORT + TELEMETRY + PHOTO EVIDENCE + SIGNATURE
+  // -------------------------------------------------------------
+  const handleSaveReport = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isSubmittingReport) return;
+
+    if (ticketClosed) {
+      playErrorSound();
+      const msg = 'Work Order ini sudah berstatus CLOSED (disetujui Dispatch) dan terkunci read-only.';
+      setReportError(msg);
+      toast.error(msg, 'WO Sudah Closed');
+      return;
+    }
+
+    if (requiresProgressCheckIn) {
+      playErrorSound();
+      const msg =
+        'Check-in belum tercatat! Kirim minimal 1 pesan LiveChat dengan kategori PROGRESS terlebih dahulu sebelum mengirim laporan checkout.';
+      setReportError(msg);
+      toast.error(msg, 'Check-in Wajib (PROGRESS)');
+      handleOpenProgressChatForCheckIn();
+      return;
+    }
+
+    if (!reportStatus) {
+      setReportError('LEVEL 1: Report Status wajib dipilih.');
+      return;
+    }
+    if (!reasonReport) {
+      setReportError('LEVEL 2: Reason Report wajib dipilih.');
+      return;
+    }
+    if (!rootCause) {
+      setReportError('LEVEL 3: Rootcause Code wajib dipilih.');
+      return;
+    }
+    if (!remarksReport.trim()) {
+      setReportError('Catatan Teknisi & Hasil Commissioning wajib diisi.');
+      return;
+    }
+
+    setReportError(null);
+    setIsSubmittingReport(true);
+    startLoading({
+      title: 'MENGIRIM LAPORAN CHECKOUT KE DISPATCH...',
+      subtitle: 'Menyimpan relasi 3-tingkat, telemetri ONT, foto bukti fisik, dan memicu Check-out ke Supabase PostgreSQL'
+    });
+
+    try {
+      const normalizedOpm = opmDbm.trim()
+        ? (opmDbm.trim().toLowerCase().includes('dbm') ? opmDbm.trim() : `${opmDbm.trim()} dBm`)
+        : '';
+
+      const res = await saveProgressReport(activeTicket.id, {
+        reportStatus,
+        reportStatusId,
+        reasonReport,
+        reasonReportId,
+        rootCause,
+        rootcauseId,
+        remarksReport: remarksReport.trim(),
+        technicalTelemetry: {
+          opticalPowerDbm: normalizedOpm || undefined,
+          fatRedamanDbm: activeTicket.fatRedamanDbm ? String(activeTicket.fatRedamanDbm) : undefined,
+          ontSerialNumber: ontSerialNumber.trim() || undefined,
+          dropcoreLength: dropcoreLength.trim() || undefined,
+          fatPort: fatPort.trim() || undefined,
+          photoSlots: uploadedPhotoSlotsList,
+          photos: uploadedPhotoSlotsList.map(s => s.url),
+          customerSignatureUrl: customerSignatureUrl || undefined,
+          customerConsentConfirmed
+        }
+      });
+
+      if (res.success) {
+        try {
+          localStorage.removeItem(draftStorageKey);
+          setDraftSavedAt(null);
+        } catch {}
+        playReportSavedSound();
+        setSavedReportSnapshot({
+          status: reportStatus,
+          reason: reasonReport,
+          rootCause,
+          remarks: remarksReport.trim()
+        });
+        setShowSuccessAlert(true);
+        toast.success(
+          `Laporan checkout "${reportStatus}" berhasil dikirim ke Dispatch (status: BUTUH APPROVAL).`,
+          'LAPORAN TERKIRIM'
+        );
+      } else {
+        playErrorSound();
+        const errMsg = res.error || 'Gagal menyimpan laporan ke Supabase PostgreSQL.';
+        setReportError(errMsg);
+        if ((res as any).code === 'CHECK_IN_REQUIRED') {
+          toast.error(errMsg, 'Check-in PROGRESS Diperlukan');
+        } else {
+          showGlobalError({
+            errorCode: 'MJ-DB-002',
+            module: 'Database',
+            operation: 'Save Progress Report',
+            description: 'Gagal menyimpan data laporan checkout.',
+            message: errMsg,
+            technicalDetails: errMsg,
+            severity: 'HIGH',
+            onRetry: () => handleSaveReport()
+          });
+        }
+      }
+    } catch (err: any) {
+      playErrorSound();
+      const errMsg = err?.message || 'Terjadi kesalahan sistem saat menyimpan laporan.';
+      setReportError(errMsg);
+      showGlobalError({
+        errorCode: 'MJ-DB-002',
+        module: 'Database',
+        operation: 'Save Progress Report Exception',
+        description: 'Terjadi kegagalan komunikasi dengan database Supabase PostgreSQL.',
+        message: errMsg,
+        technicalDetails: errMsg,
+        severity: 'HIGH',
+        onRetry: () => handleSaveReport()
+      });
+    } finally {
+      setIsSubmittingReport(false);
+      stopLoading();
+    }
+  };
+
+  const handleConfirmRedirect = () => {
+    if (isRedirecting) return;
+    setIsRedirecting(true);
+    setShowSuccessAlert(false);
+    onBack();
+  };
+
+  // -------------------------------------------------------------
+  // HISTORY PROGRESS REPORTS LIST
+  // -------------------------------------------------------------
+  const progressHistory: ProgressReportEntry[] = useMemo(() => {
+    const list = [...(activeTicket.progressReports || [])];
+
+    if (activeTicket.technicalReport && !list.some(r => r.id === activeTicket.technicalReport?.id)) {
+      list.push({
+        id: activeTicket.technicalReport.id || 'rep-legacy',
+        ticketId: activeTicket.id,
+        timestamp: activeTicket.technicalReport.submittedAt || activeTicket.updatedAt || activeTicket.createdAt,
+        submittedBy: activeTicket.technicalReport.submittedBy || activeTicket.installerName || 'Teknisi Lapangan',
+        userRole: 'installer',
+        reportStatus: activeTicket.statusWOInstaller || 'Completed',
+        reasonReport: activeTicket.technicalReport.workResult || 'Laporan Teknis Awal',
+        rootCause: activeTicket.technicalReport.rootCause || '-',
+        remarksReport:
+          activeTicket.technicalReport.technicalDescription ||
+          activeTicket.remarksWOInstaller ||
+          activeTicket.technicalReport.correctiveAction ||
+          'Pengerjaan telah dilaksanakan sesuai prosedur teknis.',
+        installerName: activeTicket.installerName,
+        appointmentDate: activeTicket.appointmentDate || '',
+        slotTime: activeTicket.slotTime
+      });
+    }
+
+    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [activeTicket]);
+
+  // WhatsApp & Maps Helpers
   const waUrlObj = buildWhatsAppClickToChatUrl(
     activeTicket.customerPhone,
     `Halo ${activeTicket.customerName}, saya teknisi ${currentUser.name || 'MoraJaws'} terkait penanganan tiket WO ${activeTicket.woNumber} hari ini.`
@@ -694,660 +1238,948 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     });
   };
 
-  // Quick Action: Otw Lokasi
   const handleOtwLokasi = () => {
     updateTicketStatus(activeTicket.id, undefined, 'En Route', `Teknisi ${currentUser.name} sedang berangkat menuju lokasi.`);
     toast.success('Status diubah menjadi En Route (Otw Lokasi).', 'Otw Lokasi');
     handleOpenMaps();
   };
 
+  const woBadgeLabel = activeTicket.appointmentType || activeTicket.ticketCategory || 'FTTH Install';
+  const isSignatureReady = Boolean(customerSignatureUrl) && customerConsentConfirmed;
+
   return (
-    <div className="bg-[#F8F9FA] dark:bg-[#0D071B] min-h-screen -m-3 sm:-m-6 lg:-m-8 flex flex-col text-[#21183A] dark:text-[#F5F1FF]">
-      {/* ============================================================== */}
-      {/* TOP STICKY BAR: NAVIGATION & HEADER ACTIONS                   */}
-      {/* ============================================================== */}
-      <div className="sticky top-0 z-30 bg-white/95 dark:bg-[#150B27]/95 backdrop-blur-md border-b border-slate-200 dark:border-[#2D1754] px-4 sm:px-6 py-3 flex items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={onBack}
-            className="p-2 -ml-1 rounded-xl text-[#3B1D78] dark:text-[#E9E1FF] hover:bg-[#E9E1FF] dark:hover:bg-[#2D1754] transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0 cursor-pointer"
-            title="Kembali ke Daftar WO"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Kembali ke Daftar</span>
-          </button>
+    <div className="bg-[#F5F1FF] dark:bg-[#140827] min-h-screen -m-3 sm:-m-5 lg:-m-6 flex flex-col text-[#211A2E] dark:text-[#F5EEFF] transition-colors">
+      {/* Main Container matching mobile 3D tactile design & expanding to 12-col enterprise grid on desktop */}
+      <div className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-5 lg:px-6 pt-3 pb-28 space-y-3.5">
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono font-extrabold text-sm sm:text-base text-[#3B1D78] dark:text-[#E9E1FF]">
-                {activeTicket.woNumber}
-              </span>
-              {ticketClosed && <StatusBadge status="CLOSED" variant="wo_agent" />}
-              <StatusInstallerBadge status={activeTicket.statusWOInstaller} />
-              {canonicalReport !== 'NONE' && <StatusBadge status={canonicalReport} variant="report" />}
-              <StatusApprovalBadge status={activeTicket.approvalStatus} />
-              <StatusWhatsAppBadge status={activeTicket.statusWhatsApp} />
-            </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              Jadwal: <strong className="text-[#3B1D78] dark:text-white font-mono">{activeTicket.appointmentDate || 'Tanggal Belum Ada'}</strong> · Slot: <strong className="text-[#5B35B1] dark:text-[#A78BFA] font-mono">{activeTicket.slotTime}</strong>
-            </div>
-          </div>
-        </div>
+        {/* ============================================================ */}
+        {/* NAVIGATION & STAGE CONTEXT BAR                               */}
+        {/* ============================================================ */}
+        <div className="flex flex-wrap items-center justify-between gap-2 py-1">
+          <div className="flex items-center gap-2">
+            {/* 3D Ceramic Back Button */}
+            <button
+              type="button"
+              onClick={onBack}
+              className="tactile-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-[#22123F] text-[#211A2E] dark:text-white border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[13px] cursor-pointer min-h-[40px]"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE]" />
+              <span>Tugas Saya</span>
+            </button>
 
-        {/* Quick Header Actions */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-          <div className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 border ${
-            workSession.status === 'Selesai'
-              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
-              : workSession.status === 'Sedang Dikerjakan'
-              ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300'
-              : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
-          }`}>
-            <Clock className="w-3 h-3 shrink-0" />
-            <span>
-              {activeTicket.checkInAt
-                ? `Check-in: ${formatJakartaTimeOnly(activeTicket.checkInAt)}${activeTicket.checkOutAt ? ` · Check-out: ${formatJakartaTimeOnly(activeTicket.checkOutAt)} (${workSession.durationFormatted})` : ''}`
-                : 'Belum Check-in (Kirim PROGRESS LiveChat)'}
-            </span>
-          </div>
-
-          {!ticketClosed && (
-            <>
-              {!activeTicket.workStartedAt ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await startWorkOnTicket(activeTicket.id);
-                  }}
-                  className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                  title="Mulai pengerjaan tiket WO ini sekarang"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>MULAI KERJAKAN</span>
-                </button>
-              ) : (
-                <div className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-emerald-500" />
-                  <span>Mulai: {formatJakartaTimeOnly(activeTicket.workStartedAt)}</span>
-                </div>
+            {/* Quick LiveChat Jump Button (Mobile/Tablet) */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsChatActive(true);
+                chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="lg:hidden tactile-btn-secondary inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-white dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#4B386B] font-bold text-[12px] cursor-pointer min-h-[40px]"
+              title="Lompat ke LiveChat"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Chat</span>
+              {unreadChatCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#DC4C5A] text-white font-mono text-[10px] leading-none">
+                  {unreadChatCount}
+                </span>
               )}
+            </button>
+          </div>
 
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Quick Operational Buttons */}
+            {!ticketClosed && !activeTicket.workStartedAt && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await startWorkOnTicket(activeTicket.id);
+                }}
+                className="btn-3d-emerald inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Mulai Kerjakan</span>
+              </button>
+            )}
+
+            {!ticketClosed && (
               <button
                 type="button"
                 onClick={handleOtwLokasi}
-                className="px-3 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                title="Update status En Route dan buka rute Google Maps"
+                className="tactile-btn-secondary hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#4B386B] text-[11px] font-bold cursor-pointer"
+                title="Ubah status ke En Route dan buka Google Maps"
               >
                 <Navigation className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Otw Lokasi</span>
+                <span>Otw Lokasi</span>
               </button>
-            </>
-          )}
+            )}
+
+            {/* Tactile Pill: CHECKOUT UNLOCKED / LOCKED */}
+            {ticketClosed ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#334155] text-white font-mono text-[11px] font-bold border border-slate-600 shadow-xs">
+                <Lock className="w-3.5 h-3.5 text-emerald-300" />
+                <span className="tracking-wide">CLOSED (READ-ONLY)</span>
+              </div>
+            ) : requiresProgressCheckIn ? (
+              <button
+                type="button"
+                onClick={handleOpenProgressChatForCheckIn}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono text-[11px] font-bold border border-amber-300 dark:border-amber-700 shadow-xs cursor-pointer hover:bg-amber-100 transition-colors"
+                title="Klik untuk membuka LiveChat dengan kategori PROGRESS"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="tracking-wide">CHECKOUT LOCKED</span>
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F4EAFF] dark:bg-[#2E1459] text-[#431599] dark:text-[#D8B4FE] font-mono text-[11px] font-bold border border-[#D8B4FE]/70 dark:border-[#7135B5] shadow-[0_2px_0_rgba(216,180,254,0.5),0_2px_6px_rgba(113,53,181,0.06)]">
+                <LockOpen className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <span className="tracking-wide">CHECKOUT UNLOCKED</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* ============================================================== */}
-      {/* MAIN CONTAINER: INFORMASI TICKET + TWO-COLUMN LAYOUT           */}
-      {/* ============================================================== */}
-      <div className="flex-1 p-3 sm:p-5 lg:p-6 max-w-7xl mx-auto w-full space-y-6 pb-20">
 
         {/* ============================================================ */}
-        {/* SECTION A: INFORMASI TICKET (STAYS ON TOP)                   */}
+        {/* BANNER TIKET WO & STATUS (STITCH HERO CONTEXT CARD)          */}
         {/* ============================================================ */}
-        <div className="bg-white dark:bg-[#150B27] rounded-2xl border border-slate-200 dark:border-[#2D1754] p-4 sm:p-5 shadow-xs space-y-4">
-          {/* Card Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-[#2D1754]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-[#2D1754] text-[#5B35B1] dark:text-[#A78BFA] flex items-center justify-center font-bold">
-                <FileText className="w-4 h-4" />
+        <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 relative overflow-hidden">
+          <div className="absolute -right-6 -top-6 w-28 h-28 bg-gradient-to-br from-[#E9D5FF]/50 to-[#D8B4FE]/20 dark:from-[#7135B5]/30 dark:to-transparent rounded-full blur-xl pointer-events-none" />
+
+          <div className="flex items-start justify-between gap-3 mb-2 relative z-10">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono text-[15px] sm:text-[16px] font-bold text-[#160D29] dark:text-white tracking-tight">
+                  {activeTicket.woNumber}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[#35105E] text-white font-bold text-[10px] tracking-wider uppercase shadow-[0_1.5px_0_#160D29]">
+                  {woBadgeLabel}
+                </span>
+                <StatusInstallerBadge status={activeTicket.statusWOInstaller} />
+                {activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE' && (
+                  <StatusApprovalBadge status={activeTicket.approvalStatus} />
+                )}
               </div>
-              <div>
-                <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>Informasi Ticket Work Order</span>
-                  <span className="text-xs px-2 py-0.5 rounded-md font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    {activeTicket.ticketCategory || 'FTTH Service'}
-                  </span>
-                </h2>
-                <div className="text-[11px] text-slate-500">
-                  ID Tiket: <span className="font-mono font-semibold">{activeTicket.idCustomer || activeTicket.customerId || activeTicket.id}</span>
-                </div>
-              </div>
+              <h1 className="font-display font-bold text-[18px] sm:text-[20px] text-[#211A2E] dark:text-white mt-1.5 tracking-tight truncate">
+                {activeTicket.customerName || activeTicket.endUserName || 'Pelanggan'}
+              </h1>
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-500">Mitra Vendor:</span>
-              <span className="font-bold text-[#3B1D78] dark:text-[#E9E1FF] px-2.5 py-0.5 bg-slate-100 dark:bg-[#20103A] rounded-lg border border-slate-200 dark:border-[#3B1D78]">
-                {activeTicket.contactorName || activeTicket.contractorName || 'Mitra Kontraktor'}
+            {/* Live Elapsed Timer + Start Time */}
+            <div className="flex flex-col items-end shrink-0">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#16A36A] dark:text-emerald-300 font-mono text-[12px] font-bold border border-emerald-200 dark:border-emerald-700 shadow-xs tabular-nums">
+                <Timer className="w-3.5 h-3.5" />
+                <span>{elapsedClockLabel}</span>
+              </span>
+              <span className="font-mono text-[10px] text-[#8B8495] dark:text-[#CEC0E8]/75 mt-1 tabular-nums">
+                {sessionStartIso
+                  ? `Mulai: ${formatJakartaTimeOnly(sessionStartIso)}`
+                  : `Slot: ${activeTicket.slotTime || '-'}`}
               </span>
             </div>
           </div>
 
-          {/* Grid Information Sections */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            {/* Box 1: Informasi Pelanggan & Kontak (with WhatsApp button) */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#1B0E32] border border-slate-200 dark:border-[#2D1754] space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                <span className="flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#5B35B1] dark:text-[#A78BFA]" />
-                  <span>Pelanggan</span>
-                </span>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
-                  ID: {activeTicket.idCustomer || activeTicket.customerId || '-'}
+          {/* Verified LiveChat Progress Banner OR Actionable Check-in Gate */}
+          {!requiresProgressCheckIn ? (
+            <div className="mt-2.5 p-2.5 rounded-xl bg-[#F9F0FF] dark:bg-[#160D29] border border-[#D8CCF3]/60 dark:border-[#35105E] flex items-center justify-between gap-2 shadow-inner">
+              <div className="flex items-center gap-2 min-w-0">
+                <CheckCircle2 className="w-4 h-4 text-[#16A36A] shrink-0" />
+                <span className="text-[12px] font-medium text-[#211A2E] dark:text-[#F5EEFF] truncate">
+                  LiveChat Tag <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">#PROGRESS</span> Tervalidasi
                 </span>
               </div>
-
-              <div>
-                <div className="font-bold text-sm text-slate-900 dark:text-white">
-                  {activeTicket.customerName || activeTicket.endUserName || '-'}
+              <span className="font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8] shrink-0 font-semibold tabular-nums">
+                {validatedCheckInTime}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-[12px] text-amber-900 dark:text-amber-200">
+                  <div className="font-bold">Wajib Check-in LiveChat Kategori #PROGRESS</div>
+                  <p className="text-[11px] opacity-90 mt-0.5">
+                    Kirim minimal 1 pesan LiveChat dengan kategori <strong>PROGRESS</strong> untuk membuka tombol kirim checkout.
+                  </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={handleOpenProgressChatForCheckIn}
+                className="btn-3d-amber px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer"
+              >
+                Buka LiveChat (#PROGRESS)
+              </button>
+            </div>
+          )}
 
-              {/* Phone and WhatsApp button right next to it */}
-              <div className="pt-1 border-t border-slate-200/70 dark:border-[#2D1754] space-y-1.5">
-                <div className="text-[10.5px] text-slate-500">Nomor Telepon:</div>
-                <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                  <div className="flex items-center gap-1 font-mono font-bold text-slate-800 dark:text-slate-200">
-                    <Phone className="w-3 h-3 text-[#5B35B1]" />
-                    <span>{activeTicket.customerPhone || 'Tidak ada nomor'}</span>
-                  </div>
-
-                  {activeTicket.customerPhone ? (
-                    <div className="flex items-center gap-1">
-                      <a
-                        href={`tel:${activeTicket.customerPhone}`}
-                        className="p-1 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 rounded text-[11px] font-semibold border border-slate-200 dark:border-slate-700"
-                        title="Telepon Langsung"
-                      >
-                        <Phone className="w-3 h-3 text-emerald-600" />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (waUrlObj.url) {
-                            window.open(waUrlObj.url, '_blank', 'noopener,noreferrer');
-                          } else {
-                            onOpenWhatsApp(activeTicket);
-                          }
-                        }}
-                        className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                        title="Chat WhatsApp Pelanggan"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        <span>WhatsApp</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-slate-400 italic">Kosong</span>
-                  )}
+          {/* Dispatch Revision Alert Banner if REVISI */}
+          {!ticketClosed && canonicalApproval === 'REVISION' && (
+            <div className="mt-2.5 p-3 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-200 text-xs space-y-1">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Revisi Laporan Diminta Dispatch</span>
                 </div>
-                {activeTicket.customerContact2 && (
-                  <div className="text-[10.5px] text-slate-500 truncate">
-                    Kontak Alt: {activeTicket.customerContact2}
-                  </div>
-                )}
+                <span className="px-2 py-0.5 rounded-md bg-[#B91C1C] text-white font-mono font-bold text-[10px]">
+                  Kirim Revisi v{(activeTicket.progressReports?.length || 0) + 1}
+                </span>
+              </div>
+              <p className="text-[11.5px] font-semibold text-[#7F1D1D] dark:text-rose-100 leading-relaxed">
+                Alasan ({latestReport?.rejectedBy || activeTicket.rejectedBy || 'Dispatch'}): &ldquo;{latestRevisionReason || 'Silakan perbaiki laporan dan kirim ulang.'}&rdquo;
+              </p>
+            </div>
+          )}
+
+          {/* WO CLOSED Read-Only Lock Banner */}
+          {ticketClosed && (
+            <div className="mt-2.5 p-3 rounded-xl bg-[#334155] text-white border border-[#1E293B] text-xs flex items-start gap-2.5">
+              <Lock className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <div className="font-extrabold uppercase tracking-wide flex items-center gap-2 flex-wrap">
+                  <span>Work Order CLOSED (Terkunci Read-Only)</span>
+                  <StatusBadge status="APPROVED" variant="approval" />
+                </div>
+                <p className="text-[11px] text-slate-200">
+                  Laporan akhir ({canonicalReport !== 'NONE' ? canonicalReport : activeTicket.statusWOInstaller}) telah disetujui Dispatch{' '}
+                  {activeTicket.approvedBy ? `(${activeTicket.approvedBy})` : ''}.
+                </p>
               </div>
             </div>
+          )}
 
-            {/* Box 2: Jadwal & Penugasan Personel */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#1B0E32] border border-slate-200 dark:border-[#2D1754] space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-[#5B35B1] dark:text-[#A78BFA]" />
-                <span>Jadwal & Personel</span>
-              </div>
+          {/* Site Quick Specs + Quick Address/WA Actions */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-dashed border-[#D8CCF3] dark:border-[#35105E]">
+            <button
+              type="button"
+              onClick={handleCopyAddress}
+              className="flex items-center gap-1.5 text-left text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] dark:hover:text-white transition-colors cursor-pointer min-w-0"
+              title="Ketuk untuk menyalin alamat pelanggan"
+            >
+              {copiedAddress ? (
+                <Check className="w-4 h-4 text-[#16A36A] shrink-0" />
+              ) : (
+                <MapPin className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+              )}
+              <span className="text-[11.5px] font-medium truncate">
+                {activeTicket.streetName || activeTicket.address || activeTicket.clusterName || 'Alamat belum tercatat'}
+              </span>
+            </button>
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 text-[11px]">Appointment Date:</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    {activeTicket.appointmentDate || '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 text-[11px]">Slot Time:</span>
-                  <span className="font-mono font-bold text-[#5B35B1] dark:text-[#A78BFA]">
-                    {activeTicket.slotTime || '-'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-1.5 border-t border-slate-200/70 dark:border-[#2D1754] space-y-1 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Leader / Korlap:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[130px]">
-                    {activeTicket.leaderName || activeTicket.corlapName || '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Teknisi Installer:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400 truncate max-w-[130px]">
-                    {activeTicket.installerName || 'Belum Ditugaskan'}
-                  </span>
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 text-[#766B83] dark:text-[#CEC0E8] min-w-0">
+              <GitBranch className="w-4 h-4 text-[#431599] dark:text-[#A78BFA] shrink-0" />
+              <span className="text-[11.5px] font-mono font-bold text-[#160D29] dark:text-white truncate">
+                {activeTicket.fatCode || activeTicket.fdtCode || '-'}
+                {fatPort || activeTicket.fatPort ? ` #${String(fatPort || activeTicket.fatPort).replace(/^#/, '')}` : ''}
+              </span>
             </div>
 
-            {/* Box 3: Lokasi & Alamat (Interactive Google Maps) */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#1B0E32] border border-slate-200 dark:border-[#2D1754] space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Lokasi & Alamat</span>
-                </span>
-                <span className="text-[10px] text-slate-500 font-semibold">{activeTicket.area || '-'}</span>
-              </div>
-
-              <div>
-                <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                  {activeTicket.clusterName || 'Non-Cluster'}
-                </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
-                  {activeTicket.streetName || activeTicket.address || 'Alamat belum diisi'}
-                </div>
-                {activeTicket.streetAlternatif && (
-                  <div className="text-[10.5px] text-amber-700 dark:text-amber-400 mt-0.5 truncate">
-                    Patokan: {activeTicket.streetAlternatif}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-1.5 border-t border-slate-200/70 dark:border-[#2D1754] flex items-center gap-1.5">
+            <div className="flex items-center justify-start sm:justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={handleOpenMaps}
+                className="px-2.5 py-1 rounded-lg bg-[#F5F1FF] dark:bg-[#261942] border border-[#D8CCF3] dark:border-[#4B386B] text-[#431599] dark:text-[#D8B4FE] text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer hover:bg-[#EDE4FF]"
+              >
+                <Navigation className="w-3 h-3" />
+                <span>Maps</span>
+              </button>
+              {activeTicket.customerPhone && (
                 <button
                   type="button"
-                  onClick={handleCopyAddress}
-                  className="flex-1 py-1 px-2 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 rounded text-[11px] font-semibold border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-1 cursor-pointer"
+                  onClick={() => {
+                    if (waUrlObj.url) {
+                      window.open(waUrlObj.url, '_blank', 'noopener,noreferrer');
+                    } else {
+                      onOpenWhatsApp(activeTicket);
+                    }
+                  }}
+                  className="btn-3d-icon-wa px-2.5 py-1 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
                 >
-                  {copiedAddress ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedAddress ? 'Tersalin' : 'Salin'}</span>
+                  <Phone className="w-3 h-3" />
+                  <span>WhatsApp</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleOpenMaps}
-                  className="flex-1 py-1 px-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Navigation className="w-3 h-3" />
-                  <span>Maps</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Box 4: Infrastruktur Jaringan & Teknis */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#1B0E32] border border-slate-200 dark:border-[#2D1754] space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-[#5B35B1] dark:text-[#A78BFA]" />
-                <span>Teknis Jaringan</span>
-              </div>
-
-              <div className="space-y-1 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Kode FDT:</span>
-                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                    {activeTicket.fdtCode || '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">FAT & Port:</span>
-                  <span className="font-mono font-bold text-[#5B35B1] dark:text-[#A78BFA]">
-                    {activeTicket.fatCode || '-'}{activeTicket.fatPort ? ` (P${activeTicket.fatPort})` : ''}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">SN ONT:</span>
-                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
-                    {activeTicket.ontSerialNumber || activeTicket.technicalReport?.deviceSerialNumber || '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200/70 dark:border-[#2D1754]">
-                  <span className="text-slate-500">OPM Terakhir:</span>
-                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {activeTicket.technicalReport?.opticalPowerDbm || '-'}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* ============================================================ */}
-        {/* SECTION B: TWO-COLUMN LAYOUT (DESKTOP) / VERTICAL STACK (HP) */}
-        {/* Left Column: Report Status Pembaruan & History Progress Report */}
-        {/* Right Column: Live Chat Room                                 */}
+        {/* MAIN RESPONSIVE GRID: LEFT = 3-TIER CHECKOUT, RIGHT = CHAT   */}
         {/* ============================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
           {/* ========================================================== */}
-          {/* KOLOM KIRI (Left Column ~46% on desktop: lg:col-span-5/6)   */}
-          {/* 1. Report Status Pembaruan (Hidden until technician sends   */}
-          {/*    first persisted LiveChat message with category PROGRESS) */}
+          {/* LEFT COLUMN (7/12 on desktop): STITCH 3-TIER CHECKOUT FLOW */}
           {/* ========================================================== */}
-          {isReportStatusSectionVisible && (
-          <div className="lg:col-span-5 xl:col-span-6 space-y-6">
+          <form onSubmit={handleSaveReport} className="lg:col-span-7 space-y-3.5">
+
+            {/* Error Alert */}
+            {reportError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-[#BA1A1A] dark:text-rose-200 text-xs flex items-center gap-2 font-semibold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{reportError}</span>
+              </div>
+            )}
 
             {/* -------------------------------------------------------- */}
-            {/* 1. KARTU: REPORT STATUS PEMBARUAN                        */}
+            {/* SECTION 1: 3-TIER CASCADE CHECKOUT                       */}
             {/* -------------------------------------------------------- */}
-            <div className="bg-white dark:bg-[#150B27] rounded-2xl border border-slate-200 dark:border-[#2D1754] p-5 shadow-xs space-y-4">
-              {/* Card Title with Pencil Icon & Gold/Yellow Text */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2D1754]">
+            <section className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-amber-500 shrink-0" />
-                  <h3 className="font-bold text-base text-amber-500 dark:text-amber-400">
-                    Report Status Pembaruan
-                  </h3>
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#7135B5] to-[#5B35B1] text-white flex items-center justify-center border-t border-white/30 shadow-[0_2px_0_#35105E]">
+                    <GitBranch className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[16px] text-[#160D29] dark:text-white">
+                    3-Tier Cascade Checkout
+                  </h2>
                 </div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Formulir Progres Teknisi
+                <span className="px-2 py-0.5 rounded-full bg-[#E9D5FF] dark:bg-[#35105E] text-[#35105E] dark:text-[#D8B4FE] font-bold text-[10px] uppercase border border-[#D8CCF3] dark:border-[#5B35B1] shadow-xs">
+                  Wajib SOP
                 </span>
               </div>
 
-              {/* WO CLOSED Read-Only Lock Banner */}
-              {ticketClosed && (
-                <div className="p-3.5 rounded-xl bg-[#334155] text-white border border-[#1E293B] text-xs flex items-start gap-2.5">
-                  <Lock className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <div className="font-extrabold uppercase tracking-wide flex items-center gap-2 flex-wrap">
-                      <span>Work Order Telah CLOSED (Terkunci Read-Only)</span>
-                      <StatusBadge status="APPROVED" variant="approval" />
-                    </div>
-                    <p className="text-[11px] text-slate-200 leading-relaxed">
-                      Laporan dengan status akhir <strong>{canonicalReport !== 'NONE' ? canonicalReport : activeTicket.statusWOInstaller}</strong> telah disetujui oleh Dispatch{' '}
-                      {activeTicket.approvedBy ? `(${activeTicket.approvedBy})` : ''}. Formulir terkunci agar histori laporan tetap utuh.
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* Visual Flow Tracker (Debossed Well) */}
+              <div className="flex items-center justify-between px-3 py-2 bg-[#F5F1FF] dark:bg-[#160D29] rounded-xl mb-3.5 text-[11px] font-mono border border-[#D8CCF3]/70 dark:border-[#35105E] shadow-inner">
+                <span className={`font-bold ${reportStatus ? 'text-[#431599] dark:text-[#D8B4FE]' : 'text-[#8B8495]'}`}>
+                  L1: Status
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-[#7135B5]" />
+                <span className={`font-bold ${reasonReport ? 'text-[#431599] dark:text-[#D8B4FE]' : 'text-[#8B8495]'}`}>
+                  L2: Reason
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-[#7135B5]" />
+                <span className={`font-bold ${rootCause ? 'text-[#431599] dark:text-[#D8B4FE]' : 'text-[#8B8495]'}`}>
+                  L3: Rootcause
+                </span>
+              </div>
 
-              {/* Dispatch Revision Alert Banner */}
-              {!ticketClosed && canonicalApproval === 'REVISION' && (
-                <div className="p-3.5 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-200 text-xs space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>Revisi Laporan Diminta Dispatch</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-md bg-[#B91C1C] text-white font-mono font-bold text-[10px]">
-                      Kirim Revisi v{(activeTicket.progressReports?.length || 0) + 1}
-                    </span>
-                  </div>
-                  <p className="text-[11.5px] font-semibold text-[#7F1D1D] dark:text-rose-100 leading-relaxed">
-                    Alasan Revisi ({latestReport?.rejectedBy || activeTicket.rejectedBy || 'Dispatch'}):{' '}
-                    "{latestRevisionReason || 'Silakan perbaiki dan kirim ulang Report Status Pembaruan.'}"
-                  </p>
-                  <p className="text-[10.5px] text-[#991B1B] dark:text-rose-300">
-                    Catatan: Check-in dan histori laporan versi sebelumnya (v1–v{activeTicket.progressReports?.length || 0}) tetap tersimpan.
-                  </p>
-                </div>
-              )}
-
-              {/* Pre-Check-in Gate Banner (App Flow 5) */}
-              {requiresProgressCheckIn && !ticketClosed && (
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">Wajib Check-in via LiveChat Kategori PROGRESS</div>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Tombol Save Report dikunci sebelum Anda mengirim pesan LiveChat dengan kategori <strong>PROGRESS</strong>.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleOpenProgressChatForCheckIn}
-                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 cursor-pointer"
-                  >
-                    Buka LiveChat & Pilih Kategori PROGRESS
-                  </button>
-                </div>
-              )}
-
-              {/* Error Notice if any */}
-              {reportError && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{reportError}</span>
-                </div>
-              )}
-
-              {/* Form Fields */}
-              <form onSubmit={handleSaveReport} className="space-y-4 text-xs sm:text-sm">
-                {/* 1. Report Status (Level 1 - Status WO) */}
+              <div className="space-y-3">
+                {/* Level 1 */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-semibold text-slate-800 dark:text-slate-200">
-                      Report Status <span className="text-rose-500">*</span>
-                    </label>
-                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-medium">
-                      Level 1 – Status WO
-                    </span>
-                  </div>
-                  <select
-                    value={reportStatus}
-                    disabled={ticketClosed || isSubmittingReport}
-                    onChange={e => handleReportStatusChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <option value="">-- Pilih Report Status (Level 1) --</option>
-                    {availableStatusOptions.map(st => (
-                      <option key={st.id} value={st.name}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 2. Reason Report (Level 2 - Reason WO, dependent on Level 1) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-semibold text-slate-800 dark:text-slate-200">
-                      Reason Report <span className="text-rose-500">*</span>
-                    </label>
-                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-medium">
-                      Level 2 – Reason WO
-                    </span>
-                  </div>
-                  <select
-                    value={reasonReport}
-                    disabled={ticketClosed || isSubmittingReport || !reportStatus || availableReasonOptions.length === 0}
-                    onChange={e => handleReasonReportChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {!reportStatus ? (
-                      <option value="">-- Pilih Report Status Terlebih Dahulu --</option>
-                    ) : availableReasonOptions.length === 0 ? (
-                      <option value="">-- Tidak ada pilihan tersedia --</option>
-                    ) : (
-                      <>
-                        <option value="">-- Pilih Reason Report (Level 2) --</option>
-                        {availableReasonOptions.map(rs => (
-                          <option key={rs.id} value={rs.name}>
-                            {rs.name}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                {/* 3. Rootcause (Level 3 - Remarks, dependent on Level 2) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-semibold text-slate-800 dark:text-slate-200">
-                      Rootcause <span className="text-rose-500">*</span>
-                    </label>
-                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-medium">
-                      Level 3 – Remarks
-                    </span>
-                  </div>
-                  <select
-                    value={rootCause}
-                    disabled={ticketClosed || isSubmittingReport || !reasonReport || availableRootcauseOptions.length === 0}
-                    onChange={e => handleRootcauseChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {!reasonReport ? (
-                      <option value="">-- Pilih Reason Report Terlebih Dahulu --</option>
-                    ) : availableRootcauseOptions.length === 0 ? (
-                      <option value="">-- Tidak ada pilihan tersedia --</option>
-                    ) : (
-                      <>
-                        <option value="">-- Pilih Rootcause (Level 3 - Remarks) --</option>
-                        {availableRootcauseOptions.map(rm => (
-                          <option key={rm.id} value={rm.text || rm.name}>
-                            {rm.text || rm.name}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                {/* 4. Remarks Report */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-semibold text-slate-800 dark:text-slate-200">
-                      Remarks Report <span className="text-rose-500">*</span>
-                    </label>
-                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-normal">Level 3 (Template / Manual)</span>
-                  </div>
-
-                  {!ticketClosed && availableRemarksTemplates.length > 0 && (
-                    <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-                      <span className="text-slate-400 text-[10px] font-semibold shrink-0">Template:</span>
-                      {availableRemarksTemplates.map((tpl, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setRemarksReport(tpl)}
-                          className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/80 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap text-[10px] font-medium transition-colors cursor-pointer"
-                          title="Klik untuk memilih template ini"
-                        >
-                          {tpl.length > 32 ? tpl.slice(0, 32) + '...' : tpl}
-                        </button>
+                  <label className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-1 uppercase tracking-wider">
+                    LEVEL 1: REPORT STATUS <span className="text-[#DC4C5A]">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={reportStatus}
+                      disabled={ticketClosed || isSubmittingReport}
+                      onChange={e => handleReportStatusChange(e.target.value)}
+                      className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-semibold text-[13px] rounded-xl py-2.5 pl-3 pr-10 appearance-none focus:outline-none focus:ring-2 focus:ring-[#D8B4FE] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <option value="">-- Pilih Report Status (Level 1) --</option>
+                      {availableStatusOptions.map(st => (
+                        <option key={st.id} value={st.name}>
+                          {st.name}
+                        </option>
                       ))}
-                    </div>
-                  )}
-
-                  <textarea
-                    rows={3}
-                    value={remarksReport}
-                    disabled={ticketClosed || isSubmittingReport}
-                    onChange={e => setRemarksReport(e.target.value)}
-                    placeholder="Tuliskan catatan detail hasil penanganan teknisi di lapangan..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none transition-all resize-none text-xs sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#7135B5] dark:text-[#D8B4FE] pointer-events-none" />
+                  </div>
                 </div>
 
-                {/* Buttons: Cancel (Red) & Save Report (Green) */}
-                {!ticketClosed && (
-                  <div className="flex items-center justify-end gap-3 pt-2">
+                {/* Level 2 */}
+                <div>
+                  <label className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-1 uppercase tracking-wider">
+                    LEVEL 2: REASON REPORT <span className="text-[#DC4C5A]">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={reasonReport}
+                      disabled={ticketClosed || isSubmittingReport || !reportStatus || availableReasonOptions.length === 0}
+                      onChange={e => handleReasonReportChange(e.target.value)}
+                      className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-semibold text-[13px] rounded-xl py-2.5 pl-3 pr-10 appearance-none focus:outline-none focus:ring-2 focus:ring-[#D8B4FE] cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
+                    >
+                      {!reportStatus ? (
+                        <option value="">-- Pilih Report Status Terlebih Dahulu --</option>
+                      ) : availableReasonOptions.length === 0 ? (
+                        <option value="">-- Tidak ada pilihan tersedia --</option>
+                      ) : (
+                        <>
+                          <option value="">-- Pilih Reason Report (Level 2) --</option>
+                          {availableReasonOptions.map(rs => (
+                            <option key={rs.id} value={rs.name}>
+                              {rs.name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#7135B5] dark:text-[#D8B4FE] pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Level 3 */}
+                <div>
+                  <label className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-1 uppercase tracking-wider">
+                    LEVEL 3: ROOTCAUSE CODE <span className="text-[#DC4C5A]">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={rootCause}
+                      disabled={ticketClosed || isSubmittingReport || !reasonReport || availableRootcauseOptions.length === 0}
+                      onChange={e => handleRootcauseChange(e.target.value)}
+                      className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-semibold text-[13px] rounded-xl py-2.5 pl-3 pr-10 appearance-none focus:outline-none focus:ring-2 focus:ring-[#D8B4FE] cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
+                    >
+                      {!reasonReport ? (
+                        <option value="">-- Pilih Reason Report Terlebih Dahulu --</option>
+                      ) : availableRootcauseOptions.length === 0 ? (
+                        <option value="">-- Tidak ada pilihan tersedia --</option>
+                      ) : (
+                        <>
+                          <option value="">-- Pilih Rootcause Code (Level 3) --</option>
+                          {availableRootcauseOptions.map(rm => (
+                            <option key={rm.id} value={rm.text || rm.name}>
+                              {rm.text || rm.name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#7135B5] dark:text-[#D8B4FE] pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* -------------------------------------------------------- */}
+            {/* SECTION 2: TELEMETRI & KALIBRASI ONT                     */}
+            {/* -------------------------------------------------------- */}
+            <section className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#7135B5] to-[#35105E] text-white flex items-center justify-center border-t border-white/30 shadow-[0_2px_0_#160D29]">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[16px] text-[#160D29] dark:text-white">
+                    Telemetri &amp; Kalibrasi ONT
+                  </h2>
+                </div>
+                <span className="font-mono text-[10.5px] text-[#16A36A] dark:text-emerald-300 font-bold flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A]" />
+                  <span>LIVE SYNC</span>
+                </span>
+              </div>
+
+              <div className="space-y-3.5">
+                {/* OPM Signal Card Taktil */}
+                <div className="bg-gradient-to-b from-[#F9F0FF] to-[#F4EEFF] dark:from-[#1A0E2E] dark:to-[#160D29] p-3 rounded-xl border border-[#D8CCF3]/70 dark:border-[#35105E] shadow-xs">
+                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                    <label
+                      htmlFor="opm-input"
+                      className="font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wider"
+                    >
+                      REDAMAN OPM PADA ROSET (dBm)
+                    </label>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
+                      {opmStatus.label}
+                    </span>
+                  </div>
+                  <div className="relative flex items-center">
+                    <input
+                      id="opm-input"
+                      type="text"
+                      inputMode="decimal"
+                      value={opmDbm}
+                      disabled={ticketClosed || isSubmittingReport}
+                      onChange={e => setOpmDbm(e.target.value)}
+                      placeholder="-18.50"
+                      className={`tactile-debossed-input w-full bg-white dark:bg-[#140827] font-mono font-bold text-[22px] rounded-xl py-2 pl-3 pr-16 focus:outline-none focus:ring-2 focus:ring-[#431599] tabular-nums disabled:opacity-60 ${
+                        opmStatus.isOutOfSpec ? 'text-[#DC4C5A]' : 'text-[#160D29] dark:text-white'
+                      }`}
+                    />
+                    <span className="absolute right-3.5 font-mono text-[13px] font-semibold text-[#8B8495]">
+                      dBm
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-[#D8CCF3]/40 dark:border-[#35105E] flex-wrap">
+                    <span className="font-mono text-[10px] text-[#8B8495] dark:text-[#CEC0E8]/75">
+                      Batas Max SOP: -24.00 dBm
+                    </span>
+                    <span className="font-mono text-[10px] text-[#16A36A] dark:text-emerald-300 font-bold">
+                      Rentang Ideal: -15 s/d -22 dBm
+                    </span>
+                  </div>
+                </div>
+
+                {/* ONT Serial Number + 3D Micro-Key Scanner Helper */}
+                <div>
+                  <label
+                    htmlFor="ont-sn-input"
+                    className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-1 uppercase tracking-wider"
+                  >
+                    NOMOR SERI (SN) ONT / MODEM
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <div className="relative flex-1">
+                      <input
+                        id="ont-sn-input"
+                        ref={snInputRef}
+                        type="text"
+                        value={ontSerialNumber}
+                        disabled={ticketClosed || isSubmittingReport}
+                        onChange={e => setOntSerialNumber(e.target.value.toUpperCase())}
+                        placeholder="Masukkan SN ONT (mis. ZTEG-XXXX)"
+                        className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-mono font-bold text-[14px] rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#431599] uppercase tracking-wider disabled:opacity-60"
+                      />
+                      {ontSerialNumber.trim().length >= 6 && (
+                        <CheckCircle2 className="w-4 h-4 absolute right-3 top-3 text-[#16A36A]" />
+                      )}
+                    </div>
                     <button
                       type="button"
-                      onClick={handleCancelReport}
-                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="Batal perubahan formulir"
+                      disabled={ticketClosed}
+                      onClick={() => {
+                        setShowSnScannerTip(prev => !prev);
+                        snInputRef.current?.focus();
+                      }}
+                      className="tactile-micro-key w-11 h-11 shrink-0 rounded-xl bg-gradient-to-b from-[#7135B5] to-[#5B35B1] text-white flex items-center justify-center border-t border-white/40 cursor-pointer disabled:opacity-50"
+                      title="Fokus & Foto Stiker Barcode SN ONT"
                     >
-                      <X className="w-4 h-4" />
-                      <span>Cancel</span>
-                    </button>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmittingReport || requiresProgressCheckIn}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                      title={requiresProgressCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu' : 'Simpan Laporan Status'}
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>
-                        {isSubmittingReport
-                          ? 'Menyimpan...'
-                          : canonicalApproval === 'REVISION'
-                          ? `Kirim Revisi v${(activeTicket.progressReports?.length || 0) + 1}`
-                          : 'Save Report'}
-                      </span>
+                      <QrCode className="w-5 h-5" />
                     </button>
                   </div>
-                )}
-              </form>
-            </div>
-          </div>
-          )}
+                  {showSnScannerTip && (
+                    <div className="mt-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-[#F5F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#4B386B] text-[11px] text-[#431599] dark:text-[#D8B4FE]">
+                      <span>Ketik SN manual atau foto stiker barcode pada slot Foto #2 di bawah.</span>
+                      <button
+                        type="button"
+                        onClick={() => photoInputRefs.current.barcode_sn?.click()}
+                        className="font-bold underline shrink-0 cursor-pointer"
+                      >
+                        Ambil Foto SN
+                      </button>
+                    </div>
+                  )}
+                  <p className="font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1.5 flex items-center gap-1 font-medium">
+                    <Check className="w-3.5 h-3.5 text-[#16A36A]" />
+                    <span>
+                      {activeTicket.oltCode
+                        ? `Terdaftar di OLT ${activeTicket.oltCode}${activeTicket.oltRegistrationStatus ? ` (${activeTicket.oltRegistrationStatus})` : ''}`
+                        : `Brand ONT: ${activeTicket.ontBrand || 'GPON ONT'} ${activeTicket.ontModel || ''}`.trim()}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Dropcore Length & Port FAT Grid */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label
+                      htmlFor="dropcore-input"
+                      className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-1 uppercase tracking-wider"
+                    >
+                      PANJANG DROPCORE
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="dropcore-input"
+                        type="number"
+                        min={0}
+                        value={dropcoreLength}
+                        disabled={ticketClosed || isSubmittingReport}
+                        onChange={e => setDropcoreLength(e.target.value)}
+                        placeholder="0"
+                        className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-mono font-bold text-[14px] rounded-xl py-2.5 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#431599] tabular-nums disabled:opacity-60"
+                      />
+                      <span className="absolute right-3 top-2.5 font-mono text-[11px] text-[#8B8495] font-medium">
+                        Meter
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-[#8B8495] mt-1 block font-medium">
+                      {activeTicket.installationType || 'Pre-connector 1 Core'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="fat-port-input"
+                      className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-1 uppercase tracking-wider"
+                    >
+                      PORT FAT AKTIF
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="fat-port-input"
+                        type="text"
+                        value={fatPort}
+                        disabled={ticketClosed || isSubmittingReport}
+                        onChange={e => setFatPort(e.target.value)}
+                        placeholder="Port #04"
+                        className="tactile-debossed-input w-full bg-[#F4EAFF] dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] font-mono font-bold text-[14px] rounded-xl py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#431599] disabled:opacity-60"
+                      />
+                      <Cable className="w-4 h-4 absolute right-2.5 top-3 text-[#431599] dark:text-[#A78BFA] pointer-events-none" />
+                    </div>
+                    <span className="font-mono text-[10px] text-[#8B8495] mt-1 block">
+                      {activeTicket.fatRedamanDbm ? `Tiang: ${activeTicket.fatRedamanDbm} dBm` : `FAT: ${activeTicket.fatCode || '-'}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* -------------------------------------------------------- */}
+            {/* SECTION 3: BUKTI FOTO FISIK (4 TITIK SOP)                */}
+            {/* -------------------------------------------------------- */}
+            <section className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#35105E] to-[#160D29] text-white flex items-center justify-center border-t border-white/30 shadow-[0_2px_0_#160D29]">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[16px] text-[#160D29] dark:text-white">
+                    Bukti Foto Fisik (4 Titik SOP)
+                  </h2>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#E9D5FF] dark:bg-[#35105E] text-[#35105E] dark:text-[#D8B4FE] font-mono text-[11px] font-bold border border-[#D8CCF3] dark:border-[#5B35B1] shadow-xs tabular-nums">
+                  {uploadedPhotoSlotsList.length}/4 Terunggah
+                </span>
+              </div>
+              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-3 leading-tight">
+                EXIF Geotag dan stempel waktu otomatis dicatat saat teknisi mengunggah bukti fisik dari perangkat lapangan.
+              </p>
+
+              {/* 2x2 Photo Evidence Grid */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {PHOTO_SLOT_DEFINITIONS.map(slotDef => {
+                  const slotData = photoSlots[slotDef.slotKey];
+                  const isBusy = uploadingSlot === slotDef.slotKey;
+
+                  return (
+                    <div
+                      key={slotDef.slotKey}
+                      className="relative rounded-xl overflow-hidden bg-white dark:bg-[#160D29] flex flex-col border border-[#D8CCF3]/70 dark:border-[#35105E] shadow-[0_2px_0_#CEC3D4,0_4px_8px_rgba(27,18,48,0.04)] dark:shadow-none"
+                    >
+                      <input
+                        ref={el => {
+                          photoInputRefs.current[slotDef.slotKey] = el;
+                        }}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        disabled={ticketClosed}
+                        onChange={e => handlePhotoUploadForSlot(slotDef, e)}
+                        className="hidden"
+                      />
+
+                      <div className="h-28 w-full relative bg-[#F5F1FF] dark:bg-[#140827]">
+                        {slotData?.url ? (
+                          <>
+                            <img
+                              src={getSafePreviewUrl(slotData.url)}
+                              alt={slotDef.title}
+                              onClick={() => setZoomImage(slotData.url)}
+                              className="w-full h-full object-cover cursor-pointer"
+                            />
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#160D29]/85 text-white font-mono text-[9px] font-bold backdrop-blur-xs shadow-xs max-w-[90px] truncate">
+                              {slotData.badgeText || slotDef.defaultTag}
+                            </span>
+                            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-[#16A36A] text-white font-bold text-[9px] flex items-center gap-0.5 shadow-xs">
+                              <Check className="w-2.5 h-2.5" />
+                              <span>{slotData.statusTag || slotDef.verifiedTag}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setZoomImage(slotData.url)}
+                              className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white hover:bg-black/70 cursor-pointer"
+                              title="Perbesar Foto"
+                            >
+                              <Maximize2 className="w-3 h-3" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={ticketClosed || isBusy}
+                            onClick={() => photoInputRefs.current[slotDef.slotKey]?.click()}
+                            className="w-full h-full flex flex-col items-center justify-center gap-1 p-2 text-center text-[#766B83] dark:text-[#CEC0E8] hover:bg-[#EDE4FF]/60 dark:hover:bg-[#22123F] transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            <Camera className="w-5 h-5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                            <span className="text-[10px] font-semibold leading-tight line-clamp-2">
+                              {isBusy ? 'Memproses...' : slotDef.emptyHint}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="p-2 flex flex-col justify-between flex-1 bg-white dark:bg-[#1E1238]">
+                        <div>
+                          <p className="font-bold text-[11px] text-[#211A2E] dark:text-white line-clamp-1">
+                            {slotDef.title}
+                          </p>
+                          <p className="font-mono text-[9px] text-[#8B8495] dark:text-[#CEC0E8]/75">
+                            {slotData?.capturedAt
+                              ? `${slotData.capturedAt} • ${formatBytesToLabel(slotData.fileSizeBytes)}`
+                              : 'Belum diunggah'}
+                          </p>
+                        </div>
+
+                        {!ticketClosed && (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => photoInputRefs.current[slotDef.slotKey]?.click()}
+                            className="tactile-pill-btn mt-2 w-full py-1 px-2 rounded-lg bg-white dark:bg-[#261942] text-[#431599] dark:text-[#D8B4FE] font-bold text-[10px] flex items-center justify-center gap-1 border border-[#D8CCF3] dark:border-[#4B386B] cursor-pointer"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isBusy ? 'animate-spin' : ''}`} />
+                            <span>{slotData?.url ? 'Ganti Foto' : 'Unggah Foto'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* -------------------------------------------------------- */}
+            {/* SECTION 4: CATATAN TEKNISI & HASIL COMMISSIONING         */}
+            {/* -------------------------------------------------------- */}
+            <section className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="remarks-commissioning"
+                  className="block font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wider"
+                >
+                  CATATAN TEKNISI &amp; HASIL COMMISSIONING <span className="text-[#DC4C5A]">*</span>
+                </label>
+                <span className="text-[10px] font-mono text-[#7135B5] dark:text-[#A78BFA]">
+                  Level 3 Template / Manual
+                </span>
+              </div>
+
+              {!ticketClosed && availableRemarksTemplates.length > 0 && (
+                <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+                  <span className="text-[#8B8495] text-[10px] font-semibold shrink-0">Template:</span>
+                  {availableRemarksTemplates.map((tpl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setRemarksReport(tpl)}
+                      className="px-2 py-0.5 rounded-lg bg-[#F5F1FF] hover:bg-[#E9D5FF] dark:bg-[#261942] dark:hover:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#4B386B] whitespace-nowrap text-[10px] font-semibold transition-colors cursor-pointer"
+                    >
+                      {tpl.length > 34 ? tpl.slice(0, 34) + '...' : tpl}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <textarea
+                id="remarks-commissioning"
+                rows={3}
+                value={remarksReport}
+                disabled={ticketClosed || isSubmittingReport}
+                onChange={e => setRemarksReport(e.target.value)}
+                placeholder="Tuliskan catatan hasil commissioning, panjang dropcore, redaman OPM akhir, dan konfirmasi pelanggan..."
+                className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-medium text-[13px] rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#431599] leading-relaxed resize-none disabled:opacity-60"
+              />
+              <div className="flex items-center justify-between gap-2 mt-2 text-[11px] text-[#8B8495] dark:text-[#CEC0E8]/75">
+                <span className="text-[#35105E] dark:text-[#D8B4FE] font-medium truncate">
+                  {opmDbm || dropcoreLength
+                    ? `Ringkasan: ${opmDbm ? `OPM ${opmDbm} dBm` : ''}${opmDbm && dropcoreLength ? ' · ' : ''}${dropcoreLength ? `Dropcore ${dropcoreLength}m` : ''}`
+                    : 'Catat parameter teknis lapangan secara jelas'}
+                </span>
+                <span className="font-mono font-semibold shrink-0 tabular-nums">
+                  {remarksReport.length} Karakter
+                </span>
+              </div>
+            </section>
+
+            {/* -------------------------------------------------------- */}
+            {/* SECTION 5: KONFIRMASI & TANDA TANGAN PELANGGAN           */}
+            {/* -------------------------------------------------------- */}
+            <section className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center border-t border-white/60 dark:border-white/10 shadow-[0_1.5px_0_#CEC3D4] dark:shadow-none">
+                    <PenTool className="w-4 h-4" />
+                  </div>
+                  <h2 className="font-display font-bold text-[16px] text-[#160D29] dark:text-white">
+                    Konfirmasi &amp; Tanda Tangan
+                  </h2>
+                </div>
+                <span
+                  className={`font-mono text-[10.5px] font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full border ${
+                    isSignatureReady
+                      ? 'text-[#16A36A] bg-emerald-50 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700'
+                      : 'text-[#766B83] bg-[#F5F1FF] border-[#D8CCF3] dark:bg-[#22123F] dark:text-[#CEC0E8] dark:border-[#4B386B]'
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSignatureReady ? 'Siap Submit' : 'Belum TTD'}</span>
+                </span>
+              </div>
+
+              {/* Interactive Signature Pad (Debossed Well) */}
+              <div className="tactile-debossed-input relative bg-[#F5F1FF] dark:bg-[#160D29] rounded-xl p-3 flex flex-col items-center justify-center overflow-hidden">
+                <div className="relative w-full h-28">
+                  <canvas
+                    ref={signatureCanvasRef}
+                    onPointerDown={handleSignaturePointerDown}
+                    onPointerMove={handleSignaturePointerMove}
+                    onPointerUp={handleSignaturePointerUp}
+                    onPointerLeave={handleSignaturePointerUp}
+                    className={`w-full h-full touch-none ${ticketClosed ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
+                  />
+                  {!customerSignatureUrl && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-medium text-[#8B8495] dark:text-[#CEC0E8]/60">
+                      Tanda tangan pelanggan di area ini...
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full flex items-center justify-between pt-2.5 border-t border-dashed border-[#D8CCF3] dark:border-[#35105E] mt-1">
+                  <span className="text-[12px] font-bold text-[#211A2E] dark:text-white truncate">
+                    {activeTicket.customerName || 'Pelanggan'} (Pelanggan)
+                  </span>
+                  {!ticketClosed && (
+                    <button
+                      type="button"
+                      onClick={handleClearSignature}
+                      className="tactile-btn-secondary inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-[#261942] text-[#431599] dark:text-[#D8B4FE] font-bold text-[11px] border border-[#D8CCF3] dark:border-[#4B386B] cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Ulangi</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Consent Verification Checkbox */}
+              <label className="flex items-start gap-2.5 mt-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={customerConsentConfirmed}
+                  disabled={ticketClosed || isSubmittingReport}
+                  onChange={e => setCustomerConsentConfirmed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-[#7135B5] focus:ring-[#D8B4FE] accent-[#7135B5] cursor-pointer"
+                />
+                <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] leading-snug font-medium">
+                  Pelanggan telah menguji koneksi (Speedtest &amp; browsing), menerima CPE dalam keadaan baik, dan menandatangani Berita Acara Digital.
+                </span>
+              </label>
+            </section>
+
+            {/* -------------------------------------------------------- */}
+            {/* LOCAL DRAFT SYNC BANNER                                  */}
+            {/* -------------------------------------------------------- */}
+            {!ticketClosed && (
+              <div className="flex items-center gap-2.5 p-3 bg-[#F4EAFF] dark:bg-[#22123F] rounded-xl border border-[#D8CCF3]/70 dark:border-[#4B386B] shadow-xs">
+                <HardDriveDownload className="w-5 h-5 text-[#431599] dark:text-[#D8B4FE] shrink-0" />
+                <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] flex-1 leading-tight">
+                  Tersimpan otomatis ke draft lokal (<span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">LocalDraft: {activeTicket.woNumber}</span>)
+                  {draftSavedAt ? ` · Disimpan ${formatJakartaTimeOnly(draftSavedAt)}` : ' jika koneksi lapangan terputus.'}
+                </p>
+              </div>
+            )}
+
+            {/* -------------------------------------------------------- */}
+            {/* DUAL 3D TACTILE EXECUTION CONTROLS                       */}
+            {/* -------------------------------------------------------- */}
+            {!ticketClosed && (
+              <div className="flex flex-col gap-3 pt-1">
+                {/* Primary 3D CTA */}
+                <button
+                  type="submit"
+                  disabled={isSubmittingReport || requiresProgressCheckIn}
+                  className="tactile-btn-primary w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#7135B5] to-[#5B35B1] text-white font-display flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
+                  title={
+                    requiresProgressCheckIn
+                      ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu'
+                      : 'Kirim Laporan Checkout & Ubah status ke BUTUH APPROVAL'
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="font-bold text-[15px] tracking-wide">
+                      {isSubmittingReport
+                        ? 'Mengunggah Laporan ke Dispatch...'
+                        : canonicalApproval === 'REVISION'
+                        ? `Kirim Revisi v${(activeTicket.progressReports?.length || 0) + 1} & Minta Approval Dispatch`
+                        : 'Kirim Laporan & Minta Approval Dispatch'}
+                    </span>
+                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                  </span>
+                  <span className="text-[10.5px] text-[#DEC0FF] font-medium mt-0.5 tracking-normal">
+                    {requiresProgressCheckIn
+                      ? 'Terkunci — Kirim LiveChat tag #PROGRESS terlebih dahulu'
+                      : 'Akan mengubah status WO menjadi BUTUH APPROVAL'}
+                  </span>
+                </button>
+
+                {/* Secondary 3D CTA */}
+                <button
+                  type="button"
+                  disabled={isSubmittingReport}
+                  onClick={() => persistDraftToDevice(true)}
+                  className="tactile-btn-secondary w-full py-3 px-4 rounded-2xl bg-white dark:bg-[#22123F] text-[#35105E] dark:text-[#E9D5FF] font-display font-bold text-[13px] border border-[#D8CCF3] dark:border-[#4B386B] text-center tracking-wide cursor-pointer"
+                >
+                  Simpan Sebagai Draft / Tunda Sesaat
+                </button>
+              </div>
+            )}
+          </form>
 
           {/* ========================================================== */}
-          {/* KOLOM KANAN (Right Column ~54% on desktop: lg:col-span-7/6) */}
-          {/* Live Chat Room                                             */}
+          {/* RIGHT COLUMN (5/12 on desktop): LIVE CHAT & HISTORY        */}
           {/* ========================================================== */}
-          <div
-            ref={chatSectionRef}
-            onClick={() => {
-              if (!isChatActive) setIsChatActive(true);
-            }}
-            className={isReportStatusSectionVisible ? 'lg:col-span-7 xl:col-span-6' : 'lg:col-span-12'}
-          >
-            <div className="bg-white dark:bg-[#150B27] rounded-2xl border border-slate-200 dark:border-[#2D1754] p-5 shadow-xs flex flex-col h-[740px]">
-              
-              {/* Header with Blue Chat Icon & Blue Title */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2D1754] shrink-0 gap-2 flex-wrap">
+          <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-4">
+
+            {/* Live Chat Room */}
+            <div
+              ref={chatSectionRef}
+              onClick={() => {
+                if (!isChatActive) setIsChatActive(true);
+              }}
+              className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 flex flex-col h-[560px] lg:h-[620px]"
+            >
+              {/* Chat Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0 gap-2 flex-wrap">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-xl bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center font-bold border border-[#D8CCF3] dark:border-[#5B35B1]">
                     <MessageSquare className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                    <h3 className="font-display font-bold text-[14px] text-[#160D29] dark:text-white flex items-center gap-2">
                       <span>Live Chat Room</span>
                       {unreadChatCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DC4C5A] text-white tabular-nums">
                           {unreadChatCount > 99 ? '99+' : unreadChatCount} Baru
                         </span>
                       )}
                     </h3>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Koordinasi WO: <strong className="text-slate-700 dark:text-slate-300 font-mono">{activeTicket.woNumber}</strong>
+                    <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] font-mono">
+                      WO: {activeTicket.woNumber}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {!isChatActive && unreadChatCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsChatActive(true);
-                      }}
-                      className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
-                    >
-                      Tandai Dibaca
-                    </button>
-                  )}
+                <div className="flex items-center gap-1.5">
                   {chatCategory && (
                     <span
-                      className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white shadow-2xs flex items-center gap-1.5"
-                      style={{ backgroundColor: currentChatCategoryObj?.color || '#3B82F6' }}
-                      title={`Kategori Chat: ${chatCategory}`}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-2xs flex items-center gap-1"
+                      style={{ backgroundColor: currentChatCategoryObj?.color || '#7135B5' }}
                     >
-                      <Tag className="w-3 h-3" />
+                      <Tag className="w-2.5 h-2.5" />
                       <span>{chatCategory}</span>
                     </span>
                   )}
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Real-Time Online</span>
-                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10.5px] text-[#16A36A] dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A]" />
+                    <span>Live</span>
+                  </span>
                 </div>
               </div>
 
-              {/* Chat Conversation Area (Scrollable with message bubbles) */}
-              <div className="flex-1 p-4 my-3 overflow-y-auto space-y-3.5 bg-slate-50/70 dark:bg-[#0D071B]/70 rounded-xl border border-slate-200/80 dark:border-[#2D1754]">
+              {/* Chat Conversation Area */}
+              <div className="flex-1 p-3 my-3 overflow-y-auto space-y-3 bg-[#F5F1FF]/70 dark:bg-[#140827]/80 rounded-xl border border-[#D8CCF3]/60 dark:border-[#35105E]">
                 {messages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 space-y-2">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-xs">
+                  <div className="h-full flex flex-col items-center justify-center text-center p-5 text-[#8B8495] space-y-2">
+                    <div className="w-10 h-10 rounded-2xl bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center shadow-xs">
                       <MessageCircle className="w-5 h-5" />
                     </div>
-                    <h4 className="font-bold text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
-                      Belum Ada Pesan di Chat Room Ini
+                    <h4 className="font-bold text-[#211A2E] dark:text-white text-xs">
+                      Belum Ada Pesan Koordinasi
                     </h4>
-                    <p className="text-xs max-w-sm text-slate-500 leading-relaxed">
-                      Kirim pesan langsung kepada <strong>Dispatch Officer</strong> atau <strong>Korlap</strong> untuk koordinasi lokasi, port FAT, redaman OPM, atau approval pengerjaan.
+                    <p className="text-[11px] max-w-xs text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
+                      Pilih kategori <strong>PROGRESS</strong> lalu kirim pesan pertama untuk Check-in lapangan otomatis sebelum mengisi laporan checkout.
                     </p>
                   </div>
                 ) : (
@@ -1363,60 +2195,46 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         key={msg.id}
                         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
                       >
-                        {/* Sender Name & Timestamp */}
-                        <div className="flex items-center gap-1.5 text-[11px]">
-                          <span className="font-bold text-slate-700 dark:text-slate-300">
+                        <div className="flex items-center gap-1.5 text-[10.5px]">
+                          <span className="font-bold text-[#211A2E] dark:text-[#E9D5FF]">
                             {isMe ? 'Anda' : msg.senderName}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          {msg.category && (
+                            <span className="font-mono text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-[#E9D5FF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE]">
+                              #{msg.category}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-[#8B8495] font-mono tabular-nums">
                             {formattedTime}
                           </span>
                         </div>
 
-                        {/* Chat Bubble */}
                         <div
-                          className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 py-2.5 shadow-2xs space-y-1.5 text-xs sm:text-sm ${
+                          className={`max-w-[85%] rounded-2xl px-3.5 py-2 shadow-2xs space-y-1.5 text-xs ${
                             isMe
-                              ? 'bg-blue-600 text-white rounded-tr-xs'
-                              : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-xs'
+                              ? 'bg-[#5B35B1] text-white rounded-tr-xs'
+                              : 'bg-white dark:bg-[#22123F] text-[#211A2E] dark:text-[#F5EEFF] border border-[#D8CCF3] dark:border-[#35105E] rounded-tl-xs'
                           }`}
                         >
-                          {/* Text Message */}
                           {msg.text && (
                             <p className="leading-relaxed whitespace-pre-wrap break-words font-normal">
                               {msg.text}
                             </p>
                           )}
 
-                          {/* Image Attachments with Thumbnail & Click-to-Zoom Link */}
                           {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
                               {msg.attachments.map(att => (
                                 <div
                                   key={att.id}
-                                  className="group relative rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/5"
+                                  className="group relative rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 cursor-pointer"
+                                  onClick={() => setZoomImage(att.url)}
                                 >
                                   <img
                                     src={getSafePreviewUrl(att.url)}
                                     alt={att.fileName}
-                                    className="w-full h-32 object-cover transition-transform group-hover:scale-105"
+                                    className="w-full h-28 object-cover"
                                   />
-                                  <div
-                                    onClick={() => setZoomImage(att.url)}
-                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-1 text-[11px] font-bold cursor-pointer"
-                                  >
-                                    <Maximize2 className="w-3.5 h-3.5" />
-                                    <span>Lihat Gambar</span>
-                                  </div>
-                                  <div className="p-1 text-[10px] truncate bg-black/60 text-white text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => setZoomImage(att.url)}
-                                      className="underline hover:text-blue-200 cursor-pointer"
-                                    >
-                                      {att.fileName || 'Lihat Gambar'}
-                                    </button>
-                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -1439,7 +2257,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
               {/* Chat Error Alert */}
               {chatError && (
-                <div className="mb-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-1.5 shrink-0">
+                <div className="mb-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-[#BA1A1A] dark:text-rose-300 text-xs flex items-center gap-1.5 shrink-0">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>{chatError}</span>
                 </div>
@@ -1447,66 +2265,47 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
               {/* Pending Attachments Preview */}
               {chatAttachments.length > 0 && (
-                <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-xl flex items-center gap-2 overflow-x-auto shrink-0">
+                <div className="mb-2 p-2 bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#4B386B] rounded-xl flex items-center gap-2 overflow-x-auto shrink-0">
                   {chatAttachments.map(att => (
-                    <div key={att.id} className="relative shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-blue-400 shadow-2xs">
+                    <div key={att.id} className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-[#7135B5]">
                       <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => handleRemoveAttachment(att.id)}
-                        className="absolute top-0.5 right-0.5 p-0.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors"
+                        className="absolute top-0.5 right-0.5 p-0.5 bg-[#DC4C5A] text-white rounded-full cursor-pointer"
                         title="Hapus lampiran"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   ))}
-                  <span className="text-[11px] text-blue-900 dark:text-blue-200 font-semibold">
+                  <span className="text-[11px] text-[#431599] dark:text-[#D8B4FE] font-semibold">
                     {chatAttachments.length} foto siap dikirim
                   </span>
                 </div>
               )}
 
-              {/* Leader View-Only Warning (if leader) */}
+              {/* Chat Input Controls */}
               {currentUser.role === 'leader' ? (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl text-center text-xs text-amber-800 dark:text-amber-300 font-medium shrink-0">
+                <div className="p-2.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl text-center text-xs text-amber-800 dark:text-amber-300 font-medium shrink-0">
                   Mode Pantau: Leader hanya dapat membaca riwayat percakapan.
                 </div>
               ) : (
-                /* Chat Input Controls: Category Dropdown + Message Input + Attach + Send (Blue) */
                 <form onSubmit={handleSendChatMessage} className="space-y-2 shrink-0">
-                  {/* Dropdown "Select Category Chat" - Synchronized with Contact Center */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                        Category Chat (Sinkron Contact Center)
-                      </label>
-                      {currentChatCategoryObj && (
-                        <span
-                          className="text-[10px] px-2 py-0.5 rounded font-bold text-white shadow-2xs"
-                          style={{ backgroundColor: currentChatCategoryObj.color || '#3B82F6' }}
-                        >
-                          {currentChatCategoryObj.name}
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      value={chatCategory}
-                      onChange={e => handleChatCategorySelect(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    >
-                      <option value="">-- Pilih Kategori Wajib --</option>
-                      {activeChatCategories.map(cat => (
-                        <option key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={chatCategory}
+                    onChange={e => handleChatCategorySelect(e.target.value)}
+                    className="tactile-debossed-input w-full px-3 py-1.5 rounded-xl bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5] cursor-pointer"
+                  >
+                    <option value="">-- Pilih Kategori Chat Wajib (mis. PROGRESS) --</option>
+                    {activeChatCategories.map(cat => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
 
-                  {/* Input row: Attachment button + Type Message... input + Blue Send button */}
                   <div className="flex items-center gap-2">
-                    {/* Hidden file input */}
                     <input
                       type="file"
                       ref={chatFileInputRef}
@@ -1515,33 +2314,34 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       multiple
                       className="hidden"
                     />
-
-                    {/* Attachment button */}
                     <button
                       type="button"
                       onClick={() => chatFileInputRef.current?.click()}
-                      className="p-2.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 transition-colors shrink-0 cursor-pointer"
-                      title="Lampirkan foto"
+                      className="tactile-btn-secondary p-2.5 rounded-xl bg-white dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#4B386B] shrink-0 cursor-pointer"
+                      title="Lampirkan foto ke chat"
                     >
                       <Paperclip className="w-4 h-4" />
                     </button>
 
-                    {/* Input Type Message... */}
                     <input
                       ref={chatInputRef}
                       type="text"
                       value={chatInputText}
                       onFocus={() => setIsChatActive(true)}
                       onChange={e => setChatInputText(e.target.value)}
-                      placeholder={!chatCategory ? 'Pilih kategori chat wajib terlebih dahulu...' : 'Type Message...'}
-                      className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      placeholder={!chatCategory ? 'Pilih kategori chat dahulu...' : 'Tulis pesan koordinasi...'}
+                      className="tactile-debossed-input flex-1 px-3.5 py-2.5 bg-[#F5F1FF] dark:bg-[#160D29] rounded-xl text-xs text-[#160D29] dark:text-white placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
                     />
 
-                    {/* Blue Send button with paper plane icon */}
                     <button
                       type="submit"
-                      disabled={isSendingChat || !chatCategory || chatCategory.toUpperCase() === 'UNCLASSIFIED' || (!chatInputText.trim() && chatAttachments.length === 0)}
-                      className="p-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center justify-center transition-colors shrink-0 cursor-pointer shadow-xs"
+                      disabled={
+                        isSendingChat ||
+                        !chatCategory ||
+                        chatCategory.toUpperCase() === 'UNCLASSIFIED' ||
+                        (!chatInputText.trim() && chatAttachments.length === 0)
+                      }
+                      className="tactile-micro-key p-2.5 bg-gradient-to-b from-[#7135B5] to-[#5B35B1] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
                       title="Kirim pesan"
                     >
                       <Send className="w-4 h-4" />
@@ -1550,132 +2350,137 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </form>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* ============================================================== */}
-        {/* SECTION C: HISTORY PROGRESS REPORT (PINDAH KE PALING BAWAH)  */}
-        {/* ============================================================== */}
-        <div className="bg-white dark:bg-[#150B27] rounded-2xl border border-slate-200 dark:border-[#2D1754] p-5 shadow-xs space-y-4">
-          {/* Card Title with Green History Icon & Green Text */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2D1754]">
-            <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <h3 className="font-bold text-base text-emerald-600 dark:text-emerald-400">
-                History Progress Report
-              </h3>
-            </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-              {progressHistory.length} Catatan
-            </span>
-          </div>
+            {/* History Progress Report Card */}
+            <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowHistorySection(prev => !prev)}
+                className="w-full flex items-center justify-between pb-2 border-b border-[#E9E5F0] dark:border-[#35105E] cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-[#16A36A] shrink-0" />
+                  <h3 className="font-display font-bold text-sm text-[#160D29] dark:text-white">
+                    History Progress Report
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-[#16A36A] dark:bg-emerald-950/70 dark:text-emerald-300 tabular-nums">
+                    {progressHistory.length} Versi
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-[#766B83] transition-transform ${showHistorySection ? 'rotate-180' : ''}`}
+                  />
+                </div>
+              </button>
 
-          {/* Progress History Content (Sorted newest to oldest) */}
-          {progressHistory.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 space-y-2">
-              <Clock className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
-              <p className="text-xs">Belum ada riwayat laporan untuk tiket ini.</p>
-              <p className="text-[11px] text-slate-500">
-                {isReportStatusSectionVisible
-                  ? 'Isi formulir Report Status Pembaruan di atas dan klik Save Report.'
-                  : 'Kirim pesan LiveChat dengan kategori PROGRESS terlebih dahulu untuk membuka formulir Report Status Pembaruan.'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
-              {progressHistory.map((item, idx) => {
-                const formattedDate = new Date(item.timestamp).toLocaleString('id-ID', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-
-                return (
-                  <div
-                    key={item.id || idx}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#1B0E32] space-y-2 text-xs relative overflow-hidden"
-                  >
-                    {/* Top info: Version, Date/Time, User/Technician, Status Badges */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-[#2D1754]">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-extrabold bg-[#F5F1FF] text-[#431599] dark:bg-[#2E1459] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1]">
-                          v{item.versionNumber || progressHistory.length - idx}
-                        </span>
-                        <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-emerald-600" />
-                          {formattedDate} WIB
-                        </span>
-                        <span className="text-slate-400">·</span>
-                        <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                          <User className="w-3 h-3 text-[#5B35B1]" />
-                          {item.submittedBy}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <StatusBadge status={item.reportStatus} variant="report" />
-                        {(item.approvalStatus || (idx === 0 && activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE')) && (
-                          <StatusBadge
-                            status={item.approvalStatus || activeTicket.approvalStatus}
-                            variant="approval"
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Installer & Schedule info if available */}
-                    {(item.installerName || item.appointmentDate) && (
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
-                        <span>Installer: <strong className="text-slate-700 dark:text-slate-300">{item.installerName || activeTicket.installerName || '-'}</strong></span>
-                        <span>·</span>
-                        <span>Jadwal: <strong className="text-slate-700 dark:text-slate-300 font-mono">{item.appointmentDate || activeTicket.appointmentDate || '-'} ({item.slotTime || activeTicket.slotTime})</strong></span>
-                        {(item.approvedBy || item.rejectedBy) && (
-                          <>
-                            <span>·</span>
-                            <span>
-                              Dispatch: <strong className="text-slate-700 dark:text-slate-300">{item.approvedBy || item.rejectedBy}</strong>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Reason & Rootcause */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                      <div className="p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Reason Report</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                          {item.reasonReport}
-                        </span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Rootcause</span>
-                        <span className="font-bold text-purple-700 dark:text-purple-300 text-xs">
-                          {item.rootCause}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Remarks */}
-                    {item.remarksReport && (
-                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs leading-relaxed italic">
-                        "{item.remarksReport}"
-                      </div>
-                    )}
-
-                    {/* Revision reason if this version was rejected by Dispatch */}
-                    {(item.revisionReason || (item as any).rejectionReason) && (
-                      <div className="p-2 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-200 text-[11px] font-semibold">
-                        Catatan Revisi Dispatch: "{item.revisionReason || (item as any).rejectionReason}"
-                      </div>
-                    )}
+              {showHistorySection && (
+                progressHistory.length === 0 ? (
+                  <div className="py-5 text-center text-[#8B8495] space-y-1.5">
+                    <Clock className="w-6 h-6 mx-auto opacity-50" />
+                    <p className="text-xs">Belum ada riwayat laporan untuk WO ini.</p>
                   </div>
-                );
-              })}
+                ) : (
+                  <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                    {progressHistory.map((item, idx) => {
+                      const formattedDate = new Date(item.timestamp).toLocaleString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+
+                      return (
+                        <div
+                          key={item.id || idx}
+                          className="p-3 rounded-xl border border-[#D8CCF3]/70 dark:border-[#35105E] bg-[#F5F1FF]/70 dark:bg-[#160D29] space-y-1.5 text-xs"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1.5 border-b border-[#D8CCF3]/50 dark:border-[#35105E]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-extrabold bg-[#E9D5FF] text-[#431599] dark:bg-[#2E1459] dark:text-[#D8B4FE]">
+                                v{item.versionNumber || progressHistory.length - idx}
+                              </span>
+                              <span className="font-mono text-[10.5px] text-[#766B83] dark:text-[#CEC0E8]">
+                                {formattedDate} WIB
+                              </span>
+                              <span className="font-bold text-[#211A2E] dark:text-white inline-flex items-center gap-1">
+                                <User className="w-3 h-3 text-[#7135B5]" />
+                                {item.submittedBy}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <StatusBadge status={item.reportStatus} variant="report" />
+                              {(item.approvalStatus || (idx === 0 && activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE')) && (
+                                <StatusBadge
+                                  status={item.approvalStatus || activeTicket.approvalStatus}
+                                  variant="approval"
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] space-y-0.5">
+                            <div>
+                              Reason: <strong className="text-[#211A2E] dark:text-white">{item.reasonReport}</strong>
+                            </div>
+                            <div>
+                              Rootcause: <strong className="text-[#431599] dark:text-[#D8B4FE]">{item.rootCause}</strong>
+                            </div>
+                          </div>
+
+                          {item.remarksReport && (
+                            <p className="text-[11px] text-[#494453] dark:text-[#CEC0E8] italic bg-white dark:bg-[#1E1238] p-2 rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+                              &ldquo;{item.remarksReport}&rdquo;
+                            </p>
+                          )}
+
+                          {(item.revisionReason || (item as any).rejectionReason) && (
+                            <div className="p-2 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-200 text-[10.5px] font-semibold">
+                              Catatan Revisi Dispatch: &ldquo;{item.revisionReason || (item as any).rejectionReason}&rdquo;
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
             </div>
-          )}
+
+            {/* Compact Network & Metadata Summary Card */}
+            <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 space-y-2 text-[11px]">
+              <div className="flex items-center gap-1.5 font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wider">
+                <Wrench className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA]" />
+                <span>Spesifikasi Infrastruktur WO</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div>
+                  <span className="text-[#8B8495] block">ID Pelanggan</span>
+                  <span className="font-mono font-bold text-[#211A2E] dark:text-white">
+                    {activeTicket.idCustomer || activeTicket.customerId || '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8B8495] block">Mitra Vendor</span>
+                  <span className="font-semibold text-[#211A2E] dark:text-white truncate block">
+                    {activeTicket.contactorName || activeTicket.contractorName || '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8B8495] block">Kode FDT / FAT</span>
+                  <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">
+                    {activeTicket.fdtCode || '-'} / {activeTicket.fatCode || '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8B8495] block">Area / Cluster</span>
+                  <span className="font-semibold text-[#211A2E] dark:text-white truncate block">
+                    {activeTicket.area || '-'} · {activeTicket.clusterName || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1694,50 +2499,32 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(113, 53, 181, 0.45) 0%, rgba(22, 13, 41, 0.98) 75%)'
             }}
           >
-            {/* Top Gloss Highlight Sweep */}
             <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE] to-transparent" />
 
-            {/* 3D Glossy Check Icon with Rotating Lilac Orbital Ring */}
             <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
-              <svg className="absolute inset-0 w-full h-full animate-spin" style={{ animationDuration: '6s' }} viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="44"
-                  fill="none"
-                  stroke="#D8B4FE"
-                  strokeWidth="2.5"
-                  strokeDasharray="25 15"
-                  strokeLinecap="round"
-                  opacity="0.8"
-                />
-              </svg>
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#35105E] to-[#160D29] border border-[#D8B4FE]/60 flex items-center justify-center shadow-[0_0_20px_rgba(52,211,153,0.4)] relative z-10">
-                <CheckCircle2 className="w-9 h-9 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                <CheckCircle2 className="w-9 h-9 text-emerald-400" />
               </div>
             </div>
 
-            {/* Badge Status */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-[#35105E] text-[#D8B4FE] border border-[#D8B4FE]/40 mb-2 shadow-[0_0_12px_rgba(168,85,247,0.3)]">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-[#35105E] text-[#D8B4FE] border border-[#D8B4FE]/40 mb-2">
               <Sparkles className="w-3.5 h-3.5 text-[#D8B4FE]" />
               <span>MORAJAWS SYSTEM</span>
             </div>
 
-            {/* Title */}
             <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
               REPORT TERSIMPAN!
             </h3>
 
             <p className="text-xs sm:text-sm text-[#E9D5FF] mt-1.5 font-medium leading-relaxed">
-              Laporan berhasil disimpan dan tiket WO kini berstatus <strong className="text-amber-300 font-bold">BUTUH APPROVAL</strong> (Menunggu pemeriksaan & persetujuan Dispatch).
+              Laporan checkout berhasil disimpan dan tiket WO kini berstatus{' '}
+              <strong className="text-amber-300 font-bold">BUTUH APPROVAL</strong> (Menunggu pemeriksaan Dispatch).
             </p>
 
-            {/* System Status Indicators */}
             <div className="grid grid-cols-2 gap-2 mt-3.5 mb-2">
-              <div className="py-1.5 px-3 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+              <div className="py-1.5 px-3 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Status: BUTUH APPROVAL</span>
+                <span>BUTUH APPROVAL</span>
               </div>
               <div className="py-1.5 px-3 rounded-xl bg-[#7135B5]/25 border border-[#D8B4FE]/30 text-[#E9D5FF] font-bold text-xs flex items-center justify-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-[#D8B4FE]" />
@@ -1745,7 +2532,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
             </div>
 
-            {/* Snapshot Summary Box */}
             <div className="my-4 p-3.5 rounded-2xl bg-[#35105E]/40 border border-[#D8B4FE]/25 text-left text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[#D8B4FE]/70">No. Work Order:</span>
@@ -1754,47 +2540,44 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#D8B4FE]/70">Approval Dispatch:</span>
-                <StatusBadge status="BUTUH APPROVAL" variant="approval" />
-              </div>
-              <div className="flex items-center justify-between">
                 <span className="text-[#D8B4FE]/70">Report Status:</span>
-                <span className="font-bold text-white bg-purple-500/25 text-[#E9D5FF] px-2.5 py-0.5 rounded-md border border-[#D8B4FE]/30">
+                <span className="font-bold text-[#E9D5FF] bg-purple-500/25 px-2.5 py-0.5 rounded-md border border-[#D8B4FE]/30">
                   {savedReportSnapshot?.status || reportStatus}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#D8B4FE]/70">Reason Report:</span>
-                <span className="font-semibold text-[#E9D5FF] truncate max-w-[210px]" title={savedReportSnapshot?.reason || reasonReport}>
+                <span className="font-semibold text-[#E9D5FF] truncate max-w-[200px]">
                   {savedReportSnapshot?.reason || reasonReport}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#D8B4FE]/70">Rootcause:</span>
-                <span className="font-semibold text-[#E9D5FF] truncate max-w-[210px]" title={savedReportSnapshot?.rootCause || rootCause}>
+                <span className="font-semibold text-[#E9D5FF] truncate max-w-[200px]">
                   {savedReportSnapshot?.rootCause || rootCause}
                 </span>
               </div>
+              {opmDbm && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[#D8B4FE]/70">Redaman OPM:</span>
+                  <span className="font-mono font-bold text-emerald-300">{opmDbm} dBm</span>
+                </div>
+              )}
               <div className="flex items-center justify-between pt-1 border-t border-[#D8B4FE]/15">
-                <span className="text-[#D8B4FE]/70">Teknisi Pelapor:</span>
-                <span className="font-bold text-white">{currentUser.name}</span>
+                <span className="text-[#D8B4FE]/70">Bukti Foto SOP:</span>
+                <span className="font-mono font-bold text-white">{uploadedPhotoSlotsList.length}/4 Terunggah</span>
               </div>
             </div>
 
-            {/* Confirmation Button with specified Dark Purple Gloss & Lilac Luxury Design */}
             <button
               type="button"
               disabled={isRedirecting}
               onClick={handleConfirmRedirect}
-              className="w-full py-3.5 px-5 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] text-white font-extrabold text-xs sm:text-sm tracking-wide rounded-[14px] shadow-[0_0_24px_rgba(168,85,247,0.55)] border border-[#E9D5FF]/40 flex items-center justify-center gap-2.5 transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed group relative overflow-hidden"
-              title="Konfirmasi & Lanjut ke Dashboard Installer"
+              className="w-full py-3.5 px-5 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] text-white font-extrabold text-xs sm:text-sm tracking-wide rounded-[14px] shadow-[0_0_24px_rgba(168,85,247,0.55)] border border-[#E9D5FF]/40 flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-60"
             >
-              {/* Glossy sweep effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
-
-              <CheckCircle2 className="w-5 h-5 text-white shrink-0 drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-              <span className="relative z-10">
-                {isRedirecting ? 'MENGALIHKAN KE DASHBOARD...' : 'KONFIRMASI & LANJUT KE DASHBOARD'}
+              <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+              <span>
+                {isRedirecting ? 'MENGALIHKAN KE TUGAS SAYA...' : 'KONFIRMASI & KEMBALI KE DAFTAR WO'}
               </span>
             </button>
           </div>
@@ -1811,6 +2594,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         >
           <div className="relative max-w-4xl max-h-[92vh]" onClick={e => e.stopPropagation()}>
             <button
+              type="button"
               onClick={() => setZoomImage(null)}
               className="absolute top-3 right-3 p-2 bg-black/70 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
               title="Tutup"

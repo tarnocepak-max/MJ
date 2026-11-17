@@ -479,7 +479,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   return (
     <>
       <header
-        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-4 bg-[#fdf7ff]/90 dark:bg-[#160D29]/90 backdrop-blur-xl border-b border-[#e8ddff]/80 dark:border-[#35105E] shadow-[0_2px_8px_rgba(33,24,58,0.06)] transition-colors ${
+        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-3 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#E9E5F0] dark:border-[#35105E] shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-colors ${
           isMobileView ? 'px-3 sm:px-4' : 'px-4 sm:px-6'
         }`}
       >
@@ -491,25 +491,47 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               const current = config.global.sidebarState || 'expanded';
               setSidebarState(current === 'closed' ? 'expanded' : 'closed');
             }}
-            className="mj-tactile-icon-key rounded-lg cursor-pointer shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
+            className="btn-3d-icon w-9 h-9 cursor-pointer shrink-0"
             title="Buka / Tutup Sidebar"
             aria-label="Buka / Tutup Sidebar"
           >
             <PanelLeft className="w-4 h-4" />
           </button>
 
-          {/* Compact page title in Mobile Mode, full Breadcrumb trail in Desktop Mode */}
+          {/* Compact Stitch identity in Mobile Mode or Leader compact screen; full Breadcrumb trail in Desktop Mode */}
           {isMobileView ? (
-            <div className="min-w-0">
-              <span className="text-xs sm:text-sm font-bold text-[#211A2E] dark:text-white truncate block">
-                {activePageTitle}
-              </span>
-            </div>
+            currentUser.role === 'leader' ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <MoraJawsLogo size="sm" animated={false} withGlow={false} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-display font-extrabold text-[14px] text-[#1f1638] dark:text-white tracking-tight leading-none">
+                      {config.global.appName || 'MoraJaws'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none">
+                      LEADER
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-[#16A36A]' : 'bg-[#E59A27]'}`} />
+                    <span className="text-[10.5px] font-medium text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                      {activeArea || activeContractor || activePageTitle}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-[#211A2E] dark:text-white truncate block">
+                  {activePageTitle}
+                </span>
+              </div>
+            )
           ) : (
             <>
               <nav
                 aria-label="Breadcrumb"
-                className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[260px]"
+                className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[300px]"
               >
                 <button
                   type="button"
@@ -527,16 +549,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                   {config.global.appName || 'MoraJaws'}
                 </button>
                 <span aria-hidden="true">/</span>
+                <span className="hidden 2xl:inline whitespace-nowrap">Work Order Management</span>
+                <span className="hidden 2xl:inline" aria-hidden="true">/</span>
                 <span className="text-[#35105E] dark:text-[#D8B4FE] font-semibold truncate">
                   {activePageTitle}
                 </span>
               </nav>
 
               {/* Active Appointment Date Pill */}
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shrink-0">
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shadow-2xs shrink-0">
                 <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
                 <span className="text-[11px] font-bold tracking-tight whitespace-nowrap tabular-nums">
-                  Appointment: Hari Ini (todayWIB) · {formattedToday}
+                  Appointment: Hari Ini (todayWIB) - {formattedToday}
                 </span>
               </div>
             </>
@@ -545,7 +569,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
 
         {/* Zone 2: Quick Cross-Date Search (Desktop non-mobile mode) */}
         {!isMobileView && (
-          <div ref={quickSearchRef} className="hidden xl:block flex-1 max-w-xs 2xl:max-w-sm mx-2 relative">
+          <div ref={quickSearchRef} className="hidden lg:block flex-1 max-w-xs xl:max-w-sm mx-2 relative">
             <div className="relative flex items-center w-full">
               <Search className="w-3.5 h-3.5 text-[#8B8495] absolute left-3 pointer-events-none" />
               <input
@@ -564,13 +588,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 }}
                 placeholder={
                   canCrossDateSearch
-                    ? 'Cari WO lintas tanggal...'
+                    ? 'Quick Cross-Date Search...'
                     : 'Cari Work Order hari ini...'
                 }
                 aria-label="Quick Cross-Date Search"
-                className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E] rounded-lg text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] shadow-[inset_0_1px_2px_rgba(33,24,58,0.08)] focus:outline-none focus:border-[#7135b5] focus:ring-2 focus:ring-[#dab9ff]/50 transition-all"
+                className="w-full pl-8 pr-14 py-1.5 bg-[#F7F6FA] dark:bg-[#22123F] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] shadow-inner focus:outline-none focus:bg-white dark:focus:bg-[#2A1650] focus:ring-2 focus:ring-[#A78BFA]/70 transition-all"
               />
-              {quickSearch && (
+              {quickSearch ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -582,6 +606,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+              ) : (
+                <div className="absolute right-2 px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#766B83] dark:text-[#D8B4FE] pointer-events-none border border-[#D8CCF3] dark:border-[#5B35B1]">
+                  Ctrl+K
+                </div>
               )}
             </div>
 
@@ -638,7 +666,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </div>
         )}
 
-        {/* Zone 2 & 3: Display Mode Switch + Connectivity + Cloud Live + Notifications + User Profile */}
+        {/* Zone 2 & 3: Display Mode Switch + Connectivity + Cloud Live + Quick Actions + Notifications + User Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Display Mode Switch: Available for ALL non-Teknisi roles (hidden strictly for installer) */}
           {canSwitchDisplayMode && (
@@ -646,7 +674,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               role="group"
               aria-label="Display Mode Switch"
               data-testid="display-mode-switch"
-              className="inline-flex items-center p-1 rounded-lg bg-[#f3eaff] dark:bg-[#22123F] shadow-[inset_0_2px_4px_rgba(31,22,56,0.07)] border border-[#e8ddff] dark:border-[#35105E] shrink-0"
+              className="inline-flex items-center p-0.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0 gap-0.5"
             >
               <button
                 type="button"
@@ -654,10 +682,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 aria-pressed={displayMode === 'desktop'}
                 data-testid="display-mode-desktop"
                 title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   displayMode === 'desktop'
-                    ? 'bg-white dark:bg-[#342b4e] text-[#1f1638] dark:text-white shadow-[0_2px_0_#d0bcff] dark:shadow-[0_2px_0_#160d29]'
-                    : 'text-[#4b4452] dark:text-[#dab9ff]/80 hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'btn-3d-primary'
+                    : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5 shrink-0" />
@@ -669,10 +697,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 aria-pressed={displayMode === 'mobile'}
                 data-testid="display-mode-mobile"
                 title="Mobile Mode — Layout compact, drawer navigation, dan card view"
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   displayMode === 'mobile'
-                    ? 'bg-white dark:bg-[#342b4e] text-[#1f1638] dark:text-white shadow-[0_2px_0_#d0bcff] dark:shadow-[0_2px_0_#160d29]'
-                    : 'text-[#4b4452] dark:text-[#dab9ff]/80 hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'btn-3d-primary'
+                    : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5 shrink-0" />
@@ -685,12 +713,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           <button
             type="button"
             onClick={() => setIsOfflineModalOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               !isOnline
                 ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#B45309] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
                 : pendingCount > 0
                 ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#92400E] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
-                : 'bg-[#eee4ff] border-[#e8ddff] text-[#1f1638] dark:bg-[#22123F] dark:border-[#35105E] dark:text-[#f5eeff]'
+                : 'bg-[#16A36A]/10 border-[#16A36A]/20 text-[#16A36A] dark:bg-emerald-950/50 dark:border-emerald-700/50 dark:text-emerald-300'
             }`}
             title="Pusat Sinkronisasi Database Offline"
           >
@@ -703,18 +731,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               </>
             ) : isSyncing ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-[#58149c]" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-[#7135B5]" />
                 <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>Syncing</span>
               </>
             ) : (
               <>
-                <span className="w-2 h-2 rounded-full bg-[#16A36A] shrink-0" />
-                <span className={isMobileView ? 'hidden sm:inline' : 'hidden md:inline'}>Online</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A] animate-ping shrink-0" />
+                <span className={isMobileView ? 'hidden sm:inline' : 'hidden md:inline'}>● Online</span>
               </>
             )}
             {!isMobileView && (
-              <span className="hidden lg:inline font-mono text-[10px] opacity-80 tabular-nums">
-                · {pendingCount} Pending
+              <span className="hidden lg:inline font-medium text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+                {pendingCount} Pending
               </span>
             )}
           </button>
@@ -724,11 +752,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             type="button"
             onClick={handleGlobalRefresh}
             disabled={isRefreshing}
-            className={`${isMobileView ? 'hidden sm:flex' : 'hidden md:flex'} items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
+            className={`${isMobileView ? 'hidden sm:flex' : 'hidden md:flex'} items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
               syncStatus === 'SAVED'
-                ? 'bg-[#eee4ff] hover:bg-[#e8ddff] border-[#d0bcff] text-[#58149c] dark:bg-[#35105E] dark:hover:bg-[#5B35B1] dark:border-[#7135B5]/50 dark:text-[#f5eeff]'
+                ? 'bg-[#5B35B1]/10 hover:bg-[#5B35B1]/15 border-[#7135B5]/25 text-[#7135B5] dark:bg-[#35105E] dark:hover:bg-[#5B35B1] dark:border-[#7135B5]/50 dark:text-[#E9D5FF]'
                 : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                ? 'bg-[#e8ddff] border-[#a380fe] text-[#58149c] dark:bg-[#35105E] dark:text-[#dab9ff]'
+                ? 'bg-[#F4EAFF] border-[#A78BFA] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]'
                 : syncStatus === 'OFFLINE'
                 ? 'bg-[#FEF3C7] border-[#F59E0B]/30 text-[#B45309] dark:bg-amber-950/60 dark:text-amber-300'
                 : 'bg-[#ffdad6] border-[#ba1a1a]/30 text-[#93000a] dark:bg-rose-950/60 dark:text-rose-300'
@@ -746,7 +774,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               {isRefreshing
                 ? 'Sinkronisasi...'
                 : syncStatus === 'SAVED'
-                ? 'Cloud Live'
+                ? 'Cloud Live (SAVED)'
                 : syncStatus === 'SYNCING'
                 ? 'Menyimpan...'
                 : syncStatus === 'LOADING'
@@ -757,17 +785,31 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </span>
           </button>
 
-          {/* Exclusive Dispatch Sameday Express Quick Action */}
-          {!isMobileView && currentUser.role === 'dispatch' && activeTab !== 'form_sameday' && (
-            <button
-              type="button"
-              onClick={() => onNavigate('form_sameday')}
-              className="hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg mj-tactile-btn-primary text-[11px] cursor-pointer whitespace-nowrap shrink-0"
-              title="Buat Work Order Sameday Express (Khusus Dispatch)"
-            >
-              <Zap className="w-3.5 h-3.5 text-[#dab9ff]" />
-              <span>Form Sameday</span>
-            </button>
+          {/* Exclusive Dispatch Sameday Express + Sync Cloud Quick Actions on 2xl */}
+          {!isMobileView && (
+            <div className="hidden 2xl:flex items-center gap-1.5 shrink-0">
+              {currentUser.role === 'dispatch' && activeTab !== 'form_sameday' && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('form_sameday')}
+                  className="btn-3d-primary flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                  title="Buat Work Order Sameday Express (Khusus Dispatch)"
+                >
+                  <Zap className="w-3.5 h-3.5 text-[#D8B4FE]" />
+                  <span>Form Sameday Express</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleGlobalRefresh}
+                disabled={isRefreshing}
+                className="btn-3d-ceramic flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap disabled:opacity-60"
+                title="Sinkronisasi ulang data cloud"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE] ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>Sync Cloud</span>
+              </button>
+            </div>
           )}
 
           {/* Notification Bell Popover */}
@@ -778,13 +820,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 setNotifOpen(prev => !prev);
                 setUserMenuOpen(false);
               }}
-              className="relative mj-tactile-icon-key rounded-lg min-w-[38px] min-h-[38px] flex items-center justify-center cursor-pointer"
+              className="relative btn-3d-icon w-9 h-9 cursor-pointer"
               aria-label="Notifikasi Operasional"
               title="Notifikasi Operasional"
             >
               <Bell className="w-4 h-4" />
               {notificationSummary.totalCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#ba1a1a] text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-[#160D29]">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#DC4C5A] text-white text-[9.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-[#160D29]">
                   {notificationSummary.totalCount > 9 ? '9+' : notificationSummary.totalCount}
                 </span>
               )}

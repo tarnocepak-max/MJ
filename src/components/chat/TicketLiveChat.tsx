@@ -6,25 +6,29 @@ import {
   Send,
   Image as ImageIcon,
   X,
-  User,
   Shield,
   Wrench,
   Maximize2,
-  Clock,
-  CheckCheck,
   AlertCircle,
   Building2,
-  Sparkles,
-  Tag
+  Tag,
+  Check
 } from 'lucide-react';
 import { MessageStatusReceipt } from './MessageStatusReceipt';
 
 interface TicketLiveChatProps {
   ticket: Ticket;
   initialCategory?: string;
+  heightClass?: string;
+  onCollapse?: () => void;
 }
 
-export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialCategory }) => {
+export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
+  ticket,
+  initialCategory,
+  heightClass = 'h-[560px]',
+  onCollapse
+}) => {
   const {
     currentUser,
     getMessagesForTicket,
@@ -227,125 +231,156 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
     }
   };
 
+  const hasCheckIn = Boolean(ticket.checkInAt) || messages.some(m => m.isCheckIn || String(m.category || '').toUpperCase() === 'PROGRESS');
+
   return (
-    <div className="flex flex-col h-[560px] bg-slate-50 dark:bg-slate-900/60 overflow-hidden">
-      {/* Chat Header Bar */}
-      <div className="px-5 py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-            <Shield className="w-5 h-5" />
+    <div className={`flex flex-col ${heightClass} bg-white dark:bg-[#1E1238] overflow-hidden`}>
+      {/* Stitch AI Dark Purple Chat Header Bar */}
+      <div className="px-4 py-3 bg-[#160D29] text-white flex flex-wrap items-center justify-between gap-2.5 shrink-0 border-b border-[#35105E]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#35105E] text-[#A78BFA] flex items-center justify-center shadow-inner shrink-0 border border-[#7135B5]/40">
+            <Shield className="w-4 h-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 dark:text-white text-sm">
-                Live Channel WO: {ticket.woNumber}
+              <span className="font-bold text-white text-[14px] leading-tight truncate">
+                Ticket LiveChat
               </span>
-              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Terhubung Real-Time</span>
-              </div>
+              <span className="w-2 h-2 rounded-full bg-[#16A36A] shrink-0" title="Terhubung Real-Time" />
             </div>
-            <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Pelanggan: <strong className="text-slate-700 dark:text-slate-300">{ticket.customerName}</strong> ({ticket.idCustomer}) · Teknisi: <strong className="text-slate-700 dark:text-slate-300">{ticket.installerName || 'Belum Ditugaskan'}</strong>
+            <div className="text-[11px] text-[#A78BFA] truncate mt-0.5">
+              Thread · <span className="font-mono text-[#E9D5FF]">{ticket.woNumber}</span> · {ticket.installerName || 'Belum Assign'}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          {/* Synchronized Category Badge & Selector: Mandatory selector ONLY for Installer */}
-          {(isInstaller || (ticket.chatCategory && ticket.chatCategory.toUpperCase() !== 'UNCLASSIFIED')) && (
-            <div className="flex items-center gap-1.5">
-              {(isInstaller ? selectedCategory : ticket.chatCategory) && (
-                <span
-                  className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow-2xs flex items-center gap-1"
-                  style={{ backgroundColor: currentCategoryObj?.color || '#5B35B1' }}
-                >
-                  <Tag className="w-3 h-3" />
-                  <span>{isInstaller ? selectedCategory : ticket.chatCategory}</span>
-                </span>
-              )}
-
-              {isInstaller && (
-                <select
-                  value={selectedCategory}
-                  onChange={e => {
-                    handleSelectCategory(e.target.value);
-                    if (e.target.value) toast.success(`Kategori chat tiket diubah ke "${e.target.value}".`);
-                  }}
-                  className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-300 dark:border-slate-700 focus:outline-none"
-                  title="Pilih Kategori Chat Wajib"
-                >
-                  <option value="">-- Pilih Kategori Wajib --</option>
-                  {activeCategories.map(cat => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div
+            className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wide flex items-center gap-1 border ${
+              hasCheckIn
+                ? 'bg-[#35105E]/90 text-white border-[#A78BFA]/30'
+                : 'bg-[#35105E]/50 text-[#CEC0E8] border-[#4B386B]'
+            }`}
+          >
+            {hasCheckIn && <Check className="w-3 h-3 text-[#16A36A]" />}
+            <span>{hasCheckIn ? 'Check-in Valid' : 'Belum Check-in'}</span>
+          </div>
+          <span className="px-2 py-1 bg-[#261942] border border-[#4B386B] font-mono text-[10px] font-bold text-[#DAB9FF] rounded-lg tabular-nums">
+            {messages.length}
+          </span>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="p-1.5 rounded-lg text-[#CEC0E8] hover:text-white hover:bg-[#35105E] transition-colors cursor-pointer"
+              title="Lipat Panel LiveChat"
+            >
+              <X className="w-4 h-4" />
+            </button>
           )}
+        </div>
+      </div>
 
-          <span className="text-slate-400">Total:</span>
-          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 font-mono font-bold text-slate-800 dark:text-slate-200 rounded">
-            {messages.length} Pesan
+      {/* SOP Check-in & Category Summary Strip */}
+      <div className="px-4 py-1.5 bg-[#F5F1FF] dark:bg-[#190F2E] flex flex-wrap items-center justify-between gap-2 border-b border-[#E9E5F0] dark:border-[#35105E] text-[10.5px] shrink-0">
+        <span className="font-semibold text-[#494453] dark:text-[#CEC0E8]">
+          {isInstaller ? 'SOP: Kirim kategori PROGRESS untuk Check-in lokasi' : `Pelanggan: ${ticket.customerName} (${ticket.idCustomer})`}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {(isInstaller ? selectedCategory : ticket.chatCategory) &&
+            String(isInstaller ? selectedCategory : ticket.chatCategory).toUpperCase() !== 'UNCLASSIFIED' && (
+              <span
+                className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white flex items-center gap-1"
+                style={{ backgroundColor: currentCategoryObj?.color || '#5B35B1' }}
+              >
+                <Tag className="w-2.5 h-2.5" />
+                <span>{isInstaller ? selectedCategory : ticket.chatCategory}</span>
+              </span>
+            )}
+          <span className={`font-mono font-bold ${hasCheckIn ? 'text-[#16A36A]' : 'text-[#D97706]'}`}>
+            {hasCheckIn ? 'Check-in Tercatat' : 'Menunggu PROGRESS'}
           </span>
         </div>
       </div>
 
-      {/* Messages Stream - Large, Readable Typography */}
-      <div className="flex-1 p-5 overflow-y-auto space-y-4">
+      {/* Messages Stream */}
+      <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-[#F7F6FA] dark:bg-[#140827]">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-xs">
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#8B8495] space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#F0E3FF] dark:bg-[#261942] text-[#7135B5] dark:text-[#DAB9FF] flex items-center justify-center shadow-xs">
               <Shield className="w-6 h-6" />
             </div>
-            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+            <h4 className="font-bold text-[#211A2E] dark:text-white text-sm">
               Belum Ada Percakapan pada Work Order Ini
             </h4>
-            <p className="text-xs max-w-md text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs max-w-sm text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
               Mulai komunikasi antara <strong>Dispatch Officer</strong> dan <strong>Teknisi Lapangan</strong> ({ticket.installerName || 'Installer'}) untuk koordinasi penugasan, hasil redaman optik, atau kirim foto bukti pengerjaan.
             </p>
           </div>
         ) : (
           messages.map(msg => {
             const isMe = msg.senderId === currentUser.id || msg.senderRole === currentUser.role;
-            const isDispatch = msg.senderRole === 'dispatch';
-            const isInstaller = msg.senderRole === 'installer';
+            const isInstallerMsg = msg.senderRole === 'installer';
 
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1.5`}
+                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
               >
                 {/* Sender badge & time */}
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{msg.senderName}</span>
-                  {getRoleBadge(msg.senderRole)}
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
+                  {isMe ? (
+                    <>
+                      <span className="font-mono text-[10.5px] text-[#8B8495] tabular-nums">
+                        {new Date(msg.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {getRoleBadge(msg.senderRole)}
+                      <span className="font-bold text-[#211A2E] dark:text-white">{msg.senderName}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold text-[#211A2E] dark:text-white">{msg.senderName}</span>
+                      {getRoleBadge(msg.senderRole)}
+                      <span className="font-mono text-[10.5px] text-[#8B8495] tabular-nums">
+                        {new Date(msg.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {/* Bubble Container */}
                 <div
-                  className={`max-w-[90%] sm:max-w-[75%] rounded-2xl p-4 shadow-xs space-y-2.5 ${
+                  className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-3 shadow-xs space-y-2 ${
                     isMe
-                      ? 'bg-indigo-600 text-white rounded-tr-xs'
-                      : isInstaller
-                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-slate-900 dark:text-slate-100 border border-emerald-200 dark:border-emerald-800/70 rounded-tl-xs'
-                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-xs'
+                      ? 'bg-[#7135B5] text-white rounded-tr-sm border border-[#A78BFA]/30'
+                      : isInstallerMsg
+                      ? 'bg-white dark:bg-[#1E1238] text-[#211A2E] dark:text-slate-100 border border-[#86EFAC] dark:border-emerald-800/70 rounded-tl-sm'
+                      : 'bg-white dark:bg-[#1E1238] text-[#211A2E] dark:text-slate-100 border border-[#E9E5F0] dark:border-[#35105E] rounded-tl-sm'
                   }`}
                 >
+                  {msg.category && String(msg.category).toUpperCase() !== 'UNCLASSIFIED' && (
+                    <span
+                      className={`inline-block px-1.5 py-0.5 rounded font-bold text-[10px] uppercase tracking-wide ${
+                        isMe
+                          ? 'bg-white/20 text-white'
+                          : msg.isCheckIn || String(msg.category).toUpperCase() === 'PROGRESS'
+                          ? 'bg-[#3977C9]/15 text-[#3977C9] dark:text-blue-300'
+                          : 'bg-[#F0E3FF] text-[#5B35B1] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                      }`}
+                    >
+                      {msg.category}{msg.isCheckIn ? ' · CHECK-IN' : ''}
+                    </span>
+                  )}
+
                   {msg.text && (
-                    <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words font-normal">
+                    <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap break-words font-normal">
                       {msg.text}
                     </p>
                   )}
 
-                  {/* Photo Attachments with Enlarged Thumbnails */}
+                  {/* Photo Attachments */}
                   {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       {msg.attachments.map(att => (
                         <div
                           key={att.id}
@@ -355,13 +390,14 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
                           <img
                             src={getSafePreviewUrl(att.url)}
                             alt={att.fileName}
-                            className="w-full h-40 object-cover transition-transform duration-200 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-28 object-cover transition-transform duration-200 group-hover:scale-105"
                           />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-1.5 text-xs font-semibold">
                             <Maximize2 className="w-4 h-4" />
-                            <span>Perbesar Foto</span>
+                            <span>Perbesar</span>
                           </div>
-                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 text-[11px] text-white font-medium truncate">
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 text-[10px] text-white font-mono truncate">
                             {att.fileName}
                           </div>
                         </div>
@@ -388,78 +424,90 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
 
       {/* Error Alert */}
       {errorMessage && (
-        <div className="mx-5 mb-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+        <div className="mx-3.5 my-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2 shrink-0">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      {/* Leader is read-only in chat */}
+      {/* Leader is strictly monitoring-only in chat */}
       {currentUser.role === 'leader' ? (
-        <div className="p-4 bg-amber-50 dark:bg-amber-950/50 border-t border-amber-200 dark:border-amber-800 text-center text-xs text-amber-800 dark:text-amber-300 font-medium flex items-center justify-center gap-2 shrink-0">
+        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/50 border-t border-amber-200 dark:border-amber-800 text-center text-xs text-amber-800 dark:text-amber-300 font-medium flex items-center justify-center gap-2 shrink-0">
           <Shield className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>Mode Pantau: Leader hanya dapat membaca riwayat live chat (tidak dapat mengirim pesan).</span>
+          <span>Mode Pantau: Leader hanya dapat membaca riwayat LiveChat (monitoring-only).</span>
         </div>
       ) : (
         <>
-          {/* Quick Reply Pills */}
-          <div className="px-5 py-2 bg-slate-100/80 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto text-xs shrink-0">
-            <span className="text-[10.5px] font-bold uppercase text-slate-400 shrink-0">Template Cepat:</span>
-            {quickReplies.map((reply, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSendMessage(reply)}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition-colors"
-              >
-                {reply}
-              </button>
-            ))}
-          </div>
+          {/* Installer Category Selector Bar OR Quick Reply Tactile Chips */}
+          {isInstaller ? (
+            <div className="px-3.5 py-2 bg-white dark:bg-[#1E1238] border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 flex-wrap shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B8495]">
+                Kategori Pesan{!hasValidCategory ? ' (Wajib)' : ''}:
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {activeCategories.map(cat => {
+                  const isActive = selectedCategory.toUpperCase() === String(cat.name).toUpperCase();
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectCategory(cat.name);
+                        toast.success(`Kategori chat dipilih: "${cat.name}".`);
+                      }}
+                      className={`tactile-chip px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase cursor-pointer ${
+                        isActive ? 'tactile-chip-active' : 'text-[#494453]'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="px-3.5 py-2 bg-[#F8F1FF] dark:bg-[#190F2E] border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-1.5 overflow-x-auto text-xs shrink-0">
+              <span className="text-[10px] font-bold uppercase text-[#8B8495] shrink-0">Template:</span>
+              {quickReplies.map((reply, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSendMessage(reply)}
+                  className="tactile-chip whitespace-nowrap px-2.5 py-0.5 rounded-full text-[#35105E] text-[10.5px] font-semibold cursor-pointer shrink-0"
+                >
+                  {reply}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Pending Photo Upload Previews */}
           {pendingAttachments.length > 0 && (
-            <div className="px-5 py-2.5 bg-indigo-50 dark:bg-indigo-950/80 border-t border-indigo-200 dark:border-indigo-900 flex items-center gap-3 overflow-x-auto shrink-0">
+            <div className="px-3.5 py-2 bg-[#F5F1FF] dark:bg-[#261942] border-t border-[#D8CCF3] dark:border-[#4B386B] flex items-center gap-2.5 overflow-x-auto shrink-0">
               {pendingAttachments.map(att => (
-                <div key={att.id} className="relative group shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 border-indigo-500 shadow-sm">
+                <div key={att.id} className="relative group shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-[#7135B5] shadow-sm">
                   <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemovePendingAttachment(att.id)}
-                    className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors shadow-sm"
+                    className="absolute top-1 right-1 p-0.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors shadow-sm cursor-pointer"
                     title="Hapus foto"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               ))}
-              <span className="text-xs font-semibold text-indigo-900 dark:text-indigo-200">
-                {pendingAttachments.length} foto bukti siap dilampirkan & dikirim
+              <span className="text-xs font-semibold text-[#35105E] dark:text-[#E9D5FF]">
+                {pendingAttachments.length} foto bukti siap dikirim
               </span>
             </div>
           )}
 
-          {/* Mandatory Category Warning & Selector for Installer */}
+          {/* Mandatory Category Warning for Installer */}
           {isInstaller && !hasValidCategory && (
-            <div className="px-5 py-2.5 bg-amber-50 dark:bg-amber-950/70 border-t border-amber-300 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shrink-0 animate-in fade-in">
-              <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-semibold">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Pilih kategori chat terlebih dahulu sebelum memulai percakapan.</span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <select
-                  value={selectedCategory}
-                  onChange={e => handleSelectCategory(e.target.value)}
-                  className="px-3 py-1.5 bg-white dark:bg-slate-900 border-2 border-amber-500 rounded-lg font-bold text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">-- Pilih Kategori Wajib --</option>
-                  {activeCategories.map(cat => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="px-3.5 py-2 bg-amber-50 dark:bg-amber-950/70 border-t border-amber-300 dark:border-amber-800 flex items-center gap-2 text-[11px] text-amber-900 dark:text-amber-200 font-semibold shrink-0">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Pilih kategori chat di atas terlebih dahulu sebelum mengirim pesan.</span>
             </div>
           )}
 
@@ -469,7 +517,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
               e.preventDefault();
               handleSendMessage();
             }}
-            className="p-3.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3 shrink-0"
+            className="p-3 bg-white dark:bg-[#1E1238] border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0"
           >
             <input
               type="file"
@@ -479,37 +527,37 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
               multiple
               className="hidden"
             />
+            <div className="flex items-center gap-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-1.5 shadow-inner border border-[#D8CCF3] dark:border-[#4B386B]">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-3d-icon w-9 h-9 rounded-lg flex items-center justify-center shrink-0 cursor-pointer"
+                title="Unggah Lampiran/Foto Lapangan"
+              >
+                <ImageIcon className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 text-xs font-semibold"
-              title="Lampirkan Foto Bukti Lapangan"
-            >
-              <ImageIcon className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">Upload Foto</span>
-            </button>
+              <input
+                type="text"
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                placeholder={
+                  isInstaller && !hasValidCategory
+                    ? 'Pilih kategori chat terlebih dahulu...'
+                    : `Tulis instruksi / pesan sebagai ${currentUser.name}...`
+                }
+                className="flex-1 min-w-0 bg-transparent px-2 py-1 text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] focus:outline-none"
+              />
 
-            <input
-              type="text"
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              placeholder={
-                isInstaller && !hasValidCategory
-                  ? 'Pilih kategori chat terlebih dahulu sebelum mengetik...'
-                  : `Tulis pesan live chat sebagai ${currentUser.name} (${currentUser.role})...`
-              }
-              className="flex-1 px-4 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-
-            <button
-              type="submit"
-              disabled={isSubmitting || (isInstaller && !hasValidCategory) || (!inputText.trim() && pendingAttachments.length === 0)}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors shrink-0 shadow-sm cursor-pointer"
-            >
-              <Send className="w-4 h-4" />
-              <span>Kirim</span>
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || (isInstaller && !hasValidCategory) || (!inputText.trim() && pendingAttachments.length === 0)}
+                className="btn-3d-primary w-9 h-9 rounded-lg flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                title="Kirim Pesan"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </form>
         </>
       )}
@@ -522,14 +570,16 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({ ticket, initialC
         >
           <div className="relative max-w-5xl max-h-[92vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             <button
+              type="button"
               onClick={() => setZoomImage(null)}
-              className="absolute top-4 right-4 p-2 bg-black/70 text-white rounded-full hover:bg-rose-600 transition-colors z-10"
+              className="absolute top-4 right-4 p-2 bg-black/70 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>
             <img
               src={getSafePreviewUrl(zoomImage)}
               alt="Bukti Lapangan Zoom"
+              referrerPolicy="no-referrer"
               className="max-w-full max-h-[88vh] object-contain rounded-2xl shadow-2xl"
             />
           </div>

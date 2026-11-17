@@ -1,8 +1,15 @@
 import React, { useState, useMemo, useRef, useEffect, Fragment } from 'react';
+import * as XLSX from 'xlsx';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
+import { CANONICAL_COLUMN_GROUPS } from '../../constants/defaultConfig';
+import {
+  StatusAgentBadge,
+  StatusInstallerBadge,
+  StatusWhatsAppBadge,
+  StatusApprovalBadge
+} from '../common/Badge';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 import { TicketMobileCard } from './TicketMobileCard';
 import {
@@ -46,7 +53,13 @@ import {
   Clock,
   ExternalLink,
   Lock,
-  Camera
+  Camera,
+  MoreVertical,
+  UserX,
+  UserCheck,
+  Server,
+  BadgeCheck,
+  XCircle
 } from 'lucide-react';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
@@ -143,6 +156,19 @@ const formatDateTimeDisplay = (val: any, dateOnly = false): string => {
   });
 };
 
+const formatTimeOnlyWIB = (val?: string | null): string => {
+  if (!val) return '-';
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return String(val);
+  return (
+    d.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Jakarta'
+    }) + ' WIB'
+  );
+};
+
 const parseDbmNumeric = (val: any): number | null => {
   if (val === undefined || val === null) return null;
   const cleaned = String(val).replace(/dbm/gi, '').replace(',', '.').trim();
@@ -156,22 +182,30 @@ interface TicketsTableProps {
   onNavigate: (tab: string) => void;
 }
 
-export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOpenWhatsApp, onNavigate }) => {
+export const TicketsTable: React.FC<TicketsTableProps> = ({
+  onSelectTicket,
+  onOpenWhatsApp,
+  onNavigate
+}) => {
   const {
     tickets,
     currentUser,
     archiveTicket,
     restoreTicket,
-    assignTicketPersonnel,
+    bulkAssignPersonnel,
     approveProgressReport,
     rejectProgressReport,
+    updateTicket,
     installersList,
+    contractorsList,
     getTicketUnreadCount,
     totalLiveChatUnreadCount,
     todayWIB,
     refreshActiveTickets,
     activeKpiDrilldown,
-    setActiveKpiDrilldown
+    setActiveKpiDrilldown,
+    databaseStatus,
+    syncStatus
   } = useApp();
   const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
   const { triggerRefresh } = useAnimation();
@@ -181,19 +215,31 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
   // Layout mode: 'cards' or 'table' ('auto' follows Display Mode)
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
+  // Table presentation mode: 'stitch' (rich 9-col grouped view) vs 'canonical' (46-col configurable view)
+  const [tableStyleMode, setTableStyleMode] = useState<'stitch' | 'canonical'>('stitch');
 
   useEffect(() => {
     setLayoutMode('auto');
   }, [isMobileView]);
 
+  // Switch automatically to canonical mode when user picks a non-default preset
+  useEffect(() => {
+    if (config.ticketsTable.activePresetId && config.ticketsTable.activePresetId !== 'preset_default') {
+      setTableStyleMode('canonical');
+    }
+  }, [config.ticketsTable.activePresetId]);
+
   const effectiveLayout: 'cards' | 'table' =
     layoutMode === 'auto'
-      ? (isMobileView || config.device?.android?.layoutType === 'cards' ? 'cards' : 'table')
+      ? isMobileView || config.device?.android?.layoutType === 'cards'
+        ? 'cards'
+        : 'table'
       : layoutMode;
 
-  // Search & Filter state
+  // Search & 6-Column Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedArea, setSelectedArea] = useState('ALL');
+  const [selectedContractor, setSelectedContractor] = useState('ALL');
   const [selectedAgentStatus, setSelectedAgentStatus] = useState('ALL');
   const [selectedInstallerStatus, setSelectedInstallerStatus] = useState('ALL');
   const [selectedWhatsAppStatus, setSelectedWhatsAppStatus] = useState('ALL');
@@ -201,21 +247,47 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('ALL');
   const [showArchived, setShowArchived] = useState(false);
 
-  // Inline Verification Drawer & Clipboard state
+  // Inline Verification Drawer & Clipboard & Row Action Menu state
   const [expandedDrawerTicketId, setExpandedDrawerTicketId] = useState<string | null>(null);
   const [inlineNotes, setInlineNotes] = useState('');
   const [inlineRejectReason, setInlineRejectReason] = useState('');
   const [showInlineRejectBox, setShowInlineRejectBox] = useState(false);
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [copiedWoId, setCopiedWoId] = useState<string | null>(null);
+  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
 
-  // Keyboard shortcuts: '/' focuses local table filter (Ctrl+K reserved for Sidebar Global Search), ESC clears when focused
+  // Bulk Approve confirmation state
+  const [showBulkApproveConfirm, setShowBulkApproveConfirm] = useState(false);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+
+  // Pagination & Sorting state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | 'ALL'>(config.ticketsTable.rowsPerPage || 10);
+  const [sortField, setSortField] = useState<string>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Multi-selection & modals state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkInstaller, setBulkInstaller] = useState('');
+  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [showColManager, setShowColManager] = useState(false);
+
+  useEffect(() => {
+    setPageSize(config.ticketsTable.rowsPerPage || 10);
+  }, [config.ticketsTable.rowsPerPage]);
+
+  // Keyboard shortcuts: '/' focuses local table filter, ESC clears when focused
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const isTyping =
         target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
       if (e.key === '/' && !isTyping) {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -228,7 +300,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [searchTerm]);
 
-  // Role-scoped base tickets for todayWIB (for accurate KPI strip counts)
+  // Role-scoped base tickets for todayWIB (accurate KPI strip counts)
   const roleScopedTodayTickets = useMemo(() => {
     const todayStr = todayWIB || getJakartaDateString(0);
     return (tickets || []).filter(t => {
@@ -313,7 +385,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   }, [roleScopedTodayTickets]);
 
   // Cross-date search for Superadmin and Dispatch (strictly by woNumber or idCustomer)
-  const isCrossDateSearchEligible = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
+  const isCrossDateSearchEligible =
+    currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
   const crossDateSearchResults = useMemo(() => {
     if (isCrossDateSearchEligible && searchTerm.trim()) {
@@ -324,27 +397,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
   const isCrossDateActive = crossDateSearchResults.isSearchActive;
 
-  // 3-State Sorting state (asc -> desc -> null)
-  const [sortField, setSortField] = useState<string>('updatedAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-
-  // Multi-selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkInstaller, setBulkInstaller] = useState('');
-  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-
-  // Column manager popover
-  const [showColManager, setShowColManager] = useState(false);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number | 'ALL'>(config.ticketsTable.rowsPerPage || 10);
-
-  useEffect(() => {
-    setPageSize(config.ticketsTable.rowsPerPage || 10);
-  }, [config.ticketsTable.rowsPerPage]);
-
   // Visible canonical data columns sorted by order (selection & actions are pinned separately)
   const rawVisibleColumns = useMemo(() => {
     return [...config.ticketsTable.columns]
@@ -352,14 +404,36 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       .sort((a, b) => a.order - b.order);
   }, [config.ticketsTable.columns]);
 
-  // Unique areas (scoped for Leader and Installer)
-  const areas = useMemo(() => {
+  // Unique areas (scoped for Leader and Installer) with counts for today
+  const areaOptions = useMemo(() => {
     if ((currentUser.role === 'leader' || currentUser.role === 'installer') && currentUser.area) {
-      return [currentUser.area];
+      const count = roleScopedTodayTickets.filter(t => t.area === currentUser.area).length;
+      return [{ name: currentUser.area, count }];
     }
-    const set = new Set(tickets.map(t => t.area).filter(Boolean));
+    const counts = new Map<string, number>();
+    roleScopedTodayTickets.forEach(t => {
+      if (t.area) counts.set(t.area, (counts.get(t.area) || 0) + 1);
+    });
+    tickets.forEach(t => {
+      if (t.area && !counts.has(t.area)) counts.set(t.area, 0);
+    });
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [tickets, roleScopedTodayTickets, currentUser.role, currentUser.area]);
+
+  // Unique contractors (scoped for Leader)
+  const contractorOptions = useMemo(() => {
+    if (currentUser.role === 'leader' && currentUser.contractor) {
+      return [currentUser.contractor];
+    }
+    const set = new Set<string>(contractorsList || []);
+    tickets.forEach(t => {
+      const c = (t.contactorName || t.contractorName || '').trim();
+      if (c) set.add(c);
+    });
     return Array.from(set).sort();
-  }, [tickets, currentUser.role, currentUser.area]);
+  }, [tickets, contractorsList, currentUser.role, currentUser.contractor]);
 
   // Unique Ticket Categories
   const ticketCategories = useMemo(() => {
@@ -367,32 +441,43 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     return Array.from(set).sort();
   }, [tickets]);
 
-  // Total role-scoped unread LiveChat messages across active tickets
   const totalUnreadAcrossTickets = totalLiveChatUnreadCount;
 
   // Filtering based on strict Appointment Date === todayWIB rules uniformly across all roles
   const filteredTickets = useMemo(() => {
     const todayStr = todayWIB || getJakartaDateString(0);
 
+    const matchesFilterDropdowns = (t: Ticket) => {
+      if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
+      if (selectedContractor !== 'ALL') {
+        const tContr = (t.contactorName || t.contractorName || '').trim().toLowerCase();
+        if (tContr !== selectedContractor.trim().toLowerCase()) return false;
+      }
+      if (selectedAgentStatus !== 'ALL' && t.statusWOAgent !== selectedAgentStatus) return false;
+      if (selectedInstallerStatus !== 'ALL' && t.statusWOInstaller !== selectedInstallerStatus) {
+        return false;
+      }
+      if (selectedWhatsAppStatus !== 'ALL' && t.statusWhatsApp !== selectedWhatsAppStatus) {
+        return false;
+      }
+      if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
+      if (selectedApprovalStatus !== 'ALL') {
+        if (selectedApprovalStatus === 'CLOSED') {
+          if (t.statusWOAgent !== 'Closed') return false;
+        } else if (selectedApprovalStatus === 'REJECTED') {
+          if (t.approvalStatus !== 'REJECTED' && t.approvalStatus !== 'REVISI') return false;
+        } else if (t.approvalStatus !== selectedApprovalStatus) {
+          return false;
+        }
+      }
+      return true;
+    };
+
     if (isCrossDateActive) {
       return crossDateSearchResults.resultTickets.filter(t => {
         if (!t || t.isDeleted) return false;
         if (showArchived ? !t.isArchived : t.isArchived) return false;
-        if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
-        if (selectedAgentStatus !== 'ALL' && t.statusWOAgent !== selectedAgentStatus) return false;
-        if (selectedInstallerStatus !== 'ALL' && t.statusWOInstaller !== selectedInstallerStatus) return false;
-        if (selectedWhatsAppStatus !== 'ALL' && t.statusWhatsApp !== selectedWhatsAppStatus) return false;
-        if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
-        if (selectedApprovalStatus !== 'ALL') {
-          if (selectedApprovalStatus === 'CLOSED') {
-            if (t.statusWOAgent !== 'Closed') return false;
-          } else if (selectedApprovalStatus === 'REJECTED') {
-            if (t.approvalStatus !== 'REJECTED' && t.approvalStatus !== 'REVISI') return false;
-          } else if (t.approvalStatus !== selectedApprovalStatus) {
-            return false;
-          }
-        }
-        return true;
+        return matchesFilterDropdowns(t);
       });
     }
 
@@ -451,21 +536,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         }
       }
 
-      if (selectedArea !== 'ALL' && t.area !== selectedArea) return false;
-      if (selectedAgentStatus !== 'ALL' && t.statusWOAgent !== selectedAgentStatus) return false;
-      if (selectedInstallerStatus !== 'ALL' && t.statusWOInstaller !== selectedInstallerStatus) return false;
-      if (selectedWhatsAppStatus !== 'ALL' && t.statusWhatsApp !== selectedWhatsAppStatus) return false;
-      if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
-
-      if (selectedApprovalStatus !== 'ALL') {
-        if (selectedApprovalStatus === 'CLOSED') {
-          if (t.statusWOAgent !== 'Closed') return false;
-        } else if (selectedApprovalStatus === 'REJECTED') {
-          if (t.approvalStatus !== 'REJECTED' && t.approvalStatus !== 'REVISI') return false;
-        } else if (t.approvalStatus !== selectedApprovalStatus) {
-          return false;
-        }
-      }
+      if (!matchesFilterDropdowns(t)) return false;
 
       if (activeKpiDrilldown) {
         if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
@@ -488,7 +559,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         const matchInstaller = (t.installerName ? String(t.installerName).toLowerCase() : '').includes(q);
         const matchCluster = (t.clusterName ? String(t.clusterName).toLowerCase() : '').includes(q);
         const matchCategory = (t.ticketCategory ? String(t.ticketCategory).toLowerCase() : '').includes(q);
-        if (!matchWo && !matchCust && !matchId && !matchPhone && !matchInstaller && !matchCluster && !matchCategory) {
+        if (
+          !matchWo &&
+          !matchCust &&
+          !matchId &&
+          !matchPhone &&
+          !matchInstaller &&
+          !matchCluster &&
+          !matchCategory
+        ) {
           return false;
         }
       }
@@ -503,6 +582,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     todayWIB,
     currentUser,
     selectedArea,
+    selectedContractor,
     selectedAgentStatus,
     selectedInstallerStatus,
     selectedWhatsAppStatus,
@@ -515,17 +595,22 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   // Sorting
   const sortedTickets = useMemo(() => {
     if (!sortDirection) return filteredTickets;
-    return sortDataArray(filteredTickets, { column: sortField, direction: sortDirection }, (item, col) => {
-      if (col === 'woNumber') return item.woNumber;
-      if (col === 'date' || col === 'appointmentDate') return item.appointmentDate || '';
-      if (col === 'statusWOInstaller') return item.statusWOInstaller;
-      if (col === 'statusWOAgent') return item.statusWOAgent;
-      if (col === 'slotTime') return item.slotTime;
-      return (item as any)[col];
-    });
+    return sortDataArray(
+      filteredTickets,
+      { column: sortField, direction: sortDirection },
+      (item, col) => {
+        if (col === 'woNumber') return item.woNumber;
+        if (col === 'idCustomer') return item.idCustomer;
+        if (col === 'date' || col === 'appointmentDate') return item.appointmentDate || '';
+        if (col === 'statusWOInstaller') return item.statusWOInstaller;
+        if (col === 'statusWOAgent') return item.statusWOAgent;
+        if (col === 'slotTime') return item.slotTime;
+        return (item as any)[col];
+      }
+    );
   }, [filteredTickets, sortField, sortDirection]);
 
-  const effectiveRowsPerPage = pageSize === 'ALL' ? (sortedTickets.length || 10) : pageSize;
+  const effectiveRowsPerPage = pageSize === 'ALL' ? sortedTickets.length || 10 : pageSize;
 
   // Paginated rows
   const paginatedTickets = useMemo(() => {
@@ -561,7 +646,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     const map: Record<string, { left: number; isLastFrozen: boolean }> = {};
     if (!stickyColumnsEnabled) return map;
     const freezeDataColsCount = Math.min(Math.max(0, freezeColumnCount - 1), activeColumns.length);
-    let accLeft = 44; // Selection column width
+    let accLeft = 44;
     for (let i = 0; i < freezeDataColsCount; i++) {
       const col = activeColumns[i];
       const w = col.width || 130;
@@ -574,7 +659,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     return map;
   }, [activeColumns, freezeColumnCount, stickyColumnsEnabled]);
 
-  const totalPages = pageSize === 'ALL' ? 1 : (Math.ceil(sortedTickets.length / effectiveRowsPerPage) || 1);
+  const totalPages =
+    pageSize === 'ALL' ? 1 : Math.ceil(sortedTickets.length / effectiveRowsPerPage) || 1;
+
+  const selectedButuhApprovalTickets = useMemo(() => {
+    return sortedTickets.filter(
+      t => selectedIds.has(t.id) && t.approvalStatus === 'BUTUH APPROVAL'
+    );
+  }, [sortedTickets, selectedIds]);
 
   const handleSort = (fieldKey: string) => {
     const nextDir = getNextSortDirection(sortField, sortDirection, fieldKey);
@@ -585,6 +677,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   const handleSelectAll = () => {
     if (selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0) {
       setSelectedIds(new Set());
+      setShowBulkApproveConfirm(false);
     } else {
       setSelectedIds(new Set(paginatedTickets.map(t => t.id)));
     }
@@ -608,11 +701,58 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       toast.error('Pilih teknisi terlebih dahulu.');
       return;
     }
-    selectedIds.forEach(id => {
-      assignTicketPersonnel(id, currentUser.name, bulkInstaller);
-    });
-    toast.success(`${selectedIds.size} WO berhasil ditugaskan ke ${bulkInstaller}.`);
+    const res = bulkAssignPersonnel(Array.from(selectedIds), currentUser.name, bulkInstaller);
+    if (res.success) {
+      setSelectedIds(new Set());
+      setBulkInstaller('');
+    }
+  };
+
+  const handleTriggerBulkApprove = () => {
+    if (!canApproveInline) {
+      toast.error('Akses Ditolak: Hanya Dispatch atau Super Admin yang berwenang melakukan approval.');
+      return;
+    }
+    if (selectedButuhApprovalTickets.length === 0) {
+      // Auto-select all visible BUTUH APPROVAL rows on current page or filter
+      const candidates = sortedTickets.filter(t => t.approvalStatus === 'BUTUH APPROVAL');
+      if (candidates.length === 0) {
+        toast.info('Tidak ada Work Order berstatus BUTUH APPROVAL pada filter saat ini.');
+        return;
+      }
+      setSelectedIds(new Set(candidates.map(t => t.id)));
+    }
+    setShowBulkApproveConfirm(true);
+  };
+
+  const handleConfirmBulkApprove = async () => {
+    if (!canApproveInline || isBulkApproving) return;
+    const targets = selectedButuhApprovalTickets;
+    if (targets.length === 0) {
+      setShowBulkApproveConfirm(false);
+      return;
+    }
+    setIsBulkApproving(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (const t of targets) {
+      const res = await approveProgressReport(t.id, 'Bulk Approve via Dispatch Command');
+      if (res.success) successCount++;
+      else failCount++;
+    }
+    setIsBulkApproving(false);
+    setShowBulkApproveConfirm(false);
     setSelectedIds(new Set());
+    if (successCount > 0) {
+      toast.success(
+        `${successCount} Work Order berhasil di-approve dan ditutup (CLOSED).${
+          failCount > 0 ? ` (${failCount} gagal)` : ''
+        }`,
+        'Bulk Approval Selesai'
+      );
+    } else if (failCount > 0) {
+      toast.error(`${failCount} Work Order gagal diproses approval.`);
+    }
   };
 
   const handleCopyWoNumber = async (e: React.MouseEvent, ticket: Ticket) => {
@@ -627,16 +767,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     }
   };
 
-  const toggleInlineDrawer = (ticketId: string) => {
-    if (expandedDrawerTicketId === ticketId) {
+  const toggleInlineDrawer = (ticket: Ticket) => {
+    if (expandedDrawerTicketId === ticket.id) {
       setExpandedDrawerTicketId(null);
       setShowInlineRejectBox(false);
       setInlineNotes('');
       setInlineRejectReason('');
     } else {
-      setExpandedDrawerTicketId(ticketId);
+      setExpandedDrawerTicketId(ticket.id);
       setShowInlineRejectBox(false);
-      setInlineNotes('');
+      setInlineNotes(ticket.approvalNotes || ticket.remarksAgent || '');
       setInlineRejectReason('');
     }
   };
@@ -654,8 +794,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
   };
 
   const handleInlineReject = async (ticket: Ticket) => {
-    if (!inlineRejectReason.trim()) {
-      toast.error('Alasan revisi laporan wajib diisi.');
+    if (!inlineRejectReason.trim() || inlineRejectReason.trim().length < 3) {
+      toast.error('Alasan revisi laporan wajib diisi minimal 3 karakter.');
       return;
     }
     setInlineSubmitting(true);
@@ -671,25 +811,57 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     setInlineRejectReason('');
   };
 
-  const handleExportCSV = () => {
-    const headers = activeColumns.map(c => `"${c.label}"`).join(',');
-    const rows = sortedTickets.map(t => {
-      return activeColumns
-        .map(col => {
-          const val = getTicketColumnValue(t, col.key) ?? '';
-          return `"${String(val).replace(/"/g, '""')}"`;
-        })
-        .join(',');
-    });
-    const csvContent = [headers, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Tickets_Export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleSaveInlineNote = (ticket: Ticket) => {
+    if (!canApproveInline) {
+      toast.error('Hanya Dispatch dan Super Admin yang berwenang menyimpan catatan internal dispatch.');
+      return;
+    }
+    const cleanNote = inlineNotes.trim();
+    setSavingNoteId(ticket.id);
+    const res = updateTicket(
+      ticket.id,
+      { remarksAgent: cleanNote, approvalNotes: cleanNote },
+      'Catatan internal dispatch dari inline drawer'
+    );
+    setSavingNoteId(null);
+    if (!res.success) {
+      toast.error(res.error || 'Gagal menyimpan catatan dispatch.');
+      return;
+    }
+    toast.success(`Catatan internal WO ${ticket.woNumber} tersimpan.`);
+  };
+
+  const handleExportXLSX = () => {
+    if (sortedTickets.length === 0) {
+      toast.warning('Tidak ada data Work Order untuk diekspor.');
+      return;
+    }
+    try {
+      const exportColumns =
+        tableStyleMode === 'stitch'
+          ? config.ticketsTable.columns.filter(c => c.key !== 'selection' && c.key !== 'actions' && c.visible)
+          : activeColumns;
+      const colsToExport = exportColumns.length > 0 ? exportColumns : activeColumns;
+
+      const rows = sortedTickets.map(t => {
+        const record: Record<string, string | number> = {};
+        colsToExport.forEach(col => {
+          const val = getTicketColumnValue(t, col.key);
+          record[col.label] =
+            val !== undefined && val !== null && String(val).trim() !== '' ? String(val) : '-';
+        });
+        return record;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Work Orders');
+      const fileDate = todayWIB || getJakartaDateString(0);
+      XLSX.writeFile(wb, `MoraJaws_WorkOrders_${fileDate}.xlsx`);
+      toast.success(`Berhasil mengekspor ${rows.length} Work Orders ke XLSX.`);
+    } catch (err: any) {
+      toast.error('Gagal mengekspor XLSX: ' + (err?.message || err));
+    }
   };
 
   const showHoverTooltips = config.ticketsTable.showHoverTooltips !== false;
@@ -709,13 +881,20 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
       : 'py-2.5 px-3.5'
   } ${cellFontSizeClass}`;
 
-  const approvedPct = approvalCounts.totalToday > 0 ? ((approvalCounts.approved / approvalCounts.totalToday) * 100).toFixed(1) : '0.0';
-  const fieldPct = approvalCounts.totalToday > 0 ? ((approvalCounts.diLapangan / approvalCounts.totalToday) * 100).toFixed(1) : '0.0';
+  const approvedPct =
+    approvalCounts.totalToday > 0
+      ? ((approvalCounts.approved / approvalCounts.totalToday) * 100).toFixed(1)
+      : '0.0';
+  const fieldPct =
+    approvalCounts.totalToday > 0
+      ? ((approvalCounts.diLapangan / approvalCounts.totalToday) * 100).toFixed(1)
+      : '0.0';
   const canApproveInline = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
 
   const hasActiveFilters =
     Boolean(activeKpiDrilldown) ||
     selectedArea !== 'ALL' ||
+    selectedContractor !== 'ALL' ||
     selectedCategory !== 'ALL' ||
     selectedInstallerStatus !== 'ALL' ||
     selectedApprovalStatus !== 'ALL' ||
@@ -727,6 +906,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     setActiveKpiDrilldown(null);
     setSearchTerm('');
     setSelectedArea('ALL');
+    setSelectedContractor('ALL');
     setSelectedCategory('ALL');
     setSelectedInstallerStatus('ALL');
     setSelectedApprovalStatus('ALL');
@@ -749,6 +929,359 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
     pages.push(totalPages);
     return pages;
   }, [currentPage, totalPages]);
+
+  const formattedAppointmentChip = formatIndonesianWODate(todayWIB || getJakartaDateString(0));
+  const stitchColSpan = 9;
+  const canonicalColSpan = activeColumns.length + 2;
+
+  // Render Expanded Inline Verification Drawer (shared by Stitch & Canonical table modes)
+  const renderExpandedDrawer = (ticket: Ticket, colSpan: number) => {
+    const latestReport = ticket.progressReports?.[0];
+    const drawerPhotos = Array.from(
+      new Set(
+        [
+          ...(ticket.technicalReport?.photos || []),
+          ticket.technicalReport?.photoBeforeUrl,
+          ticket.technicalReport?.photoAfterUrl
+        ].filter((u): u is string => Boolean(u && typeof u === 'string' && u.trim()))
+      )
+    );
+
+    const rawOpDbm =
+      ticket.rosetRedamanDbm ??
+      ticket.technicalReport?.opticalPowerRx ??
+      ticket.technicalReport?.opticalPowerDbm;
+    const opDbmNum = parseDbmNumeric(rawOpDbm);
+    const opInSpec = opDbmNum !== null && opDbmNum >= -24 && opDbmNum <= -8;
+
+    const dropcoreVal = ticket.dropcoreLength ?? ticket.dropcoreLengthMeter;
+    const ontSn = ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber;
+
+    return (
+      <tr className="bg-[#F5F1FF] dark:bg-[#251247]/80 border-b border-[#E9E5F0] dark:border-[#5B35B1]">
+        <td colSpan={colSpan} className="p-3 sm:p-4 border-y border-[#D8CCF3] dark:border-[#5B35B1]">
+          <div className="bg-white dark:bg-[#1E1238] rounded-xl p-4 shadow-md border border-[#D8CCF3] dark:border-[#5B35B1] space-y-3.5">
+            {/* Drawer Header with 3D Tactile CTA Buttons */}
+            <div className="flex flex-wrap items-center justify-between pb-3 gap-3 border-b border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-[#E59A27]/20 border border-[#E59A27]/40 text-[#E59A27] flex items-center justify-center shrink-0 shadow-2xs">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-display text-sm sm:text-base font-bold text-[#211A2E] dark:text-white">
+                      Verifikasi Hasil Pekerjaan Teknisi
+                    </h4>
+                    <StatusApprovalBadge status={ticket.approvalStatus} />
+                  </div>
+                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] mt-0.5 truncate">
+                    <span className="font-mono font-semibold text-[#431599] dark:text-[#D8B4FE]">
+                      {ticket.woNumber}
+                    </span>{' '}
+                    — Teknisi: {ticket.installerName || 'Belum Ditugaskan'} (
+                    {ticket.contactorName || ticket.contractorName || '-'})
+                    {(ticket.checkOutAt || ticket.technicalReport?.submittedAt) &&
+                      ` • Selesai Pukul ${formatTimeOnlyWIB(
+                        ticket.checkOutAt || ticket.technicalReport?.submittedAt
+                      )}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={inlineSubmitting}
+                      onClick={() => setShowInlineRejectBox(v => !v)}
+                      className="btn-3d-danger px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Tolak / Revisi</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={inlineSubmitting}
+                      onClick={() => handleInlineApprove(ticket)}
+                      className="btn-3d-success px-3.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{inlineSubmitting ? 'Memproses...' : 'Setujui (Approve)'}</span>
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => onSelectTicket(ticket, 'report')}
+                  className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-[#35105E] dark:text-[#E9D5FF] cursor-pointer whitespace-nowrap"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                  <span>Buka Detail Penuh</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleInlineDrawer(ticket)}
+                  className="btn-3d-icon w-8 h-8 cursor-pointer"
+                  title="Tutup Drawer"
+                  aria-label="Tutup Drawer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Inline Reject Input Bar */}
+            {showInlineRejectBox && canApproveInline && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/30 border border-[#FECACA] dark:border-rose-800">
+                <input
+                  type="text"
+                  value={inlineRejectReason}
+                  onChange={e => setInlineRejectReason(e.target.value)}
+                  placeholder="Wajib isi alasan penolakan / item yang harus direvisi teknisi (min. 3 karakter)..."
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#160D29] border border-[#FECACA] dark:border-rose-800 text-[#211A2E] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#DC4C5A]"
+                />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={inlineSubmitting}
+                    onClick={() => handleInlineReject(ticket)}
+                    className="btn-3d-danger px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  >
+                    Kirim Revisi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowInlineRejectBox(false)}
+                    className="btn-3d-ceramic px-2.5 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 4-Card Telemetry & Optical Specifications Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+                  Redaman OPM (dBm)
+                </span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span
+                    className={`font-display text-xl font-bold tabular-nums ${
+                      opDbmNum === null
+                        ? 'text-[#766B83] dark:text-[#CEC0E8]'
+                        : opInSpec
+                        ? 'text-[#16A36A]'
+                        : 'text-[#DC4C5A]'
+                    }`}
+                  >
+                    {rawOpDbm !== undefined && rawOpDbm !== null && String(rawOpDbm).trim() !== ''
+                      ? String(rawOpDbm).toLowerCase().includes('dbm')
+                        ? String(rawOpDbm)
+                        : `${rawOpDbm} dBm`
+                      : 'Belum diinput'}
+                  </span>
+                  {opDbmNum !== null && (
+                    <span
+                      className={`text-[10px] font-bold ${
+                        opInSpec ? 'text-[#16A36A]' : 'text-[#DC4C5A]'
+                      }`}
+                    >
+                      {opInSpec ? 'PASS (< -24 dBm)' : 'OUT OF SPEC'}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-[#8B8495] mt-0.5 block">
+                  Diukur pada port ONT {ticket.oltCode ? `• OLT ${ticket.oltCode}` : ''}
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+                  Nomor Seri ONT / Modem
+                </span>
+                <span className="font-mono text-xs font-bold text-[#211A2E] dark:text-white block mt-1 truncate">
+                  {ontSn || 'Belum diinput'}
+                </span>
+                <span className="text-[11px] text-[#16A36A] font-medium flex items-center gap-1 mt-1 truncate">
+                  <Check className="w-3 h-3 shrink-0" />
+                  <span>
+                    {ticket.oltRegistrationStatus ||
+                      (ticket.oltCode ? `OLT: ${ticket.oltCode}` : `Model: ${ticket.ontModel || '-'}`)}
+                  </span>
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+                  Panjang Dropcore Digunakan
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <span className="font-display text-lg font-bold text-[#211A2E] dark:text-white tabular-nums">
+                    {dropcoreVal !== undefined && dropcoreVal !== null && String(dropcoreVal).trim() !== ''
+                      ? String(dropcoreVal)
+                      : '-'}
+                  </span>
+                  {dropcoreVal && (
+                    <span className="text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                      {String(dropcoreVal).toLowerCase().includes('m') ? '' : 'Meter'}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-[#8B8495] mt-0.5 block truncate font-mono">
+                  FAT: {ticket.fatCode || ticket.fat || '-'} | Port: {ticket.fatPort || '-'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+                  LiveChat Check-In Dispatch
+                </span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold shadow-2xs ${
+                      ticket.checkInAt
+                        ? 'bg-[#35105E] text-white'
+                        : 'bg-[#E9E5F0] dark:bg-[#35105E]/50 text-[#766B83] dark:text-[#CEC0E8]'
+                    }`}
+                  >
+                    {ticket.checkInAt ? 'PROGRESS' : 'BELUM CHECK-IN'}
+                  </span>
+                  <span className="font-mono text-xs font-bold text-[#211A2E] dark:text-white tabular-nums">
+                    {ticket.checkInAt ? formatTimeOnlyWIB(ticket.checkInAt) : '-'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-[#8B8495] mt-0.5 block truncate">
+                  {ticket.workDurationFormatted
+                    ? `Durasi Kerja: ${ticket.workDurationFormatted}`
+                    : ticket.workSessionStatus || 'Status Sesi Lapangan'}
+                </span>
+              </div>
+            </div>
+
+            {/* Bukti Dokumentasi Fisik & Ringkasan Laporan Teknisi */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 pt-1">
+              <div className="lg:col-span-8 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#D8B4FE] flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-[#7135B5]" />
+                    <span>Bukti Dokumentasi Fisik ({drawerPhotos.length} Foto)</span>
+                  </span>
+                </div>
+
+                {drawerPhotos.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {drawerPhotos.map((photoUrl, idx) => (
+                      <button
+                        key={photoUrl + idx}
+                        type="button"
+                        onClick={() => onSelectTicket(ticket, 'report')}
+                        className="rounded-lg overflow-hidden bg-[#F4EAFF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#35105E] shadow-2xs text-left group cursor-pointer"
+                      >
+                        <div className="h-24 w-full bg-[#E9E5F0] dark:bg-[#22123F] relative flex items-center justify-center overflow-hidden">
+                          <ImageIcon className="w-5 h-5 text-[#8B8495] opacity-50" />
+                          <img
+                            src={photoUrl}
+                            alt={`Dokumentasi #${idx + 1} - ${ticket.woNumber}`}
+                            referrerPolicy="no-referrer"
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            onError={e => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div className="p-1.5 bg-white dark:bg-[#1E1238]">
+                          <span className="text-[10.5px] font-bold text-[#211A2E] dark:text-white block truncate">
+                            Foto Dokumentasi #{idx + 1}
+                          </span>
+                          <span className="font-mono text-[9.5px] text-[#16A36A] font-semibold block truncate">
+                            Klik untuk perbesar
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-5 px-4 text-center rounded-lg border border-dashed border-[#D8CCF3] dark:border-[#35105E] bg-[#F7F6FA]/70 dark:bg-[#160D29]/50 text-xs text-[#8B8495]">
+                    Belum ada foto bukti dokumentasi yang diunggah pada Technical Report.
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-4 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Ringkasan Laporan 3-Tingkat</span>
+                </div>
+                {latestReport ? (
+                  <div className="space-y-1 text-xs">
+                    <div className="font-semibold text-[#211A2E] dark:text-white">
+                      {latestReport.reportStatusLabel || latestReport.reportStatus} &rarr;{' '}
+                      {latestReport.reasonReportLabel || latestReport.reasonReport}
+                    </div>
+                    <div className="text-[#766B83] dark:text-[#CEC0E8] text-[11px]">
+                      Rootcause: {latestReport.rootcauseLabel || latestReport.rootCause || '-'}
+                    </div>
+                    {latestReport.remarksReport && (
+                      <p className="p-2 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[#494453] dark:text-[#CEC0E8] text-[11px]">
+                        {latestReport.remarksReport}
+                      </p>
+                    )}
+                  </div>
+                ) : ticket.technicalReport ? (
+                  <div className="space-y-1 text-xs">
+                    <div className="font-semibold text-[#211A2E] dark:text-white">
+                      {ticket.technicalReport.workResult} ({ticket.technicalReport.mainCategory})
+                    </div>
+                    <p className="text-[#494453] dark:text-[#CEC0E8] text-[11px]">
+                      {ticket.technicalReport.technicalDescription || '-'}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8B8495] italic">
+                    Belum ada laporan progress tersubmit dari teknisi.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Dispatch Operator Note Input with Tactile Save Button */}
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="flex items-center gap-2 flex-1">
+                <MessageSquare className="w-4 h-4 text-[#8B8495] shrink-0" />
+                <input
+                  type="text"
+                  value={inlineNotes}
+                  onChange={e => setInlineNotes(e.target.value)}
+                  disabled={!canApproveInline}
+                  placeholder={
+                    canApproveInline
+                      ? 'Tambahkan catatan dispatch internal untuk mitra / arsip approval...'
+                      : 'Catatan internal dispatch (hanya Dispatch / Super Admin yang dapat mengubah)'
+                  }
+                  className="flex-1 px-3 py-1.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:ring-1 focus:ring-[#A78BFA] disabled:opacity-70"
+                />
+              </div>
+              {canApproveInline && (
+                <button
+                  type="button"
+                  disabled={savingNoteId === ticket.id}
+                  onClick={() => handleSaveInlineNote(ticket)}
+                  className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[#35105E] dark:text-[#E9D5FF] text-[11px] font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
+                >
+                  {savingNoteId === ticket.id ? 'Menyimpan...' : 'Simpan Catatan'}
+                </button>
+              )}
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -781,217 +1314,224 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               setActiveKpiDrilldown(null);
               setCurrentPage(1);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#160D29] hover:bg-[#F5F1FF] text-xs font-bold cursor-pointer"
+            className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Reset Filter KPI</span>
           </button>
         </div>
       )}
-      {/* 1. 6-Card KPI & Operational Pulse Strip */}
-      <section className={`grid gap-3 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6'}`}>
-        {/* Card 1: Total Hari Ini */}
+
+      {/* 1. TOP KPI & OPERATIONAL PULSE STRIP (6 Cards matching Stitch AI) */}
+      <section
+        className={`grid gap-3 items-stretch ${
+          isMobileView ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'
+        }`}
+      >
+        {/* KPI 1: Total Hari Ini */}
         <button
           type="button"
           onClick={() => {
             setSelectedApprovalStatus('ALL');
+            setSelectedInstallerStatus('ALL');
             setCurrentPage(1);
           }}
-          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
-            selectedApprovalStatus === 'ALL'
-              ? 'border-[#7135B5] ring-2 ring-[#7135B5]/25'
-              : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#cec3d4]'
+          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
+            selectedApprovalStatus === 'ALL' && selectedInstallerStatus === 'ALL'
+              ? 'border-[#A78BFA] ring-1 ring-[#A78BFA]/40'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A78BFA]/60'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
+            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
               Total Hari Ini
             </span>
-            <span className="p-1.5 rounded-lg bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]">
-              <TicketIcon className="w-3.5 h-3.5" />
-            </span>
+            <TicketIcon className="w-4 h-4 text-[#A78BFA] shrink-0" />
           </div>
-          <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-extrabold tabular-nums text-[#1f1638] dark:text-white">
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold text-[#211A2E] dark:text-white tracking-tight tabular-nums">
               {approvalCounts.totalToday}
             </span>
-            <span className="text-[11px] font-semibold text-[#16A36A] tabular-nums">
+            <span className="text-xs text-[#16A36A] font-semibold tabular-nums">
               {filteredTickets.length} tampil
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] font-mono text-[#7d7484] dark:text-[#cabde8]/80 truncate">
-            todayWIB: {todayWIB}
+          <div className="text-[10px] font-semibold text-[#8B8495] mt-1 truncate">
+            todayWIB: {formattedAppointmentChip}
           </div>
         </button>
 
-        {/* Card 2: Highlighted Butuh Approval */}
+        {/* KPI 2: Butuh Approval (Urgent Highlight) */}
         <button
           type="button"
           onClick={() => {
             setSelectedApprovalStatus(prev => (prev === 'BUTUH APPROVAL' ? 'ALL' : 'BUTUH APPROVAL'));
             setCurrentPage(1);
           }}
-          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
+          className={`bg-[#F0E3FF] dark:bg-[#2E1459] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between relative overflow-hidden border transition-all cursor-pointer ${
             selectedApprovalStatus === 'BUTUH APPROVAL'
-              ? 'bg-[#f3eaff] dark:bg-[#35105E] border-[#7135B5] ring-2 ring-[#7135B5]/35'
-              : 'bg-[#f8f1ff] dark:bg-[#251247] border-[#d8ccf3] dark:border-[#5B35B1] hover:bg-[#f3eaff]'
+              ? 'border-[#7135B5] ring-2 ring-[#7135B5]/35'
+              : 'border-[#E59A27]/35 hover:border-[#E59A27]'
           }`}
         >
+          <div className="absolute -right-2 -top-2 w-12 h-12 bg-[#E59A27]/15 rounded-full pointer-events-none blur-sm" />
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
-              <span className="w-2 h-2 rounded-full bg-[#E59A27] shrink-0" />
-              <span>Butuh Approval</span>
+            <span className="text-[11px] text-[#35105E] dark:text-[#E9D5FF] uppercase font-bold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E59A27] animate-ping shrink-0" />
+              <span className="truncate">Butuh Approval</span>
             </span>
-            <span className="p-1.5 rounded-lg bg-white/90 dark:bg-[#160D29] text-[#E59A27]">
-              <Clock className="w-3.5 h-3.5" />
-            </span>
+            <Clock className="w-4 h-4 text-[#E59A27] shrink-0" />
           </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="font-display text-2xl font-extrabold tabular-nums text-[#58149c] dark:text-white">
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-extrabold text-[#35105E] dark:text-white tracking-tight tabular-nums">
               {approvalCounts.butuhApproval}
             </span>
             <span
-              className={`px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-2xs whitespace-nowrap ${
                 approvalCounts.butuhApproval > 0
-                  ? 'bg-[#d97706] text-white shadow-[0_2px_0_#92400e]'
-                  : 'bg-[#ECFDF5] text-[#16A36A]'
+                  ? 'bg-[#E59A27] text-white animate-pulse'
+                  : 'bg-[#16A36A]/15 text-[#16A36A]'
               }`}
             >
               {approvalCounts.butuhApproval > 0 ? 'Action Required' : 'Clear'}
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] font-medium text-[#7135B5] dark:text-[#dab9ff] truncate">
-            Antrian Verifikasi Dispatch
+          <div className="text-[10px] text-[#7135B5] dark:text-[#D8B4FE] font-medium mt-1 truncate">
+            SLO Dispatch: &lt; 15 mnt
           </div>
         </button>
 
-        {/* Card 3: Disetujui */}
+        {/* KPI 3: Disetujui */}
         <button
           type="button"
           onClick={() => {
             setSelectedApprovalStatus(prev => (prev === 'APPROVED' ? 'ALL' : 'APPROVED'));
             setCurrentPage(1);
           }}
-          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
+          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
             selectedApprovalStatus === 'APPROVED'
-              ? 'border-[#16A36A] ring-2 ring-[#16A36A]/25'
-              : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#A7F3D0]'
+              ? 'border-[#16A36A] ring-2 ring-[#16A36A]/30'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#16A36A]/50'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
+            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
               Disetujui
             </span>
-            <span className="p-1.5 rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#16A36A]">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            </span>
+            <BadgeCheck className="w-4 h-4 text-[#16A36A] shrink-0" />
           </div>
-          <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-extrabold tabular-nums text-[#16A36A]">
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold text-[#16A36A] tracking-tight tabular-nums">
               {approvalCounts.approved}
             </span>
-            <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+            <span className="font-mono text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
               {approvedPct}%
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
-            Siap Berita Acara
-          </div>
+          <div className="text-[10px] text-[#8B8495] mt-1 truncate">Siap Berita Acara</div>
         </button>
 
-        {/* Card 4: Perlu Revisi */}
+        {/* KPI 4: Perlu Revisi */}
         <button
           type="button"
           onClick={() => {
             setSelectedApprovalStatus(prev => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'));
             setCurrentPage(1);
           }}
-          className={`mj-tactile-card text-left border p-3.5 transition-all active:translate-y-[2px] cursor-pointer ${
+          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
             selectedApprovalStatus === 'REJECTED'
-              ? 'border-[#ba1a1a] ring-2 ring-[#ba1a1a]/25'
-              : 'border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#FECACA]'
+              ? 'border-[#DC4C5A] ring-2 ring-[#DC4C5A]/30'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#DC4C5A]/50'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
+            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
               Perlu Revisi
             </span>
-            <span className="p-1.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/60 text-[#ba1a1a]">
-              <AlertTriangle className="w-3.5 h-3.5" />
-            </span>
+            <AlertTriangle className="w-4 h-4 text-[#DC4C5A] shrink-0" />
           </div>
-          <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-extrabold tabular-nums text-[#ba1a1a] dark:text-rose-400">
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold text-[#DC4C5A] tracking-tight tabular-nums">
               {approvalCounts.rejected}
             </span>
-            <span className="text-[10.5px] font-semibold text-[#ba1a1a] dark:text-rose-300 truncate">
-              Revisi Teknisi
+            <span className="font-mono text-[11px] text-[#DC4C5A] font-semibold truncate">
+              Dropcore / Foto
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
-            Dropcore / Foto / OPM
-          </div>
+          <div className="text-[10px] text-[#8B8495] mt-1 truncate">Menunggu Teknisi</div>
         </button>
 
-        {/* Card 5: Di Lapangan */}
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-3.5">
+        {/* KPI 5: Di Lapangan */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedInstallerStatus(prev => (prev === 'On Site' ? 'ALL' : 'On Site'));
+            setCurrentPage(1);
+          }}
+          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
+            selectedInstallerStatus === 'On Site'
+              ? 'border-[#3977C9] ring-2 ring-[#3977C9]/30'
+              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#3977C9]/50'
+          }`}
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#dab9ff]">
+            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
               Di Lapangan
             </span>
-            <span className="p-1.5 rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 text-[#2563eb]">
-              <Wrench className="w-3.5 h-3.5" />
-            </span>
+            <Wrench className="w-4 h-4 text-[#3977C9] shrink-0" />
           </div>
-          <div className="mt-2 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-extrabold tabular-nums text-[#2563eb] dark:text-sky-400">
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="font-display text-2xl font-bold text-[#3977C9] tracking-tight tabular-nums">
               {approvalCounts.diLapangan}
             </span>
-            <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+            <span className="font-mono text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
               {fieldPct}%
             </span>
           </div>
-          <div className="mt-1 text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
-            On-site &amp; En-route
-          </div>
-        </div>
+          <div className="text-[10px] text-[#8B8495] mt-1 truncate">On-site &amp; En-route</div>
+        </button>
 
-        {/* Card 6: Fast Lane CTA */}
-        <div className="rounded-xl bg-[#342b4e] dark:bg-gradient-to-br dark:from-[#35105E] dark:via-[#431599] dark:to-[#7135B5] text-white p-3.5 shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.22)] flex flex-col justify-between">
+        {/* KPI 6: Fast Lane CTA Card */}
+        <div className="bg-gradient-to-br from-[#5B35B1] via-[#7135B5] to-[#35105E] rounded-lg p-3 shadow-md flex flex-col justify-between text-white border border-[#7135B5]/30">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#dab9ff]">
+            <span className="text-[11px] uppercase tracking-wider text-[#D8B4FE] font-bold">
               Fast Lane
             </span>
-            <Zap className="w-3.5 h-3.5 text-[#dab9ff]" />
+            <Zap className="w-4 h-4 text-[#D8B4FE] shrink-0" />
           </div>
-          {currentUser.role === 'dispatch' ? (
-            <button
-              type="button"
-              onClick={() => onNavigate('form_sameday')}
-              className="mj-tactile-btn-secondary mt-2 w-full py-1.5 px-2.5 rounded-lg text-xs text-[#58149c] cursor-pointer whitespace-nowrap"
-            >
-              + Form Sameday
-            </button>
-          ) : ['super_admin', 'management_data'].includes(currentUser.role) ? (
-            <button
-              type="button"
-              onClick={() => onNavigate('import')}
-              className="mj-tactile-btn-secondary mt-2 w-full py-1.5 px-2.5 rounded-lg text-xs text-[#58149c] cursor-pointer whitespace-nowrap"
-            >
-              + Import Data WO
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onNavigate('contact_centre')}
-              className="mj-tactile-btn-secondary mt-2 w-full py-1.5 px-2.5 rounded-lg text-xs text-[#58149c] cursor-pointer whitespace-nowrap"
-            >
-              Contact Centre
-            </button>
-          )}
-          <div className="mt-1.5 text-[10.5px] text-[#f5eeff]/85 truncate">
+          <div className="my-1.5">
+            {currentUser.role === 'dispatch' ? (
+              <button
+                type="button"
+                onClick={() => onNavigate('form_sameday')}
+                className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Zap className="w-3.5 h-3.5 text-[#7135B5]" />
+                <span className="text-[#35105E]">+ Form Sameday</span>
+              </button>
+            ) : ['super_admin', 'management_data'].includes(currentUser.role) ? (
+              <button
+                type="button"
+                onClick={() => onNavigate('import')}
+                className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#7135B5]" />
+                <span className="text-[#35105E]">+ Import Data WO</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onNavigate('contact_centre')}
+                className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-[#7135B5]" />
+                <span className="text-[#35105E]">Contact Centre</span>
+              </button>
+            )}
+          </div>
+          <div className="text-[10px] text-[#D8B4FE] font-medium truncate">
             {currentUser.role === 'dispatch'
-              ? 'Prioritas Khusus Sameday'
+              ? 'Prioritas Khusus MyRepublic'
               : ['super_admin', 'management_data'].includes(currentUser.role)
               ? 'Input Batch WO Baru'
               : 'Koordinasi Lapangan'}
@@ -999,18 +1539,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
         </div>
       </section>
 
-      {/* 2. Search, Filters & Action Utilities Toolbar */}
-      <section className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] space-y-3.5">
-        {/* Row A: Search Input + Appointment Date Chip + Sync Button */}
-        <div className={`flex flex-col gap-2.5 ${isMobileView ? '' : 'lg:flex-row lg:items-center'}`}>
-          <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 text-[#7d7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+      {/* 2. COMPREHENSIVE FILTER & OPERATIONAL TOOLBAR */}
+      <section className="bg-white dark:bg-[#1E1238] rounded-lg p-3.5 shadow-xs space-y-3 border border-[#E9E5F0] dark:border-[#35105E]">
+        {/* Search Row & Appointment Scope + Live SSE */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 justify-between">
+          <div className="relative flex-1 max-w-2xl">
+            <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
               placeholder={
                 isCrossDateSearchEligible
-                  ? 'Filter WO tabel (No. WO, ID Customer, Nama, Teknisi)...'
+                  ? 'Cari Nomor WO (e.g. WO20267399330) atau ID Customer 7-digit... (Cross-Date aktif jika diisi)'
                   : 'Cari WO Hari Ini (Nomor WO, ID Customer, Nama, Teknisi)...'
               }
               value={searchTerm}
@@ -1018,9 +1558,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="mj-tactile-well w-full pl-9 pr-20 py-2 text-xs border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/35 focus:border-[#7135B5] font-medium transition-all"
+              className="w-full pl-9 pr-24 py-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:border-[#A78BFA] focus:ring-2 focus:ring-[#A78BFA]/40 transition-all"
             />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
               {searchTerm ? (
                 <button
                   type="button"
@@ -1028,13 +1568,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                     setSearchTerm('');
                     setCurrentPage(1);
                   }}
-                  className="px-1.5 py-0.5 rounded bg-[#E9E5F0] dark:bg-[#35105E] text-[10px] font-mono font-bold text-[#494453] dark:text-[#E9D5FF] hover:bg-[#D8CCF3] cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#766B83] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] shadow-2xs cursor-pointer hover:bg-[#E9D5FF]"
                 >
                   ESC clear
                 </button>
               ) : (
                 !isMobileView && (
-                  <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-mono font-semibold text-[#8B8495]">
+                  <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[10px] font-mono font-semibold text-[#766B83] dark:text-[#D8B4FE]">
                     /
                   </kbd>
                 )
@@ -1042,32 +1582,44 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <div className="mj-tactile-well flex items-center gap-2 px-3 py-2 border border-[#d8ccf3] dark:border-[#5B35B1] text-xs">
-              <Calendar className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
-              <span className="font-semibold text-[#58149c] dark:text-[#f5eeff] whitespace-nowrap">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="btn-3d-ceramic flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[#35105E] dark:text-[#E9D5FF]">
+              <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+              <span className="text-[11px] font-bold whitespace-nowrap tabular-nums">
                 {isCrossDateActive
                   ? `Lintas Tanggal (${filteredTickets.length} WO)`
-                  : `Appointment: ${formatIndonesianWODate(todayWIB)}`}
+                  : `Appointment: todayWIB (${formattedAppointmentChip})`}
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={async () => {
-                await triggerRefresh(
-                  () => refreshActiveTickets(),
-                  'MEMPERBARUI WORK ORDER...',
-                  'Menyelaraskan data tabel tiket dan jadwal appointment'
-                );
-                toast.sync('Tabel Work Order berhasil diperbarui.');
-              }}
-              className="mj-tactile-btn-success inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs cursor-pointer whitespace-nowrap"
-              title="Refresh tabel tiket & sinkronkan data"
-            >
-              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-              <span>Sync Data</span>
-            </button>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] text-[#766B83] shadow-2xs">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  databaseStatus === 'connected'
+                    ? 'bg-[#16A36A] animate-ping'
+                    : 'bg-[#E59A27]'
+                }`}
+              />
+              <span className="text-[10px] font-bold text-[#16A36A] tracking-wide">
+                {databaseStatus === 'connected' ? 'SSE LIVE' : 'LOCAL SYNC'}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerRefresh(
+                    () => refreshActiveTickets(),
+                    'MEMPERBARUI WORK ORDER...',
+                    'Menyelaraskan data tabel tiket dan jadwal appointment'
+                  );
+                  toast.sync('Tabel Work Order berhasil diperbarui.');
+                }}
+                className="btn-3d-icon w-6 h-6 ml-1 cursor-pointer"
+                title="Refresh Data"
+                aria-label="Refresh Data"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1077,7 +1629,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
               <span>
-                <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan <strong>{filteredTickets.length}</strong> WO untuk kueri &ldquo;{searchTerm}&rdquo;.
+                <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan{' '}
+                <strong>{filteredTickets.length}</strong> WO untuk kueri &ldquo;{searchTerm}&rdquo;.
                 {crossDateSearchResults.crossDateCount > 0 && (
                   <span className="ml-1 opacity-85">
                     ({crossDateSearchResults.crossDateCount} WO di luar tanggal hari ini)
@@ -1091,7 +1644,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSearchTerm('');
                 setCurrentPage(1);
               }}
-              className="px-2.5 py-1 bg-white dark:bg-[#160D29] hover:bg-[#F7F6FA] text-[#431599] dark:text-[#E9D5FF] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-lg text-xs font-bold flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer whitespace-nowrap"
+              className="btn-3d-ceramic px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer whitespace-nowrap"
             >
               <X className="w-3.5 h-3.5" />
               <span>Reset ke Hari Ini</span>
@@ -1099,10 +1652,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
         )}
 
-        {/* Row B: 6-Column Filter Matrix */}
-        <div className={`grid gap-2.5 text-xs ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
+        {/* 6-Column Filter Matrix (Area Servis, Mitra Kontraktor, Status WO Agent, Status Lapangan, WA Handshake, Approval Dispatch) */}
+        <div
+          className={`grid gap-2 text-xs ${
+            isMobileView
+              ? 'grid-cols-1 sm:grid-cols-2'
+              : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
+          }`}
+        >
           <div>
-            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
               Area Servis
             </label>
             <select
@@ -1111,58 +1670,40 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSelectedArea(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
+              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
             >
-              <option value="ALL">Semua Area ({areas.length})</option>
-              {areas.map(a => (
-                <option key={a} value={a}>{a}</option>
+              <option value="ALL">Semua Area ({areaOptions.length})</option>
+              {areaOptions.map(a => (
+                <option key={a.name} value={a.name}>
+                  {a.name} ({a.count})
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
-              Kategori Tiket
+            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              Mitra Kontraktor
             </label>
             <select
-              value={selectedCategory}
+              value={selectedContractor}
               onChange={e => {
-                setSelectedCategory(e.target.value);
+                setSelectedContractor(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
+              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
             >
-              <option value="ALL">Semua Kategori ({ticketCategories.length})</option>
-              {ticketCategories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+              <option value="ALL">Semua Kontraktor ({contractorOptions.length})</option>
+              {contractorOptions.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
-              Status Installer
-            </label>
-            <select
-              value={selectedInstallerStatus}
-              onChange={e => {
-                setSelectedInstallerStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
-            >
-              <option value="ALL">statusWOInstaller (All)</option>
-              <option value="Unassigned">Unassigned</option>
-              <option value="Assigned">Assigned</option>
-              <option value="En Route">En Route</option>
-              <option value="On Site">On Site</option>
-              <option value="Installed">Installed</option>
-              <option value="Completed">Completed</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
               Status WO Agent
             </label>
             <select
@@ -1171,7 +1712,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSelectedAgentStatus(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
+              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
             >
               <option value="ALL">statusWOAgent (All)</option>
               <option value="Pending">Pending</option>
@@ -1179,11 +1720,37 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               <option value="In Progress">In Progress</option>
               <option value="Resolved">Resolved</option>
               <option value="Closed">Closed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-[10.5px] font-semibold text-[#766B83] dark:text-[#A78BFA] mb-1">
+            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              Status Lapangan (Tech)
+            </label>
+            <select
+              value={selectedInstallerStatus}
+              onChange={e => {
+                setSelectedInstallerStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+            >
+              <option value="ALL">statusWOInstaller (All)</option>
+              <option value="Unassigned">Unassigned</option>
+              <option value="Assigned">Assigned</option>
+              <option value="En Route">En Route</option>
+              <option value="On Site">On Site</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Pending Technical">Pending Technical</option>
+              <option value="Completed">Completed</option>
+              <option value="Installed">Installed</option>
+              <option value="Failed / Cancelled">Failed / Cancelled</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
               WhatsApp Handshake
             </label>
             <select
@@ -1192,15 +1759,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSelectedWhatsAppStatus(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-medium focus:outline-none focus:border-[#7135B5]"
+              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
             >
               <option value="ALL">statusWhatsApp (All)</option>
               <option value="not_prepared">Not Prepared</option>
-              <option value="ready">Ready to Contact</option>
-              <option value="opened_in_whatsapp">Opened in WA</option>
+              <option value="ready">Ready</option>
+              <option value="opened_in_whatsapp">Opened in WhatsApp</option>
               <option value="awaiting_confirmation">Awaiting Confirmation</option>
-              <option value="confirmed">Customer Confirmed</option>
-              <option value="reschedule_requested">Reschedule Needed</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="reschedule_requested">Reschedule Requested</option>
               <option value="unreachable">Unreachable</option>
               <option value="invalid_number">Invalid Phone</option>
               <option value="cancelled">Cancelled</option>
@@ -1208,7 +1775,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           </div>
 
           <div>
-            <label className="block text-[10.5px] font-semibold text-[#431599] dark:text-[#D8B4FE] mb-1">
+            <label className="block text-[10px] font-semibold text-[#35105E] dark:text-[#D8B4FE] mb-0.5">
               Approval Dispatch
             </label>
             <select
@@ -1217,52 +1784,54 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setSelectedApprovalStatus(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs bg-[#F5F1FF] dark:bg-[#35105E]/50 border border-[#D8CCF3] dark:border-[#5B35B1] rounded-lg text-[#431599] dark:text-[#F5F1FF] font-semibold focus:outline-none focus:border-[#7135B5]"
+              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#35105E]/50 rounded text-xs text-[#35105E] dark:text-[#F5F1FF] font-semibold border border-[#D8CCF3] dark:border-[#5B35B1] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
             >
               <option value="ALL">approvalStatus (All)</option>
-              <option value="BUTUH APPROVAL">Butuh Approval ({approvalCounts.butuhApproval})</option>
-              <option value="APPROVED">Approved ({approvalCounts.approved})</option>
-              <option value="REJECTED">Perlu Revisi ({approvalCounts.rejected})</option>
-              <option value="CLOSED">Closed ({approvalCounts.closed})</option>
+              <option value="BUTUH APPROVAL">BUTUH APPROVAL ({approvalCounts.butuhApproval})</option>
+              <option value="APPROVED">APPROVED ({approvalCounts.approved})</option>
+              <option value="REJECTED">REJECTED / REVISI ({approvalCounts.rejected})</option>
+              <option value="CLOSED">CLOSED ({approvalCounts.closed})</option>
             </select>
           </div>
         </div>
 
-        {/* Row C: Action Utilities Bar */}
-        <div className="mj-tactile-well flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 border border-[#e8ddff] dark:border-[#35105E] text-xs">
-          {/* Left Selection & Contextual Bulk Controls */}
+        {/* Action Utilities Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 bg-[#F7F6FA] dark:bg-[#160D29]/80 p-2.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+          {/* Left: PILIH SEMUA + Contextual Bulk Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={handleSelectAll}
-              className="inline-flex items-center gap-2 px-2 py-1 rounded-md font-bold text-[#494453] dark:text-[#CEC0E8] hover:text-[#431599] dark:hover:text-white cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] dark:hover:text-white cursor-pointer select-none whitespace-nowrap"
             >
               {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
-                <CheckSquare className="w-4 h-4 text-[#431599] dark:text-[#A78BFA]" />
+                <CheckSquare className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
               ) : (
                 <Square className="w-4 h-4 text-[#8B8495]" />
               )}
-              <span className="text-[11px] uppercase tracking-wider">Pilih Semua</span>
+              <span className="uppercase tracking-wide">Pilih Semua</span>
             </button>
 
-            <div className="hidden sm:flex items-center gap-1.5 pl-2 border-l border-[#E9E5F0] dark:border-[#35105E]">
-              <span className="text-[11px] text-[#766B83] dark:text-[#A78BFA] font-semibold">Preset:</span>
-              <select
-                value={config.ticketsTable.activePresetId || ''}
-                onChange={e => applyPreset(e.target.value)}
-                className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-md text-[#211A2E] dark:text-[#F5F1FF] font-medium cursor-pointer"
+            {canApproveInline && (selectedButuhApprovalTickets.length > 0 || approvalCounts.butuhApproval > 0) && (
+              <button
+                type="button"
+                onClick={handleTriggerBulkApprove}
+                className="btn-3d-success px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
               >
-                {config.ticketsTable.presets.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>
+                  Bulk Approve (
+                  {selectedButuhApprovalTickets.length > 0
+                    ? selectedButuhApprovalTickets.length
+                    : approvalCounts.butuhApproval}
+                  )
+                </span>
+              </button>
+            )}
 
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#E9E5F0] dark:border-[#35105E]">
-                <span className="px-2 py-0.5 rounded-md bg-[#F0E3FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] font-bold tabular-nums">
+                <span className="px-2 py-0.5 rounded-md bg-[#F0E3FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] text-[11px] font-bold tabular-nums">
                   {selectedIds.size} dipilih
                 </span>
 
@@ -1275,21 +1844,24 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                     >
                       <option value="">Pilih Teknisi...</option>
                       {installersList.map(inst => (
-                        <option key={inst} value={inst}>{inst}</option>
+                        <option key={inst} value={inst}>
+                          {inst}
+                        </option>
                       ))}
                     </select>
                     <button
                       type="button"
                       onClick={handleApplyBulkAssign}
-                      className="mj-tactile-btn-primary px-3 py-1.5 rounded-md text-xs cursor-pointer whitespace-nowrap"
+                      className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap flex items-center gap-1"
                     >
-                      Assign Teknisi
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Assign Teknisi</span>
                     </button>
                   </>
                 ) : currentUser.role !== 'super_admin' && currentUser.role !== 'management_data' ? (
                   <span className="inline-flex items-center gap-1 text-[11px] text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded-md">
                     <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                    <span>Assignment khusus Leader</span>
+                    <span>Assign/Reassign khusus Leader</span>
                   </span>
                 ) : null}
 
@@ -1297,7 +1869,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                   <button
                     type="button"
                     onClick={() => setShowBulkDeleteModal(true)}
-                    className="mj-tactile-btn-danger px-2.5 py-1.5 rounded-md text-xs cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                    className="btn-3d-danger px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Hapus ({selectedIds.size})</span>
@@ -1306,12 +1878,35 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
 
                 <button
                   type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="px-2 py-1 text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] hover:bg-[#E9E5F0] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
+                  onClick={() => {
+                    setSelectedIds(new Set());
+                    setShowBulkApproveConfirm(false);
+                  }}
+                  className="px-2 py-1 text-[11px] font-semibold text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] hover:bg-[#E9E5F0] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
                 >
                   Clear
                 </button>
               </div>
+            )}
+
+            {/* Category Quick Filter & Reset Filter */}
+            {ticketCategories.length > 0 && (
+              <select
+                value={selectedCategory}
+                onChange={e => {
+                  setSelectedCategory(e.target.value);
+                  setCurrentPage(1);
+                }}
+                aria-label="Filter Kategori Tiket"
+                className="hidden sm:block py-1 px-2 bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#35105E] rounded-lg text-[11px] font-semibold text-[#494453] dark:text-[#CEC0E8]"
+              >
+                <option value="ALL">Kategori (All)</option>
+                {ticketCategories.map(cat => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             )}
 
             {hasActiveFilters && (
@@ -1326,17 +1921,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
             )}
           </div>
 
-          {/* Right View, Columns & Export Controls */}
+          {/* Right: Table/Cards Toggle, 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
           <div className="flex items-center gap-2 flex-wrap ml-auto">
-            {/* Table vs Cards Toggle */}
-            <div className="mj-tactile-tab-bar flex items-center p-0.5 border border-[#e8ddff] dark:border-[#35105E]">
+            {/* Layout Toggle */}
+            <div className="flex items-center bg-[#F4EAFF] dark:bg-[#22123F] rounded-lg p-0.5 border border-[#D8CCF3] dark:border-[#35105E] gap-1">
               <button
                 type="button"
                 onClick={() => setLayoutMode('table')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-all ${
                   effectiveLayout === 'table'
-                    ? 'mj-tactile-btn-primary'
-                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'btn-3d-primary'
+                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5" />
@@ -1345,10 +1940,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               <button
                 type="button"
                 onClick={() => setLayoutMode('cards')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-all ${
                   effectiveLayout === 'cards'
-                    ? 'mj-tactile-btn-primary'
-                    : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'btn-3d-primary'
+                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
@@ -1363,13 +1958,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
                 setShowArchived(!showArchived);
                 setCurrentPage(1);
               }}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap ${
                 showArchived
                   ? 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]/50'
-                  : 'bg-white dark:bg-[#1E1238] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:bg-[#F5F1FF]'
+                  : 'btn-3d-ceramic'
               }`}
+              title="Tampilkan Work Order Arsip"
             >
-              <Archive className="w-3.5 h-3.5" />
+              <Archive className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
               <span>{showArchived ? 'Archived' : 'Archive'}</span>
             </button>
 
@@ -1378,13 +1974,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               <button
                 type="button"
                 onClick={() => onNavigate('contact_centre')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   totalUnreadAcrossTickets > 0
-                    ? 'bg-[#FEF2F2] dark:bg-rose-950/40 text-[#DC4C5A] dark:text-rose-300 border-[#FECACA] dark:border-rose-900'
-                    : 'bg-white dark:bg-[#1E1238] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:bg-[#F5F1FF]'
+                    ? 'bg-[#FEF2F2] dark:bg-rose-950/40 text-[#DC4C5A] dark:text-rose-300 border border-[#FECACA] dark:border-rose-900'
+                    : 'btn-3d-ceramic'
                 }`}
               >
-                <MessageCircle className="w-3.5 h-3.5" />
+                <MessageCircle className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
                 <span>Chat</span>
                 {totalUnreadAcrossTickets > 0 && (
                   <span className="px-1.5 py-0.2 bg-[#DC4C5A] text-white text-[10px] rounded-full font-bold tabular-nums">
@@ -1394,91 +1990,200 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               </button>
             )}
 
-            {/* Columns Popover */}
+            {/* 46 Kolom Kanonik + Presets Selector Popover */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowColManager(!showColManager)}
-                className="mj-tactile-btn-secondary px-2.5 py-1.5 text-xs text-[#58149c] dark:text-[#f5eeff] rounded-lg border border-[#cec3d4] dark:border-[#4b386b] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                title={omittedEmptyCount > 0 ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini` : undefined}
+                className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                title={
+                  omittedEmptyCount > 0
+                    ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini`
+                    : 'Atur tampilan & 46 Kolom Kanonik'
+                }
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span className="tabular-nums">
-                  Columns ({activeColumns.length}
-                  {omittedEmptyCount > 0 ? `/${rawVisibleColumns.length}` : ''})
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <span>
+                  46 Kolom Kanonik
+                  {tableStyleMode === 'canonical' ? ` (${activeColumns.length})` : ''}
                 </span>
-                <ChevronDown className="w-3 h-3 opacity-70" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#8B8495]" />
               </button>
 
               {showColManager && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowColManager(false)} />
-                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] rounded-xl shadow-xl border border-[#E9E5F0] dark:border-[#35105E] p-3 z-50 text-xs">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E9E5F0] dark:border-[#35105E]">
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] rounded-xl shadow-xl border border-[#D8CCF3] dark:border-[#35105E] p-3.5 z-50 text-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#E9E5F0] dark:border-[#35105E]">
                       <div>
-                        <span className="font-bold text-[#211A2E] dark:text-white">Visibilitas 46 Kolom</span>
-                        {omittedEmptyCount > 0 && (
+                        <span className="font-bold text-[#211A2E] dark:text-white">
+                          Mode Tabel &amp; 46 Kolom Kanonik
+                        </span>
+                        {omittedEmptyCount > 0 && tableStyleMode === 'canonical' && (
                           <span className="block text-[10px] text-[#7135B5] dark:text-[#D8B4FE]">
-                            Smart Omit: {omittedEmptyCount} kolom kosong disembunyikan otomatis
+                            Smart Omit: {omittedEmptyCount} kolom kosong disembunyikan
                           </span>
                         )}
                       </div>
                       <button
                         type="button"
                         onClick={() => setShowColManager(false)}
-                        className="text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white text-xs cursor-pointer"
+                        className="text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white text-xs font-semibold cursor-pointer"
                       >
                         Tutup
                       </button>
                     </div>
-                    <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
-                      {[...config.ticketsTable.columns]
-                        .filter(col => col.key !== 'actions')
-                        .sort((a, b) => a.order - b.order)
-                        .map(col => (
-                          <label
-                            key={col.key}
-                            className={`flex items-center justify-between gap-2 p-1.5 rounded-lg ${
-                              col.mandatory
-                                ? 'bg-[#F5F1FF]/70 dark:bg-[#251545]/70 cursor-not-allowed'
-                                : 'hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 cursor-pointer'
-                            }`}
-                          >
-                            <div className="min-w-0 flex items-center gap-1.5">
-                              {col.mandatory && (
-                                <Lock className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
-                              )}
-                              <span className="text-[#211A2E] dark:text-[#F5F1FF] truncate">{col.label}</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              disabled={col.mandatory}
-                              checked={col.mandatory ? true : col.visible}
-                              onChange={e => !col.mandatory && setColumnVisibility(col.key, e.target.checked)}
-                              className="rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5] disabled:opacity-60"
-                            />
-                          </label>
+
+                    {/* Table Presentation Switcher */}
+                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-[#F4EAFF] dark:bg-[#160D29]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTableStyleMode('stitch');
+                          applyPreset('preset_default');
+                        }}
+                        className={`py-1.5 px-2 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                          tableStyleMode === 'stitch'
+                            ? 'btn-3d-primary'
+                            : 'text-[#63597B] dark:text-[#CEC0E8]'
+                        }`}
+                      >
+                        Ringkas (9 Kolom)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTableStyleMode('canonical')}
+                        className={`py-1.5 px-2 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                          tableStyleMode === 'canonical'
+                            ? 'btn-3d-primary'
+                            : 'text-[#63597B] dark:text-[#CEC0E8]'
+                        }`}
+                      >
+                        Kanonik ({activeColumns.length} Kolom)
+                      </button>
+                    </div>
+
+                    {/* Quick Preset Selector */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-[#766B83] dark:text-[#A78BFA] uppercase mb-1">
+                        Preset Kolom
+                      </label>
+                      <select
+                        value={config.ticketsTable.activePresetId || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          applyPreset(val);
+                          setTableStyleMode(val === 'preset_default' ? 'stitch' : 'canonical');
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-semibold cursor-pointer"
+                      >
+                        {config.ticketsTable.presets.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
                         ))}
+                      </select>
+                    </div>
+
+                    {/* Grouped 46 Canonical Columns Checklist */}
+                    <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1">
+                      {CANONICAL_COLUMN_GROUPS.map(group => {
+                        const groupCols = [...config.ticketsTable.columns]
+                          .filter(c => c.categoryGroup === group.id && c.key !== 'actions' && c.key !== 'selection')
+                          .sort((a, b) => a.order - b.order);
+                        if (groupCols.length === 0) return null;
+                        return (
+                          <div key={group.id} className="space-y-1">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7135B5] dark:text-[#D8B4FE] px-1">
+                              {group.title}
+                            </div>
+                            {groupCols.map(col => (
+                              <label
+                                key={col.key}
+                                className={`flex items-center justify-between gap-2 p-1.5 rounded-lg ${
+                                  col.mandatory
+                                    ? 'bg-[#F5F1FF]/70 dark:bg-[#251545]/70 cursor-not-allowed'
+                                    : 'hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 cursor-pointer'
+                                }`}
+                              >
+                                <div className="min-w-0 flex items-center gap-1.5">
+                                  {col.mandatory && (
+                                    <Lock className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
+                                  )}
+                                  <span className="text-[#211A2E] dark:text-[#F5F1FF] truncate">
+                                    {col.label}
+                                  </span>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  disabled={col.mandatory}
+                                  checked={col.mandatory ? true : col.visible}
+                                  onChange={e => {
+                                    if (!col.mandatory) {
+                                      setTableStyleMode('canonical');
+                                      setColumnVisibility(col.key, e.target.checked);
+                                    }
+                                  }}
+                                  className="rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5] disabled:opacity-60"
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Export CSV */}
+            {/* Export XLSX */}
             <button
               type="button"
-              onClick={handleExportCSV}
-              className="mj-tactile-btn-success px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              onClick={handleExportXLSX}
+              className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
+              <span>Export XLSX</span>
             </button>
           </div>
         </div>
+
+        {/* Inline Bulk Approval Confirmation Banner */}
+        {showBulkApproveConfirm && canApproveInline && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/40 border border-[#86EFAC] dark:border-emerald-800 text-xs">
+            <div className="flex items-center gap-2 text-[#15803D] dark:text-emerald-200 font-semibold">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>
+                Konfirmasi Bulk Approve: <strong>{selectedButuhApprovalTickets.length}</strong> Work Order
+                berstatus <strong>BUTUH APPROVAL</strong> akan disetujui dan otomatis ditutup (CLOSED).
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isBulkApproving}
+                onClick={handleConfirmBulkApprove}
+                className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
+              >
+                {isBulkApproving
+                  ? 'Memproses Approval...'
+                  : `Ya, Approve (${selectedButuhApprovalTickets.length})`}
+              </button>
+              <button
+                type="button"
+                disabled={isBulkApproving}
+                onClick={() => setShowBulkApproveConfirm(false)}
+                className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
-      {/* 3. Main Dynamic Table or Mobile Cards */}
+      {/* 3. DYNAMIC WORK ORDER TABLE OR MOBILE CARDS */}
       {effectiveLayout === 'cards' ? (
         <div className="space-y-3">
           {paginatedTickets.length === 0 ? (
@@ -1486,7 +2191,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
               Tidak ada tiket Work Order yang cocok dengan filter pencarian.
             </div>
           ) : (
-            <div className={`grid gap-3 ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+            <div
+              className={`grid gap-3 ${
+                isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+              }`}
+            >
               {paginatedTickets.map(ticket => (
                 <TicketMobileCard
                   key={ticket.id}
@@ -1501,981 +2210,1337 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({ onSelectTicket, onOp
           )}
         </div>
       ) : (
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-          <div className="overflow-x-auto min-h-[280px]">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="bg-[#f3eaff] dark:bg-[#251545] border-b border-[#d8ccf3] dark:border-[#35105E] text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] uppercase tracking-wider">
-                  <th
-                    className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#F4EAFF] dark:bg-[#251545] border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
-                      stickyColumnsEnabled ? 'sticky left-0 z-20' : ''
-                    } ${
-                      stickyColumnsEnabled && freezeColumnCount === 1
-                        ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]'
-                        : ''
-                    }`}
-                  >
-                    <button type="button" onClick={handleSelectAll} className="text-[#431599] dark:text-[#D8B4FE] cursor-pointer">
-                      {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
-                        <CheckSquare className="w-4 h-4" />
-                      ) : (
-                        <Square className="w-4 h-4 opacity-60" />
-                      )}
-                    </button>
-                  </th>
-
-                  {activeColumns.map(col => {
-                    const isSorted = sortField === col.key;
-                    const stickyInfo = stickyLeftMap[col.key];
-                    const widthPx = col.width || 130;
-
-                    return (
-                      <th
-                        key={col.key}
-                        style={{
-                          width: `${widthPx}px`,
-                          minWidth: `${widthPx}px`,
-                          ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
-                        }}
-                        className={`py-3 px-3.5 whitespace-nowrap ${
-                          col.sortable ? 'cursor-pointer hover:bg-[#E9D5FF]/50 dark:hover:bg-[#35105E]' : ''
-                        } ${
-                          stickyInfo
-                            ? `sticky bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
-                                stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.12)]' : ''
-                              }`
-                            : ''
-                        }`}
-                        onClick={() => col.sortable && handleSort(col.key)}
+        <section className="bg-white dark:bg-[#1E1238] rounded-lg shadow-xs overflow-hidden border border-[#E9E5F0] dark:border-[#35105E]">
+          <div className="overflow-x-auto min-h-[280px] relative">
+            {tableStyleMode === 'stitch' ? (
+              /* STITCH AI RICH COMPOSITE 9-COLUMN TABLE */
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F4EAFF] dark:bg-[#251545] text-[11px] font-bold text-[#766B83] dark:text-[#D8B4FE] uppercase tracking-wide select-none border-b border-[#E9E5F0] dark:border-[#35105E]">
+                    <th className="py-2.5 px-3 w-10 text-center">
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        className="text-[#7135B5] dark:text-[#D8B4FE] cursor-pointer"
+                        aria-label="Pilih semua baris pada halaman ini"
                       >
-                        <div className="flex items-center gap-1.5">
-                          <span>{col.label}</span>
-                          {col.sortable && (
-                            isSorted && sortDirection === 'asc' ? (
-                              <ArrowUp className="w-3.5 h-3.5 shrink-0" />
-                            ) : isSorted && sortDirection === 'desc' ? (
-                              <ArrowDown className="w-3.5 h-3.5 shrink-0" />
-                            ) : (
-                              <ArrowUpDown className="w-3 h-3 opacity-50 shrink-0" />
-                            )
-                          )}
-                        </div>
-                      </th>
-                    );
-                  })}
-
-                  {/* Always-pinned Right Actions Header */}
-                  <th
-                    className={`py-3 px-3.5 whitespace-nowrap text-center bg-[#F4EAFF] dark:bg-[#251545] ${
-                      stickyColumnsEnabled
-                        ? 'sticky right-0 z-20 border-l border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                        : 'border-l border-[#D8CCF3]/60 dark:border-[#35105E]'
-                    }`}
-                  >
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
-                {paginatedTickets.length === 0 ? (
-                  <tr>
-                    <td colSpan={activeColumns.length + 2} className="py-12 text-center text-[#8B8495] text-xs">
-                      Tidak ada tiket Work Order yang cocok dengan filter.
-                    </td>
+                        {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4 opacity-65" />
+                        )}
+                      </button>
+                    </th>
+                    <th
+                      onClick={() => handleSort('woNumber')}
+                      className="py-2.5 px-3 cursor-pointer hover:text-[#211A2E] dark:hover:text-white whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>WO Number</span>
+                        {sortField === 'woNumber' && sortDirection === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#7135B5]" />
+                        ) : sortField === 'woNumber' && sortDirection === 'desc' ? (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#7135B5]" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort('idCustomer')}
+                      className="py-2.5 px-3 cursor-pointer hover:text-[#211A2E] dark:hover:text-white whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>ID Cust</span>
+                        {sortField === 'idCustomer' && sortDirection === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-[#7135B5]" />
+                        ) : sortField === 'idCustomer' && sortDirection === 'desc' ? (
+                          <ArrowDown className="w-3.5 h-3.5 text-[#7135B5]" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="py-2.5 px-3 min-w-[205px]">Pelanggan &amp; Kontak</th>
+                    <th className="py-2.5 px-3 min-w-[160px]">Area / Cluster</th>
+                    <th
+                      onClick={() => handleSort('slotTime')}
+                      className="py-2.5 px-3 cursor-pointer hover:text-[#211A2E] dark:hover:text-white whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Slot Waktu</span>
+                        {sortField === 'slotTime' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-[#7135B5]" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-[#7135B5]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="py-2.5 px-3 min-w-[175px]">Kontraktor &amp; Tim</th>
+                    <th className="py-2.5 px-3 min-w-[225px]">4 Dimensi Status</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-[#F4EAFF] dark:bg-[#251545] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.04)]">
+                      Aksi Operasional
+                    </th>
                   </tr>
-                ) : (
-                  paginatedTickets.map(ticket => {
-                    const isSelected = selectedIds.has(ticket.id);
-                    const isExpanded = expandedDrawerTicketId === ticket.id;
-                    const stickyCellBg = isExpanded
-                      ? 'bg-[#F5F1FF] dark:bg-[#251247]'
-                      : isSelected
-                      ? 'bg-[#F5F1FF] dark:bg-[#2E1459]'
-                      : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F7F6FA] dark:group-hover:bg-[#251545]';
+                </thead>
+                <tbody className="text-xs divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                  {paginatedTickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={stitchColSpan} className="py-12 text-center text-[#8B8495] text-xs">
+                        Tidak ada tiket Work Order yang cocok dengan filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedTickets.map(ticket => {
+                      const isSelected = selectedIds.has(ticket.id);
+                      const isExpanded = expandedDrawerTicketId === ticket.id;
+                      const isRejectedRow =
+                        ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI';
+                      const isUrgentRow = ticket.approvalStatus === 'BUTUH APPROVAL';
+                      const hasInlineEvidence =
+                        isUrgentRow ||
+                        isRejectedRow ||
+                        Boolean(ticket.technicalReport) ||
+                        Boolean(ticket.progressReports && ticket.progressReports.length > 0);
+                      const unread = getTicketUnreadCount(ticket.id);
+                      const phoneStr = ticket.customerPhone || (ticket as any).phoneNumber || '';
+                      const addressStr =
+                        ticket.streetName ||
+                        (ticket as any).customerAddress ||
+                        (ticket as any).address ||
+                        '';
+                      const contractorStr = ticket.contactorName || ticket.contractorName || '-';
+                      const fatLabel = ticket.fatCode || ticket.fat;
+                      const packageOrCat = ticket.plan || ticket.ticketCategory || '';
+                      const isSameday =
+                        (ticket.ticketCategory || '').toLowerCase().includes('sameday') ||
+                        (ticket.appointmentType || '').toLowerCase().includes('sameday');
 
-                    const hasInlineEvidence =
-                      ticket.approvalStatus === 'BUTUH APPROVAL' ||
-                      Boolean(ticket.technicalReport) ||
-                      Boolean(ticket.progressReports && ticket.progressReports.length > 0);
+                      const stickyBg = isExpanded
+                        ? 'bg-[#F5F1FF] dark:bg-[#251247]'
+                        : isRejectedRow
+                        ? 'bg-[#FEF2F2] dark:bg-rose-950/25'
+                        : isUrgentRow
+                        ? 'bg-[#F9F4FF] dark:bg-[#2A174E]'
+                        : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F7F6FA] dark:group-hover:bg-[#251545]';
 
-                    // Real photos deduplicated for drawer
-                    const drawerPhotos = Array.from(
-                      new Set(
-                        [
-                          ...(ticket.technicalReport?.photos || []),
-                          ticket.technicalReport?.photoBeforeUrl,
-                          ticket.technicalReport?.photoAfterUrl
-                        ].filter((u): u is string => Boolean(u && typeof u === 'string' && u.trim()))
-                      )
-                    );
-
-                    const latestReport = ticket.progressReports?.[0];
-                    const unread = getTicketUnreadCount(ticket.id);
-
-                    return (
-                      <Fragment key={ticket.id}>
-                        <tr
-                          className={`group transition-colors ${
-                            isExpanded
-                              ? 'bg-[#F5F1FF]/70 dark:bg-[#251247]/70'
-                              : isSelected
-                              ? 'bg-[#F5F1FF]/50 dark:bg-[#2E1459]/40'
-                              : 'hover:bg-[#F7F6FA] dark:hover:bg-[#251545]/60'
-                          }`}
-                        >
-                          {/* Row Checkbox */}
-                          <td
-                            className={`py-2.5 px-3 w-11 min-w-[44px] max-w-[44px] text-center ${stickyCellBg} border-r border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
-                              stickyColumnsEnabled ? 'sticky left-0 z-10' : ''
-                            } ${
-                              stickyColumnsEnabled && freezeColumnCount === 1
-                                ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                                : ''
+                      return (
+                        <Fragment key={ticket.id}>
+                          <tr
+                            className={`group transition-colors ${
+                              isExpanded
+                                ? 'bg-[#F0E3FF]/50 dark:bg-[#251247]/80'
+                                : isRejectedRow
+                                ? 'bg-[#ffdad6]/20 dark:bg-rose-950/20 hover:bg-[#ffdad6]/30'
+                                : isUrgentRow
+                                ? 'bg-[#F0E3FF]/35 dark:bg-[#2A174E]/60 hover:bg-[#F5F1FF] dark:hover:bg-[#2A174E]'
+                                : 'hover:bg-[#F7F6FA] dark:hover:bg-[#251545]/60'
                             }`}
                           >
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleToggleSelect(ticket.id);
-                              }}
-                              className="text-[#8B8495] hover:text-[#431599] cursor-pointer"
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-[#431599] dark:text-[#A78BFA]" />
-                              ) : (
-                                <Square className="w-4 h-4" />
-                              )}
-                            </button>
-                          </td>
+                            {/* 1. Checkbox */}
+                            <td className="py-3 px-3 text-center align-top">
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleToggleSelect(ticket.id);
+                                }}
+                                className="text-[#8B8495] hover:text-[#431599] cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
 
-                          {/* Render 46 Canonical Columns by Key */}
-                          {activeColumns.map(col => {
-                            const rawVal = getTicketColumnValue(ticket, col.key);
-                            const stickyInfo = stickyLeftMap[col.key];
-                            const widthPx = col.width || 130;
-                            const stickyStyle = {
-                              width: `${widthPx}px`,
-                              minWidth: `${widthPx}px`,
-                              ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
-                            };
-                            const stickyClasses = stickyInfo
-                              ? `sticky ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] ${
-                                  stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.10)]' : ''
-                                } transition-colors`
-                              : '';
-
-                            if (col.key === 'woNumber') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        onSelectTicket(ticket);
-                                      }}
-                                      className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline tabular-nums cursor-pointer text-left"
-                                      title={showHoverTooltips ? ticket.woNumber : undefined}
-                                    >
-                                      {ticket.woNumber}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={e => handleCopyWoNumber(e, ticket)}
-                                      className="p-1 rounded text-[#8B8495] hover:text-[#431599] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
-                                      title="Salin Nomor WO"
-                                    >
-                                      {copiedWoId === ticket.id ? (
-                                        <Check className="w-3 h-3 text-[#16A36A]" />
-                                      ) : (
-                                        <Copy className="w-3 h-3" />
-                                      )}
-                                    </button>
-                                  </div>
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'idCustomer') {
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  title={showHoverTooltips ? String(ticket.idCustomer || '') : undefined}
-                                  className={`${densityClass} ${stickyClasses} font-mono font-semibold text-[#211A2E] dark:text-white tabular-nums`}
+                            {/* 2. WO Number + Copy + Category */}
+                            <td className="py-3 px-3 align-top whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (hasInlineEvidence && isUrgentRow) {
+                                      toggleInlineDrawer(ticket);
+                                    } else {
+                                      onSelectTicket(ticket);
+                                    }
+                                  }}
+                                  className="font-mono text-xs font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline cursor-pointer tabular-nums"
                                 >
-                                  {ticket.idCustomer || '-'}
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'customerName') {
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  title={showHoverTooltips ? ticket.customerName : undefined}
-                                  className={`${densityClass} ${stickyClasses} font-semibold text-[#211A2E] dark:text-white truncate max-w-[220px]`}
+                                  {ticket.woNumber}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => handleCopyWoNumber(e, ticket)}
+                                  className="btn-3d-icon w-6 h-6 p-0 text-[#8B8495] hover:text-[#7135B5] cursor-pointer"
+                                  title="Copy WO Number"
                                 >
-                                  {ticket.customerName || '-'}
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'customerPhone' || col.key === 'installerContact') {
-                              const phoneStr = rawVal ? String(rawVal) : '';
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  title={showHoverTooltips && phoneStr ? phoneStr : undefined}
-                                  className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}
-                                >
-                                  {col.key === 'customerPhone' && phoneStr ? (
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        onOpenWhatsApp(ticket);
-                                      }}
-                                      className="inline-flex items-center gap-1.5 text-[#16A36A] hover:underline font-semibold cursor-pointer"
-                                      title="Kirim pesan WhatsApp ke pelanggan"
-                                    >
-                                      <MessageSquare className="w-3 h-3 shrink-0" />
-                                      <span>{phoneStr}</span>
-                                    </button>
+                                  {copiedWoId === ticket.id ? (
+                                    <Check className="w-3 h-3 text-[#16A36A]" />
                                   ) : (
-                                    phoneStr || '-'
+                                    <Copy className="w-3 h-3" />
                                   )}
-                                </td>
-                              );
-                            }
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                {isSameday ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-[#35105E] text-white text-[9.5px] font-bold shadow-2xs">
+                                    SAMEDAY
+                                  </span>
+                                ) : ticket.ticketCategory ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-[#7135B5]/15 dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[9.5px] font-bold">
+                                    {ticket.ticketCategory}
+                                  </span>
+                                ) : null}
+                                {packageOrCat && packageOrCat !== ticket.ticketCategory && (
+                                  <span className="text-[10px] text-[#8B8495] truncate max-w-[110px]">
+                                    {packageOrCat}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
 
-                            if (col.key === 'statusWOAgent') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  <StatusAgentBadge status={ticket.statusWOAgent} />
-                                </td>
-                              );
-                            }
+                            {/* 3. ID Cust */}
+                            <td className="py-3 px-3 align-top whitespace-nowrap font-mono text-xs font-bold text-[#211A2E] dark:text-white tabular-nums">
+                              {ticket.idCustomer || '-'}
+                            </td>
 
-                            if (col.key === 'statusWOInstaller') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  <StatusInstallerBadge status={ticket.statusWOInstaller} />
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'approvalStatus') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  <StatusApprovalBadge status={ticket.approvalStatus} />
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'statusWhatsApp') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'appointmentDate') {
-                              const formattedDate = formatDateTimeDisplay(rawVal, true);
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
-                                  className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
-                                >
-                                  {formattedDate || '-'}
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'workStartedAt' || col.key === 'checkOutAt' || col.key === 'createdAt' || col.key === 'updatedAt' || col.key === 'checkInAt') {
-                              const formattedTs = formatDateTimeDisplay(rawVal, false);
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
-                                  className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
-                                >
-                                  {formattedTs || '-'}
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'workDurationMinutes') {
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
-                                >
-                                  {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
-                                    ? `${rawVal} mnt`
-                                    : '-'}
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'customerAddress' || col.key === 'streetName' || col.key === 'address') {
-                              const addrStr = String(rawVal || '');
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  className={`${densityClass} ${stickyClasses} text-[#494453] dark:text-[#CEC0E8] max-w-xs`}
-                                >
+                            {/* 4. Pelanggan & Kontak */}
+                            <td className="py-3 px-3 align-top">
+                              <div className="font-bold text-[#211A2E] dark:text-white truncate max-w-[210px]">
+                                {ticket.customerName || '-'}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="font-mono text-[11.5px] text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+                                  {phoneStr || '-'}
+                                </span>
+                                {phoneStr && (
                                   <button
                                     type="button"
                                     onClick={e => {
                                       e.stopPropagation();
-                                      openCustomerAddressInGoogleMaps(ticket);
+                                      onOpenWhatsApp(ticket);
                                     }}
-                                    className="group/map flex items-start gap-1.5 text-left hover:text-[#431599] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer w-full"
-                                    title={showHoverTooltips && addrStr ? addrStr : 'Klik untuk membuka lokasi pelanggan di Google Maps'}
+                                    className="w-5 h-5 rounded-full bg-[#16A36A] text-white flex items-center justify-center hover:opacity-90 transition-opacity shadow-2xs cursor-pointer shrink-0"
+                                    title="Buka WhatsApp Pelanggan"
                                   >
-                                    <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0 mt-0.5 group-hover/map:scale-110 transition-transform" />
-                                    <span className="truncate group-hover/map:underline">
-                                      {addrStr || '-'}
-                                    </span>
+                                    <MessageSquare className="w-3 h-3" />
                                   </button>
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'rosetRedamanDbm' || col.key === 'fatRedamanDbm') {
-                              const dbmNum = parseDbmNumeric(rawVal);
-                              const isOutOfSpec = dbmNum !== null && (dbmNum < -24 || dbmNum > -8);
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
-                                  {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? (
-                                    <span
-                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[11px] font-bold tabular-nums ${
-                                        col.key === 'rosetRedamanDbm' && isOutOfSpec
-                                          ? 'bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA]'
-                                          : 'bg-[#ECFDF5] text-[#16A36A] border border-[#A7F3D0]'
-                                      }`}
-                                    >
-                                      {String(rawVal).toLowerCase().includes('dbm') ? String(rawVal) : `${rawVal} dBm`}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[#8B8495] italic font-normal">-</span>
-                                  )}
-                                </td>
-                              );
-                            }
-
-                            if (col.key === 'dropcoreLength') {
-                              const dcStr = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                )}
+                              </div>
+                              {addressStr && (
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    openCustomerAddressInGoogleMaps(ticket);
+                                  }}
+                                  className="flex items-center gap-1 text-[#8B8495] hover:text-[#431599] dark:hover:text-[#D8B4FE] mt-1 text-[11px] truncate max-w-[215px] cursor-pointer text-left"
+                                  title={showHoverTooltips ? addressStr : 'Buka lokasi di Google Maps'}
                                 >
-                                  {dcStr ? (dcStr.toLowerCase().endsWith('m') ? dcStr : `${dcStr} m`) : '-'}
-                                </td>
-                              );
-                            }
+                                  <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0" />
+                                  <span className="truncate hover:underline">{addressStr}</span>
+                                </button>
+                              )}
+                            </td>
 
-                            if (col.key === 'distanceKm') {
-                              return (
-                                <td
-                                  key={col.key}
-                                  style={stickyStyle}
-                                  className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
-                                >
-                                  {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
-                                    ? `${rawVal} km`
-                                    : '-'}
-                                </td>
-                              );
-                            }
+                            {/* 5. Area / Cluster */}
+                            <td className="py-3 px-3 align-top">
+                              <div className="font-semibold text-[#211A2E] dark:text-white">
+                                {ticket.area || '-'}
+                              </div>
+                              <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate max-w-[165px]">
+                                {ticket.clusterName || '-'}
+                              </div>
+                              {fatLabel && (
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#22123F] text-[10px] font-mono font-semibold text-[#766B83] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#35105E]">
+                                  {fatLabel}
+                                </span>
+                              )}
+                            </td>
 
-                            if (col.key === 'installerName') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  {ticket.installerName ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
-                                      {ticket.installerName}
-                                    </span>
+                            {/* 6. Slot Waktu */}
+                            <td className="py-3 px-3 align-top whitespace-nowrap">
+                              <div className="flex items-center gap-1 text-[#211A2E] dark:text-white font-semibold">
+                                <Clock className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+                                <span className="tabular-nums">{ticket.slotTime || '-'}</span>
+                              </div>
+                              <span className="text-[11px] text-[#8B8495] block mt-0.5 tabular-nums">
+                                WIB · {formatIndonesianWODate(getTicketAppointmentDate(ticket) || todayWIB)}
+                              </span>
+                            </td>
+
+                            {/* 7. Kontraktor & Tim */}
+                            <td className="py-3 px-3 align-top">
+                              <div className="font-medium text-[#211A2E] dark:text-white truncate max-w-[170px]">
+                                {contractorStr}
+                              </div>
+                              {ticket.installerName ? (
+                                <div className="flex items-center gap-1 text-[11px] text-[#35105E] dark:text-[#D8B4FE] font-semibold mt-0.5">
+                                  <UserCheck className="w-3 h-3 shrink-0" />
+                                  <span className="truncate max-w-[145px]">{ticket.installerName}</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 text-[11px] text-[#DC4C5A] font-semibold mt-0.5">
+                                  <UserX className="w-3 h-3 shrink-0" />
+                                  <span>Belum Ada Teknisi</span>
+                                </div>
+                              )}
+                              <div className="text-[11px] text-[#8B8495] truncate max-w-[165px]">
+                                Korlap: {ticket.leaderName || '-'}
+                              </div>
+                            </td>
+
+                            {/* 8. 4 Dimensi Status */}
+                            <td className="py-3 px-3 align-top">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <StatusAgentBadge status={ticket.statusWOAgent} />
+                                  <StatusInstallerBadge status={ticket.statusWOInstaller} />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                                </div>
+                                <div>
+                                  {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' ? (
+                                    <StatusApprovalBadge status={ticket.approvalStatus} />
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF3C7] dark:bg-amber-950/40 text-[#92400E] dark:text-amber-300 border border-[#F59E0B]/40 whitespace-nowrap">
-                                      Belum Ditugaskan
-                                    </span>
+                                    <span className="text-[11px] text-[#8B8495]">-</span>
                                   )}
-                                </td>
-                              );
-                            }
+                                </div>
+                              </div>
+                            </td>
 
-                            if (col.key === 'reassignHistoryCount') {
-                              const count = Number(rawVal) || 0;
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
-                                  <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[11px] font-bold tabular-nums ${
-                                      count > 0
-                                        ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/40'
-                                        : 'bg-[#F7F6FA] dark:bg-[#251545] text-[#766B83] dark:text-[#CEC0E8]'
+                            {/* 9. Sticky-Right Aksi Operasional */}
+                            <td
+                              className={`py-3 px-3 align-top text-right whitespace-nowrap sticky right-0 z-10 ${stickyBg} shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)] transition-colors`}
+                            >
+                              <div className="flex items-center justify-end gap-1.5 relative">
+                                {hasInlineEvidence && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      toggleInlineDrawer(ticket);
+                                    }}
+                                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap ${
+                                      isExpanded ? 'btn-3d-primary' : 'btn-3d-ceramic text-[#35105E]'
                                     }`}
                                   >
-                                    {count}x
-                                  </span>
-                                </td>
-                              );
-                            }
+                                    {isExpanded ? 'Tutup' : 'Review'}
+                                  </button>
+                                )}
 
-                            if (col.key === 'photoEvidenceCount') {
-                              const count = Number(rawVal) || 0;
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
-                                  {count > 0 ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-mono text-[11px] font-bold tabular-nums">
-                                      <Camera className="w-3 h-3" />
-                                      <span>{count}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-[#8B8495] italic font-normal">0</span>
-                                  )}
-                                </td>
-                              );
-                            }
+                                {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      if (!isExpanded) {
+                                        toggleInlineDrawer(ticket);
+                                      } else {
+                                        handleInlineApprove(ticket);
+                                      }
+                                    }}
+                                    className="btn-3d-success px-3 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
 
-                            if (col.key === 'dataQualityFlags') {
-                              const flags: string[] = Array.isArray(rawVal)
-                                ? rawVal
-                                : typeof rawVal === 'string' && rawVal.trim()
-                                ? rawVal.split(',').map(s => s.trim()).filter(Boolean)
-                                : [];
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                  {flags.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {flags.map(flag => (
-                                        <span
-                                          key={flag}
-                                          className="px-1.5 py-0.5 rounded bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA] font-mono text-[10px] font-bold"
+                                {ticket.approvalStatus === 'APPROVED' ? (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      onSelectTicket(ticket, 'report');
+                                    }}
+                                    className="btn-3d-ceramic px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                                  >
+                                    Detail BA
+                                  </button>
+                                ) : isRejectedRow ? (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      onSelectTicket(ticket, 'report');
+                                    }}
+                                    className="btn-3d-danger px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                                  >
+                                    Revisi
+                                  </button>
+                                ) : !ticket.installerName && currentUser.role === 'leader' ? (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      onSelectTicket(ticket, 'overview');
+                                    }}
+                                    className="btn-3d-primary px-3 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                                  >
+                                    Assign
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      onSelectTicket(ticket);
+                                    }}
+                                    className="btn-3d-ceramic px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                                  >
+                                    Detail
+                                  </button>
+                                )}
+
+                                {/* Overflow Action Menu */}
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      setOpenRowMenuId(prev =>
+                                        prev === ticket.id ? null : ticket.id
+                                      );
+                                    }}
+                                    className="btn-3d-icon w-7 h-7 relative cursor-pointer"
+                                    aria-label="Aksi lainnya"
+                                    title="Aksi lainnya"
+                                  >
+                                    <MoreVertical className="w-3.5 h-3.5" />
+                                    {unread > 0 && (
+                                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#DC4C5A] ring-2 ring-white dark:ring-[#1E1238]" />
+                                    )}
+                                  </button>
+
+                                  {openRowMenuId === ticket.id && (
+                                    <>
+                                      <div
+                                        className="fixed inset-0 z-30"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          setOpenRowMenuId(null);
+                                        }}
+                                      />
+                                      <div className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xl border border-[#D8CCF3] dark:border-[#35105E] py-1.5 z-40 text-left text-xs">
+                                        <button
+                                          type="button"
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            setOpenRowMenuId(null);
+                                            onSelectTicket(ticket, 'overview');
+                                          }}
+                                          className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 text-[#211A2E] dark:text-white cursor-pointer"
                                         >
-                                          {flag}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-[#16A36A] text-[11px] font-semibold">Valid</span>
-                                  )}
-                                </td>
-                              );
-                            }
+                                          <Eye className="w-3.5 h-3.5 text-[#7135B5]" />
+                                          <span>Buka Ticket Fullview</span>
+                                        </button>
 
-                            if (col.key === 'customerSignatureUrl') {
-                              return (
-                                <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
-                                  {rawVal ? (
+                                        {['super_admin', 'dispatch', 'installer'].includes(
+                                          currentUser.role
+                                        ) && (
+                                          <button
+                                            type="button"
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setOpenRowMenuId(null);
+                                              onSelectTicket(ticket, 'chat');
+                                            }}
+                                            className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center justify-between text-[#211A2E] dark:text-white cursor-pointer"
+                                          >
+                                            <span className="flex items-center gap-2">
+                                              <MessageCircle className="w-3.5 h-3.5 text-[#431599]" />
+                                              <span>Live Chat</span>
+                                            </span>
+                                            {unread > 0 && (
+                                              <span className="px-1.5 py-0.2 bg-[#DC4C5A] text-white text-[10px] rounded-full font-bold tabular-nums">
+                                                {unread}
+                                              </span>
+                                            )}
+                                          </button>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            setOpenRowMenuId(null);
+                                            onOpenWhatsApp(ticket);
+                                          }}
+                                          className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 text-[#16A36A] font-semibold cursor-pointer"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5" />
+                                          <span>WhatsApp Pelanggan</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            setOpenRowMenuId(null);
+                                            if (ticket.isArchived) restoreTicket(ticket.id);
+                                            else archiveTicket(ticket.id);
+                                          }}
+                                          className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 text-[#766B83] dark:text-[#CEC0E8] cursor-pointer"
+                                        >
+                                          {ticket.isArchived ? (
+                                            <>
+                                              <RotateCcw className="w-3.5 h-3.5" />
+                                              <span>Restore dari Arsip</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Archive className="w-3.5 h-3.5" />
+                                              <span>Arsipkan WO</span>
+                                            </>
+                                          )}
+                                        </button>
+
+                                        {currentUser.role === 'management_data' && (
+                                          <button
+                                            type="button"
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setOpenRowMenuId(null);
+                                              setTicketToDelete(ticket);
+                                            }}
+                                            className="w-full px-3 py-1.5 hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 flex items-center gap-2 text-[#DC4C5A] font-semibold cursor-pointer border-t border-[#E9E5F0] dark:border-[#35105E] mt-1 pt-2"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <span>Hapus Work Order</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {isExpanded && renderExpandedDrawer(ticket, stitchColSpan)}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              /* CANONICAL 46-COLUMN CONFIGURABLE TABLE */
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-[#F4EAFF] dark:bg-[#251545] border-b border-[#D8CCF3] dark:border-[#35105E] text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] uppercase tracking-wider">
+                    <th
+                      className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#F4EAFF] dark:bg-[#251545] border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
+                        stickyColumnsEnabled ? 'sticky left-0 z-20' : ''
+                      } ${
+                        stickyColumnsEnabled && freezeColumnCount === 1
+                          ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]'
+                          : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        className="text-[#431599] dark:text-[#D8B4FE] cursor-pointer"
+                      >
+                        {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4 opacity-60" />
+                        )}
+                      </button>
+                    </th>
+
+                    {activeColumns.map(col => {
+                      const isSorted = sortField === col.key;
+                      const stickyInfo = stickyLeftMap[col.key];
+                      const widthPx = col.width || 130;
+
+                      return (
+                        <th
+                          key={col.key}
+                          style={{
+                            width: `${widthPx}px`,
+                            minWidth: `${widthPx}px`,
+                            ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
+                          }}
+                          className={`py-3 px-3.5 whitespace-nowrap ${
+                            col.sortable ? 'cursor-pointer hover:bg-[#E9D5FF]/50 dark:hover:bg-[#35105E]' : ''
+                          } ${
+                            stickyInfo
+                              ? `sticky bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
+                                  stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.12)]' : ''
+                                }`
+                              : ''
+                          }`}
+                          onClick={() => col.sortable && handleSort(col.key)}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>{col.label}</span>
+                            {col.sortable &&
+                              (isSorted && sortDirection === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 shrink-0" />
+                              ) : isSorted && sortDirection === 'desc' ? (
+                                <ArrowDown className="w-3.5 h-3.5 shrink-0" />
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 opacity-50 shrink-0" />
+                              ))}
+                          </div>
+                        </th>
+                      );
+                    })}
+
+                    <th
+                      className={`py-3 px-3.5 whitespace-nowrap text-center bg-[#F4EAFF] dark:bg-[#251545] ${
+                        stickyColumnsEnabled
+                          ? 'sticky right-0 z-20 border-l border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                          : 'border-l border-[#D8CCF3]/60 dark:border-[#35105E]'
+                      }`}
+                    >
+                      Aksi Operasional
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                  {paginatedTickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={canonicalColSpan} className="py-12 text-center text-[#8B8495] text-xs">
+                        Tidak ada tiket Work Order yang cocok dengan filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedTickets.map(ticket => {
+                      const isSelected = selectedIds.has(ticket.id);
+                      const isExpanded = expandedDrawerTicketId === ticket.id;
+                      const stickyCellBg = isExpanded
+                        ? 'bg-[#F5F1FF] dark:bg-[#251247]'
+                        : isSelected
+                        ? 'bg-[#F5F1FF] dark:bg-[#2E1459]'
+                        : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F7F6FA] dark:group-hover:bg-[#251545]';
+
+                      const hasInlineEvidence =
+                        ticket.approvalStatus === 'BUTUH APPROVAL' ||
+                        ticket.approvalStatus === 'REJECTED' ||
+                        ticket.approvalStatus === 'REVISI' ||
+                        Boolean(ticket.technicalReport) ||
+                        Boolean(ticket.progressReports && ticket.progressReports.length > 0);
+                      const unread = getTicketUnreadCount(ticket.id);
+
+                      return (
+                        <Fragment key={ticket.id}>
+                          <tr
+                            className={`group transition-colors ${
+                              isExpanded
+                                ? 'bg-[#F5F1FF]/70 dark:bg-[#251247]/70'
+                                : isSelected
+                                ? 'bg-[#F5F1FF]/50 dark:bg-[#2E1459]/40'
+                                : 'hover:bg-[#F7F6FA] dark:hover:bg-[#251545]/60'
+                            }`}
+                          >
+                            <td
+                              className={`py-2.5 px-3 w-11 min-w-[44px] max-w-[44px] text-center ${stickyCellBg} border-r border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
+                                stickyColumnsEnabled ? 'sticky left-0 z-10' : ''
+                              } ${
+                                stickyColumnsEnabled && freezeColumnCount === 1
+                                  ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                  : ''
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleToggleSelect(ticket.id);
+                                }}
+                                className="text-[#8B8495] hover:text-[#431599] cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-[#431599] dark:text-[#A78BFA]" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
+
+                            {activeColumns.map(col => {
+                              const rawVal = getTicketColumnValue(ticket, col.key);
+                              const stickyInfo = stickyLeftMap[col.key];
+                              const widthPx = col.width || 130;
+                              const stickyStyle = {
+                                width: `${widthPx}px`,
+                                minWidth: `${widthPx}px`,
+                                ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
+                              };
+                              const stickyClasses = stickyInfo
+                                ? `sticky ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] ${
+                                    stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.10)]' : ''
+                                  } transition-colors`
+                                : '';
+
+                              if (col.key === 'woNumber') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          onSelectTicket(ticket);
+                                        }}
+                                        className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline tabular-nums cursor-pointer text-left"
+                                        title={showHoverTooltips ? ticket.woNumber : undefined}
+                                      >
+                                        {ticket.woNumber}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={e => handleCopyWoNumber(e, ticket)}
+                                        className="btn-3d-icon w-6 h-6 p-0 text-[#8B8495] hover:text-[#431599] cursor-pointer"
+                                        title="Salin Nomor WO"
+                                      >
+                                        {copiedWoId === ticket.id ? (
+                                          <Check className="w-3 h-3 text-[#16A36A]" />
+                                        ) : (
+                                          <Copy className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'idCustomer') {
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    title={showHoverTooltips ? String(ticket.idCustomer || '') : undefined}
+                                    className={`${densityClass} ${stickyClasses} font-mono font-semibold text-[#211A2E] dark:text-white tabular-nums`}
+                                  >
+                                    {ticket.idCustomer || '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'customerName') {
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    title={showHoverTooltips ? ticket.customerName : undefined}
+                                    className={`${densityClass} ${stickyClasses} font-semibold text-[#211A2E] dark:text-white truncate max-w-[220px]`}
+                                  >
+                                    {ticket.customerName || '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'customerPhone' || col.key === 'installerContact') {
+                                const phoneStr = rawVal ? String(rawVal) : '';
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    title={showHoverTooltips && phoneStr ? phoneStr : undefined}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}
+                                  >
+                                    {col.key === 'customerPhone' && phoneStr ? (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          onOpenWhatsApp(ticket);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 text-[#16A36A] hover:underline font-semibold cursor-pointer"
+                                        title="Kirim pesan WhatsApp ke pelanggan"
+                                      >
+                                        <MessageSquare className="w-3 h-3 shrink-0" />
+                                        <span>{phoneStr}</span>
+                                      </button>
+                                    ) : (
+                                      phoneStr || '-'
+                                    )}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'statusWOAgent') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    <StatusAgentBadge status={ticket.statusWOAgent} />
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'statusWOInstaller') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    <StatusInstallerBadge status={ticket.statusWOInstaller} />
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'approvalStatus') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    <StatusApprovalBadge status={ticket.approvalStatus} />
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'statusWhatsApp') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'appointmentDate') {
+                                const formattedDate = formatDateTimeDisplay(rawVal, true);
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                  >
+                                    {formattedDate || '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (
+                                col.key === 'workStartedAt' ||
+                                col.key === 'checkOutAt' ||
+                                col.key === 'createdAt' ||
+                                col.key === 'updatedAt' ||
+                                col.key === 'checkInAt'
+                              ) {
+                                const formattedTs = formatDateTimeDisplay(rawVal, false);
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
+                                  >
+                                    {formattedTs || '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'workDurationMinutes') {
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                  >
+                                    {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
+                                      ? `${rawVal} mnt`
+                                      : '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'customerAddress' || col.key === 'streetName' || col.key === 'address') {
+                                const addrStr = String(rawVal || '');
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    className={`${densityClass} ${stickyClasses} text-[#494453] dark:text-[#CEC0E8] max-w-xs`}
+                                  >
                                     <button
                                       type="button"
                                       onClick={e => {
                                         e.stopPropagation();
-                                        onSelectTicket(ticket, 'report');
+                                        openCustomerAddressInGoogleMaps(ticket);
                                       }}
-                                      className="inline-flex items-center gap-1 text-[#431599] dark:text-[#D8B4FE] hover:underline text-[11px] font-semibold cursor-pointer"
+                                      className="group/map flex items-start gap-1.5 text-left hover:text-[#431599] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer w-full"
+                                      title={
+                                        showHoverTooltips && addrStr
+                                          ? addrStr
+                                          : 'Klik untuk membuka lokasi pelanggan di Google Maps'
+                                      }
                                     >
-                                      <ExternalLink className="w-3 h-3" />
-                                      <span>Lihat TTD</span>
-                                    </button>
-                                  ) : (
-                                    <span className="text-[#8B8495] italic font-normal">-</span>
-                                  )}
-                                </td>
-                              );
-                            }
-
-                            const displayValue =
-                              rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
-                                ? String(rawVal)
-                                : '';
-
-                            return (
-                              <td
-                                key={col.key}
-                                style={stickyStyle}
-                                title={showHoverTooltips && displayValue ? displayValue : undefined}
-                                className={`${densityClass} ${stickyClasses} text-[#211A2E] dark:text-[#F5F1FF] ${
-                                  col.format === 'code' ? 'font-mono tabular-nums' : ''
-                                } ${
-                                  col.wrapText ? 'break-words max-w-xs' : 'whitespace-nowrap truncate max-w-xs'
-                                }`}
-                              >
-                                {displayValue || <span className="text-[#8B8495] italic font-normal">-</span>}
-                              </td>
-                            );
-                          })}
-
-                          {/* Unconditional Sticky-Right Actions Cell */}
-                          <td
-                            className={`${densityClass} text-center whitespace-nowrap ${stickyCellBg} border-l border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
-                              stickyColumnsEnabled
-                                ? 'sticky right-0 z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                                : ''
-                            }`}
-                          >
-                            <div className="flex items-center justify-center gap-1">
-                              {hasInlineEvidence && (
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    toggleInlineDrawer(ticket.id);
-                                  }}
-                                  className={`px-2 py-1 rounded-md text-[11px] font-bold border transition-colors cursor-pointer whitespace-nowrap ${
-                                    isExpanded
-                                      ? 'bg-[#431599] text-white border-[#431599]'
-                                      : 'bg-[#F5F1FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F0E3FF]'
-                                  }`}
-                                  title="Buka Drawer Verifikasi Teknis"
-                                >
-                                  {isExpanded ? 'Tutup' : 'Review'}
-                                </button>
-                              )}
-
-                              {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    if (!isExpanded) {
-                                      toggleInlineDrawer(ticket.id);
-                                    } else {
-                                      handleInlineApprove(ticket);
-                                    }
-                                  }}
-                                  className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#16A36A] hover:bg-[#15803D] text-white transition-colors cursor-pointer whitespace-nowrap"
-                                  title="Verifikasi & Approve Laporan"
-                                >
-                                  Approve
-                                </button>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  onSelectTicket(ticket);
-                                }}
-                                className="p-1.5 text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
-                                title="Buka Detail Lengkap WO"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-
-                              {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    onSelectTicket(ticket, 'chat');
-                                  }}
-                                  className={`relative p-1.5 rounded-md transition-colors cursor-pointer ${
-                                    unread > 0
-                                      ? 'text-[#DC4C5A] bg-[#FEF2F2] dark:bg-rose-950/50'
-                                      : 'text-[#431599] dark:text-[#A78BFA] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
-                                  }`}
-                                  title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
-                                >
-                                  <MessageCircle className="w-3.5 h-3.5" />
-                                  {unread > 0 && (
-                                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-[#DC4C5A] text-white text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums">
-                                      {unread > 99 ? '99+' : unread}
-                                    </span>
-                                  )}
-                                </button>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  onOpenWhatsApp(ticket);
-                                }}
-                                className="p-1.5 text-[#16A36A] hover:bg-[#ECFDF5] dark:hover:bg-emerald-950/40 rounded-md cursor-pointer"
-                                title="WhatsApp Confirmation"
-                              >
-                                <MessageSquare className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  if (ticket.isArchived) restoreTicket(ticket.id);
-                                  else archiveTicket(ticket.id);
-                                }}
-                                className="p-1.5 text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white rounded-md cursor-pointer"
-                                title={ticket.isArchived ? 'Restore' : 'Archive'}
-                              >
-                                {ticket.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-                              </button>
-
-                              {currentUser.role === 'management_data' && (
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    setTicketToDelete(ticket);
-                                  }}
-                                  className="p-1.5 text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 rounded-md cursor-pointer"
-                                  title="Hapus Work Order (Management Data Only)"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-
-                        {/* Expandable Inline Verification Drawer */}
-                        {isExpanded && (
-                          <tr className="bg-[#F5F1FF]/70 dark:bg-[#251247]/80">
-                            <td colSpan={activeColumns.length + 2} className="p-4 sm:p-5 border-y border-[#D8CCF3] dark:border-[#5B35B1]">
-                              <div className="space-y-4">
-                                {/* Drawer Header */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-[#FEF3C7] dark:bg-amber-950/60 border border-[#F59E0B]/40 flex items-center justify-center shrink-0">
-                                      <ShieldCheck className="w-5 h-5 text-[#E59A27]" />
-                                    </div>
-                                    <div>
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <h4 className="font-display text-sm font-bold text-[#211A2E] dark:text-white">
-                                          Verifikasi Hasil Pekerjaan Teknisi
-                                        </h4>
-                                        <StatusApprovalBadge status={ticket.approvalStatus} />
-                                      </div>
-                                      <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] mt-0.5 font-mono tabular-nums">
-                                        {ticket.woNumber} — Teknisi: {ticket.installerName || 'Belum Ditugaskan'} ({ticket.contactorName || ticket.contractorName || '-'})
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => onSelectTicket(ticket, 'report')}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#160D29] text-[#431599] dark:text-[#E9D5FF] border border-[#D8CCF3] dark:border-[#5B35B1] hover:bg-[#F4EAFF] cursor-pointer whitespace-nowrap"
-                                    >
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                      <span>Buka Detail Penuh</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleInlineDrawer(ticket.id)}
-                                      className="p-1.5 rounded-lg text-[#766B83] hover:text-[#211A2E] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E] cursor-pointer"
-                                      title="Tutup Drawer"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* 3 Real Technical Telemetry Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3">
-                                    <div className="text-[11px] font-semibold text-[#766B83] dark:text-[#A78BFA]">
-                                      Redaman OPM (dBm)
-                                    </div>
-                                    <div className="mt-1 flex items-baseline gap-2">
-                                      <span className="font-mono text-lg font-bold text-[#16A36A] tabular-nums">
-                                        {ticket.technicalReport?.opticalPowerRx || ticket.technicalReport?.opticalPowerDbm || 'Belum diinput'}
+                                      <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0 mt-0.5 group-hover/map:scale-110 transition-transform" />
+                                      <span className="truncate group-hover/map:underline">
+                                        {addrStr || '-'}
                                       </span>
-                                      {ticket.oltCode && (
-                                        <span className="text-[10.5px] font-mono text-[#766B83] dark:text-[#CEC0E8]">
-                                          OLT: {ticket.oltCode}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
+                                    </button>
+                                  </td>
+                                );
+                              }
 
-                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3">
-                                    <div className="text-[11px] font-semibold text-[#766B83] dark:text-[#A78BFA]">
-                                      Nomor Seri ONT / Modem
-                                    </div>
-                                    <div className="mt-1 font-mono text-sm font-bold text-[#211A2E] dark:text-white tabular-nums truncate">
-                                      {ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber || 'Belum diinput'}
-                                    </div>
-                                    <div className="mt-0.5 text-[10.5px] text-[#766B83] dark:text-[#CEC0E8] truncate">
-                                      Material: {ticket.technicalReport?.usedMaterials || '-'}
-                                    </div>
-                                  </div>
-
-                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3">
-                                    <div className="text-[11px] font-semibold text-[#766B83] dark:text-[#A78BFA]">
-                                      Dropcore &amp; FAT
-                                    </div>
-                                    <div className="mt-1 font-mono text-sm font-bold text-[#211A2E] dark:text-white tabular-nums">
-                                      {ticket.dropcoreLength ? `${ticket.dropcoreLength}` : 'Belum diinput'}
-                                    </div>
-                                    <div className="mt-0.5 text-[10.5px] font-mono text-[#766B83] dark:text-[#CEC0E8] truncate">
-                                      FAT: {ticket.fatCode || ticket.fat || '-'} | Port: {ticket.fatPort || '-'}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Latest 3-Tier Progress Report + Evidence Photos */}
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                                  <div className="lg:col-span-5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3 space-y-2">
-                                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
-                                      <FileText className="w-3.5 h-3.5" />
-                                      <span>Ringkasan Laporan Teknisi</span>
-                                    </div>
-                                    {latestReport ? (
-                                      <div className="space-y-1 text-xs">
-                                        <div className="font-semibold text-[#211A2E] dark:text-white">
-                                          {latestReport.reportStatusLabel || latestReport.reportStatus} &rarr;{' '}
-                                          {latestReport.reasonReportLabel || latestReport.reasonReport}
-                                        </div>
-                                        <div className="text-[#766B83] dark:text-[#CEC0E8]">
-                                          Rootcause: {latestReport.rootcauseLabel || latestReport.rootCause || '-'}
-                                        </div>
-                                        {latestReport.remarksReport && (
-                                          <p className="p-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] text-[11.5px]">
-                                            {latestReport.remarksReport}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ) : ticket.technicalReport ? (
-                                      <div className="space-y-1 text-xs">
-                                        <div className="font-semibold text-[#211A2E] dark:text-white">
-                                          {ticket.technicalReport.workResult} ({ticket.technicalReport.mainCategory})
-                                        </div>
-                                        <p className="text-[#494453] dark:text-[#CEC0E8]">
-                                          {ticket.technicalReport.technicalDescription || '-'}
-                                        </p>
-                                      </div>
+                              if (col.key === 'rosetRedamanDbm' || col.key === 'fatRedamanDbm') {
+                                const dbmNum = parseDbmNumeric(rawVal);
+                                const isOutOfSpec = dbmNum !== null && (dbmNum < -24 || dbmNum > -8);
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                    {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? (
+                                      <span
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[11px] font-bold tabular-nums ${
+                                          col.key === 'rosetRedamanDbm' && isOutOfSpec
+                                            ? 'bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA]'
+                                            : 'bg-[#ECFDF5] text-[#16A36A] border border-[#A7F3D0]'
+                                        }`}
+                                      >
+                                        {String(rawVal).toLowerCase().includes('dbm')
+                                          ? String(rawVal)
+                                          : `${rawVal} dBm`}
+                                      </span>
                                     ) : (
-                                      <div className="text-xs text-[#8B8495] italic">
-                                        Belum ada laporan progress tersubmit dari teknisi.
-                                      </div>
+                                      <span className="text-[#8B8495] italic font-normal">-</span>
                                     )}
-                                  </div>
+                                  </td>
+                                );
+                              }
 
-                                  <div className="lg:col-span-7 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] p-3 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
-                                        <ImageIcon className="w-3.5 h-3.5" />
-                                        <span>Bukti Dokumentasi Lapangan ({drawerPhotos.length})</span>
-                                      </div>
-                                    </div>
-                                    {drawerPhotos.length > 0 ? (
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                        {drawerPhotos.map((photoUrl, idx) => (
-                                          <button
-                                            key={photoUrl + idx}
-                                            type="button"
-                                            onClick={() => onSelectTicket(ticket, 'report')}
-                                            className="group/img relative aspect-video rounded-lg overflow-hidden border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] cursor-pointer"
+                              if (col.key === 'dropcoreLength') {
+                                const dcStr = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                  >
+                                    {dcStr ? (dcStr.toLowerCase().endsWith('m') ? dcStr : `${dcStr} m`) : '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'distanceKm') {
+                                return (
+                                  <td
+                                    key={col.key}
+                                    style={stickyStyle}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
+                                  >
+                                    {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
+                                      ? `${rawVal} km`
+                                      : '-'}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'installerName') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    {ticket.installerName ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
+                                        {ticket.installerName}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF3C7] dark:bg-amber-950/40 text-[#92400E] dark:text-amber-300 border border-[#F59E0B]/40 whitespace-nowrap">
+                                        Belum Ditugaskan
+                                      </span>
+                                    )}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'reassignHistoryCount') {
+                                const count = Number(rawVal) || 0;
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[11px] font-bold tabular-nums ${
+                                        count > 0
+                                          ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/40'
+                                          : 'bg-[#F7F6FA] dark:bg-[#251545] text-[#766B83] dark:text-[#CEC0E8]'
+                                      }`}
+                                    >
+                                      {count}x
+                                    </span>
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'photoEvidenceCount') {
+                                const count = Number(rawVal) || 0;
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                    {count > 0 ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-mono text-[11px] font-bold tabular-nums">
+                                        <Camera className="w-3 h-3" />
+                                        <span>{count}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#8B8495] italic font-normal">0</span>
+                                    )}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === 'dataQualityFlags') {
+                                const flags: string[] = Array.isArray(rawVal)
+                                  ? rawVal
+                                  : typeof rawVal === 'string' && rawVal.trim()
+                                  ? rawVal.split(',').map(s => s.trim()).filter(Boolean)
+                                  : [];
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
+                                    {flags.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {flags.map(flag => (
+                                          <span
+                                            key={flag}
+                                            className="px-1.5 py-0.5 rounded bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA] font-mono text-[10px] font-bold"
                                           >
-                                            <img
-                                              src={photoUrl}
-                                              alt={`Dokumentasi ${idx + 1} - ${ticket.woNumber}`}
-                                              referrerPolicy="no-referrer"
-                                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
-                                              onError={e => {
-                                                (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                              }}
-                                            />
-                                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/65 text-white text-[9.5px] font-mono">
-                                              Foto #{idx + 1}
-                                            </span>
-                                          </button>
+                                            {flag}
+                                          </span>
                                         ))}
                                       </div>
                                     ) : (
-                                      <div className="py-4 text-center rounded-lg border border-dashed border-[#D8CCF3] dark:border-[#35105E] text-xs text-[#8B8495]">
-                                        Belum ada foto bukti dokumentasi yang diunggah pada Technical Report.
-                                      </div>
+                                      <span className="text-[#16A36A] text-[11px] font-semibold">Valid</span>
                                     )}
-                                  </div>
-                                </div>
+                                  </td>
+                                );
+                              }
 
-                                {/* Inline Dispatch Approval / Rejection Controls (STRICTLY dispatch / super_admin when BUTUH APPROVAL) */}
+                              if (col.key === 'customerSignatureUrl') {
+                                return (
+                                  <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
+                                    {rawVal ? (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          onSelectTicket(ticket, 'report');
+                                        }}
+                                        className="inline-flex items-center gap-1 text-[#431599] dark:text-[#D8B4FE] hover:underline text-[11px] font-semibold cursor-pointer"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                        <span>Lihat TTD</span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-[#8B8495] italic font-normal">-</span>
+                                    )}
+                                  </td>
+                                );
+                              }
+
+                              const displayValue =
+                                rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
+                                  ? String(rawVal)
+                                  : '';
+
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={stickyStyle}
+                                  title={showHoverTooltips && displayValue ? displayValue : undefined}
+                                  className={`${densityClass} ${stickyClasses} text-[#211A2E] dark:text-[#F5F1FF] ${
+                                    col.format === 'code' ? 'font-mono tabular-nums' : ''
+                                  } ${
+                                    col.wrapText ? 'break-words max-w-xs' : 'whitespace-nowrap truncate max-w-xs'
+                                  }`}
+                                >
+                                  {displayValue || <span className="text-[#8B8495] italic font-normal">-</span>}
+                                </td>
+                              );
+                            })}
+
+                            {/* Sticky-Right Actions Cell */}
+                            <td
+                              className={`${densityClass} text-center whitespace-nowrap ${stickyCellBg} border-l border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
+                                stickyColumnsEnabled
+                                  ? 'sticky right-0 z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                  : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-center gap-1.5">
+                                {hasInlineEvidence && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      toggleInlineDrawer(ticket);
+                                    }}
+                                    className={`px-2 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap ${
+                                      isExpanded ? 'btn-3d-primary' : 'btn-3d-ceramic'
+                                    }`}
+                                    title="Buka Drawer Verifikasi Teknis"
+                                  >
+                                    {isExpanded ? 'Tutup' : 'Review'}
+                                  </button>
+                                )}
+
                                 {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-                                  <div className="rounded-xl bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#5B35B1] p-3 space-y-2.5">
-                                    <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                      <input
-                                        type="text"
-                                        value={inlineNotes}
-                                        onChange={e => setInlineNotes(e.target.value)}
-                                        placeholder="Tambahkan catatan dispatch internal untuk approval / berita acara..."
-                                        className="flex-1 px-3 py-2 text-xs rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[#211A2E] dark:text-white focus:outline-none focus:border-[#7135B5]"
-                                      />
-                                      <div className="flex items-center gap-2 shrink-0">
-                                        <button
-                                          type="button"
-                                          disabled={inlineSubmitting}
-                                          onClick={() => handleInlineApprove(ticket)}
-                                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-[#16A36A] hover:bg-[#15803D] disabled:opacity-50 text-white shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
-                                        >
-                                          <CheckCircle2 className="w-3.5 h-3.5" />
-                                          <span>{inlineSubmitting ? 'Memproses...' : 'Approve & Close WO'}</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={inlineSubmitting}
-                                          onClick={() => setShowInlineRejectBox(v => !v)}
-                                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC4C5A] border border-[#FECACA] transition-colors cursor-pointer whitespace-nowrap"
-                                        >
-                                          <AlertTriangle className="w-3.5 h-3.5" />
-                                          <span>Minta Revisi</span>
-                                        </button>
-                                      </div>
-                                    </div>
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      if (!isExpanded) {
+                                        toggleInlineDrawer(ticket);
+                                      } else {
+                                        handleInlineApprove(ticket);
+                                      }
+                                    }}
+                                    className="btn-3d-success px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                                    title="Verifikasi & Approve Laporan"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
 
-                                    {showInlineRejectBox && (
-                                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
-                                        <input
-                                          type="text"
-                                          value={inlineRejectReason}
-                                          onChange={e => setInlineRejectReason(e.target.value)}
-                                          placeholder="Wajib isi alasan penolakan / item yang harus direvisi teknisi..."
-                                          className="flex-1 px-3 py-2 text-xs rounded-lg bg-[#FEF2F2]/60 dark:bg-rose-950/30 border border-[#FECACA] dark:border-rose-800 text-[#211A2E] dark:text-white focus:outline-none"
-                                        />
-                                        <button
-                                          type="button"
-                                          disabled={inlineSubmitting}
-                                          onClick={() => handleInlineReject(ticket)}
-                                          className="px-3.5 py-2 rounded-lg text-xs font-bold bg-[#DC4C5A] hover:bg-rose-700 disabled:opacity-50 text-white cursor-pointer whitespace-nowrap"
-                                        >
-                                          Kirim Revisi
-                                        </button>
-                                      </div>
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    onSelectTicket(ticket);
+                                  }}
+                                  className="btn-3d-icon w-7 h-7 cursor-pointer"
+                                  title="Buka Detail Lengkap WO"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+
+                                {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      onSelectTicket(ticket, 'chat');
+                                    }}
+                                    className={`relative btn-3d-icon w-7 h-7 cursor-pointer ${
+                                      unread > 0 ? 'text-[#DC4C5A] border-[#FECACA]' : ''
+                                    }`}
+                                    title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    {unread > 0 && (
+                                      <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-[#DC4C5A] text-white text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums">
+                                        {unread > 99 ? '99+' : unread}
+                                      </span>
                                     )}
-                                  </div>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    onOpenWhatsApp(ticket);
+                                  }}
+                                  className="btn-3d-icon w-7 h-7 text-[#16A36A] cursor-pointer"
+                                  title="WhatsApp Confirmation"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (ticket.isArchived) restoreTicket(ticket.id);
+                                    else archiveTicket(ticket.id);
+                                  }}
+                                  className="btn-3d-icon w-7 h-7 cursor-pointer"
+                                  title={ticket.isArchived ? 'Restore' : 'Archive'}
+                                >
+                                  {ticket.isArchived ? (
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Archive className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+
+                                {currentUser.role === 'management_data' && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      setTicketToDelete(ticket);
+                                    }}
+                                    className="btn-3d-icon w-7 h-7 text-[#DC4C5A] cursor-pointer"
+                                    title="Hapus Work Order (Management Data Only)"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 )}
                               </div>
                             </td>
                           </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+
+                          {isExpanded && renderExpandedDrawer(ticket, canonicalColSpan)}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
-        </div>
+
+          {/* 4. PAGINATION & SYSTEM STATUS FOOTER WITH 3D TACTILE BUTTONS */}
+          <div className="p-3 bg-white dark:bg-[#1E1238] flex flex-col md:flex-row items-center justify-between gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] text-xs text-[#766B83] dark:text-[#CEC0E8]">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span>Baris per halaman:</span>
+                <select
+                  value={pageSize === 'ALL' ? 'ALL' : String(pageSize)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setPageSize(val === 'ALL' ? 'ALL' : Number(val));
+                    setCurrentPage(1);
+                  }}
+                  className="py-1 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs font-semibold text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none cursor-pointer"
+                >
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="ALL">Semua ({sortedTickets.length})</option>
+                </select>
+              </div>
+
+              <span className="tabular-nums">
+                Menampilkan{' '}
+                <span className="font-semibold text-[#211A2E] dark:text-white">
+                  {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}-
+                  {Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
+                </span>{' '}
+                dari{' '}
+                <span className="font-semibold text-[#211A2E] dark:text-white">
+                  {sortedTickets.length}
+                </span>{' '}
+                Work Orders
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1 || pageSize === 'ALL'}
+                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                aria-label="Halaman pertama"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                disabled={currentPage === 1 || pageSize === 'ALL'}
+                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                aria-label="Halaman sebelumnya"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              {pageSize !== 'ALL' &&
+                pageNumbers.map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`e-${idx}`} className="px-1 text-[#8B8495] font-bold">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      className={`w-8 h-8 rounded-lg text-[11px] font-bold tabular-nums cursor-pointer ${
+                        currentPage === item ? 'btn-3d-primary' : 'btn-3d-ceramic'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
+                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                aria-label="Halaman berikutnya"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
+                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                aria-label="Halaman terakhir"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Operational Audit Telemetry Notice */}
+          <div className="px-4 py-2 bg-[#F7F6FA] dark:bg-[#160D29]/70 flex items-center justify-between text-xs text-[#8B8495] dark:text-[#CEC0E8] border-t border-[#E9E5F0] dark:border-[#35105E]">
+            <div className="flex items-center gap-2">
+              <Server className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+              <span>
+                Menampilkan data sesuai zona waktu <strong>Asia/Jakarta (WIB)</strong>. Sinkronisasi
+                dua arah via Express API &amp; Supabase SSE{' '}
+                {databaseStatus === 'connected' ? 'aktif' : 'terhubung lokal'}.
+              </span>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 font-mono text-[10px]">
+              <span>DB: {databaseStatus === 'connected' ? 'ONLINE' : databaseStatus.toUpperCase()}</span>
+              <span>•</span>
+              <span>Sync: {syncStatus}</span>
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* 4. Footer Pagination & WIB Timezone Info */}
-      <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 text-xs text-[#4b4452] dark:text-[#cabde8]">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span>Baris per halaman:</span>
-              <select
-                value={pageSize === 'ALL' ? 'ALL' : String(pageSize)}
-                onChange={e => {
-                  const val = e.target.value;
-                  setPageSize(val === 'ALL' ? 'ALL' : Number(val));
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 text-xs font-semibold bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-md text-[#1f1638] dark:text-white cursor-pointer"
-              >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="ALL">Semua ({sortedTickets.length})</option>
-              </select>
-            </div>
-
-            <div className="tabular-nums">
-              Menampilkan{' '}
-              <span className="font-bold text-[#1f1638] dark:text-white">
-                {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}–{Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
-              </span>{' '}
-              dari <span className="font-bold text-[#1f1638] dark:text-white">{sortedTickets.length}</span> Work Orders
-            </div>
+      {/* Cards Mode Pagination Footer (only when Cards layout active) */}
+      {effectiveLayout === 'cards' && sortedTickets.length > 0 && (
+        <div className="bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#766B83] dark:text-[#CEC0E8]">
+          <div className="tabular-nums">
+            Menampilkan{' '}
+            <span className="font-semibold text-[#211A2E] dark:text-white">
+              {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}-
+              {Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
+            </span>{' '}
+            dari{' '}
+            <span className="font-semibold text-[#211A2E] dark:text-white">
+              {sortedTickets.length}
+            </span>{' '}
+            Work Orders
           </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1 || pageSize === 'ALL'}
-              className="mj-tactile-icon-key p-1.5 rounded-lg disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-              aria-label="Halaman pertama"
-            >
-              <ChevronsLeft className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
               disabled={currentPage === 1 || pageSize === 'ALL'}
-              className="mj-tactile-icon-key p-1.5 rounded-lg disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               aria-label="Halaman sebelumnya"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-
-            {pageSize !== 'ALL' &&
-              pageNumbers.map((item, idx) =>
-                item === 'ellipsis' ? (
-                  <span key={`e-${idx}`} className="px-2 text-[#7d7484]">
-                    ...
-                  </span>
-                ) : (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setCurrentPage(item)}
-                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold tabular-nums transition-all cursor-pointer ${
-                      currentPage === item
-                        ? 'mj-tactile-btn-primary'
-                        : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#35105E]'
-                    }`}
-                  >
-                    {item}
-                  </button>
-                )
-              )}
-
+            <span className="px-2 font-mono font-bold text-[#211A2E] dark:text-white tabular-nums">
+              {currentPage} / {totalPages}
+            </span>
             <button
               type="button"
               onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               aria-label="Halaman berikutnya"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-              className="p-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-              aria-label="Halaman terakhir"
-            >
-              <ChevronsRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
-
-        <div className="px-4 py-2 bg-[#F7F6FA] dark:bg-[#160D29]/60 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
-          <span className="w-2 h-2 rounded-full bg-[#16A36A] shrink-0" />
-          <span>
-            Menampilkan data sesuai zona waktu <strong>Asia/Jakarta (WIB)</strong>. Sinkronisasi dua arah via Express API &amp; Supabase aktif.
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Management Data Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && currentUser.role === 'management_data' && (

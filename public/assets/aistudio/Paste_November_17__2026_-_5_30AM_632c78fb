@@ -1,0 +1,533 @@
+Bertindak sebagai Senior Full-Stack Engineer, Enterprise UI/UX Architect, React Developer, Backend Integration Engineer, dan Database Integration Specialist.
+Tugas utama adalah mengimplementasikan desain frontend MoraJaws berdasarkan:
+Screenshot desain visual dari Stitch AI sebagai acuan utama tampilan.
+Source code HTML hasil Stitch AI sebagai referensi struktur layout, komponen, warna, tipografi, spacing, dan visual hierarchy.
+Repository MoraJaws yang sudah berjalan sebagai sumber utama arsitektur, AppFlow, backend, API, database, autentikasi, dan seluruh business logic.
+Hasil akhir harus berupa halaman frontend MoraJaws yang benar-benar terintegrasi dengan sistem produksi, bukan sekadar HTML statis atau prototype dengan data dummy.
+
+code html :
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=Courier+Prime:wght@600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "error-container": "#ffdad6", "inverse-surface": "#342d42", "secondary-fixed": "#e9ddff", "surface-container-highest": "#eaddfa", "light-canvas": "#F7F6FA", "light-canvas-tinted": "#F5F1FF", "on-primary-container": "#ccb7ff", "on-primary-fixed-variant": "#522aa7", "background": "#fef7ff", "tertiary-container": "#583ba6", "on-secondary-fixed-variant": "#4b4162", "on-tertiary-container": "#cab8ff", "primary": "#431599", "tertiary-fixed": "#e8ddff", "on-secondary-container": "#665b7e", "surface-container": "#f4eaff", "on-primary": "#ffffff", "border-subtle": "#E9E5F0", "on-error": "#ffffff", "status-success": "#16A36A", "surface-white": "#FFFFFF", "on-background": "#1f182c", "primary-container": "#5b35b1", "inverse-on-surface": "#f7edff", "status-danger": "#DC4C5A", "on-primary-fixed": "#22005c", "error": "#ba1a1a", "surface-tint": "#6a46c1", "lilac-accent": "#A78BFA", "surface-variant": "#eaddfa", "primary-fixed-dim": "#d0bcff", "on-error-container": "#93000a", "secondary-fixed-dim": "#cec0e8", "surface-container-lowest": "#ffffff", "on-tertiary-fixed": "#21005e", "secondary": "#63597b", "tertiary-fixed-dim": "#cebdff", "surface-bright": "#fef7ff", "tertiary": "#40208d", "brand-gloss-purple": "#7135B5", "surface-dim": "#e1d5f1", "inverse-primary": "#d0bcff", "soft-lilac": "#E9D5FF", "border-lilac": "#D8CCF3", "outline-variant": "#cbc3d5", "on-secondary-fixed": "#1f1634", "text-muted": "#8B8495", "on-surface-variant": "#494453", "text-secondary": "#766B83", "text-primary": "#211A2E", "surface-container-low": "#f9f0ff", "on-surface": "#1f182c", "brand-deep-purple": "#35105E", "secondary-container": "#e4d6ff", "primary-fixed": "#e9ddff", "outline": "#7a7484", "brand-dark-purple": "#160D29", "surface": "#fef7ff", "lilac-glow": "#D8B4FE", "on-secondary": "#ffffff", "status-warning": "#E59A27", "on-tertiary": "#ffffff", "on-tertiary-fixed-variant": "#4f319c", "status-info": "#3977C9", "surface-container-high": "#f0e3ff" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-md": "0.75rem", "gutter": "1rem", "space-lg": "1rem", "gutter-desktop": "1.5rem", "margin-desktop": "2rem", "space-xs": "0.25rem", "space-sm": "0.5rem", "space-xl": "1.5rem", "margin": "1rem" }, "fontFamily": { "headline-md": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "kpi-metric-mobile": ["Plus Jakarta Sans"], "code-mono": ["Courier Prime"], "label-nav": ["Inter"], "display-brand": ["Plus Jakarta Sans"], "body-compact": ["Inter"], "kpi-metric": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-base": ["Inter"], "label-caps": ["Inter"] }, "fontSize": { "headline-md": ["18px", { "lineHeight": "26px", "fontWeight": "700" }], "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "700" }], "kpi-metric-mobile": ["20px", { "lineHeight": "26px", "fontWeight": "700" }], "code-mono": ["12px", { "lineHeight": "16px", "fontWeight": "600" }], "label-nav": ["10px", { "lineHeight": "12px", "fontWeight": "600" }], "display-brand": ["28px", { "lineHeight": "34px", "fontWeight": "800" }], "body-compact": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "kpi-metric": ["24px", { "lineHeight": "32px", "fontWeight": "700" }], "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }], "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "label-caps": ["11px", { "lineHeight": "14px", "fontWeight": "700" }] } } } };</script></head><body class="bg-light-canvas font-body-base text-body-base text-text-primary antialiased selection:bg-lilac-glow selection:text-brand-dark-purple"><aside class="fixed left-0 top-0 h-screen w-64 bg-brand-dark-purple text-surface-white z-50 flex flex-col shadow-[0_1px_8px_rgba(0,0,0,0.04)] overflow-y-auto"><div class="flex items-center gap-space-sm px-space-lg py-space-lg bg-brand-dark-purple sticky top-0 z-10"><img alt="MoraJaws Brand Emblem" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrBLQIAfX6KYZJV599ARI5zFVwHhay4vKnd7lTuobH64I6a2xay8A3uX_uoCMuQHMmmEb4yq50IiKIZcYnaN7KVS35ROVMUteri80FHgnUr0Od3R9b4UZNNFmsrPxodnFP1wqDfLppH5qLK54BTc8QXi5azWnWdghllmEQBQr96GR39o5vBTaGHa62Q-dWbo4AzGqVaOaWeOZLXMW3b2pDuaeYGoYm04FNbSLfaPUTMs"/><div class="flex flex-col min-w-0"><span class="font-headline-md text-headline-md leading-none text-surface-white tracking-tight truncate">MoraJaws</span><span class="font-label-nav text-label-nav text-lilac-accent uppercase tracking-wider mt-space-xs truncate">Work Order Management</span></div></div><nav class="flex-1 px-space-md py-space-sm space-y-space-xs" data-active-classes="bg-brand-gloss-purple text-surface-white font-bold rounded-lg shadow-sm"><div class="px-space-sm py-space-xs font-label-caps text-label-caps text-text-muted uppercase tracking-wider">Operations Core</div><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="dashboard-monitoring" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">dashboard</span><span class="font-body-compact text-body-compact font-medium truncate">Dashboard Monitoring</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="ticket-myrepublic" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">confirmation_number</span><span class="font-body-compact text-body-compact font-medium truncate">Ticket MyRepublic</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="report-data-wo" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">bar_chart</span><span class="font-body-compact text-body-compact font-medium truncate">Report Data WO</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="import-data-wo" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">cloud_upload</span><span class="font-body-compact text-body-compact font-medium truncate">Import Data WO</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="contact-centre" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">forum</span><span class="font-body-compact text-body-compact font-medium truncate">Contact Centre</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="schedule" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">calendar_today</span><span class="font-body-compact text-body-compact font-medium truncate">Schedule</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="management-user" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">group</span><span class="font-body-compact text-body-compact font-medium truncate">Management User</span></a><div class="pt-space-md"><details class="group" open=""><summary class="flex items-center justify-between px-space-sm py-space-sm rounded-lg cursor-pointer text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all list-none"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-space-lg text-lilac-accent">domain</span><span class="font-body-compact text-body-compact font-semibold">Contractor &amp; Area</span></div><span class="material-symbols-outlined text-space-md transition-transform group-open:rotate-180">expand_more</span></summary><div class="pl-space-xl pr-space-xs py-space-xs space-y-space-xs"><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="assign-wo" href="#">Assign WO</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="dashboard-progress-wo" href="#">Dashboard Progress WO</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="rekap-total-wo" href="#">Rekap Total WO</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="basecamp" href="#">Basecamp</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="kuota" href="#">Kuota</a></div></details></div><div class="pt-space-xs"><details class="group"><summary class="flex items-center justify-between px-space-sm py-space-sm rounded-lg cursor-pointer text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all list-none"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-space-lg text-lilac-accent">engineering</span><span class="font-body-compact text-body-compact font-semibold">Installer</span></div><span class="material-symbols-outlined text-space-md transition-transform group-open:rotate-180">expand_more</span></summary><div class="pl-space-xl pr-space-xs py-space-xs space-y-space-xs"><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="pendaftaran-teknisi" href="#">Pendaftaran Teknisi</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="report-installer" href="#">Report Installer</a></div></details></div><div class="pt-space-xs"><details class="group"><summary class="flex items-center justify-between px-space-sm py-space-sm rounded-lg cursor-pointer text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all list-none"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-space-lg text-lilac-accent">tune</span><span class="font-body-compact text-body-compact font-semibold">Menu Tambahan</span></div><span class="material-symbols-outlined text-space-md transition-transform group-open:rotate-180">expand_more</span></summary><div class="pl-space-xl pr-space-xs py-space-xs space-y-space-xs"><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="setup-terpusat-morajaws" href="#">Setup Terpusat MoraJaws</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="konfigurasi-menu" href="#">Konfigurasi Menu</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="role-permission" href="#">Role &amp; Permission</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="audit-trail-log" href="#">Audit Trail Log</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="riwayat-sesi-login" href="#">Riwayat Sesi Login</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="kesehatan-sistem" href="#">Kesehatan Sistem</a></div></details></div></nav><div class="p-space-md bg-brand-deep-purple/40"><div class="flex items-center justify-between p-space-sm rounded-lg bg-brand-dark-purple/60 text-secondary-fixed-dim"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-status-success animate-pulse"></span><span class="font-label-caps text-label-caps">Cluster: JKT-01</span></div><span class="font-code-mono text-code-mono text-lilac-accent">v4.18</span></div></div></aside><div class="pl-64 min-h-screen flex flex-col bg-light-canvas"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-white/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md min-w-0"><button class="p-space-xs rounded-lg text-text-secondary hover:bg-surface-container hover:text-text-primary transition-colors" type="button"><span class="material-symbols-outlined">menu_open</span></button><nav class="hidden xl:flex items-center gap-space-xs font-body-compact text-body-compact text-text-muted truncate"><span class="hover:text-text-primary cursor-pointer">MoraJaws</span><span>/</span><span class="hover:text-text-primary cursor-pointer">Work Order Management</span><span>/</span><span class="text-brand-deep-purple font-semibold">Ticket MyRepublic</span></nav><div class="hidden sm:flex items-center gap-space-xs px-space-sm py-space-xs bg-light-canvas-tinted rounded-full text-brand-deep-purple"><span class="material-symbols-outlined text-space-lg text-brand-gloss-purple">event</span><span class="font-label-caps text-label-caps whitespace-nowrap">Appointment: Hari Ini (todayWIB) - 15 Nov 2026</span></div></div><div class="flex-1 max-w-md mx-space-md hidden lg:block"><div class="relative flex items-center w-full"><span class="material-symbols-outlined absolute left-space-sm text-text-muted text-space-lg pointer-events-none">search</span><input class="w-full pl-9 pr-14 py-space-xs bg-light-canvas rounded-lg font-body-compact text-body-compact text-text-primary placeholder:text-text-muted focus:outline-none focus:bg-surface-white focus:ring-1 focus:ring-lilac-accent" placeholder="Quick Cross-Date Search..." type="text"/><div class="absolute right-space-sm px-space-xs py-0.5 rounded bg-surface-container font-code-mono text-code-mono text-text-secondary pointer-events-none">Ctrl+K</div></div></div><div class="flex items-center gap-space-sm"><div class="hidden md:flex items-center gap-space-xs"><div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-status-success/10 text-status-success font-label-caps text-label-caps"><span class="w-1.5 h-1.5 rounded-full bg-status-success animate-ping"></span><span>● Online</span><span class="text-text-secondary font-medium ml-space-xs">0 Pending</span></div><div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-primary-container/10 text-brand-gloss-purple font-label-caps text-label-caps"><span class="material-symbols-outlined text-space-md">cloud_done</span><span>Cloud Live (SAVED)</span></div></div><div class="hidden 2xl:flex items-center gap-space-xs"><button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-lg bg-brand-deep-purple hover:bg-brand-gloss-purple text-surface-white font-label-caps text-label-caps transition-all" type="button"><span class="material-symbols-outlined text-space-md">bolt</span><span>Form Sameday Express</span></button><button class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-lg bg-surface-container hover:bg-surface-container-high text-brand-deep-purple font-label-caps text-label-caps transition-all" type="button"><span class="material-symbols-outlined text-space-md">sync</span><span>Sync Cloud</span></button></div><button class="relative p-space-xs rounded-lg text-text-secondary hover:bg-surface-container hover:text-text-primary transition-colors" type="button"><span class="material-symbols-outlined">notifications</span><span class="absolute top-1 right-1 w-4 h-4 bg-status-danger text-surface-white rounded-full font-label-nav text-label-nav flex items-center justify-center font-bold">3</span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="relative"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGqfmM9VR29MR-LJYBWJjibWsukPBNebdsdGrDZNh6yNGcA5DynsQjtbwonAiekRTiZrgk1NU-plsmowB7kN_8X-DJdVwZEajyNDSaddDo_iZhE7G2hlU4O4k9a-qpo2wEIWF0hxI43UwJsdIeEqg5cVLgIpXLFcerIeMSc8-uZLRwNB7d3LEPHv3w4ACwKN5KtIC6nZSDm8MQJ1KK8i_-CPrlLhSaf8uwzSKSr7o"/><span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-status-success rounded-full ring-2 ring-surface-white"></span></div><div class="hidden xl:flex flex-col text-left"><span class="font-body-compact text-body-compact font-bold text-text-primary leading-tight truncate">Sari Wulandari</span><span class="font-label-nav text-label-nav text-text-secondary leading-tight truncate">Dispatch Lead</span></div><span class="material-symbols-outlined text-text-secondary text-space-md hidden xl:block">arrow_drop_down</span></div></div></header><main class="w-full pt-16 bg-light-canvas flex-1"><div class="flex flex-col w-full h-[calc(100vh-4rem)] overflow-hidden">
+<div class="flex flex-row w-full h-full overflow-hidden bg-surface-container-low">
+<!-- LEFT PANEL: Ticket List & Search / Filters (Tactile Sidebar Strip) -->
+<section class="w-80 lg:w-96 flex-shrink-0 flex flex-col bg-surface-container-lowest shadow-md z-10">
+<!-- Panel Header: Search & Real-time Counts -->
+<div class="p-space-md bg-surface-container-low/60 flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container shadow-sm animate-pulse"></span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Live Feeds</span>
+<span class="ml-space-xs px-2 py-0.5 rounded-full bg-secondary-container/20 text-primary font-label-sm text-label-sm">18 Aktif</span>
+</div>
+<button class="tactile-micro-key w-8 h-8 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-primary flex items-center justify-center transition-all duration-75 shadow-sm active:translate-y-0.5" title="Filter Lanjutan" type="button">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+</div>
+<!-- Debossed Search Well -->
+<div class="relative w-full flex items-center">
+<span class="material-symbols-outlined absolute left-space-sm text-outline text-[18px] pointer-events-none">search</span>
+<input class="w-full pl-9 pr-3 py-2 bg-surface-container-low rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest transition-all" placeholder="Cari WO, ID Pelanggan, Teknisi..." style="box-shadow: inset 0 2px 4px rgba(31, 22, 56, 0.06), inset 0 1px 2px rgba(31, 22, 56, 0.04);" type="text"/>
+</div>
+<!-- Tactile Filter Segment Chips -->
+<div class="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
+<button class="tactile-chip-active px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-primary text-on-primary whitespace-nowrap shadow-sm active:translate-y-0.5">
+            Semua (18)
+          </button>
+<button class="tactile-chip px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-surface-container text-on-surface-variant hover:bg-surface-container-high whitespace-nowrap active:translate-y-0.5 transition-all">
+            Unread (4)
+          </button>
+<button class="tactile-chip px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-error-container text-on-error-container whitespace-nowrap active:translate-y-0.5 transition-all">
+            Approval (3)
+          </button>
+<button class="tactile-chip px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-secondary-fixed text-on-secondary-fixed whitespace-nowrap active:translate-y-0.5 transition-all">
+            Lapangan (6)
+          </button>
+</div>
+</div>
+<!-- Scrollable Ticket List -->
+<div class="flex-1 overflow-y-auto p-space-sm space-y-2">
+<!-- ACTIVE TICKET: WO20267399330 -->
+<div class="relative p-space-sm rounded-xl bg-surface-container-high cursor-pointer transition-all duration-100" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #dab9ff, 0 6px 14px -3px rgba(88, 20, 156, 0.15);">
+<!-- Glowing Left Accent Ribbon -->
+<span class="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full bg-primary-container"></span>
+<div class="pl-3.5 flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-bold text-primary tracking-wider">WO20267399330</span>
+<span class="font-label-sm text-label-sm text-outline">09:34 WIB</span>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-headline-sm text-title-md text-on-surface font-bold truncate">Haji Sulaiman</h4>
+<span class="w-5 h-5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm flex items-center justify-center font-bold shadow-sm">1</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+<span class="font-semibold text-primary">Andi S:</span> Dropcore 115m sudah ditarik, modem ONT...
+            </p>
+<div class="flex items-center gap-1.5 mt-1 flex-wrap">
+<span class="px-1.5 py-0.5 rounded bg-surface-container-lowest text-on-surface-variant font-label-sm text-[10px] tracking-wide">Slot 1 (09:00)</span>
+<span class="px-1.5 py-0.5 rounded bg-secondary-fixed text-primary font-label-sm text-[10px] font-bold">IN PROGRESS</span>
+<span class="px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-label-sm text-[10px] font-bold">BUTUH ACC</span>
+</div>
+</div>
+</div>
+<!-- TICKET 2: WO20267399335 -->
+<div class="p-space-sm rounded-xl bg-surface-container-lowest hover:bg-surface-container transition-all cursor-pointer shadow-sm active:translate-y-0.5" style="box-shadow: 0 2px 0 #e8ddff, 0 4px 8px -2px rgba(31, 22, 56, 0.05);">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant">WO20267399335</span>
+<span class="font-label-sm text-label-sm text-outline">09:12 WIB</span>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-title-md text-title-md text-on-surface font-semibold truncate">Agung Prasetyo</h4>
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate">
+<span class="font-semibold text-on-surface-variant">Rian D:</span> Pelanggan minta reschedule jam 13:00...
+            </p>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-[10px]">Slot 1</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-[10px]">HOLD</span>
+</div>
+</div>
+</div>
+<!-- TICKET 3: WO20267399342 -->
+<div class="p-space-sm rounded-xl bg-surface-container-lowest hover:bg-surface-container transition-all cursor-pointer shadow-sm active:translate-y-0.5" style="box-shadow: 0 2px 0 #e8ddff, 0 4px 8px -2px rgba(31, 22, 56, 0.05);">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant">WO20267399342</span>
+<span class="font-label-sm text-label-sm text-outline">08:45 WIB</span>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-title-md text-title-md text-on-surface font-semibold truncate">Ibu Ratna Kusuma</h4>
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate">
+<span class="font-semibold text-on-surface-variant">Fajar K:</span> Aktivasi sukses, tiket closed sistem.
+            </p>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-[10px]">Slot 1</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-variant text-on-surface-variant font-label-sm text-[10px] font-bold">COMPLETED</span>
+</div>
+</div>
+</div>
+<!-- TICKET 4: WO20267399348 -->
+<div class="p-space-sm rounded-xl bg-surface-container-lowest hover:bg-surface-container transition-all cursor-pointer shadow-sm active:translate-y-0.5" style="box-shadow: 0 2px 0 #e8ddff, 0 4px 8px -2px rgba(31, 22, 56, 0.05);">
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-bold text-on-surface-variant">WO20267399348</span>
+<span class="font-label-sm text-label-sm text-outline">08:20 WIB</span>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-title-md text-title-md text-on-surface font-semibold truncate">PT Cipta Solusi Mandiri</h4>
+<span class="px-1.5 py-0.2 rounded-full bg-secondary-container/30 text-primary font-label-sm text-[10px] font-bold">B2B</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate">
+<span class="font-semibold text-on-surface-variant">Hendra:</span> Butuh izin security building lantai 4...
+            </p>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-[10px]">Slot 2 (11:00)</span>
+<span class="px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-label-sm text-[10px]">PENDING IZIN</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Operator Footprint -->
+<div class="p-space-sm bg-surface-container-low flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">headset_mic</span>
+          Dispatcher: Sari W.
+        </span>
+<span class="font-mono text-outline">JKT-SOUTH</span>
+</div>
+</section>
+<!-- RIGHT/MAIN: 100% Fullscreen Chat Workspace -->
+<main class="flex-1 flex flex-col h-full bg-surface-container-low relative overflow-hidden">
+<!-- TOP CONVERSATION BAR / TELEMETRY CONSOLE -->
+<header class="h-20 bg-surface-container-lowest px-space-md lg:px-space-lg flex items-center justify-between shadow-sm z-20 flex-shrink-0">
+<!-- Left: Ticket Identity & Telemetry Tags -->
+<div class="flex items-center gap-space-md min-w-0">
+<!-- Tactile Expand / Ticket Detail Drawer Trigger -->
+<button class="tactile-micro-key w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface hover:text-primary transition-all duration-75 active:translate-y-1" id="btnToggleDetail" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #cec3d4, 0 4px 8px rgba(31, 22, 56, 0.08);" title="Buka / Tutup Ringkasan WO" type="button">
+<span class="material-symbols-outlined text-[22px]">dock_to_right</span>
+</button>
+<!-- Customer & Ticket Telemetry -->
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-headline-sm text-title-md font-bold text-on-surface truncate">Haji Sulaiman</span>
+<span class="font-mono text-body-sm font-bold text-primary px-2 py-0.5 rounded bg-primary-fixed">WO20267399330</span>
+<span class="text-body-sm text-outline font-medium hidden sm:inline">(ID: 7399330)</span>
+</div>
+<div class="flex items-center gap-2 mt-0.5 text-on-surface-variant font-label-md text-label-md flex-wrap">
+<span class="flex items-center gap-1 text-on-surface-variant font-medium">
+<span class="material-symbols-outlined text-[15px] text-secondary">schedule</span>
+                Slot 1 (09:00 - 11:00 WIB)
+              </span>
+<span class="text-outline font-bold">•</span>
+<span class="flex items-center gap-1 text-on-surface-variant font-medium truncate max-w-xs sm:max-w-md">
+<span class="material-symbols-outlined text-[15px] text-secondary">location_on</span>
+                Cluster Melati Kemang Blok C2/14
+              </span>
+</div>
+</div>
+</div>
+<!-- Right: 4-Dimension Semantic Badges & 3D Action Matrix -->
+<div class="flex items-center gap-space-sm flex-shrink-0">
+<!-- Semantic Badges Deck (Desktop Expanded) -->
+<div class="hidden xl:flex items-center gap-1.5 mr-2">
+<span class="px-2 py-1 rounded-lg bg-surface-container font-label-sm text-label-sm font-bold text-on-surface shadow-xs">
+              AGENT: <span class="text-primary font-black">ASSIGNED</span>
+</span>
+<span class="px-2 py-1 rounded-lg bg-secondary-fixed font-label-sm text-label-sm font-bold text-on-secondary-fixed shadow-xs">
+              TEKNISI: <span class="text-primary font-black">IN PROGRESS</span>
+</span>
+<span class="px-2 py-1 rounded-lg bg-surface-container-high font-label-sm text-label-sm font-bold text-on-surface-variant shadow-xs">
+              WA: <span class="text-on-surface font-black">CONFIRMED</span>
+</span>
+<span class="px-2 py-1 rounded-lg bg-error-container font-label-sm text-label-sm font-bold text-on-error-container animate-pulse shadow-xs">
+              APPROVAL: <span class="text-error font-black">BUTUH ACC</span>
+</span>
+</div>
+<!-- 3D Tactile Action Buttons -->
+<div class="flex items-center gap-2">
+<!-- Secondary Ceramic: Buka Detail Tiket (Expand) -->
+<button class="tactile-btn-secondary hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-lowest text-on-surface font-label-md text-label-md transition-all duration-75 active:translate-y-1" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 3px 0 #cec3d4, 0 5px 10px rgba(31, 22, 56, 0.08);" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">open_in_new</span>
+<span>Buka Detail Tiket</span>
+</button>
+<!-- Emerald Specular 3D Button: Hubungi WhatsApp -->
+<a class="tactile-btn-emerald flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-b from-[#10B981] to-[#059669] text-white font-label-md text-label-md font-bold transition-all duration-75 active:translate-y-1" href="https://wa.me/6281234567890" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 0 #064E3B, 0 6px 14px rgba(16, 185, 129, 0.3);" target="_blank">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+<span class="hidden sm:inline">WhatsApp (Pelanggan)</span>
+</a>
+<!-- Tactile Secondary: Panggilan Korlap -->
+<button class="tactile-btn-secondary hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-lowest text-on-surface font-label-md text-label-md transition-all duration-75 active:translate-y-1" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 3px 0 #cec3d4, 0 5px 10px rgba(31, 22, 56, 0.08);" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">call</span>
+<span>Panggilan Korlap</span>
+</button>
+<!-- Tactile Micro Key: Opsi Lainnya [⋮] -->
+<button class="tactile-micro-key w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface hover:text-primary transition-all duration-75 active:translate-y-1" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #cec3d4, 0 4px 8px rgba(31, 22, 56, 0.08);" type="button">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+</header>
+<!-- EXPANDED CHAT STREAM (Lapang, Bersih, Penuh Estetika MoraJaws) -->
+<div class="flex-1 overflow-y-auto px-space-md lg:px-space-xl py-space-md space-y-space-md" id="chatStream">
+<!-- Timeline Separator (3D Inset Badge) -->
+<div class="flex items-center justify-center my-space-sm">
+<div class="px-4 py-1.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm shadow-xs flex items-center gap-1.5" style="box-shadow: inset 0 1px 2px rgba(31, 22, 56, 0.06), 0 1px 0 rgba(255, 255, 255, 0.9);">
+<span class="material-symbols-outlined text-[14px] text-secondary">calendar_today</span>
+<span>Hari Ini — 15 November 2026</span>
+</div>
+</div>
+<!-- MESSAGE 1: Dispatch (Pusat / Sari Wulandari) -->
+<div class="flex items-start gap-space-sm max-w-2xl">
+<div class="relative flex-shrink-0">
+<div class="w-9 h-9 rounded-xl bg-primary-container text-on-primary font-headline-sm text-label-lg font-bold flex items-center justify-center shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 #35105e;">
+              SW
+            </div>
+<span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-surface-container-lowest rounded-full flex items-center justify-center shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+</span>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md font-bold text-on-surface">Sari Wulandari</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-high text-primary font-label-sm text-[10px] font-bold">DISPATCH JKT-01</span>
+<span class="font-label-sm text-label-sm text-outline">09:02 WIB</span>
+</div>
+<!-- Tactile Speech Bubble (Dispatcher Light Surface Extrusion) -->
+<div class="p-space-md rounded-2xl rounded-tl-sm bg-surface-container-lowest text-on-surface font-body-md text-body-md shadow-md" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #e8ddff, 0 6px 14px -2px rgba(31, 22, 56, 0.06);">
+<p>Selamat pagi Mas Andi, <span class="font-bold text-primary">WO20267399330</span> (Haji Sulaiman) sudah siap dikerjakan. Pelanggan minta konfirmasi tiba sebelum jam 09:30 karena ada agenda zoom keluarga. Pastikan cek redaman di FAT awal ya.</p>
+</div>
+</div>
+</div>
+<!-- MESSAGE 2: Teknisi Lapangan (Andi Saputra) + Photo Attachments with 3D Viewers -->
+<div class="flex items-start gap-space-sm max-w-3xl ml-auto flex-row-reverse">
+<div class="relative flex-shrink-0">
+<div class="w-9 h-9 rounded-xl bg-secondary text-on-secondary font-headline-sm text-label-lg font-bold flex items-center justify-center shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 #2a0053;">
+              AS
+            </div>
+<span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-surface-container-lowest rounded-full flex items-center justify-center shadow-xs">
+<span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+</span>
+</div>
+<div class="flex flex-col gap-1 items-end min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">09:18 WIB</span>
+<span class="px-1.5 py-0.2 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[10px] font-bold">TEKNISI FIELD</span>
+<span class="font-label-md text-label-md font-bold text-on-surface">Andi Saputra</span>
+</div>
+<!-- Tactile Speech Bubble (Field Tech Message) -->
+<div class="p-space-md rounded-2xl rounded-tr-sm bg-surface-container-high text-on-surface font-body-md text-body-md shadow-md max-w-xl" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 3px 0 #dab9ff, 0 8px 16px -4px rgba(88, 20, 156, 0.12);">
+<div class="flex items-center gap-1.5 mb-2">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sensors</span>
+                  PROGRESS LAPANGAN
+                </span>
+<span class="font-label-sm text-label-sm text-primary font-bold">FAT-MEL-02 Port 04</span>
+</div>
+<p class="mb-3">
+                Siap Mbak Sari, sudah check-in di tiang <span class="font-mono font-bold">FAT-MEL-02</span>. Redaman awal terpantau normal <span class="font-mono font-bold text-primary">-18.42 dBm</span>. Foto OPM dan tiang saya lampirkan berikut.
+              </p>
+<!-- Photo Attachments Grid (Tactile Cards) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm pt-2">
+<!-- Attachment 1: OPM Meter -->
+<div class="rounded-xl overflow-hidden bg-surface-container-lowest p-2 shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 #cec3d4;">
+<div class="relative w-full h-36 rounded-lg overflow-hidden bg-surface-dim">
+<img class="w-full h-full object-cover" data-alt="Close-up crisp photo of an optical power meter displaying -18.42 dBm with green LED backlight on a telecommunication fiber optic site, daylight, technical clarity, high resolution" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXMG23Q_z4nIHq2OfegQzjoq00N5UkNvKI4982JkWiyLQqCG7CAXBgSUb4jJBENnlzklJcy9G-1SOmX0vGMz9niVNNlOqJkm1b4mdrpUtIEQC1YAqzRX0fOe_j4KBwTLrqqPZU7IU_NrcNzYMAlzUP2jJ4mbvMOT3XG8Xc1x7ONnzCKCsTNwTZtnDqeZwGMe1hAi1p3Mz5mg9KO8CtTjyDlbKjHgm2Me-HmfprgkY"/>
+<div class="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-inverse-surface/85 backdrop-blur text-inverse-on-surface font-mono text-[11px] font-bold">
+                      -18.42 dBm (1310nm)
+                    </div>
+</div>
+<div class="mt-2 flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Foto_OPM_FAT-MEL-02.jpg</span>
+<button class="tactile-micro-key px-2 py-1 rounded bg-surface-container text-primary font-label-sm text-label-sm flex items-center gap-1 active:translate-y-0.5 transition-all" style="box-shadow: 0 2px 0 #dab9ff;" type="button">
+<span class="material-symbols-outlined text-[14px]">zoom_in</span>
+                      Lihat Foto Penuh
+                    </button>
+</div>
+</div>
+<!-- Attachment 2: Pole / Tiang FAT -->
+<div class="rounded-xl overflow-hidden bg-surface-container-lowest p-2 shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 #cec3d4;">
+<div class="relative w-full h-36 rounded-lg overflow-hidden bg-surface-dim">
+<img class="w-full h-full object-cover" data-alt="Telecommunication utility pole with fiber optic distribution box FAT clearly labeled FAT-MEL-02 in a clean Indonesian residential cluster Kemang, bright sunny morning, professional documentation shot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4ACJib9ZXFf57Zw9GVtf_Z1sUiqpYKakc7qMDEvFB9C8DllYFMW56S4saXt47pJMjsjxCmakTRvOvYNhlLqGFUDMMffmNkPHsOBwf8aKZxStGf3dX4uMmBfZPBao47TmwuIHZc1Y4Q4hbibuPPnMvLNWV_X_n_5IiM_HkyJsu_TH1Ao4KcPoowwLOUVYl6DUBFxnlfTUuq6byzrq6UkQVwS0eGuS9XAftBgosVF4"/>
+<div class="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-inverse-surface/85 backdrop-blur text-inverse-on-surface font-mono text-[11px] font-bold">
+                      Tiang FAT-MEL-02 (C2)
+                    </div>
+</div>
+<div class="mt-2 flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Kondisi_Tiang_Cluster.jpg</span>
+<button class="tactile-micro-key px-2 py-1 rounded bg-surface-container text-primary font-label-sm text-label-sm flex items-center gap-1 active:translate-y-0.5 transition-all" style="box-shadow: 0 2px 0 #dab9ff;" type="button">
+<span class="material-symbols-outlined text-[14px]">zoom_in</span>
+                      Lihat Foto Penuh
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- MESSAGE 3: Dispatch Feedback (Acc Redaman) -->
+<div class="flex items-start gap-space-sm max-w-2xl">
+<div class="relative flex-shrink-0">
+<div class="w-9 h-9 rounded-xl bg-primary-container text-on-primary font-headline-sm text-label-lg font-bold flex items-center justify-center shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 #35105e;">
+              SW
+            </div>
+<span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-surface-container-lowest rounded-full flex items-center justify-center shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+</span>
+</div>
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md font-bold text-on-surface">Sari Wulandari</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-high text-primary font-label-sm text-[10px] font-bold">DISPATCH</span>
+<span class="font-label-sm text-label-sm text-outline">09:21 WIB</span>
+</div>
+<div class="p-space-md rounded-2xl rounded-tl-sm bg-surface-container-lowest text-on-surface font-body-md text-body-md shadow-md" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #e8ddff, 0 6px 14px -2px rgba(31, 22, 56, 0.06);">
+<p>Bagus mas, redaman <span class="font-mono font-bold text-primary">-18.42 dBm</span> sangat optimal (<span class="font-bold text-[#10B981]">Pass &lt; -24.00 dBm</span>). Silakan lanjut tarik dropcore ke roset pelanggan. Jangan lupa tagging kabel di tiang ya.</p>
+</div>
+</div>
+</div>
+<!-- MESSAGE 4: Teknisi Update Terkini (Modem Sync & Menunggu BA) -->
+<div class="flex items-start gap-space-sm max-w-2xl ml-auto flex-row-reverse">
+<div class="relative flex-shrink-0">
+<div class="w-9 h-9 rounded-xl bg-secondary text-on-secondary font-headline-sm text-label-lg font-bold flex items-center justify-center shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 #2a0053;">
+              AS
+            </div>
+<span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-surface-container-lowest rounded-full flex items-center justify-center shadow-xs">
+<span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+</span>
+</div>
+<div class="flex flex-col gap-1 items-end min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">09:34 WIB</span>
+<span class="px-1.5 py-0.2 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[10px] font-bold">TEKNISI FIELD</span>
+<span class="font-label-md text-label-md font-bold text-on-surface">Andi Saputra</span>
+</div>
+<div class="p-space-md rounded-2xl rounded-tr-sm bg-surface-container-high text-on-surface font-body-md text-body-md shadow-md" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 3px 0 #dab9ff, 0 8px 16px -4px rgba(88, 20, 156, 0.12);">
+<p>Dropcore <span class="font-bold">115m</span> sudah ditarik rapi, modem ONT <span class="font-mono font-bold text-primary">ZTEG-C882194</span> sudah sinkron PON hijau stabil. Sedang menunggu pelanggan tes koneksi wifi dan ttd Berita Acara digital di aplikasi installer.</p>
+<div class="mt-2.5 p-2 rounded-lg bg-surface-container-lowest/80 flex items-center justify-between gap-2">
+<div class="flex items-center gap-1.5 font-label-sm text-label-sm text-on-surface font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary">router</span>
+<span>SN: ZTEGC882194 | PON: ACTIVE</span>
+</div>
+<span class="font-mono text-[11px] font-bold text-[#10B981]">SPEEDTEST 102 Mbps</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- BOTTOM INTERACTION CONSOLE (Quick Reply Chips + Dispatch Composer) -->
+<footer class="bg-surface-container-lowest px-space-md lg:px-space-xl py-space-sm flex flex-col gap-2.5 shadow-xl z-20 flex-shrink-0">
+<!-- QUICK REPLY TACTILE CHIPS ROW -->
+<div class="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
+<span class="font-label-sm text-label-sm text-outline uppercase font-bold tracking-wider flex-shrink-0 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+            Aksi Cepat:
+          </span>
+<!-- 1. Acc Redaman Normal (Emerald Tactile Chip) -->
+<button class="tactile-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-b from-[#10B981] to-[#059669] text-white font-label-md text-label-md font-bold whitespace-nowrap transition-all duration-75 active:translate-y-1" onclick="insertQuickReply('Redaman FAT -18.42 dBm APPROVED. Silakan lanjut selesaikan BA.')" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 3px 0 #064E3B, 0 4px 8px rgba(16, 185, 129, 0.2);" type="button">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>Acc Redaman Normal</span>
+</button>
+<!-- 2. Kirim Ulang Foto MAC/SN (Lilac Tactile Chip) -->
+<button class="tactile-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold whitespace-nowrap transition-all duration-75 active:translate-y-1" onclick="insertQuickReply('Mohon kirim ulang foto barcode MAC Address dan SN ONT yang lebih tajam.')" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #cec3d4, 0 4px 6px rgba(31, 22, 56, 0.05);" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">photo_camera</span>
+<span>Kirim Ulang Foto MAC/SN</span>
+</button>
+<!-- 3. Koordinasi dengan Korlap Budi (Lilac Tactile Chip) -->
+<button class="tactile-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold whitespace-nowrap transition-all duration-75 active:translate-y-1" onclick="insertQuickReply('Sedang saya koordinasikan dengan Korlap Pak Budi terkait kondisi lapangan.')" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #cec3d4, 0 4px 6px rgba(31, 22, 56, 0.05);" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">support_agent</span>
+<span>Koordinasi Korlap Budi</span>
+</button>
+<!-- 4. Verifikasi Berita Acara Digital (Imperial Violet Tactile Chip) -->
+<button class="tactile-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md font-bold whitespace-nowrap transition-all duration-75 active:translate-y-1" onclick="insertQuickReply('Status Berita Acara Digital sudah dicek, menunggu tanda tangan pelanggan via link SMS.')" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 3px 0 #35105e, 0 4px 8px rgba(88, 20, 156, 0.2);" type="button">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+<span>Verifikasi Berita Acara Digital</span>
+</button>
+</div>
+<!-- ERGONOMIC CHAT COMPOSER (TANPA DROPDOWN KATEGORI - KHUSUS ROLE DISPATCH) -->
+<form class="flex items-center gap-space-sm w-full" id="chatForm" onsubmit="handleSendMessage(event)">
+<!-- Attachment Action 1: Ambil / Unggah Foto -->
+<button class="tactile-micro-key w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center text-on-surface hover:text-primary transition-all duration-75 active:translate-y-1 flex-shrink-0" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #cec3d4, 0 4px 8px rgba(31, 22, 56, 0.06);" title="Unggah Bukti Foto Lapangan" type="button">
+<span class="material-symbols-outlined text-[22px]">photo_camera</span>
+</button>
+<!-- Attachment Action 2: Unggah Dokumen / PDF BA -->
+<button class="tactile-micro-key w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center text-on-surface hover:text-primary transition-all duration-75 active:translate-y-1 flex-shrink-0" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #cec3d4, 0 4px 8px rgba(31, 22, 56, 0.06);" title="Lampirkan Berkas / Berita Acara" type="button">
+<span class="material-symbols-outlined text-[22px]">attach_file</span>
+</button>
+<!-- Debossed Chat Input Field (Lapang & Tactile Recessed) -->
+<div class="relative flex-1 flex items-center">
+<textarea class="w-full px-4 py-3 bg-surface-container-low rounded-xl font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest resize-none transition-all" id="messageInput" onkeydown="handleKeyDown(event)" placeholder="Ketik pesan koordinasi dispatch untuk WO20267399330 (Andi Saputra)... Tekan Enter untuk kirim" rows="1" style="box-shadow: inset 0 2px 4px rgba(31, 22, 56, 0.08), inset 0 1px 2px rgba(31, 22, 56, 0.05), 0 1px 0 rgba(255, 255, 255, 0.9);"></textarea>
+</div>
+<!-- PRIMARY TACTILE BUTTON: Kirim Pesan (Tier 01 Imperial Violet) -->
+<button class="tactile-btn-primary flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-b from-[#7135b5] to-[#58149c] text-white font-label-lg text-label-lg font-bold transition-all duration-75 active:translate-y-1 flex-shrink-0" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 0 #35105E, 0 6px 14px rgba(88, 20, 156, 0.25);" type="submit">
+<span>Kirim</span>
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</form>
+</footer>
+</main>
+<!-- SLIDE-OVER / COLLAPSIBLE DRAWER: Detail Tiket WO (Initially Collapsed for 100% Fullscreen Chat) -->
+<aside class="hidden w-80 lg:w-96 bg-surface-container-lowest flex-col shadow-2xl z-30 transition-all duration-200 overflow-y-auto" id="ticketDrawer">
+<div class="p-space-md bg-surface-container-high flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">assignment</span>
+<span class="font-headline-sm text-title-md font-bold text-on-surface">Data Lembar Kerja</span>
+</div>
+<button class="tactile-micro-key w-8 h-8 rounded-lg bg-surface-container text-on-surface flex items-center justify-center active:translate-y-0.5" onclick="toggleDetailDrawer()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="p-space-md space-y-space-md">
+<!-- Telemetry Summary Card -->
+<div class="p-space-sm rounded-xl bg-surface-container-low shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 #cec3d4;">
+<span class="font-label-sm text-label-sm text-outline uppercase font-bold">Informasi Pelanggan</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold mt-1">Haji Sulaiman</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cluster Melati Kemang Blok C2 No. 14, RT 04/RW 08, Mampang Prapatan, Jakarta Selatan</p>
+<div class="mt-2 pt-2 flex items-center justify-between font-label-md text-label-md">
+<span class="text-outline">Paket:</span>
+<span class="font-bold text-primary">Fast 100 Mbps Home</span>
+</div>
+</div>
+<!-- OLT & FAT Assignment Card -->
+<div class="p-space-sm rounded-xl bg-surface-container-low shadow-sm" style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 #cec3d4;">
+<span class="font-label-sm text-label-sm text-outline uppercase font-bold">Jalur Transmisi Fiber</span>
+<div class="mt-2 space-y-1.5 font-body-sm text-body-sm">
+<div class="flex justify-between"><span class="text-outline">OLT Code:</span> <span class="font-mono font-bold text-on-surface">OLT-KMG-01</span></div>
+<div class="flex justify-between"><span class="text-outline">FAT Code:</span> <span class="font-mono font-bold text-primary">FAT-MEL-02 (P04)</span></div>
+<div class="flex justify-between"><span class="text-outline">Redaman Baseline:</span> <span class="font-mono font-bold text-[#10B981]">-18.42 dBm</span></div>
+<div class="flex justify-between"><span class="text-outline">Panjang Dropcore:</span> <span class="font-mono font-bold text-on-surface">115 Meter</span></div>
+</div>
+</div>
+<!-- Action Drawer Footer -->
+<div class="flex flex-col gap-2 pt-2">
+<button class="w-full py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold shadow-sm active:translate-y-0.5" style="box-shadow: 0 3px 0 #35105e;" type="button">
+            Generate BA Digital Link
+          </button>
+<button class="w-full py-2.5 rounded-xl bg-surface-container text-on-surface font-label-md text-label-md font-semibold active:translate-y-0.5" style="box-shadow: 0 2px 0 #cec3d4;" type="button">
+            Download Rekap Log Tiket
+          </button>
+</div>
+</div>
+</aside>
+</div>
+</div>
+<script>
+  function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage(event);
+    }
+  }
+
+  function handleSendMessage(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const stream = document.getElementById('chatStream');
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+
+    const newMsg = document.createElement('div');
+    newMsg.className = 'flex items-start gap-space-sm max-w-2xl';
+    newMsg.innerHTML = `
+      <div class="relative flex-shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-primary-container text-on-primary font-headline-sm text-label-lg font-bold flex items-center justify-center shadow-sm"
+             style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 #35105e;">
+          SW
+        </div>
+        <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-surface-container-lowest rounded-full flex items-center justify-center shadow-xs">
+          <span class="w-2 h-2 rounded-full bg-primary-container"></span>
+        </span>
+      </div>
+      <div class="flex flex-col gap-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-label-md text-label-md font-bold text-on-surface">Sari Wulandari</span>
+          <span class="px-1.5 py-0.2 rounded bg-surface-container-high text-primary font-label-sm text-[10px] font-bold">DISPATCH</span>
+          <span class="font-label-sm text-label-sm text-outline">${timeStr}</span>
+        </div>
+        <div class="p-space-md rounded-2xl rounded-tl-sm bg-surface-container-lowest text-on-surface font-body-md text-body-md shadow-md"
+             style="box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #e8ddff, 0 6px 14px -2px rgba(31, 22, 56, 0.06);">
+          <p>${escapeHtml(text)}</p>
+        </div>
+      </div>
+    `;
+
+    stream.appendChild(newMsg);
+    input.value = '';
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  function insertQuickReply(text) {
+    const input = document.getElementById('messageInput');
+    input.value = text;
+    input.focus();
+  }
+
+  function escapeHtml(string) {
+    const pre = document.createElement('pre');
+    const textNode = document.createTextNode(string);
+    pre.appendChild(textNode);
+    return pre.innerHTML;
+  }
+
+  function toggleDetailDrawer() {
+    const drawer = document.getElementById('ticketDrawer');
+    if (drawer.classList.contains('hidden')) {
+      drawer.classList.remove('hidden');
+      drawer.classList.add('flex');
+    } else {
+      drawer.classList.add('hidden');
+      drawer.classList.remove('flex');
+    }
+  }
+
+  document.getElementById('btnToggleDetail')?.addEventListener('click', toggleDetailDrawer);
+</script></main></div></body></html>

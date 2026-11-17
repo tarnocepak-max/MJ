@@ -10,8 +10,6 @@ import {
   Camera,
   Shield,
   Building2,
-  CheckCheck,
-  Check,
   Maximize2,
   X,
   AlertCircle,
@@ -30,7 +28,19 @@ import {
   FileText,
   Radio,
   WifiOff,
-  Loader2
+  Loader2,
+  SlidersHorizontal,
+  Headphones,
+  Clock,
+  MapPin,
+  ExternalLink,
+  PhoneCall,
+  MoreVertical,
+  Paperclip,
+  Calendar,
+  Router,
+  Copy,
+  Check
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useUIConfig } from '../../context/UIConfigContext';
@@ -81,6 +91,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   const {
     scopedTickets,
     tickets,
+    users,
     currentUser,
     todayWIB,
     ticketMessages,
@@ -105,7 +116,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>(() =>
     !initialTicketId && totalLiveChatUnreadCount > 0 ? 'all_unread' : 'all'
-  ); // 'all', 'all_unread', or categoryId
+  ); // 'all', 'all_unread', 'approval', 'field', or categoryId
   const [selectedTicketId, setSelectedTicketId] = useState<string>(initialTicketId || '');
   const [inputText, setInputText] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
@@ -114,6 +125,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [brokenImageIds, setBrokenImageIds] = useState<Record<string, boolean>>({});
+  const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [copiedWoId, setCopiedWoId] = useState<string | null>(null);
 
   // Full Chat Mode: Detail Drawer collapsed by default for maximum chat canvas
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
@@ -260,11 +274,32 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     return searchFilteredTickets.filter(t => getTicketUnreadCount(t.id) > 0);
   }, [searchFilteredTickets, getTicketUnreadCount, ticketMessages]);
 
+  const approvalTickets = useMemo(() => {
+    return searchFilteredTickets.filter(t => t.approvalStatus === 'BUTUH APPROVAL');
+  }, [searchFilteredTickets]);
+
+  const fieldTickets = useMemo(() => {
+    return searchFilteredTickets.filter(t => {
+      const stage = String(t.statusWOInstaller || '').toUpperCase();
+      return (
+        stage.includes('PROGRESS') ||
+        stage.includes('ON SITE') ||
+        stage.includes('ON THE WAY') ||
+        stage.includes('EN ROUTE') ||
+        stage === 'ASSIGNED'
+      );
+    });
+  }, [searchFilteredTickets]);
+
   // Sorted conversation list (unread/latest activity first)
   const conversationList = useMemo(() => {
     let base: Ticket[];
     if (activeCategoryFilter === 'all_unread') {
       base = allUnreadTickets;
+    } else if (activeCategoryFilter === 'approval') {
+      base = approvalTickets;
+    } else if (activeCategoryFilter === 'field') {
+      base = fieldTickets;
     } else if (activeCategoryFilter !== 'all') {
       const group = groupedTickets.find(g => g.category.id === activeCategoryFilter);
       base = group ? group.tickets : [];
@@ -281,7 +316,15 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
       if (timeA !== timeB) return timeB - timeA;
       return String(a.woNumber || '').localeCompare(String(b.woNumber || ''));
     });
-  }, [activeCategoryFilter, allUnreadTickets, groupedTickets, searchFilteredTickets, getTicketUnreadCount]);
+  }, [
+    activeCategoryFilter,
+    allUnreadTickets,
+    approvalTickets,
+    fieldTickets,
+    groupedTickets,
+    searchFilteredTickets,
+    getTicketUnreadCount
+  ]);
 
   // Auto-select first ticket if current selection is missing or invalid
   useEffect(() => {
@@ -490,46 +533,147 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   const quickReplyChips = useMemo(() => {
     if (isInstaller) {
       return [
-        'Teknisi sudah tiba di lokasi pelanggan (Check-in On Site).',
-        'Pengecekan redaman FAT: normal (di bawah -20 dBm).',
-        'Kendala redaman drop / tiang jauh, mohon arahan.',
-        'Pemasangan ONT selesai, internet aktif & stabil.',
-        'Mohon verifikasi approval laporan dari Dispatch.'
+        {
+          id: 'checkin',
+          label: 'Check-in Lokasi (#PROGRESS)',
+          tone: 'emerald' as const,
+          text: `Teknisi sudah check-in di lokasi ${activeTicket?.fatCode || 'FAT'} (${activeTicket?.woNumber || ''}). Sedang pengecekan redaman awal.`
+        },
+        {
+          id: 'opm_ok',
+          label: 'Redaman FAT Normal',
+          tone: 'lilac' as const,
+          text: `Pengecekan redaman OPM di ${activeTicket?.fatCode || 'FAT'} normal (< -24.00 dBm). Lanjut tarik dropcore.`
+        },
+        {
+          id: 'kendala',
+          label: 'Kendala Lapangan',
+          tone: 'lilac' as const,
+          text: 'Terdapat kendala teknis di lapangan (redaman / jalur tiang), mohon arahan Dispatch & Korlap.'
+        },
+        {
+          id: 'ready_acc',
+          label: 'ONT Online & Siap ACC',
+          tone: 'violet' as const,
+          text: `Pemasangan ONT ${activeTicket?.ontSerialNumber || ''} selesai, PON aktif stabil & speedtest normal. Siap verifikasi Berita Acara.`
+        }
       ];
     }
+
+    const opmSnippet =
+      activeTicket?.rosetRedamanDbm !== undefined && activeTicket?.rosetRedamanDbm !== null
+        ? `${activeTicket.rosetRedamanDbm} dBm`
+        : '< -24.00 dBm';
+    const leaderFirst = activeTicket?.leaderName ? ` ${activeTicket.leaderName.split(' ')[0]}` : '';
+
     return [
-      'Mohon cek redaman OPM di FAT terlebih dahulu (< -20 dBm).',
-      'Kirim ulang foto barcode MAC & SN ONT saat unboxing.',
-      'Koordinasi Korlap segera terkait kendala di lapangan.',
-      'Lanjutkan tarikan dropcore & konfigurasi ONT pelanggan.',
-      'Laporan diterima, tim Dispatch segera lakukan verifikasi.'
+      {
+        id: 'acc_redaman',
+        label: 'Acc Redaman Normal',
+        tone: 'emerald' as const,
+        text: `Redaman ${activeTicket?.fatCode || 'FAT'} (${opmSnippet}) APPROVED. Silakan lanjut selesaikan BA.`
+      },
+      {
+        id: 'resend_mac',
+        label: 'Kirim Ulang Foto MAC/SN',
+        tone: 'lilac' as const,
+        text: 'Mohon kirim ulang foto barcode MAC Address dan SN ONT yang lebih tajam.'
+      },
+      {
+        id: 'korlap',
+        label: `Koordinasi Korlap${leaderFirst}`,
+        tone: 'lilac' as const,
+        text: `Sedang saya koordinasikan dengan Korlap${leaderFirst || ' terkait'} mengenai kondisi lapangan.`
+      },
+      {
+        id: 'verify_ba',
+        label: 'Verifikasi Berita Acara Digital',
+        tone: 'violet' as const,
+        text: `Status Berita Acara Digital untuk ${activeTicket?.woNumber || 'WO ini'} sudah dicek, pastikan tanda tangan pelanggan tersimpan.`
+      }
     ];
-  }, [isInstaller]);
+  }, [isInstaller, activeTicket]);
+
+  const korlapContact = useMemo(() => {
+    if (!activeTicket) return null;
+    const leaderNameLower = (activeTicket.leaderName || '').trim().toLowerCase();
+    const contractorLower = (activeTicket.contactorName || activeTicket.contractorName || '').trim().toLowerCase();
+    const matchedLeader = (users || []).find(u => {
+      if (u.role !== 'leader') return false;
+      if (leaderNameLower && u.name.trim().toLowerCase() === leaderNameLower) return true;
+      if (contractorLower && (u.contractor || '').trim().toLowerCase() === contractorLower) return true;
+      return false;
+    });
+    if (matchedLeader?.phone) {
+      return {
+        label: `Korlap ${matchedLeader.name}`,
+        phone: matchedLeader.phone
+      };
+    }
+    if (activeTicket.installerContact) {
+      return {
+        label: `Teknisi ${activeTicket.installerName || 'Lapangan'}`,
+        phone: activeTicket.installerContact
+      };
+    }
+    return null;
+  }, [activeTicket, users]);
+
+  const handleCallKorlap = () => {
+    if (!activeTicket) return;
+    if (!korlapContact?.phone) {
+      toast.info(
+        `Nomor telepon Korlap ${activeTicket.leaderName || ''} belum terdaftar pada data user.`,
+        'Nomor Kontak Kosong'
+      );
+      return;
+    }
+    const sanitized = korlapContact.phone.replace(/[^\d+]/g, '');
+    if (typeof window !== 'undefined') {
+      window.location.href = `tel:${sanitized}`;
+    }
+    toast.success(`Menghubungi ${korlapContact.label} (${korlapContact.phone})`, 'Panggilan Lapangan');
+  };
+
+  const handleCopyWoSummary = async () => {
+    if (!activeTicket) return;
+    const text = `${activeTicket.woNumber} | ${activeTicket.customerName} (ID: ${
+      activeTicket.idCustomer || activeTicket.customerId || '-'
+    }) | FAT: ${activeTicket.fatCode || '-'} | Teknisi: ${activeTicket.installerName || '-'}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedWoId(activeTicket.id);
+      toast.success(`Ringkasan ${activeTicket.woNumber} disalin.`, 'Disalin');
+      setTimeout(() => setCopiedWoId(null), 1800);
+    } catch {
+      toast.error('Gagal menyalin ringkasan WO.');
+    }
+  };
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'dispatch':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#E8DDFF] text-[#40208D] dark:bg-[#35105E] dark:text-[#D8B4FE] font-mono text-[10px] font-bold uppercase whitespace-nowrap">
-            Dispatch Lead
+          <span className="px-1.5 py-0.5 rounded bg-[#F0E3FF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+            DISPATCH
           </span>
         );
       case 'installer':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#16A36A] dark:bg-emerald-950/70 dark:text-emerald-300 font-mono text-[10px] font-bold uppercase whitespace-nowrap">
-            Teknisi
+          <span className="px-1.5 py-0.5 rounded bg-[#E9DDFF] dark:bg-[#22123F] text-[#22005C] dark:text-[#E9DDFF] font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+            TEKNISI FIELD
           </span>
         );
       case 'leader':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950/70 dark:text-amber-300 font-mono text-[10px] font-bold uppercase whitespace-nowrap">
-            Korlap
+          <span className="px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950/70 dark:text-amber-300 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+            KORLAP
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#F0E3FF] text-[#431599] dark:bg-purple-950 dark:text-purple-300 font-mono text-[10px] font-bold uppercase whitespace-nowrap">
-            Super Admin
+          <span className="px-1.5 py-0.5 rounded bg-[#F0E3FF] text-[#431599] dark:bg-purple-950 dark:text-purple-300 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+            SUPER ADMIN
           </span>
         );
     }
@@ -548,12 +692,23 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         c.name.toUpperCase() === (t.chatCategory || '').toUpperCase() ||
         c.id.toUpperCase() === (t.chatCategory || '').toUpperCase()
     );
-    const categoryLabel = catConfig?.name || (t.chatCategory && t.chatCategory.toUpperCase() !== 'UNCLASSIFIED' ? t.chatCategory : 'UMUM');
+    const categoryLabel = catConfig?.name || (t.chatCategory && t.chatCategory.toUpperCase() !== 'UNCLASSIFIED' ? t.chatCategory : '');
     const lastTime = lastMsg?.timestamp || t.lastMessageAt;
     const isUrgent =
       (t.ticketCategory || '').toUpperCase().includes('SAMEDAY') ||
       (t.ticketCategory || '').toUpperCase().includes('EXPRESS') ||
       (t.appointmentType || '').toUpperCase().includes('SAMEDAY');
+    const isB2B =
+      (t.ticketCategory || '').toUpperCase().includes('B2B') ||
+      (t.serviceType || '').toUpperCase().includes('B2B') ||
+      (t.customerName || '').toUpperCase().startsWith('PT ');
+
+    const approvalBadgeText =
+      t.approvalStatus === 'BUTUH APPROVAL'
+        ? 'BUTUH ACC'
+        : t.approvalStatus === 'REVISI'
+        ? 'REVISI'
+        : null;
 
     return (
       <button
@@ -563,175 +718,223 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
           setSelectedTicketId(t.id);
           setMobilePane('chat');
         }}
-        className={`w-full text-left p-3.5 transition-colors flex flex-col gap-1.5 cursor-pointer border-b border-[#E9E5F0] dark:border-[#35105E]/60 ${
+        className={`relative w-full text-left p-3 rounded-xl transition-all duration-100 cursor-pointer active:translate-y-0.5 ${
           isSelected
-            ? 'bg-[#F5F1FF] dark:bg-[#2B1554] ring-1 ring-inset ring-[#7135B5]/35'
-            : 'bg-white dark:bg-[#1A0E2E] hover:bg-[#F7F6FA] dark:hover:bg-[#22123F]'
+            ? 'bg-[#F0E3FF] dark:bg-[#2B1554] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_0_#dab9ff,0_6px_14px_-3px_rgba(88,20,156,0.15)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_3px_0_#35105E]'
+            : 'bg-white dark:bg-[#1E1236] hover:bg-[#F9F0FF] dark:hover:bg-[#251644] shadow-[0_2px_0_#e8ddff,0_4px_8px_-2px_rgba(31,22,56,0.05)] dark:shadow-[0_2px_0_#241345]'
         }`}
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-xs font-bold text-[#35105E] dark:text-[#D8B4FE] truncate tabular-nums">
-            {t.woNumber}
-          </span>
-          <span className="font-mono text-[11px] text-[#8B8495] dark:text-[#A78BFA] shrink-0 tabular-nums">
-            {lastTime ? formatWibTime(lastTime) : t.slotTime || '-'}
-          </span>
-        </div>
+        {isSelected && (
+          <span
+            aria-hidden="true"
+            className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full bg-[#7135B5] dark:bg-[#A78BFA]"
+          />
+        )}
+        <div className={`${isSelected ? 'pl-3.5' : ''} flex flex-col gap-1`}>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`text-[11px] font-mono font-bold tracking-wider truncate tabular-nums ${
+                isSelected ? 'text-[#58149C] dark:text-[#D8B4FE]' : 'text-[#4B4452] dark:text-[#CEC0E8]'
+              }`}
+            >
+              {t.woNumber}
+            </span>
+            <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A78BFA] shrink-0 tabular-nums">
+              {lastTime ? formatWibTime(lastTime) : t.slotTime || '-'}
+            </span>
+          </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-display text-[13px] font-bold text-[#211A2E] dark:text-white truncate">
-            {t.customerName}
-          </span>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {isUrgent && (
-              <span className="px-1.5 py-0.5 rounded bg-[#DC4C5A] text-white text-[9px] font-extrabold uppercase tracking-wider">
-                EXPRESS
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="font-display text-[13.5px] font-bold text-[#1F182C] dark:text-white truncate">
+              {t.customerName}
+            </h4>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isUrgent && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#DC4C5A] text-white text-[9px] font-extrabold uppercase tracking-wider">
+                  EXPRESS
+                </span>
+              )}
+              {!isUrgent && isB2B && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#E9DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] text-[9.5px] font-bold">
+                  B2B
+                </span>
+              )}
+              {unread > 0 ? (
+                <span className="min-w-[20px] h-5 px-1 rounded-full bg-[#7135B5] text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs tabular-nums">
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-[#CBC3D5] dark:bg-[#4B386B]" />
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-[#494453] dark:text-[#CEC0E8] truncate">
+            {lastMsg ? (
+              <>
+                <span className={`font-semibold ${isSelected ? 'text-[#58149C] dark:text-[#D8B4FE]' : 'text-[#4B4452] dark:text-[#E9D5FF]'}`}>
+                  {lastMsg.senderName?.split(' ')[0]}:
+                </span>{' '}
+                {lastMsg.text || (lastMsg.attachments?.length ? `[${lastMsg.attachments.length} Foto Bukti]` : '')}
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-[#16A36A] dark:text-emerald-400">
+                  {t.installerName || 'Teknisi'}:
+                </span>{' '}
+                {t.lastMessageSnippet || 'Channel siap koordinasi lapangan'}
+              </>
+            )}
+          </p>
+
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {t.slotTime && (
+              <span className="px-1.5 py-0.5 rounded bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] text-[10px] font-medium tracking-wide truncate max-w-[110px]">
+                {t.slotTime}
               </span>
             )}
-            {unread > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-[#DC4C5A] text-white text-[9.5px] font-mono font-bold tabular-nums">
-                {unread > 99 ? '99+' : unread}
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                isSelected
+                  ? 'bg-[#E9DDFF] text-[#431599] dark:bg-[#35105E] dark:text-[#E9D5FF]'
+                  : 'bg-[#F4EAFF] text-[#4B4452] dark:bg-[#22123F] dark:text-[#CEC0E8]'
+              }`}
+            >
+              {t.statusWOInstaller || 'ASSIGNED'}
+            </span>
+            {approvalBadgeText && (
+              <span className="px-1.5 py-0.5 rounded bg-[#FFDAD6] text-[#93000A] dark:bg-rose-950/70 dark:text-rose-200 text-[10px] font-bold uppercase">
+                {approvalBadgeText}
+              </span>
+            )}
+            {categoryLabel && (
+              <span
+                className="font-mono text-[10px] font-bold truncate"
+                style={{ color: catConfig?.color || '#7135B5' }}
+              >
+                #{categoryLabel}
               </span>
             )}
           </div>
-        </div>
-
-        <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] truncate">
-          {lastMsg ? (
-            <>
-              <span className="font-semibold text-[#7135B5] dark:text-[#D8B4FE]">
-                {lastMsg.senderName?.split(' ')[0]}:
-              </span>{' '}
-              {lastMsg.text || (lastMsg.attachments?.length ? `[${lastMsg.attachments.length} Foto Bukti]` : '')}
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-[#16A36A] dark:text-emerald-400">
-                {t.installerName || 'Teknisi'}:
-              </span>{' '}
-              {t.lastMessageSnippet || 'Channel siap koordinasi lapangan'}
-            </>
-          )}
-        </p>
-
-        <div className="flex items-center justify-between gap-2 pt-1 text-[10.5px]">
-          {t.chatCategory && t.chatCategory.toUpperCase() !== 'UNCLASSIFIED' ? (
-            <span
-              className="font-mono font-bold truncate"
-              style={{ color: catConfig?.color || '#7135B5' }}
-            >
-              #{categoryLabel}
-            </span>
-          ) : (
-            <span className="font-mono text-[#8B8495] truncate">
-              {t.area || t.serviceType || 'LiveChat'}
-            </span>
-          )}
-          <span className="px-2 py-0.5 rounded-full bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-bold uppercase text-[9.5px] tracking-wide shrink-0">
-            {t.statusWOInstaller || 'Assigned'}
-          </span>
         </div>
       </button>
     );
   };
 
   return (
-    <div className="flex flex-col w-full h-full min-h-0 flex-1 overflow-hidden bg-[#F7F6FA] dark:bg-[#160D29]">
-      {/* 1. Top Operational Telemetry & Breadcrumb Strip */}
-      <div className="hidden sm:flex px-4 sm:px-5 py-2 bg-white dark:bg-[#1A0E2E] border-b border-[#E9E5F0] dark:border-[#35105E] flex-wrap items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8] truncate">
-            <span className="font-medium">MoraJaws</span>
-            <span aria-hidden="true">/</span>
-            <span className="font-medium">Contact Centre</span>
-            <span aria-hidden="true">/</span>
-            <span className="text-[#7135B5] dark:text-[#D8B4FE] font-bold flex items-center gap-1.5 truncate">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  isStreamLive ? 'bg-[#16A36A] animate-pulse' : 'bg-[#E59A27]'
-                }`}
-              />
-              <span>LiveChat (Full Chat Mode)</span>
-            </span>
-          </div>
-
-          {activeTicket?.ticketCategory && (
-            <span className="hidden md:inline-flex px-2.5 py-0.5 rounded-full bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10.5px] text-[#40208D] dark:text-[#D8B4FE] font-bold uppercase tracking-tight whitespace-nowrap">
-              {activeTicket.ticketCategory}
-            </span>
-          )}
-        </div>
-
-        {/* Real Operational Status Indicators */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide whitespace-nowrap ${
-              isStreamLive
-                ? 'bg-[#F0E3FF] dark:bg-[#35105E] text-[#35105E] dark:text-[#D8B4FE]'
-                : 'bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300'
-            }`}
-          >
-            {isStreamLive ? (
-              <>
-                <Radio className="w-3 h-3 text-[#16A36A]" />
-                <span>SSE Stream Active</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3 h-3" />
-                <span>Mode Lokal / Offline</span>
-              </>
-            )}
-          </div>
-
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold whitespace-nowrap ${
-              databaseStatus === 'connected'
-                ? 'bg-[#ECFDF5] dark:bg-emerald-950/50 text-[#16A36A] dark:text-emerald-300'
-                : 'bg-[#F7F6FA] dark:bg-[#22123F] text-[#766B83] dark:text-[#CEC0E8]'
-            }`}
-          >
-            <CheckCircle2 className="w-3 h-3" />
-            <span>
-              {databaseStatus === 'connected'
-                ? `Supabase Cluster Live · ${syncStatus}`
-                : `Status DB: ${syncStatus}`}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Main Multi-Panel Operational Canvas */}
-      <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* LEFT PANEL: Conversation Queues & Categories */}
+    <div className="flex flex-col w-full h-full min-h-0 flex-1 overflow-hidden bg-[#F8F1FF] dark:bg-[#140827]">
+      {/* Main Fullscreen Workspace */}
+      <div className="flex-1 flex min-h-0 overflow-hidden relative bg-[#F8F1FF] dark:bg-[#140827]">
+        {/* LEFT PANEL: Live Feeds Queue Strip */}
         <aside
           className={`${
-            isMobileView || mobilePane === 'chat'
-              ? isMobileView
-                ? mobilePane === 'queue'
-                  ? 'flex w-full'
-                  : 'hidden'
-                : 'hidden lg:flex lg:w-72 xl:w-80'
-              : 'flex w-full lg:w-72 xl:w-80'
-          } bg-white dark:bg-[#1A0E2E] border-r border-[#E9E5F0] dark:border-[#35105E] flex-col shrink-0 min-h-0 overflow-hidden`}
+            isMobileView
+              ? mobilePane === 'queue'
+                ? 'flex w-full'
+                : 'hidden'
+              : 'hidden lg:flex lg:w-80 xl:w-96'
+          } flex-shrink-0 flex-col bg-white dark:bg-[#1A0E2E] shadow-md z-10 min-h-0 overflow-hidden border-r border-[#E9E5F0] dark:border-[#35105E]`}
         >
-          {/* Sticky Search & Filter Header */}
-          <div className="sticky top-0 z-10 p-3 border-b border-[#E9E5F0] dark:border-[#35105E] space-y-2.5 bg-[#F7F6FA] dark:bg-[#201138] shrink-0">
-            <div className="relative flex items-center">
-              <Search className="w-3.5 h-3.5 text-[#8B8495] absolute left-2.5 pointer-events-none" />
+          {/* Panel Header: Search, Live Counts & Filter Chips */}
+          <div className="p-3 bg-[#F9F0FF]/80 dark:bg-[#201138] flex flex-col gap-2.5 border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0 relative">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 shadow-xs ${
+                    isStreamLive ? 'bg-[#7135B5] animate-pulse' : 'bg-[#E59A27]'
+                  }`}
+                  title={isStreamLive ? 'SSE Stream & Supabase Terhubung' : 'Mode Lokal / Offline'}
+                />
+                <span className="font-display text-sm font-bold text-[#1F182C] dark:text-white truncate">
+                  Live Feeds
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[#E9DDFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[11px] font-bold tabular-nums shrink-0">
+                  {availableTickets.length} Aktif
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsFilterPopoverOpen(prev => !prev)}
+                  className={`btn-3d-icon w-8 h-8 cursor-pointer ${
+                    isFilterPopoverOpen || !['all', 'all_unread', 'approval', 'field'].includes(activeCategoryFilter)
+                      ? 'text-[#58149C] dark:text-[#D8B4FE] border-[#A78BFA]'
+                      : ''
+                  }`}
+                  title="Filter Lanjutan & Kategori Chat"
+                  aria-label="Filter Lanjutan"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Category Popover Menu */}
+            {isFilterPopoverOpen && (
+              <div className="absolute right-3 top-12 z-30 w-64 rounded-xl bg-white dark:bg-[#1E1236] border border-[#D8CCF3] dark:border-[#35105E] shadow-xl p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between px-1 pb-1 border-b border-[#E9E5F0] dark:border-[#35105E]">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A78BFA]">
+                    Topik Operasional
+                  </span>
+                  {canManageCategories && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsFilterPopoverOpen(false);
+                        setIsSettingsOpen(true);
+                      }}
+                      className="text-[11px] font-mono font-bold text-[#7135B5] dark:text-[#D8B4FE] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Settings className="w-3 h-3" />
+                      <span>Kelola Tag</span>
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {groupedTickets.map(g => {
+                    const isCatSelected = activeCategoryFilter === g.category.id;
+                    return (
+                      <button
+                        key={g.category.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveCategoryFilter(isCatSelected ? 'all' : g.category.id);
+                          setIsFilterPopoverOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          isCatSelected
+                            ? 'bg-[#58149C] text-white'
+                            : 'text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E]'
+                        }`}
+                      >
+                        <span className="truncate">#{g.category.name}</span>
+                        <span className="font-mono text-[11px] opacity-80 tabular-nums">
+                          {g.tickets.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Debossed Search Well */}
+            <div className="relative w-full flex items-center">
+              <Search className="w-4 h-4 text-[#7A7484] absolute left-3 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Cari WO, Pelanggan, Teknisi..."
-                className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] focus:outline-none focus:border-[#7135B5] focus:ring-1 focus:ring-[#D8B4FE]"
+                placeholder="Cari WO, ID Pelanggan, Teknisi..."
+                className="tactile-debossed-input w-full pl-9 pr-8 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-xs text-[#1F182C] dark:text-white placeholder:text-[#7A7484] focus:outline-none focus:bg-white dark:focus:bg-[#1E1236] transition-all"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white cursor-pointer"
+                  className="absolute right-2.5 text-[#7A7484] hover:text-[#1F182C] dark:hover:text-white cursor-pointer"
                   aria-label="Hapus pencarian"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -739,74 +942,59 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               )}
             </div>
 
-            {/* Segmented Quick Filter Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setActiveCategoryFilter('all_unread')}
-                className={`px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors cursor-pointer tabular-nums flex items-center gap-1 ${
-                  activeCategoryFilter === 'all_unread'
-                    ? 'bg-[#DC4C5A] text-white shadow-2xs'
-                    : 'bg-[#FEF2F2] dark:bg-rose-950/50 text-[#DC4C5A] dark:text-rose-300 hover:bg-rose-100'
-                }`}
-              >
-                <span>Chat Baru / Unread</span>
-                <span className="font-mono">({allUnreadTickets.length} WO · {totalUnreadCount})</span>
-              </button>
-
+            {/* Tactile Filter Segment Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
               <button
                 type="button"
                 onClick={() => setActiveCategoryFilter('all')}
-                className={`px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all ${
                   activeCategoryFilter === 'all'
-                    ? 'bg-[#35105E] text-white shadow-2xs'
-                    : 'bg-[#F4EAFF] dark:bg-[#22123F] text-[#35105E] dark:text-[#D8B4FE] hover:bg-[#EADDFA]'
+                    ? 'tactile-chip-active'
+                    : 'tactile-chip text-[#494453] dark:text-[#CEC0E8]'
                 }`}
               >
-                Semua WO ({searchFilteredTickets.length})
+                Semua ({searchFilteredTickets.length})
               </button>
-
-              {groupedTickets.slice(0, 2).map(g => {
-                const isSelected = activeCategoryFilter === g.category.id;
-                return (
-                  <button
-                    key={g.category.id}
-                    type="button"
-                    onClick={() => setActiveCategoryFilter(isSelected ? 'all' : g.category.id)}
-                    className={`px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors cursor-pointer tabular-nums ${
-                      isSelected
-                        ? 'bg-[#7135B5] text-white shadow-2xs'
-                        : 'bg-[#F4EAFF] dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] hover:bg-[#EADDFA]'
-                    }`}
-                  >
-                    #{g.category.name} ({g.tickets.length})
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                onClick={() => setActiveCategoryFilter('all_unread')}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all ${
+                  activeCategoryFilter === 'all_unread'
+                    ? 'tactile-chip-active'
+                    : 'tactile-chip text-[#494453] dark:text-[#CEC0E8]'
+                }`}
+              >
+                Unread ({allUnreadTickets.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategoryFilter('approval')}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all ${
+                  activeCategoryFilter === 'approval'
+                    ? 'tactile-chip-active'
+                    : 'px-2.5 py-1 rounded-full bg-[#FFDAD6] dark:bg-rose-950/60 text-[#93000A] dark:text-rose-200 border border-[#DC4C5A]/20 active:translate-y-0.5'
+                }`}
+              >
+                Approval ({approvalTickets.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategoryFilter('field')}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all ${
+                  activeCategoryFilter === 'field'
+                    ? 'tactile-chip-active'
+                    : 'px-2.5 py-1 rounded-full bg-[#E9DDFF] dark:bg-[#2B1554] text-[#1F1634] dark:text-[#E9D5FF] border border-[#D8CCF3]/60 dark:border-[#35105E] active:translate-y-0.5'
+                }`}
+              >
+                Lapangan ({fieldTickets.length})
+              </button>
             </div>
           </div>
 
-          {/* Operational Topic Category Header & Tags */}
-          <div className="px-3.5 py-2 border-b border-[#E9E5F0] dark:border-[#35105E] bg-[#F9F0FF] dark:bg-[#1E1035] flex items-center justify-between text-[11px] shrink-0">
-            <span className="font-bold uppercase tracking-wider text-[#8B8495] dark:text-[#A78BFA]">
-              Topik Operasional
-            </span>
-            {canManageCategories && (
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(true)}
-                className="font-mono font-bold text-[#7135B5] dark:text-[#D8B4FE] hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Settings className="w-3 h-3" />
-                <span>Kelola Tag</span>
-              </button>
-            )}
-          </div>
-
-          {/* Live Queue List (Independent Scroll) */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+          {/* Scrollable Ticket List */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2.5 space-y-2.5 bg-[#FDF7FF] dark:bg-[#160D29]">
             {conversationList.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#766B83] dark:text-[#CEC0E8] space-y-2.5">
+              <div className="p-7 text-center text-xs text-[#766B83] dark:text-[#CEC0E8] space-y-2.5">
                 {activeCategoryFilter === 'all_unread' ? (
                   <>
                     <CheckCircle2 className="w-8 h-8 text-[#16A36A] mx-auto" />
@@ -814,14 +1002,14 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       Semua Pesan Baru Telah Dibaca
                     </div>
                     <p className="text-[11px] leading-relaxed">
-                      Tidak ada WO dengan chat masuk belum dibaca. Riwayat chat tetap tersimpan pada tab Semua WO & Detail Tiket.
+                      Tidak ada WO dengan chat masuk belum dibaca. Riwayat chat tetap tersimpan pada tab Semua & Detail Tiket.
                     </p>
                     <button
                       type="button"
                       onClick={() => setActiveCategoryFilter('all')}
-                      className="px-3 py-1.5 rounded-lg bg-[#35105E] text-white text-[11px] font-bold hover:bg-[#5B35B1] transition-colors cursor-pointer"
+                      className="btn-3d-primary px-3.5 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer"
                     >
-                      Lihat Semua WO ({searchFilteredTickets.length})
+                      Lihat Semua ({searchFilteredTickets.length})
                     </button>
                   </>
                 ) : (
@@ -833,8 +1021,17 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     <p className="text-[11px] leading-relaxed">
                       {searchQuery
                         ? 'Tidak ada Work Order yang cocok dengan kata kunci pencarian Anda.'
-                        : 'Belum ada Work Order ter-assign teknisi untuk tanggal appointment hari ini (todayWIB).'}
+                        : 'Belum ada Work Order sesuai filter yang aktif untuk hari ini (todayWIB).'}
                     </p>
+                    {activeCategoryFilter !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveCategoryFilter('all')}
+                        className="btn-3d-secondary px-3 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -843,106 +1040,306 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
             )}
           </div>
 
-          {/* Left Panel Footer */}
-          <div className="px-3.5 py-2.5 border-t border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#1A0E2E] flex items-center justify-between text-xs text-[#766B83] dark:text-[#CEC0E8] shrink-0">
-            <span className="tabular-nums font-medium">
-              Aktif: <strong className="text-[#211A2E] dark:text-white">{activeTechnicianCount} Teknisi</strong> ·{' '}
-              {availableTickets.length} WO
+          {/* Quick Operator Footprint */}
+          <div className="px-3.5 py-2.5 bg-[#F9F0FF] dark:bg-[#1A0E2E] border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between text-[11px] text-[#494453] dark:text-[#CEC0E8] shrink-0 gap-2">
+            <span className="flex items-center gap-1.5 min-w-0 truncate">
+              <Headphones className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
+              <span className="truncate font-medium">
+                {currentUser?.role === 'installer' ? 'Teknisi' : currentUser?.role === 'leader' ? 'Korlap' : 'Dispatcher'}:{' '}
+                <strong className="text-[#1F182C] dark:text-white">{currentUser?.name || '-'}</strong>
+              </span>
             </span>
-            <button
-              type="button"
-              onClick={handleRefreshQueue}
-              disabled={isRefreshing}
-              className="text-[#7135B5] dark:text-[#D8B4FE] hover:underline font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="font-mono text-[10.5px] text-[#7A7484] dark:text-[#A78BFA] uppercase">
+                {currentUser?.area || activeTicket?.area || `${activeTechnicianCount} TECH`}
+              </span>
+              <button
+                type="button"
+                onClick={handleRefreshQueue}
+                disabled={isRefreshing}
+                className="text-[#7135B5] dark:text-[#D8B4FE] hover:underline font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                title="Sinkronkan antrean chat"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
         </aside>
 
-        {/* CENTER PANEL: Massive Full Chat Stage */}
+        {/* CENTER/MAIN: 100% Fullscreen Chat Workspace */}
         <section
           className={`${
             isMobileView && mobilePane === 'queue' ? 'hidden' : 'flex'
-          } flex-1 flex-col bg-[#F7F6FA] dark:bg-[#160D29] min-w-0 min-h-0 overflow-hidden relative`}
+          } flex-1 flex-col h-full bg-[#F8F1FF] dark:bg-[#140827] min-w-0 relative overflow-hidden`}
         >
           {activeTicket ? (
             <>
-              {/* Fullscreen / Drawer Notice Strip */}
-              <div className="px-4 sm:px-5 py-2 bg-gradient-to-r from-[#35105E] via-[#5B35B1] to-[#7135B5] text-white flex items-center justify-between gap-2 shadow-xs shrink-0">
-                <div className="flex items-center gap-2 min-w-0">
+              {/* TOP CONVERSATION BAR / TELEMETRY CONSOLE */}
+              <header className="min-h-[76px] bg-white dark:bg-[#1A0E2E] px-3.5 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between gap-3 shadow-sm z-20 flex-shrink-0 border-b border-[#E9E5F0] dark:border-[#35105E]">
+                {/* Left: Ticket Identity & Telemetry Tags */}
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                   {isMobileView && (
                     <button
                       type="button"
                       onClick={() => setMobilePane('queue')}
-                      className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white shrink-0 cursor-pointer"
+                      className="btn-3d-icon w-9 h-9 shrink-0 cursor-pointer"
                       aria-label="Kembali ke daftar antrean"
                     >
                       <ArrowLeft className="w-4 h-4" />
                     </button>
                   )}
-                  <p className="text-xs truncate">
-                    <strong className="font-bold">
-                      {isDetailDrawerOpen ? 'Panel Detail Tiket Terbuka' : 'Mode Percakapan Maksimal Aktif'}
-                    </strong>{' '}
-                    <span className="hidden md:inline text-white/90">
-                      — {isDetailDrawerOpen
-                        ? 'Tekan Shift + D untuk menyembunyikan drawer dan memperluas area chat.'
-                        : 'Detail Tiket disembunyikan untuk visibilitas komunikasi lapangan. Tekan Shift + D untuk membuka.'}
-                    </span>
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="hidden sm:inline font-mono text-[11px] text-[#E9D5FF]">
-                    Panel Detail: {isDetailDrawerOpen ? 'OPEN' : 'CLOSED'}
-                  </span>
+                  {/* Tactile Expand / Ticket Detail Drawer Trigger */}
                   <button
                     type="button"
                     onClick={() => setIsDetailDrawerOpen(prev => !prev)}
-                    className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                    className={`btn-3d-icon w-10 h-10 rounded-xl shrink-0 cursor-pointer ${
+                      isDetailDrawerOpen ? 'text-[#58149C] dark:text-[#D8B4FE] border-[#A78BFA]' : ''
+                    }`}
+                    title="Buka / Tutup Ringkasan WO (Shift + D)"
+                    aria-label="Toggle Ringkasan WO"
                   >
                     {isDetailDrawerOpen ? (
-                      <PanelRightClose className="w-3.5 h-3.5" />
+                      <PanelRightClose className="w-5 h-5" />
                     ) : (
-                      <PanelRightOpen className="w-3.5 h-3.5" />
+                      <PanelRightOpen className="w-5 h-5" />
                     )}
-                    <span>Detail Tickets</span>
                   </button>
-                </div>
-              </div>
 
-              {/* Message History Stream (Independent Scroll) */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-5">
-                {/* Date Separator */}
-                <div className="flex items-center justify-center">
-                  <div className="h-[1px] bg-[#E9E5F0] dark:bg-[#35105E] flex-1" />
-                  <div className="px-3 py-1 rounded-full bg-[#F4EAFF] dark:bg-[#22123F] text-[10.5px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#D8B4FE] mx-3 whitespace-nowrap">
-                    Hari Ini — {formattedTodayLabel} (WIB)
+                  {/* Customer & Ticket Telemetry */}
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-display text-sm sm:text-base font-bold text-[#1F182C] dark:text-white truncate">
+                        {activeTicket.customerName}
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#431599] dark:text-[#D8B4FE] px-2 py-0.5 rounded bg-[#E9DDFF] dark:bg-[#35105E] tabular-nums">
+                        {activeTicket.woNumber}
+                      </span>
+                      <span className="text-xs text-[#7A7484] dark:text-[#A78BFA] font-medium hidden sm:inline tabular-nums">
+                        (ID: {activeTicket.idCustomer || activeTicket.customerId || '-'})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-[#494453] dark:text-[#CEC0E8] text-xs flex-wrap">
+                      <span className="flex items-center gap-1 font-medium tabular-nums">
+                        <Clock className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA] shrink-0" />
+                        <span>{activeTicket.slotTime || 'Slot Aktif'}</span>
+                      </span>
+                      <span className="text-[#7A7484] font-bold" aria-hidden="true">•</span>
+                      <span className="flex items-center gap-1 font-medium truncate max-w-[200px] sm:max-w-sm">
+                        <MapPin className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA] shrink-0" />
+                        <span className="truncate">
+                          {activeTicket.clusterName || activeTicket.address || activeTicket.area || '-'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="h-[1px] bg-[#E9E5F0] dark:bg-[#35105E] flex-1" />
+                </div>
+
+                {/* Right: 4-Dimension Semantic Badges & 3D Action Matrix */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Semantic Badges Deck (Desktop 2XL Expanded) */}
+                  <div className="hidden 2xl:flex items-center gap-1.5 mr-1">
+                    <span className="px-2 py-1 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] text-[10.5px] font-bold text-[#1F182C] dark:text-[#E9D5FF] whitespace-nowrap">
+                      AGENT:{' '}
+                      <span className="text-[#431599] dark:text-[#D8B4FE] font-extrabold uppercase">
+                        {activeTicket.statusWOAgent || 'ASSIGNED'}
+                      </span>
+                    </span>
+                    <span className="px-2 py-1 rounded-lg bg-[#E9DDFF] dark:bg-[#2B1554] text-[10.5px] font-bold text-[#1F1634] dark:text-[#E9D5FF] whitespace-nowrap">
+                      TEKNISI:{' '}
+                      <span className="text-[#431599] dark:text-[#D8B4FE] font-extrabold uppercase">
+                        {activeTicket.statusWOInstaller || 'ASSIGNED'}
+                      </span>
+                    </span>
+                    <span className="px-2 py-1 rounded-lg bg-[#F0E3FF] dark:bg-[#261942] text-[10.5px] font-bold text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap">
+                      WA:{' '}
+                      <span className="text-[#1F182C] dark:text-white font-extrabold uppercase">
+                        {activeTicket.statusWhatsApp || '-'}
+                      </span>
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap ${
+                        activeTicket.approvalStatus === 'BUTUH APPROVAL'
+                          ? 'bg-[#FFDAD6] text-[#93000A] dark:bg-rose-950/80 dark:text-rose-200 animate-pulse'
+                          : activeTicket.approvalStatus === 'APPROVED'
+                          ? 'bg-[#ECFDF5] text-[#047857] dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : 'bg-[#F7F6FA] text-[#494453] dark:bg-[#22123F] dark:text-[#CEC0E8]'
+                      }`}
+                    >
+                      APPROVAL:{' '}
+                      <span className="font-extrabold uppercase">
+                        {activeTicket.approvalStatus === 'BUTUH APPROVAL'
+                          ? 'BUTUH ACC'
+                          : activeTicket.approvalStatus || 'PENDING'}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* 3D Tactile Action Buttons */}
+                  <div className="flex items-center gap-2 relative">
+                    {onSelectTicket && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTicket(activeTicket, 'overview')}
+                        className="btn-3d-secondary hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                      >
+                        <ExternalLink className="w-4 h-4 text-[#63597B] dark:text-[#D8B4FE]" />
+                        <span>Buka Detail Tiket</span>
+                      </button>
+                    )}
+
+                    {onOpenWhatsApp ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenWhatsApp(activeTicket)}
+                        className="btn-3d-emerald flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span className="hidden sm:inline">WhatsApp (Pelanggan)</span>
+                      </button>
+                    ) : activeTicket.customerPhone ? (
+                      <a
+                        href={`https://wa.me/${activeTicket.customerPhone.replace(/\D/g, '').replace(/^0/, '62')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-3d-emerald flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span className="hidden sm:inline">WhatsApp (Pelanggan)</span>
+                      </a>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={handleCallKorlap}
+                      className="btn-3d-secondary hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                      title={korlapContact ? `Hubungi ${korlapContact.label}: ${korlapContact.phone}` : 'Nomor Korlap belum tersedia'}
+                    >
+                      <PhoneCall className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE]" />
+                      <span>Panggilan Korlap</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsMoreMenuOpen(prev => !prev)}
+                      className="btn-3d-icon w-10 h-10 rounded-xl cursor-pointer"
+                      aria-label="Opsi lainnya"
+                      title="Opsi Lainnya"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {isMoreMenuOpen && (
+                      <div className="absolute right-0 top-12 z-30 w-56 rounded-xl bg-white dark:bg-[#1E1236] border border-[#D8CCF3] dark:border-[#35105E] shadow-xl p-1.5 space-y-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMoreMenuOpen(false);
+                            setIsDetailDrawerOpen(prev => !prev);
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                        >
+                          <PanelRightOpen className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <span>{isDetailDrawerOpen ? 'Tutup Ringkasan WO' : 'Buka Ringkasan WO'}</span>
+                        </button>
+                        {onSelectTicket && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsMoreMenuOpen(false);
+                              onSelectTicket(activeTicket, 'report');
+                            }}
+                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <span>Buka Tab Laporan Teknisi</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMoreMenuOpen(false);
+                            handleCopyWoSummary();
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                        >
+                          {copiedWoId === activeTicket.id ? (
+                            <Check className="w-3.5 h-3.5 text-[#16A36A]" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-[#7135B5]" />
+                          )}
+                          <span>Salin Ringkasan WO</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMoreMenuOpen(false);
+                            handleCallKorlap();
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer lg:hidden"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <span>Panggilan Korlap</span>
+                        </button>
+                        {canManageCategories && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsMoreMenuOpen(false);
+                              setIsSettingsOpen(true);
+                            }}
+                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                          >
+                            <Settings className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <span>Kelola Kategori Chat</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMoreMenuOpen(false);
+                            handleRefreshQueue();
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left font-semibold text-[#1F182C] dark:text-white hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] cursor-pointer"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <span>Sinkronkan LiveChat</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </header>
+
+              {/* EXPANDED CHAT STREAM */}
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 lg:px-8 py-4 space-y-4">
+                {/* Timeline Separator (3D Inset Badge) */}
+                <div className="flex items-center justify-center my-1">
+                  <div className="px-4 py-1.5 rounded-full bg-[#F4EAFF] dark:bg-[#22123F] text-[#494453] dark:text-[#D8B4FE] text-[11px] font-bold flex items-center gap-1.5 shadow-[inset_0_1px_2px_rgba(31,22,56,0.06),0_1px_0_rgba(255,255,255,0.9)] dark:shadow-none">
+                    <Calendar className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA]" />
+                    <span>Hari Ini — {formattedTodayLabel}</span>
+                  </div>
                 </div>
 
                 {/* Real System Telemetry Event: Assignment / Distribution */}
                 {(activeTicket.assignedAt || activeTicket.dateAssignTechnician || activeTicket.installerName) && (
                   <div className="flex items-start gap-2.5 max-w-3xl mx-auto w-full">
-                    <div className="w-8 h-8 rounded-full bg-[#F4EAFF] dark:bg-[#22123F] flex items-center justify-center text-[#7135B5] dark:text-[#D8B4FE] shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#F4EAFF] dark:bg-[#22123F] flex items-center justify-center text-[#7135B5] dark:text-[#D8B4FE] shrink-0 shadow-[0_2px_0_#dab9ff] dark:shadow-none">
                       <Bot className="w-4 h-4" />
                     </div>
-                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-2xs">
+                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-2xl p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_0_#e8ddff,0_6px_14px_-2px_rgba(31,22,56,0.06)] dark:shadow-[0_3px_0_#241345]">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-[10.5px] font-bold text-[#7135B5] dark:text-[#D8B4FE] uppercase tracking-wider">
                           Telemetri Penugasan Work Order
                         </span>
-                        <span className="font-mono text-[11px] text-[#8B8495] tabular-nums">
+                        <span className="font-mono text-[11px] text-[#7A7484] dark:text-[#A78BFA] tabular-nums">
                           {activeTicket.assignedAt
                             ? formatWibTime(activeTicket.assignedAt)
                             : activeTicket.dateAssignTechnician || activeTicket.slotTime || '-'}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-[13px] text-[#211A2E] dark:text-[#F5F1FF] leading-relaxed">
-                        <span className="font-mono font-bold text-[#35105E] dark:text-[#D8B4FE]">[SYSTEM]</span>{' '}
+                      <p className="text-xs sm:text-[13px] text-[#1F182C] dark:text-[#F5F1FF] leading-relaxed">
+                        <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">[SYSTEM]</span>{' '}
                         {activeTicket.woNumber} terdistribusi ke mitra{' '}
                         <strong>{activeTicket.contactorName || activeTicket.contractorName || '-'}</strong>. Teknisi{' '}
                         <strong>{activeTicket.installerName || 'Unassigned'}</strong> ditugaskan pada{' '}
@@ -955,7 +1352,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         )}
                       </p>
                       {(activeTicket.fatCode || activeTicket.fatPort || activeTicket.area) && (
-                        <div className="mt-2 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#766B83] dark:text-[#CEC0E8] font-mono">
+                        <div className="mt-2 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#494453] dark:text-[#CEC0E8] font-mono">
                           {activeTicket.area && <span>Area: {activeTicket.area}</span>}
                           {activeTicket.fatCode && (
                             <span>
@@ -976,9 +1373,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                 {/* Chat Message Stream */}
                 {activeMessages.length === 0 ? (
-                  <div className="max-w-xl mx-auto my-8 p-6 rounded-2xl bg-white dark:bg-[#1E1236] border border-[#E9E5F0] dark:border-[#35105E] text-center space-y-2.5">
+                  <div className="max-w-xl mx-auto my-8 p-6 rounded-2xl bg-white dark:bg-[#1E1236] shadow-[0_3px_0_#e8ddff,0_8px_18px_-4px_rgba(31,22,56,0.06)] dark:shadow-[0_3px_0_#241345] text-center space-y-2.5">
                     <MessageSquare className="w-9 h-9 text-[#A78BFA] mx-auto" />
-                    <div className="font-display font-bold text-sm text-[#211A2E] dark:text-white">
+                    <div className="font-display font-bold text-sm text-[#1F182C] dark:text-white">
                       Belum Ada Pesan pada Channel {activeTicket.woNumber}
                     </div>
                     <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
@@ -990,54 +1387,90 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 ) : (
                   activeMessages.map(msg => {
                     const isMe = msg.senderId === currentUser?.id || msg.senderRole === currentUser?.role;
-                    const readByOthers =
-                      Array.isArray(msg.readBy) &&
-                      msg.readBy.some(readerId => readerId !== msg.senderId);
+                    const isTechBubble = msg.senderRole === 'installer';
 
                     return (
                       <div
                         key={msg.id}
                         className={`flex items-start gap-2.5 max-w-3xl w-full ${
-                          isMe ? 'ml-auto justify-end' : ''
+                          isMe ? 'ml-auto flex-row-reverse' : ''
                         }`}
                       >
-                        {!isMe && (
-                          <div className="w-9 h-9 rounded-full bg-[#7135B5] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                        {/* 3D Square-Rounded Avatar */}
+                        <div className="relative flex-shrink-0">
+                          <div
+                            className={`w-9 h-9 rounded-xl font-display text-xs font-bold flex items-center justify-center shadow-sm ${
+                              isTechBubble
+                                ? 'bg-[#63597B] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_0_#2a0053]'
+                                : 'bg-[#7135B5] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_0_#35105e]'
+                            }`}
+                          >
                             {getInitials(msg.senderName)}
                           </div>
-                        )}
+                          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-white dark:bg-[#1A0E2E] rounded-full flex items-center justify-center shadow-xs">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                isTechBubble ? 'bg-[#10B981]' : 'bg-[#7135B5]'
+                              }`}
+                            />
+                          </span>
+                        </div>
 
-                        <div className={`flex flex-col gap-1 min-w-0 ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`flex flex-col gap-1 min-w-0 ${
+                            isMe ? 'items-end' : 'items-start'
+                          }`}
+                        >
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             {isMe && (
-                              <span className="font-mono text-[11px] text-[#8B8495] tabular-nums">
+                              <span className="font-mono text-[11px] text-[#7A7484] dark:text-[#A78BFA] tabular-nums">
                                 {formatWibTime(msg.timestamp)}
-                              </span>
-                            )}
-                            <span className="font-display font-bold text-[#211A2E] dark:text-white">
-                              {msg.senderName}
-                            </span>
-                            {getRoleBadge(msg.senderRole)}
-                            {msg.category && (
-                              <span className="px-1.5 py-0.5 rounded bg-[#7135B5]/10 text-[#7135B5] dark:text-[#D8B4FE] font-mono text-[10px] font-bold">
-                                #{msg.category}
-                                {msg.isCheckIn ? ' Check-in' : ''}
                               </span>
                             )}
                             {!isMe && (
-                              <span className="font-mono text-[11px] text-[#8B8495] tabular-nums">
+                              <span className="font-display font-bold text-[#1F182C] dark:text-white">
+                                {msg.senderName}
+                              </span>
+                            )}
+                            {getRoleBadge(msg.senderRole)}
+                            {isMe && (
+                              <span className="font-display font-bold text-[#1F182C] dark:text-white">
+                                {msg.senderName}
+                              </span>
+                            )}
+                            {!isMe && (
+                              <span className="font-mono text-[11px] text-[#7A7484] dark:text-[#A78BFA] tabular-nums">
                                 {formatWibTime(msg.timestamp)}
                               </span>
                             )}
                           </div>
 
+                          {/* Tactile Extruded Speech Bubble */}
                           <div
-                            className={`max-w-2xl p-3.5 rounded-2xl shadow-2xs space-y-2.5 leading-relaxed text-[13px] ${
+                            className={`max-w-xl p-3.5 rounded-2xl text-[13.5px] leading-relaxed space-y-2.5 ${
                               isMe
-                                ? 'bg-[#35105E] text-white rounded-tr-none'
-                                : 'bg-white dark:bg-[#1E1236] text-[#211A2E] dark:text-[#F5F1FF] border border-[#E9E5F0] dark:border-[#35105E] rounded-tl-none'
+                                ? 'rounded-tr-sm bg-[#F0E3FF] dark:bg-[#2B1554] text-[#1F182C] dark:text-[#F5F1FF] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_3px_0_#dab9ff,0_8px_16px_-4px_rgba(88,20,156,0.12)] dark:shadow-[0_3px_0_#35105E]'
+                                : 'rounded-tl-sm bg-white dark:bg-[#1E1236] text-[#1F182C] dark:text-[#F5F1FF] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_3px_0_#e8ddff,0_6px_14px_-2px_rgba(31,22,56,0.06)] dark:shadow-[0_3px_0_#241345]'
                             }`}
                           >
+                            {msg.category && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="px-2 py-0.5 rounded-full bg-[#E4D6FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] text-[10.5px] font-bold flex items-center gap-1">
+                                  <Radio className="w-3 h-3" />
+                                  <span>
+                                    #{msg.category}
+                                    {msg.isCheckIn ? ' LAPANGAN' : ''}
+                                  </span>
+                                </span>
+                                {activeTicket.fatCode && msg.isCheckIn && (
+                                  <span className="font-mono text-[11px] font-bold text-[#431599] dark:text-[#D8B4FE]">
+                                    {activeTicket.fatCode}
+                                    {activeTicket.fatPort ? ` ${activeTicket.fatPort}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
                             {msg.text && (
                               <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                             )}
@@ -1050,23 +1483,19 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                   return (
                                     <div
                                       key={att.id}
-                                      className={`rounded-xl overflow-hidden border p-1.5 ${
-                                        isMe
-                                          ? 'bg-[#22123F] border-white/15'
-                                          : 'bg-[#F7F6FA] dark:bg-[#160D29] border-[#E9E5F0] dark:border-[#35105E]'
-                                      }`}
+                                      className="rounded-xl overflow-hidden bg-white dark:bg-[#160D29] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_0_#cec3d4] dark:shadow-[0_2px_0_#241345]"
                                     >
                                       {isBroken || !previewUrl ? (
                                         <div className="h-36 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] flex flex-col items-center justify-center p-3 text-center gap-1">
                                           <ImageIcon className="w-6 h-6 text-[#7135B5]" />
-                                          <span className="text-[11px] font-semibold truncate max-w-full">
+                                          <span className="text-[11px] font-semibold truncate max-w-full text-[#1F182C] dark:text-white">
                                             {att.fileName}
                                           </span>
                                         </div>
                                       ) : (
                                         <div
                                           onClick={() => setZoomImage(previewUrl)}
-                                          className="relative rounded-lg overflow-hidden bg-[#160D29] group cursor-pointer"
+                                          className="relative w-full h-36 rounded-lg overflow-hidden bg-[#E1D5F1] dark:bg-[#140827] group cursor-pointer"
                                         >
                                           <img
                                             src={previewUrl}
@@ -1075,24 +1504,26 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                             onError={() =>
                                               setBrokenImageIds(prev => ({ ...prev, [att.id]: true }))
                                             }
-                                            className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-200"
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                           />
-                                          <div className="absolute bottom-2 right-2">
-                                            <span className="px-2 py-1 rounded-lg bg-white/90 text-[#211A2E] text-[10.5px] font-bold shadow-sm inline-flex items-center gap-1">
-                                              <Maximize2 className="w-3 h-3" />
-                                              <span>Perbesar Foto</span>
-                                            </span>
+                                          <div className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-[#342D42]/85 backdrop-blur-xs text-[#F7EDFF] font-mono text-[10.5px] font-bold max-w-[90%] truncate">
+                                            {att.fileSize > 0 ? formatFileSize(att.fileSize) : 'Bukti Lapangan'}
                                           </div>
                                         </div>
                                       )}
-                                      <div
-                                        className={`mt-1.5 px-1 flex items-center justify-between text-[10.5px] font-mono ${
-                                          isMe ? 'text-[#D8B4FE]' : 'text-[#766B83] dark:text-[#CEC0E8]'
-                                        }`}
-                                      >
-                                        <span className="truncate">{att.fileName}</span>
-                                        {att.fileSize > 0 && (
-                                          <span className="shrink-0 ml-2">{formatFileSize(att.fileSize)}</span>
+                                      <div className="mt-2 flex items-center justify-between gap-2">
+                                        <span className="text-[11px] font-medium text-[#494453] dark:text-[#CEC0E8] truncate">
+                                          {att.fileName}
+                                        </span>
+                                        {previewUrl && !isBroken && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setZoomImage(previewUrl)}
+                                            className="px-2 py-1 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] text-[#431599] dark:text-[#D8B4FE] text-[10.5px] font-bold flex items-center gap-1 shrink-0 shadow-[0_2px_0_#dab9ff] dark:shadow-none active:translate-y-0.5 transition-all cursor-pointer"
+                                          >
+                                            <Maximize2 className="w-3 h-3" />
+                                            <span>Lihat Foto Penuh</span>
+                                          </button>
                                         )}
                                       </div>
                                     </div>
@@ -1103,46 +1534,57 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                           </div>
 
                           {isMe && (
-                            <div className="flex items-center gap-1.5 text-[11px] text-[#8B8495]">
+                            <div className="flex items-center gap-1.5 text-[11px] text-[#7A7484] dark:text-[#A78BFA]">
                               <MessageStatusReceipt
                                 message={msg}
                                 senderId={currentUser?.id}
                                 variant="onLight"
                                 showLabel={true}
                               />
-                              <span aria-hidden="true">·</span>
-                              <span className="font-mono tabular-nums">{formatWibTime(msg.timestamp)}</span>
                             </div>
                           )}
                         </div>
-
-                        {isMe && (
-                          <div className="w-9 h-9 rounded-full bg-[#40208D] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                            {getInitials(msg.senderName)}
-                          </div>
-                        )}
                       </div>
                     );
                   })
                 )}
 
-                {/* Real Audit Telemetry Card when Check-in is Verified */}
+                {/* Live Device / OPM / Check-in Telemetry Cards (Real Data Only) */}
+                {(activeTicket.ontSerialNumber || activeTicket.rosetRedamanDbm !== undefined) && (
+                  <div className="max-w-xl ml-auto p-2.5 rounded-xl bg-white/90 dark:bg-[#1E1236] shadow-[0_2px_0_#e8ddff] dark:shadow-[0_2px_0_#241345] flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 font-mono font-semibold text-[#1F182C] dark:text-white">
+                      <Router className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />
+                      <span>
+                        SN: {activeTicket.ontSerialNumber || '-'}
+                        {activeTicket.dropcoreLengthMeter || activeTicket.dropcoreLength
+                          ? ` | Dropcore: ${activeTicket.dropcoreLengthMeter || activeTicket.dropcoreLength}m`
+                          : ''}
+                      </span>
+                    </div>
+                    {activeTicket.rosetRedamanDbm !== undefined && activeTicket.rosetRedamanDbm !== null && (
+                      <span className="font-mono text-[11px] font-bold text-[#10B981] tabular-nums">
+                        OPM: {activeTicket.rosetRedamanDbm} dBm
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {activeTicket.checkInAt && (
                   <div className="flex items-start gap-2.5 max-w-3xl mx-auto w-full">
-                    <div className="w-8 h-8 rounded-full bg-[#16A36A]/15 flex items-center justify-center text-[#16A36A] shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#16A36A]/15 flex items-center justify-center text-[#16A36A] shrink-0">
                       <ShieldCheck className="w-4 h-4" />
                     </div>
-                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-xl p-3.5 border border-[#16A36A]/25 shadow-2xs">
+                    <div className="flex-1 bg-white dark:bg-[#1E1236] rounded-2xl p-3.5 border border-[#16A36A]/25 shadow-2xs">
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-[10.5px] font-bold text-[#16A36A] uppercase tracking-wider flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Audit Telemetry System Verification</span>
                         </span>
-                        <span className="font-mono text-[11px] text-[#8B8495] tabular-nums">
+                        <span className="font-mono text-[11px] text-[#7A7484] tabular-nums">
                           {formatJakartaTimeOnly(activeTicket.checkInAt)} WIB
                         </span>
                       </div>
-                      <p className="text-xs sm:text-[13px] text-[#211A2E] dark:text-[#F5F1FF]">
+                      <p className="text-xs sm:text-[13px] text-[#1F182C] dark:text-[#F5F1FF]">
                         <span className="font-mono font-bold text-[#35105E] dark:text-[#D8B4FE]">
                           [AUDIT TELEMETRY]
                         </span>{' '}
@@ -1204,7 +1646,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 </div>
               )}
 
-              {/* Bottom Area: Read-Only Leader Banner OR Full Composer */}
+              {/* BOTTOM INTERACTION CONSOLE: Read-Only Leader OR Quick Reply Tactile Chips + Composer */}
               {isLeader ? (
                 <div className="p-4 bg-gradient-to-r from-[#F5F1FF] to-[#E9D5FF]/40 dark:from-[#22123F] dark:to-[#1A0E2E] border-t border-[#D8CCF3] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-3 min-w-0">
@@ -1231,38 +1673,62 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   </div>
                 </div>
               ) : (
-                <>
-                  {/* Ergonomic Quick Replies Toolbar */}
-                  <div className="px-4 py-2 bg-white dark:bg-[#1A0E2E] border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-1.5 overflow-x-auto shrink-0">
-                    <span className="text-[10.5px] font-bold uppercase text-[#8B8495] whitespace-nowrap flex items-center gap-1 shrink-0 mr-1">
+                <footer className="bg-white dark:bg-[#1A0E2E] px-4 lg:px-6 py-3 flex flex-col gap-2.5 shadow-xl z-20 flex-shrink-0 border-t border-[#E9E5F0] dark:border-[#35105E]">
+                  {/* QUICK REPLY TACTILE CHIPS ROW */}
+                  <div className="flex items-center gap-2 overflow-x-auto py-0.5 no-scrollbar">
+                    <span className="text-[10.5px] text-[#7A7484] dark:text-[#A78BFA] uppercase font-bold tracking-wider flex-shrink-0 flex items-center gap-1">
                       <Zap className="w-3.5 h-3.5 text-[#7135B5]" />
-                      <span>Quick Action:</span>
+                      <span>Aksi Cepat:</span>
                     </span>
-                    {quickReplyChips.map((chip, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => insertQuickReply(chip)}
-                        className="px-3 py-1 rounded-full bg-[#F7F6FA] dark:bg-[#22123F] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] text-[#211A2E] dark:text-[#E9D5FF] text-xs font-medium whitespace-nowrap border border-[#E9E5F0] dark:border-[#35105E] transition-colors cursor-pointer"
-                      >
-                        {chip}
-                      </button>
-                    ))}
+                    {quickReplyChips.map(chip => {
+                      const chipClass =
+                        chip.tone === 'emerald'
+                          ? 'btn-3d-emerald'
+                          : chip.tone === 'violet'
+                          ? 'btn-3d-primary'
+                          : 'tactile-chip text-[#1F182C] dark:text-[#E9D5FF]';
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          onClick={() => insertQuickReply(chip.text)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap cursor-pointer active:translate-y-0.5 transition-all ${chipClass}`}
+                        >
+                          {chip.tone === 'emerald' ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : chip.tone === 'violet' ? (
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                          ) : (
+                            <Tag className="w-3.5 h-3.5 text-[#63597B] dark:text-[#A78BFA]" />
+                          )}
+                          <span>{chip.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Installer Mandatory Category Warning & Selector */}
-                  {isInstaller && (!installerCategory || installerCategory.toUpperCase() === 'UNCLASSIFIED') && (
-                    <div className="px-4 py-2 bg-[#FEF3C7] dark:bg-amber-950/60 border-t border-[#E59A27]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shrink-0">
-                      <div className="flex items-center gap-2 text-[#92400E] dark:text-amber-200 font-semibold">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
+                  {/* Installer Mandatory Category Warning & Selector (Strictly Installer only; Dispatch has ZERO dropdown clutter) */}
+                  {isInstaller && (
+                    <div
+                      className={`px-3 py-2 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                        !installerCategory || installerCategory.toUpperCase() === 'UNCLASSIFIED'
+                          ? 'bg-[#FEF3C7] dark:bg-amber-950/60 border border-[#E59A27]/40 text-[#92400E] dark:text-amber-200'
+                          : 'bg-[#F8F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] text-[#35105E] dark:text-[#D8B4FE]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Tag className="w-3.5 h-3.5 shrink-0" />
                         <span>
-                          Pilih kategori chat terlebih dahulu sebelum mengirim pesan (pilih PROGRESS untuk Check-in).
+                          {!installerCategory || installerCategory.toUpperCase() === 'UNCLASSIFIED'
+                            ? 'Pilih kategori chat wajib sebelum kirim (pilih PROGRESS untuk Check-in otomatis).'
+                            : `Kategori Aktif Teknisi: #${installerCategory}`}
                         </span>
                       </div>
                       <select
                         value={installerCategory}
                         onChange={e => handleCategoryChangeForActiveTicket(e.target.value)}
-                        className="px-3 py-1.5 bg-white dark:bg-[#160D29] border border-[#E59A27] rounded-lg font-bold text-xs text-[#211A2E] dark:text-white cursor-pointer"
+                        className="px-3 py-1 bg-white dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#35105E] rounded-lg font-bold text-xs text-[#1F182C] dark:text-white cursor-pointer"
+                        title="Pilih Kategori Chat Wajib"
                       >
                         <option value="">-- Pilih Kategori Wajib --</option>
                         {activeCategories.map(cat => (
@@ -1274,167 +1740,118 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     </div>
                   )}
 
-                  {/* Comprehensive Chat Composer */}
-                  <form
-                    onSubmit={handleSendMessage}
-                    className="p-3 sm:p-4 bg-white dark:bg-[#1A0E2E] border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-2.5 shrink-0"
-                  >
-                    {/* Helper Bar: Role Mode + Mandatory Category ONLY for Installer (Removed for Dispatch & Super Admin) */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#8B8495]">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#F5F1FF] dark:bg-[#22123F] text-[#35105E] dark:text-[#D8B4FE] font-mono text-[11px] font-semibold border border-[#E9E5F0] dark:border-[#35105E]">
-                          {isInstaller
-                            ? 'Mode Teknisi Lapangan (Kategori Wajib)'
-                            : userRole === 'super_admin'
-                            ? 'Mode Super Admin · Pesan Langsung (Tanpa Kategori Wajib)'
-                            : 'Mode Dispatch Lead · Pesan Langsung (Tanpa Kategori Wajib)'}
-                        </span>
+                  {/* Hidden File Inputs */}
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    capture="environment"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
 
-                        {isInstaller && (
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
-                            <Tag className="w-3 h-3 text-[#7135B5]" />
-                            <select
-                              value={installerCategory || ''}
-                              onChange={e => handleCategoryChangeForActiveTicket(e.target.value)}
-                              className="bg-transparent text-[11px] font-bold text-[#211A2E] dark:text-white focus:outline-none cursor-pointer"
-                              title="Pilih Kategori Chat Wajib"
-                            >
-                              <option value="">-- Pilih Kategori Wajib --</option>
-                              {activeCategories.map(cat => (
-                                <option key={cat.id} value={cat.name}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                      </div>
+                  {/* ERGONOMIC CHAT COMPOSER */}
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-2.5 w-full relative">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="btn-3d-icon w-11 h-11 rounded-xl flex-shrink-0 cursor-pointer"
+                      title="Unggah Bukti Foto Lapangan"
+                      aria-label="Ambil Foto"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
 
-                      <div className="hidden sm:flex items-center gap-2 font-mono text-[11px]">
-                        <span>Shift + Enter: Baris baru</span>
-                        <span aria-hidden="true">·</span>
-                        <span>Enter: Kirim</span>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn-3d-icon w-11 h-11 rounded-xl flex-shrink-0 cursor-pointer"
+                      title="Lampirkan Berkas Foto"
+                      aria-label="Lampirkan Berkas"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
 
-                    {/* Hidden File Inputs */}
-                    <input
-                      ref={cameraInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/jpg"
-                      capture="environment"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/jpg"
-                      multiple
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateMenu(prev => !prev)}
+                      className="btn-3d-icon hidden sm:inline-flex w-11 h-11 rounded-xl flex-shrink-0 cursor-pointer"
+                      title="Sisipkan Template SOP"
+                      aria-label="Template SOP"
+                    >
+                      <FileText className="w-5 h-5" />
+                    </button>
 
-                    {/* 3-Section Composer Row */}
-                    <div className="flex items-end gap-2 w-full relative">
-                      {/* Left Actions */}
-                      <div className="flex items-center gap-1.5 pb-0.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => cameraInputRef.current?.click()}
-                          className="p-2.5 rounded-xl bg-[#F7F6FA] dark:bg-[#22123F] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] text-[#7135B5] dark:text-[#D8B4FE] border border-[#E9E5F0] dark:border-[#35105E] transition-colors cursor-pointer"
-                          title="Ambil Foto Kamera / Bukti Lapangan"
-                          aria-label="Ambil Foto"
-                        >
-                          <Camera className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="p-2.5 rounded-xl bg-[#F7F6FA] dark:bg-[#22123F] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] text-[#494453] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E] transition-colors cursor-pointer"
-                          title="Lampirkan Berkas Foto"
-                          aria-label="Lampirkan Foto"
-                        >
-                          <ImageIcon className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowTemplateMenu(prev => !prev)}
-                          className="hidden sm:flex p-2.5 rounded-xl bg-[#F7F6FA] dark:bg-[#22123F] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] text-[#494453] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E] transition-colors cursor-pointer"
-                          title="Sisipkan Template SOP"
-                          aria-label="Template SOP"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Quick Template Popover */}
-                      {showTemplateMenu && (
-                        <div className="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1A0E2E] rounded-xl border border-[#D8CCF3] dark:border-[#35105E] shadow-xl p-2 z-30 space-y-1">
-                          <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#35105E] dark:text-[#D8B4FE] border-b border-[#E9E5F0] dark:border-[#35105E]">
-                            <span>Template Cepat SOP</span>
-                            <button
-                              type="button"
-                              onClick={() => setShowTemplateMenu(false)}
-                              className="cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          {quickReplyChips.map((tpl, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => insertQuickReply(tpl)}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
-                            >
-                              {tpl}
-                            </button>
-                          ))}
+                    {showTemplateMenu && (
+                      <div className="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1A0E2E] rounded-xl border border-[#D8CCF3] dark:border-[#35105E] shadow-xl p-2 z-30 space-y-1">
+                        <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#35105E] dark:text-[#D8B4FE] border-b border-[#E9E5F0] dark:border-[#35105E]">
+                          <span>Template Cepat SOP</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowTemplateMenu(false)}
+                            className="cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
-
-                      {/* Center Expansive Textarea */}
-                      <div className="flex-1 min-w-0">
-                        <textarea
-                          ref={composerRef}
-                          rows={2}
-                          value={inputText}
-                          onChange={e => setInputText(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                          placeholder={`Ketik pesan untuk ${activeTicket.woNumber} (${activeTicket.installerName || activeTicket.customerName})...`}
-                          className="w-full px-3.5 py-2.5 bg-[#F5F1FF] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-xl text-xs sm:text-sm text-[#211A2E] dark:text-white placeholder:text-[#8B8495] focus:outline-none focus:bg-white dark:focus:bg-[#1E1236] focus:border-[#7135B5] focus:ring-2 focus:ring-[#D8B4FE]/50 transition-all resize-none"
-                        />
+                        {quickReplyChips.map(tpl => (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => insertQuickReply(tpl.text)}
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
+                          >
+                            {tpl.text}
+                          </button>
+                        ))}
                       </div>
+                    )}
 
-                      {/* Right Send Button */}
-                      <button
-                        type="submit"
-                        disabled={
-                          isSubmitting ||
-                          (!inputText.trim() && pendingAttachments.length === 0)
-                        }
-                        className="px-4 sm:px-5 py-3 rounded-xl bg-gradient-to-r from-[#35105E] to-[#7135B5] hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed text-white font-display text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer whitespace-nowrap"
-                      >
-                        {isSubmitting ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <span>Kirim</span>
-                            <Send className="w-4 h-4" />
-                          </>
-                        )}
-                      </button>
+                    {/* Debossed Chat Input Field */}
+                    <div className="relative flex-1 flex items-center min-w-0">
+                      <textarea
+                        ref={composerRef}
+                        rows={1}
+                        value={inputText}
+                        onChange={e => setInputText(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        placeholder={`Ketik pesan koordinasi ${isInstaller ? 'lapangan' : 'dispatch'} untuk ${activeTicket.woNumber} (${
+                          activeTicket.installerName || activeTicket.customerName
+                        })... Tekan Enter untuk kirim`}
+                        className="tactile-debossed-input w-full px-4 py-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-xs sm:text-sm text-[#1F182C] dark:text-white placeholder:text-[#7A7484] focus:outline-none focus:bg-white dark:focus:bg-[#1E1236] resize-none transition-all"
+                      />
                     </div>
+
+                    {/* PRIMARY TACTILE SEND BUTTON */}
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || (!inputText.trim() && pendingAttachments.length === 0)}
+                      className="tactile-btn-primary bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-display text-xs sm:text-sm font-bold disabled:opacity-45 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer whitespace-nowrap"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <span>Kirim</span>
+                          <Send className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
                   </form>
-                </>
+                </footer>
               )}
             </>
           ) : (
@@ -1443,13 +1860,13 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setMobilePane('queue')}
-                  className="px-4 py-2 rounded-xl bg-[#35105E] text-white text-xs font-bold cursor-pointer"
+                  className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Lihat Daftar Antrean WO
                 </button>
               )}
               <MessageSquare className="w-12 h-12 text-[#A78BFA]" />
-              <div className="font-display font-bold text-base text-[#211A2E] dark:text-white">
+              <div className="font-display font-bold text-base text-[#1F182C] dark:text-white">
                 Pilih Work Order untuk Memulai LiveChat
               </div>
               <p className="text-xs max-w-md leading-relaxed">

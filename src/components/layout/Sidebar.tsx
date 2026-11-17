@@ -494,7 +494,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar Main Frame: Stitch #342b4e (Dark: #160D29) */}
+      {/* Sidebar Main Frame: Stitch #160D29 */}
       <aside
         data-testid="app-sidebar"
         data-drawer-mode={isDrawerMode ? 'true' : 'false'}
@@ -504,32 +504,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ? 'fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-2xl'
             : isMiniMode
             ? 'relative w-[72px] shadow-none'
-            : 'relative w-64 shadow-none'
-        } bg-[#342b4e] dark:bg-[#160D29] text-[#dab9ff] border-r border-[#4b3e6e]/60 dark:border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
+            : 'relative w-64 shadow-[0_1px_8px_rgba(0,0,0,0.08)]'
+        } bg-[#160D29] text-[#CEC0E8] border-r border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
       >
-        {/* 1. Sidebar Header / MoraJaws 3D Extruded Brand Box */}
-        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-4 justify-between'} flex items-center bg-[#342b4e] dark:bg-[#160D29] border-b border-white/10 sticky top-0 z-10 shrink-0`}>
+        {/* 1. Sidebar Header / MoraJaws Brand Lockup */}
+        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-4 justify-between'} flex items-center bg-[#160D29] border-b border-white/10 sticky top-0 z-10 shrink-0`}>
           {isMiniMode ? (
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-10 h-10 rounded-xl bg-[#7135b5] text-white flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_0_#35105e] active:translate-y-0.5 cursor-pointer"
-              title="Perluas Sidebar (Ops Command)"
+              className="w-10 h-10 rounded-xl nav-3d-active text-white flex items-center justify-center active:translate-y-0.5 cursor-pointer"
+              title="Perluas Sidebar (Work Order Management)"
               aria-label="Perluas Sidebar"
             >
               <MoraJawsLogo size="sm" animated={false} withGlow={false} />
             </button>
           ) : (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-[#7135b5] flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_0_#35105e]">
+              <div className="w-9 h-9 rounded-xl nav-3d-active flex items-center justify-center shrink-0">
                 <MoraJawsLogo size="sm" animated={false} withGlow={false} />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-display font-extrabold text-[16px] leading-none text-white tracking-tight truncate uppercase">
+                <span className="font-display font-extrabold text-[17px] leading-none text-white tracking-tight truncate">
                   {config.global.appName || 'MoraJaws'}
                 </span>
-                <span className="text-[9.5px] font-bold text-[#dab9ff] uppercase tracking-[0.12em] mt-1 truncate">
-                  OPS COMMAND · WO MGMT
+                <span className="text-[9.5px] font-bold text-[#A78BFA] uppercase tracking-wider mt-1 truncate">
+                  Work Order Management
                 </span>
               </div>
             </div>
@@ -539,7 +539,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('closed')}
-              className="p-1.5 text-[#dab9ff] hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-[#CEC0E8] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
               title="Tutup Menu"
               aria-label="Tutup Menu"
             >
@@ -549,7 +549,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('minimized')}
-              className="p-1.5 text-[#dab9ff]/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0"
+              className="p-1.5 text-[#A78BFA] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer shrink-0"
               title="Mode Ikon Ringkas (72px)"
               aria-label="Mode Ikon Ringkas"
             >
@@ -567,7 +567,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 (window as any).__mjFocusSidebarSearch = true;
                 onChangeState('expanded');
               }}
-              className="w-11 h-10 rounded-xl bg-[#1f1638]/55 hover:bg-white/10 text-[#dab9ff] hover:text-white flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.25)] transition-colors cursor-pointer"
+              className="w-11 h-10 rounded-xl bg-[#22123F] hover:bg-[#35105E] text-[#A78BFA] hover:text-white flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-colors cursor-pointer"
               title="Cari menu, fitur, No. WO (Ctrl+K)"
               aria-label="Cari di Sidebar"
             >
@@ -576,7 +576,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-11 h-8 rounded-lg text-[#dab9ff]/75 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-11 h-8 rounded-lg text-[#A78BFA] hover:text-white hover:bg-[#35105E] flex items-center justify-center transition-colors cursor-pointer"
               title="Perluas Sidebar"
               aria-label="Perluas Sidebar"
             >
@@ -584,9 +584,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         ) : (
-          <div className="px-3 pt-3 pb-2 border-b border-white/10 bg-[#342b4e] dark:bg-[#160D29] shrink-0">
+          <div className="px-3 pt-3 pb-2 border-b border-white/10 bg-[#160D29] shrink-0">
             <div className="relative flex items-center w-full">
-              <Search className="w-3.5 h-3.5 text-[#dab9ff] absolute left-2.5 pointer-events-none shrink-0" />
+              <Search className="w-3.5 h-3.5 text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -601,7 +601,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 placeholder="Cari menu, fitur, No. WO..."
                 aria-label="Global Search Sidebar"
                 data-testid="sidebar-global-search"
-                className="w-full pl-8 pr-12 py-2 bg-[#1f1638]/55 hover:bg-[#1f1638]/75 focus:bg-[#1f1638]/90 text-xs text-white placeholder-[#dab9ff]/55 rounded-lg border border-white/10 focus:border-[#dab9ff]/60 focus:ring-1 focus:ring-[#dab9ff]/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.25)] outline-none transition-all"
+                className="w-full pl-8 pr-12 py-2 bg-[#22123F] hover:bg-[#2A1650] focus:bg-[#2A1650] text-xs text-white placeholder-[#8B8495] rounded-lg border border-[#35105E] focus:border-[#A78BFA]/70 focus:ring-1 focus:ring-[#A78BFA]/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] outline-none transition-all"
               />
               {searchQuery ? (
                 <button
@@ -610,7 +610,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2 p-1 rounded text-[#dab9ff] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  className="absolute right-2 p-1 rounded text-[#A78BFA] hover:text-white hover:bg-[#35105E] transition-colors cursor-pointer"
                   title="Bersihkan pencarian"
                   aria-label="Bersihkan pencarian"
                 >
@@ -618,7 +618,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               ) : (
                 !isDrawerMode && (
-                  <kbd className="absolute right-2 px-1.5 py-0.5 bg-[#1f1638]/80 border border-white/15 rounded text-[9px] font-mono font-bold text-[#dab9ff] pointer-events-none">
+                  <kbd className="absolute right-2 px-1.5 py-0.5 bg-[#160D29]/90 border border-[#35105E] rounded text-[9px] font-mono font-bold text-[#A78BFA] pointer-events-none">
                     Ctrl K
                   </kbd>
                 )
@@ -647,21 +647,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     aria-label={item.label}
                     className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer active:translate-y-0.5 ${
                       isActive
-                        ? 'bg-[#7135b5] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_0_#35105e]'
-                        : 'text-[#dab9ff] hover:bg-white/10 hover:text-white'
+                        ? 'nav-3d-active text-white'
+                        : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
                     {badgeInfo && (
                       <span
-                        className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[8.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#342b4e] dark:ring-[#160D29] ${
+                        className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[8.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#160D29] ${
                           badgeInfo.color === 'rose'
-                            ? 'bg-[#ba1a1a] text-white'
+                            ? 'bg-[#DC4C5A] text-white'
                             : badgeInfo.color === 'amber'
                             ? 'bg-[#D97706] text-white'
                             : badgeInfo.color === 'emerald'
                             ? 'bg-[#16A36A] text-white'
-                            : 'bg-[#58149c] text-white'
+                            : 'bg-[#7135B5] text-white'
                         }`}
                       >
                         {typeof badgeInfo.text === 'number' && badgeInfo.text > 99 ? '99+' : badgeInfo.text}
@@ -672,7 +672,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
 
               {filteredCategoriesWithSubmenus.length > 0 && (
-                <div className="w-8 h-px bg-white/15 my-1" />
+                <div className="w-8 h-px bg-[#35105E] my-1" />
               )}
 
               {filteredCategoriesWithSubmenus.flatMap(cat => cat.submenus).map(item => {
@@ -691,11 +691,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     aria-label={item.label}
                     className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer active:translate-y-0.5 ${
                       isActive
-                        ? 'bg-[#7135b5] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_0_#35105e]'
-                        : 'text-[#dab9ff] hover:bg-white/10 hover:text-white'
+                        ? 'nav-3d-active text-white'
+                        : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
                     }`}
                   >
-                    <SubIcon className="w-4.5 h-4.5" />
+                    <SubIcon className={`w-4.5 h-4.5 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
                   </button>
                 );
               })}
@@ -805,12 +805,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
-              <div className="px-2.5 py-1.5 text-[10.5px] font-bold text-[#dab9ff]/70 uppercase tracking-[0.08em]">
+              <div className="px-2.5 py-1.5 text-[10.5px] font-bold text-[#8B8495] uppercase tracking-[0.08em]">
                 Operations Core
               </div>
 
               {/* Standalone Menus */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
             {filteredStandaloneMenus.map(item => {
               const Icon = resolveNavIcon(item.icon);
               const isActive =
@@ -825,26 +825,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => handleItemClick(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer active:translate-y-0.5 ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer active:translate-y-0.5 ${
                     isActive
-                      ? 'bg-[#7135b5] text-white font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_0_#35105e]'
-                      : 'text-[#dab9ff] font-medium hover:bg-white/10 hover:text-white'
+                      ? 'nav-3d-active text-white font-bold'
+                      : 'text-[#CEC0E8] font-medium hover:bg-[#35105E] hover:text-white'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#dab9ff]'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
                   <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
                   {badgeInfo && (
                     <span
                       className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded tabular-nums shrink-0 ${
                         badgeInfo.color === 'rose'
-                          ? 'bg-[#ba1a1a] text-white'
+                          ? 'bg-[#DC4C5A] text-white'
                           : isActive
                           ? 'bg-white/20 text-white'
                           : badgeInfo.color === 'amber'
                           ? 'bg-[#E59A27]/25 text-[#FBBF24]'
                           : badgeInfo.color === 'emerald'
                           ? 'bg-[#16A36A]/25 text-emerald-300'
-                          : 'bg-[#1f1638]/60 text-[#dab9ff]'
+                          : 'bg-[#22123F] text-[#CEC0E8]'
                       }`}
                     >
                       {badgeInfo.text}
@@ -857,7 +857,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Collapsible Category Accordions */}
           {filteredCategoriesWithSubmenus.length > 0 && (
-            <div className="pt-3 space-y-1.5">
+            <div className="pt-3 space-y-1">
               {filteredCategoriesWithSubmenus.map(cat => {
                 const CatIcon = resolveNavIcon(cat.icon);
                 const isAccordionMode = cat.mode !== 'static';
@@ -875,26 +875,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         type="button"
                         onClick={() => toggleGroup(cat.id, 'accordion')}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                           hasActiveChild
-                            ? 'text-white bg-white/10'
-                            : 'text-[#dab9ff] hover:bg-white/10 hover:text-white'
+                            ? 'text-white bg-[#35105E]/70'
+                            : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
                         }`}
                         aria-expanded={isOpen}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <CatIcon className="w-4 h-4 shrink-0 text-[#dab9ff]" />
+                          <CatIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
                           <span className="truncate">{cat.name}</span>
                         </div>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 shrink-0 text-[#dab9ff] transition-transform duration-200 ${
+                          className={`w-3.5 h-3.5 shrink-0 text-[#A78BFA] transition-transform duration-200 ${
                             isOpen ? 'rotate-180' : 'rotate-0'
                           }`}
                         />
                       </button>
                     ) : (
-                      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-bold text-[#dab9ff]">
-                        <CatIcon className="w-4 h-4 shrink-0 text-[#dab9ff]" />
+                      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-bold text-[#CEC0E8]">
+                        <CatIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
                         <span className="truncate">{cat.name}</span>
                       </div>
                     )}
@@ -916,28 +916,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               key={item.id}
                               type="button"
                               onClick={() => handleItemClick(item.id)}
-                              className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs transition-all cursor-pointer active:translate-y-0.5 ${
+                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer active:translate-y-0.5 ${
                                 isActive
-                                  ? 'bg-[#7135b5] text-white font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_0_#35105e]'
+                                  ? 'nav-3d-active text-white font-bold'
                                   : item.highlight
-                                  ? 'text-[#f5eeff] bg-white/10 hover:bg-white/15 font-medium'
-                                  : 'text-[#dab9ff] hover:bg-white/10 hover:text-white font-normal'
+                                  ? 'text-white bg-[#35105E]/50 hover:bg-[#35105E] font-medium'
+                                  : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white font-normal'
                               }`}
                             >
-                              <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-[#dab9ff]/85'}`} />
+                              <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
                               <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
                               {badgeInfo && (
                                 <span
                                   className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded tabular-nums shrink-0 ${
                                     badgeInfo.color === 'rose'
-                                      ? 'bg-[#ba1a1a] text-white'
+                                      ? 'bg-[#DC4C5A] text-white'
                                       : isActive
                                       ? 'bg-white/20 text-white'
                                       : badgeInfo.color === 'amber'
                                       ? 'bg-[#E59A27]/25 text-[#FBBF24]'
                                       : badgeInfo.color === 'emerald'
                                       ? 'bg-[#16A36A]/25 text-emerald-300'
-                                      : 'bg-[#1f1638]/60 text-[#dab9ff]'
+                                      : 'bg-[#22123F] text-[#CEC0E8]'
                                   }`}
                                 >
                                   {badgeInfo.text}
@@ -958,11 +958,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* 4. Recessed Bottom Role Badge & Cluster Status Well */}
-        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-3'} bg-[#342b4e] dark:bg-[#160D29] border-t border-white/10 space-y-2 shrink-0`}>
+        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-3'} bg-[#35105E]/40 border-t border-white/10 space-y-2 shrink-0`}>
           {isMiniMode ? (
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className="w-11 h-9 rounded-lg bg-[#1f1638]/45 shadow-[inset_0_2px_4px_rgba(0,0,0,0.25)] flex items-center justify-center"
+                className="w-11 h-9 rounded-lg bg-[#160D29]/75 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] flex items-center justify-center border border-[#35105E]"
                 title={`Cluster: ${databaseStatus === 'connected' ? 'JKT-01' : databaseStatus} (${syncStatus})`}
               >
                 <span
@@ -971,14 +971,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ? 'bg-[#16A36A]'
                       : databaseStatus === 'connecting'
                       ? 'bg-[#E59A27] animate-pulse'
-                      : 'bg-[#ba1a1a]'
+                      : 'bg-[#DC4C5A]'
                   }`}
                 />
               </div>
               <button
                 type="button"
                 onClick={logout}
-                className="w-11 h-9 rounded-lg text-rose-300 hover:text-white hover:bg-[#ba1a1a]/30 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-11 h-9 rounded-lg text-rose-300 hover:text-white hover:bg-[#DC4C5A]/30 flex items-center justify-center transition-colors cursor-pointer"
                 title="Keluar / Logout"
                 aria-label="Keluar / Logout"
               >
@@ -986,12 +986,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           ) : (
-            <div className="p-2.5 rounded-xl bg-[#1f1638]/45 shadow-[inset_0_2px_4px_rgba(0,0,0,0.28)] border border-white/10 space-y-2">
+            <div className="p-2.5 rounded-lg bg-[#160D29]/75 shadow-[inset_0_2px_4px_rgba(0,0,0,0.28)] border border-white/10 space-y-2">
               <div className="flex items-center justify-between gap-2 text-[10.5px]">
-                <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#dab9ff]/75">
+                <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#A78BFA]">
                   Role Badge
                 </span>
-                <span className="px-2 py-0.5 rounded-md bg-[#7135b5] text-white font-bold capitalize text-[10px] shadow-[0_2px_0_#35105e]">
+                <span className="px-2 py-0.5 rounded-md nav-3d-active text-white font-bold capitalize text-[10px]">
                   {userRole.replace('_', ' ')}
                 </span>
               </div>
@@ -1001,13 +1001,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${
                       databaseStatus === 'connected'
-                        ? 'bg-[#16A36A]'
+                        ? 'bg-[#16A36A] animate-pulse'
                         : databaseStatus === 'connecting'
                         ? 'bg-[#E59A27] animate-pulse'
-                        : 'bg-[#ba1a1a]'
+                        : 'bg-[#DC4C5A]'
                     }`}
                   />
-                  <span className="font-semibold text-[#f5eeff] truncate">
+                  <span className="font-bold text-[#CEC0E8] truncate text-[11px]">
                     {databaseStatus === 'connected'
                       ? 'Cluster: JKT-01'
                       : databaseStatus === 'connecting'
@@ -1015,16 +1015,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'Mode Lokal'}
                   </span>
                 </div>
-                <span className="font-mono text-[10px] text-[#dab9ff] font-bold uppercase">
-                  {syncStatus === 'SAVED' ? 'LIVE' : syncStatus}
+                <span className="font-mono text-[11px] text-[#A78BFA] font-semibold">
+                  v4.18 · {syncStatus === 'SAVED' ? 'LIVE' : syncStatus}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10.5px] text-[#dab9ff]">
-                <span className="truncate font-medium text-[#f5eeff]">
+              <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10.5px] text-[#CEC0E8]">
+                <span className="truncate font-medium text-white">
                   {currentUser?.name || 'Staff'}
                 </span>
-                <span className="font-mono text-[10px] text-[#dab9ff]/80 truncate max-w-[95px]">
+                <span className="font-mono text-[10px] text-[#A78BFA] truncate max-w-[95px]">
                   @{currentUser?.username || 'staff'}
                 </span>
               </div>
@@ -1034,10 +1034,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsSessionModalOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 text-[#f5eeff] hover:bg-white/15 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 text-white hover:bg-[#35105E] text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
                     title="Kelola Sesi Staf Aktif"
                   >
-                    <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#dab9ff]" />
+                    <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#A78BFA]" />
                     <span>Sesi</span>
                   </button>
                 )}
@@ -1045,7 +1045,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#ba1a1a]/20 text-rose-200 hover:text-white hover:bg-[#ba1a1a]/45 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#DC4C5A]/20 text-rose-200 hover:text-white hover:bg-[#DC4C5A]/45 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
                   title="Keluar / Logout"
                 >
                   <LogOut className="w-3.5 h-3.5 shrink-0" />

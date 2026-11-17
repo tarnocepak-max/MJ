@@ -8,16 +8,19 @@ import {
   LayoutGrid,
   Table as TableIcon,
   Sliders,
-  CheckCircle2,
   Clock,
   Copy,
   Download,
   FileSpreadsheet,
   Printer,
-  ChevronDown,
-  ChevronRight
+  UserCheck,
+  Zap,
+  Info,
+  Phone,
+  GitBranch,
+  ChevronDown
 } from 'lucide-react';
-import { Ticket, User } from '../../types/index.ts';
+import { Ticket } from '../../types/index.ts';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { ColumnConfig } from './LeaderColumnSettingsModal';
 import {
@@ -40,6 +43,7 @@ interface LeaderAssignMatrixPanelProps {
   pendingCount: number;
   problemCount: number;
   clusterOptions: string[];
+  categoryOptions?: { name: string; count: number }[];
   technicians: TechnicianCapacitySummary[];
 
   // Filters & view state
@@ -51,6 +55,8 @@ interface LeaderAssignMatrixPanelProps {
   onSlotFilterChange: (slot: string) => void;
   statusFilter: string;
   onStatusFilterChange: (status: string) => void;
+  categoryFilter?: string;
+  onCategoryFilterChange?: (cat: string) => void;
   clusterFilter: string;
   onClusterFilterChange: (cluster: string) => void;
   installerFilter: string;
@@ -106,85 +112,76 @@ interface LeaderAssignMatrixPanelProps {
   onPageChange: (page: number) => void;
 }
 
-function getAgentBadgeInfo(ticket: Ticket): { label: string; cls: string } {
-  const s = String(ticket.statusWOAgent || '').trim();
-  const up = s.toUpperCase() || (ticket.installerName ? 'ASSIGNED' : 'PENDING');
-  if (up === 'CLOSED' || up === 'RESOLVED') {
-    return { label: `AGENT: ${up}`, cls: 'bg-[#DCFCE7] text-[#15803D]' };
-  }
-  if (up === 'ASSIGNED' || up === 'IN PROGRESS') {
-    return { label: `AGENT: ${up}`, cls: 'bg-[#E0F2FE] text-[#0369A1]' };
-  }
-  if (up === 'CANCELLED') {
-    return { label: `AGENT: ${up}`, cls: 'bg-[#FEE2E2] text-[#DC4C5A]' };
-  }
-  return { label: `AGENT: ${up}`, cls: 'bg-[#FEF3C7] text-[#B45309]' };
+function getCustomerInitials(name?: string): string {
+  const parts = String(name || 'PL').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'PL';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
 function getInstallerBadgeInfo(ticket: Ticket): { label: string; cls: string } {
   const s = String(ticket.statusWOInstaller || 'Unassigned').trim();
   const up = s.toUpperCase();
   if (!ticket.installerName || up === 'UNASSIGNED') {
-    return { label: 'FIELD: UNASSIGNED', cls: 'bg-[#F7F6FA] border border-[#E9E5F0] text-[#766B83]' };
+    return {
+      label: 'UNASSIGNED',
+      cls: 'bg-[#fef3c7] dark:bg-amber-950/60 border border-[#fcd34d] dark:border-amber-700 text-[#b45309] dark:text-amber-300'
+    };
   }
-  if (up === 'COMPLETED') {
-    return { label: `INSTALLER: ${up}`, cls: 'bg-[#16A36A] border border-[#16A36A] text-white' };
-  }
-  if (up === 'INSTALLED') {
-    return { label: `INSTALLER: ${up}`, cls: 'bg-[#DCFCE7] border border-[#16A36A]/30 text-[#15803D]' };
+  if (up === 'COMPLETED' || up === 'INSTALLED') {
+    return {
+      label: up,
+      cls: 'bg-[#dcfce7] dark:bg-emerald-950/60 border border-[#86efac] dark:border-emerald-700 text-[#15803d] dark:text-emerald-300'
+    };
   }
   if (up === 'ON SITE' || up === 'EN ROUTE' || up === 'IN PROGRESS') {
-    return { label: `INSTALLER: ${up}`, cls: 'bg-[#F4EAFF] border border-[#D8CCF3] text-[#431599]' };
+    return {
+      label: up,
+      cls: 'bg-[#eedbff] dark:bg-[#2E1B59] border border-[#d0bcff] dark:border-[#5B35B1] text-[#58149c] dark:text-[#dab9ff]'
+    };
   }
   if (up === 'FAILED / CANCELLED' || up === 'PENDING TECHNICAL') {
-    return { label: `INSTALLER: ${up}`, cls: 'bg-[#FEF2F2] border border-[#DC4C5A]/30 text-[#DC4C5A]' };
+    return {
+      label: up,
+      cls: 'bg-[#ffdad6] dark:bg-rose-950/60 border border-[#fca5a5] dark:border-rose-800 text-[#93000a] dark:text-rose-300'
+    };
   }
-  return { label: `INSTALLER: ${up}`, cls: 'bg-[#EFF6FF] border border-[#3977C9]/30 text-[#3977C9]' };
+  return {
+    label: up,
+    cls: 'bg-[#e0f2fe] dark:bg-blue-950/60 border border-[#bae6fd] dark:border-sky-800 text-[#1d4ed8] dark:text-sky-300'
+  };
 }
 
 function getWhatsAppBadgeInfo(ticket: Ticket): { label: string; cls: string } {
   const raw = String(ticket.statusWhatsApp || '').toLowerCase();
   if (raw.includes('confirm')) {
-    return { label: 'WA: CONFIRMED', cls: 'bg-[#ECFDF5] border border-[#16A36A]/30 text-[#16A36A]' };
+    return {
+      label: 'WA: CONFIRMED',
+      cls: 'bg-[#ecfdf5] dark:bg-emerald-950/60 border border-[#16a36a]/30 text-[#15803d] dark:text-emerald-300'
+    };
   }
   if (raw.includes('open') || raw.includes('read') || raw.includes('sent')) {
-    return { label: 'WA: OPENED', cls: 'bg-[#ECFDF5] border border-[#16A36A]/30 text-[#15803D]' };
+    return {
+      label: 'WA: OPENED',
+      cls: 'bg-[#ecfdf5] dark:bg-emerald-950/60 border border-[#16a36a]/30 text-[#15803d] dark:text-emerald-300'
+    };
   }
   if (raw.includes('unreachable') || raw.includes('fail') || raw.includes('cancel')) {
-    return { label: 'WA: UNREACHABLE', cls: 'bg-[#FEF2F2] border border-[#DC4C5A]/30 text-[#DC4C5A]' };
+    return {
+      label: 'WA: UNREACHABLE',
+      cls: 'bg-[#ffdad6] dark:bg-rose-950/60 border border-[#ba1a1a]/30 text-[#93000a] dark:text-rose-300'
+    };
   }
   if (raw.includes('reschedule')) {
-    return { label: 'WA: RESCHEDULE', cls: 'bg-[#FEF3C7] border border-[#E59A27]/40 text-[#B45309]' };
+    return {
+      label: 'WA: RESCHEDULE',
+      cls: 'bg-[#fef3c7] dark:bg-amber-950/60 border border-[#fcd34d] text-[#b45309] dark:text-amber-300'
+    };
   }
-  return { label: 'WA: READY', cls: 'bg-[#FEF3C7] border border-[#E59A27]/40 text-[#B45309]' };
-}
-
-function getApprovalBadgeInfo(ticket: Ticket): { label: string; cls: string } {
-  const latestReport =
-    Array.isArray(ticket.progressReports) && ticket.progressReports.length > 0
-      ? ticket.progressReports[0]
-      : undefined;
-  const approval = String(ticket.approvalStatus || latestReport?.approvalStatus || '').toUpperCase();
-  const statusReport = String(latestReport?.reportStatus || ticket.reportStatusLabel || '').toUpperCase();
-  if (ticket.statusWOAgent === 'Closed') {
-    return { label: 'CLOSED', cls: 'bg-[#334155] border border-[#1E293B] text-white' };
-  }
-  if (approval === 'APPROVED' || statusReport === 'APPROVED') {
-    return { label: 'APPROVED', cls: 'bg-[#ECFDF5] border border-[#86EFAC] text-[#15803D]' };
-  }
-  if (approval === 'REJECTED' || approval === 'REVISI' || approval === 'REVISION') {
-    return { label: 'REVISION / REJECTED', cls: 'bg-[#FEF2F2] border border-[#FCA5A5] text-[#B91C1C]' };
-  }
-  if (
-    approval === 'BUTUH APPROVAL' ||
-    approval === 'WAITING APPROVAL' ||
-    statusReport === 'WAITING_DISPATCH_REVIEW' ||
-    Boolean(latestReport) ||
-    Boolean(ticket.technicalReport)
-  ) {
-    return { label: 'WAITING APPROVAL', cls: 'bg-[#FFF7ED] border border-[#FDBA74] text-[#C2410C]' };
-  }
-  return { label: 'BELUM REPORT', cls: 'bg-[#F1F5F9] border border-[#CBD5E1] text-[#475569]' };
+  return {
+    label: 'WA: READY',
+    cls: 'bg-[#f8f1ff] dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff]'
+  };
 }
 
 export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = ({
@@ -198,6 +195,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   pendingCount,
   problemCount,
   clusterOptions,
+  categoryOptions = [],
   technicians,
   viewMode,
   onViewModeChange,
@@ -207,6 +205,8 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   onSlotFilterChange,
   statusFilter,
   onStatusFilterChange,
+  categoryFilter = 'ALL',
+  onCategoryFilterChange,
   clusterFilter,
   onClusterFilterChange,
   installerFilter,
@@ -241,7 +241,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   totalPages,
   onPageChange
 }) => {
-  // Local inline dropdown selections per unassigned ticket card before clicking "Tugaskan Sekarang"
   const [pendingInlineChoice, setPendingInlineChoice] = useState<Record<string, string>>({});
   const { isMobileView } = useUIConfig();
 
@@ -258,7 +257,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   const startIdx = filteredTickets.length > 0 ? (rowsPerPage === -1 ? 1 : (currentPage - 1) * rowsPerPage + 1) : 0;
   const endIdx = rowsPerPage === -1 ? filteredTickets.length : Math.min(currentPage * rowsPerPage, filteredTickets.length);
 
-  // Page numbers window
   const pageNumbers: number[] = [];
   const maxPageButtons = 5;
   let startPage = Math.max(1, currentPage - 2);
@@ -272,23 +270,91 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
     Boolean(searchQuery.trim()) ||
     slotFilter !== 'ALL' ||
     statusFilter !== 'all' ||
+    categoryFilter !== 'ALL' ||
     clusterFilter !== 'ALL' ||
     installerFilter !== 'ALL';
 
   return (
     <div className="space-y-3.5">
+      {/* CATEGORY FILTER CHIPS (Matching Stitch Assign Pills) */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
+        <button
+          type="button"
+          onClick={() => {
+            onStatusFilterChange('all');
+            if (onCategoryFilterChange) onCategoryFilterChange('ALL');
+          }}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+            statusFilter === 'all' && categoryFilter === 'ALL'
+              ? 'bg-[#58149c] text-white shadow-[0_2px_8px_rgba(88,20,156,0.28)]'
+              : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-[#a380fe]'
+          }`}
+        >
+          <span>Semua</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
+              statusFilter === 'all' && categoryFilter === 'ALL'
+                ? 'bg-white/20 text-white'
+                : 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]'
+            }`}
+          >
+            {totalScopedCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (onCategoryFilterChange) onCategoryFilterChange('ALL');
+            onStatusFilterChange(statusFilter === 'unassigned' ? 'all' : 'unassigned');
+          }}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+            statusFilter === 'unassigned'
+              ? 'bg-[#d97706] text-white shadow-[0_2px_8px_rgba(217,119,6,0.28)]'
+              : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-amber-400'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'unassigned' ? 'bg-white' : 'bg-[#d97706]'}`} />
+          <span>Unassigned</span>
+          <span className="font-mono text-[10.5px] tabular-nums opacity-90">{unassignedCount}</span>
+        </button>
+
+        {categoryOptions.map(cat => {
+          const isCatActive = categoryFilter === cat.name;
+          return (
+            <button
+              key={cat.name}
+              type="button"
+              onClick={() => {
+                if (onCategoryFilterChange) {
+                  onCategoryFilterChange(isCatActive ? 'ALL' : cat.name);
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                isCatActive
+                  ? 'bg-[#58149c] text-white shadow-[0_2px_8px_rgba(88,20,156,0.25)]'
+                  : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-[#a380fe]'
+              }`}
+            >
+              <span>{cat.name}</span>
+              <span className="font-mono text-[10.5px] tabular-nums opacity-85">{cat.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* FILTER & CONTROLS BAR */}
-      <div className="bg-white rounded-2xl border border-[#E9E5F0] p-3.5 shadow-[0_1px_4px_rgba(31,24,44,0.04)] space-y-3">
+      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative flex-1 min-w-[190px]">
+            <Search className="w-3.5 h-3.5 text-[#7d7484] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => onSearchChange(e.target.value)}
-              placeholder="Cari WO / ID Pelanggan..."
-              className="w-full pl-8.5 pr-3 py-2 bg-[#F7F6FA] border border-[#E9E5F0] rounded-xl text-xs text-[#211A2E] placeholder:text-[#8B8495] focus:outline-hidden focus:border-[#7135B5]"
+              placeholder="Cari WO / ID Pelanggan / Alamat / ODP..."
+              className="w-full pl-8.5 pr-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] focus:outline-hidden focus:border-[#58149c]"
             />
           </div>
 
@@ -296,9 +362,9 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
           <select
             value={slotFilter}
             onChange={e => onSlotFilterChange(e.target.value)}
-            className="px-3 py-2 bg-white border border-[#E9E5F0] rounded-xl text-xs font-semibold text-[#211A2E] focus:outline-hidden focus:border-[#7135B5] cursor-pointer"
+            className="px-3 py-2 bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs font-semibold text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] cursor-pointer"
           >
-            <option value="ALL">Semua Slot Waktu</option>
+            <option value="ALL">Semua Slot</option>
             <option value="1">Slot 1 (09:00 - 11:00)</option>
             <option value="2">Slot 2 (11:00 - 13:00)</option>
             <option value="3">Slot 3 (13:00 - 15:00)</option>
@@ -309,24 +375,24 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
           <select
             value={statusFilter}
             onChange={e => onStatusFilterChange(e.target.value)}
-            className="px-3 py-2 bg-white border border-[#E9E5F0] rounded-xl text-xs font-semibold text-[#211A2E] focus:outline-hidden focus:border-[#7135B5] cursor-pointer"
+            className="px-3 py-2 bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs font-semibold text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] cursor-pointer"
           >
             <option value="all">Semua Status ({totalScopedCount})</option>
             <option value="unassigned">Unassigned ({unassignedCount})</option>
             <option value="assigned">Assigned ({assignedCount})</option>
-            <option value="in_progress">Sedang Dikerjakan ({inProgressCount})</option>
+            <option value="in_progress">Sedang Jalan ({inProgressCount})</option>
             <option value="completed">Selesai ({completedCount})</option>
             <option value="pending">Tertunda ({pendingCount})</option>
-            <option value="problem">Bermasalah ({problemCount})</option>
+            <option value="problem">Kendala ({problemCount})</option>
           </select>
 
           {/* Sub-Cluster Filter */}
           <select
             value={clusterFilter}
             onChange={e => onClusterFilterChange(e.target.value)}
-            className="px-3 py-2 bg-white border border-[#E9E5F0] rounded-xl text-xs font-semibold text-[#211A2E] focus:outline-hidden focus:border-[#7135B5] cursor-pointer max-w-[180px]"
+            className="px-3 py-2 bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs font-semibold text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] cursor-pointer max-w-[175px]"
           >
-            <option value="ALL">Semua Sub-Cluster</option>
+            <option value="ALL">Semua Cluster</option>
             {clusterOptions.map(c => (
               <option key={c} value={c}>
                 {c}
@@ -335,27 +401,27 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
           </select>
 
           {/* View Mode Toggle: Card Matrix vs Table View */}
-          <div className="inline-flex items-center rounded-xl border border-[#E9E5F0] bg-[#F7F6FA] p-0.5 ml-auto shrink-0">
+          <div className="inline-flex items-center rounded-xl border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] p-0.5 ml-auto shrink-0 gap-0.5">
             <button
               type="button"
               onClick={() => onViewModeChange('cards')}
               className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
                 viewMode === 'cards'
-                  ? 'bg-[#431599] text-white shadow-xs'
-                  : 'text-[#766B83] hover:text-[#211A2E]'
+                  ? 'btn-3d-primary'
+                  : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
               }`}
-              title="Tampilan Kartu Matrix Stitch"
+              title="Tampilan Kartu Stitch"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Matrix</span>
+              <span>Kartu</span>
             </button>
             <button
               type="button"
               onClick={() => onViewModeChange('table')}
               className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
                 viewMode === 'table'
-                  ? 'bg-[#431599] text-white shadow-xs'
-                  : 'text-[#766B83] hover:text-[#211A2E]'
+                  ? 'btn-3d-primary'
+                  : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
               }`}
               title="Tampilan Tabel Klasik"
             >
@@ -367,15 +433,15 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 
         {/* Active Installer Filter indicator + Table Extra Controls */}
         {(installerFilter !== 'ALL' || hasActiveFilters || viewMode === 'table') && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F1EDF7] text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#f3eaff] dark:border-[#3E246F] text-[11px]">
             <div className="flex flex-wrap items-center gap-2">
               {installerFilter !== 'ALL' && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] font-semibold">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f3eaff] dark:bg-[#261942] border border-[#d0bcff] dark:border-[#4B386B] text-[#58149c] dark:text-[#dab9ff] font-semibold">
                   <span>Filter Teknisi: {installerFilter}</span>
                   <button
                     type="button"
                     onClick={() => onInstallerFilterChange('ALL')}
-                    className="hover:text-[#DC4C5A] font-bold cursor-pointer"
+                    className="hover:text-[#ba1a1a] font-bold cursor-pointer"
                   >
                     ×
                   </button>
@@ -385,7 +451,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onResetFilters}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#E9E5F0] text-[#766B83] hover:text-[#211A2E] hover:bg-[#F7F6FA] font-semibold cursor-pointer"
+                  className="btn-3d-secondary inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset Filter</span>
@@ -398,7 +464,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onExportCopy}
-                  className="px-2 py-1 rounded-lg border border-[#E9E5F0] hover:bg-[#F7F6FA] text-[#494453] font-semibold flex items-center gap-1 cursor-pointer"
+                  className="btn-3d-secondary px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Copy className="w-3 h-3" />
                   <span>Copy</span>
@@ -406,7 +472,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onExportCSV}
-                  className="px-2 py-1 rounded-lg border border-[#E9E5F0] hover:bg-[#F7F6FA] text-[#494453] font-semibold flex items-center gap-1 cursor-pointer"
+                  className="btn-3d-secondary px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Download className="w-3 h-3" />
                   <span>CSV</span>
@@ -414,7 +480,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onExportExcel}
-                  className="px-2 py-1 rounded-lg border border-[#E9E5F0] hover:bg-[#F7F6FA] text-[#15803D] font-semibold flex items-center gap-1 cursor-pointer"
+                  className="btn-3d-emerald px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <FileSpreadsheet className="w-3 h-3" />
                   <span>Excel</span>
@@ -422,7 +488,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onPrint}
-                  className="px-2 py-1 rounded-lg border border-[#E9E5F0] hover:bg-[#F7F6FA] text-[#494453] font-semibold flex items-center gap-1 cursor-pointer"
+                  className="btn-3d-secondary px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Printer className="w-3 h-3" />
                   <span>Print</span>
@@ -430,7 +496,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onOpenColumnSettings}
-                  className="px-2.5 py-1 rounded-lg border border-[#D8CCF3] bg-[#F5F1FF] text-[#431599] font-bold flex items-center gap-1 cursor-pointer"
+                  className="btn-3d-secondary px-2.5 py-1 rounded-lg font-bold text-[#58149c] flex items-center gap-1 cursor-pointer"
                 >
                   <Sliders className="w-3 h-3" />
                   <span>Atur Kolom</span>
@@ -441,15 +507,15 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
         )}
 
         {/* BULK SELECTION & AUTO-BALANCE ROW */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-[#E9E5F0] text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-[#e8ddff] dark:border-[#3E246F] text-xs">
           <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none font-semibold text-[#211A2E]">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none font-semibold text-[#1f1638] dark:text-white">
               <input
                 type="checkbox"
                 checked={allUnassignedChecked}
                 disabled={unassignedTicketsInView.length === 0}
                 onChange={e => onSelectAllUnassigned(e.target.checked)}
-                className="w-4 h-4 accent-[#431599] rounded border-[#CBC3D5] cursor-pointer"
+                className="w-4 h-4 accent-[#58149c] rounded border-[#cec3d4] cursor-pointer"
               />
               <span>
                 Pilih Semua Unassigned ({unassignedTicketsInView.length} WO)
@@ -458,13 +524,13 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 
             {selectedTicketIds.length > 0 && (
               <div className="flex items-center gap-2">
-                <span className="font-bold text-[#431599] tabular-nums">
-                  {selectedTicketIds.length} WO Terpilih
+                <span className="font-bold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+                  • {selectedTicketIds.length} WO Terpilih
                 </span>
                 <button
                   type="button"
                   onClick={onClearSelection}
-                  className="text-[11px] text-[#766B83] hover:text-[#DC4C5A] underline cursor-pointer"
+                  className="text-[11px] text-[#7d7484] dark:text-[#A79BC0] hover:text-[#ba1a1a] underline cursor-pointer"
                 >
                   Batal
                 </button>
@@ -477,7 +543,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               <select
                 value={bulkQuickInstaller}
                 onChange={e => onBulkQuickInstallerChange(e.target.value)}
-                className="px-3 py-1.5 bg-[#F7F6FA] border border-[#E9E5F0] rounded-xl text-xs font-medium text-[#211A2E] min-w-[180px] focus:outline-hidden focus:border-[#7135B5]"
+                className="px-3 py-1.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#d0bcff] dark:border-[#4B386B] rounded-xl text-xs font-medium text-[#1f1638] dark:text-white min-w-[180px] focus:outline-hidden focus:border-[#58149c]"
               >
                 <option value="">Tugaskan Terpilih Ke...</option>
                 {technicians.map(tech => (
@@ -496,63 +562,62 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 type="button"
                 disabled={!bulkQuickInstaller || selectedTicketIds.length === 0}
                 onClick={onExecuteBulkQuickAssign}
-                className="px-3.5 py-1.5 rounded-xl bg-[#2A1459] hover:bg-[#431599] disabled:opacity-45 text-white font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+                className="btn-3d-primary px-3.5 py-1.5 rounded-xl disabled:opacity-45 font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                Tugaskan
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Tugaskan</span>
               </button>
 
               <button
                 type="button"
                 onClick={onExecuteAutoBalance}
                 title="Auto-Balance Slot: distribusikan otomatis WO Unassigned sesuai slot waktu & sisa kuota terendah"
-                className="p-2 rounded-xl border border-[#D8CCF3] bg-[#F5F1FF] hover:bg-[#EDE9FE] text-[#431599] transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+                className="btn-3d-secondary px-2.5 py-1.5 rounded-xl text-[#58149c] dark:text-[#dab9ff] cursor-pointer shrink-0 flex items-center gap-1.5"
               >
                 <Wand2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline text-[11px] font-bold">Auto-Balance</span>
+                <span className="text-[11px] font-bold">Auto-Balance</span>
               </button>
             </div>
           ) : (
-            <span className="px-2.5 py-1 rounded-lg bg-[#F7F6FA] border border-[#E9E5F0] text-[11px] font-semibold text-[#766B83]">
+            <span className="px-2.5 py-1 rounded-lg bg-[#f8f1ff] dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4B386B] text-[11px] font-semibold text-[#7d7484] dark:text-[#A79BC0]">
               Mode Monitoring Read-Only (Write eksklusif Leader)
             </span>
           )}
         </div>
       </div>
 
-      {/* BODY: EMPTY STATE OR CARDS MATRIX OR CLASSIC TABLE */}
+      {/* BODY: EMPTY STATE OR STITCH CARDS OR CLASSIC TABLE */}
       {filteredTickets.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#E9E5F0] p-10 text-center space-y-3 shadow-[0_1px_4px_rgba(31,24,44,0.04)]">
-          <div className="w-11 h-11 rounded-2xl bg-[#F5F1FF] text-[#5B35B1] flex items-center justify-center mx-auto">
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-10 text-center space-y-3 shadow-[0_2px_8px_rgba(31,22,56,0.04)]">
+          <div className="w-11 h-11 rounded-2xl bg-[#f3eaff] dark:bg-[#2E1B59] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center mx-auto">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-bold text-sm text-[#211A2E]">
+            <h4 className="font-bold text-sm text-[#1f1638] dark:text-white">
               Tidak ada Work Order yang cocok dengan filter aktif
             </h4>
-            <p className="text-xs text-[#766B83] mt-1">
-              Coba ubah filter Slot Waktu, Status, Sub-Cluster, atau kata kunci pencarian Anda.
+            <p className="text-xs text-[#7d7484] dark:text-[#A79BC0] mt-1">
+              Coba ubah filter Slot Waktu, Status, Kategori, atau kata kunci pencarian Anda.
             </p>
           </div>
           {hasActiveFilters && (
             <button
               type="button"
               onClick={onResetFilters}
-              className="px-4 py-2 rounded-xl bg-[#431599] text-white font-bold text-xs hover:bg-[#35105E] cursor-pointer"
+              className="btn-3d-primary px-4 py-2 rounded-xl font-bold text-xs cursor-pointer"
             >
               Tampilkan Semua WO Hari Ini
             </button>
           )}
         </div>
       ) : viewMode === 'cards' ? (
-        /* STITCH CARD MATRIX LIST */
-        <div className="space-y-3">
+        /* STITCH WO DISPATCH CARDS */
+        <div className={`grid gap-3.5 ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           {paginatedTickets.map(t => {
             const isSelected = selectedTicketIds.includes(t.id);
             const isUnassigned = !t.installerName;
-            const agentBadge = getAgentBadgeInfo(t);
             const instBadge = getInstallerBadgeInfo(t);
             const waBadge = getWhatsAppBadgeInfo(t);
-            const approvalBadge = getApprovalBadgeInfo(t);
             const slotIdx = normalizeSlotIndex(t.slotTime);
             const slotBadgeLabel = formatSlotBadgeLabel(t.slotTime);
 
@@ -560,10 +625,8 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               ? techLookupMap.get(t.installerName.toLowerCase().trim())
               : undefined;
 
-            const currentInlineChoice = pendingInlineChoice[t.id] || '';
-
-            // Eligible techs prioritizing free slot for this WO's time window
             const sortedInlineCandidates = [...technicians].sort((a, b) => {
+              if (a.isFull !== b.isFull) return a.isFull ? 1 : -1;
               const aSlotFree = slotIdx
                 ? a.slots.find(s => s.slotIndex === slotIdx)?.state === 'free'
                 : !a.isFull;
@@ -574,213 +637,332 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               return a.assignedCount - b.assignedCount;
             });
 
+            const recommendedCandidate = sortedInlineCandidates.find(c => !c.isFull) || sortedInlineCandidates[0];
+            const chosenInstallerName = pendingInlineChoice[t.id] || recommendedCandidate?.installer.name || '';
+            const chosenTechObj = chosenInstallerName
+              ? techLookupMap.get(chosenInstallerName.toLowerCase().trim())
+              : recommendedCandidate;
+            const chosenFirstName = chosenInstallerName ? chosenInstallerName.split(' ')[0] : '';
+
+            const realOpm =
+              t.technicalReport?.opticalPowerDbm ??
+              t.technicalReport?.opticalPowerRx ??
+              t.fatRedamanDbm;
+
+            const isUrgentOrIncident =
+              String(t.ticketCategory || '').toLowerCase().includes('gangguan') ||
+              String(t.ticketCategory || '').toLowerCase().includes('repair') ||
+              String(t.ticketCategory || '').toLowerCase().includes('los') ||
+              String(t.statusWOInstaller || '').toLowerCase().includes('pending');
+
             return (
               <div
                 key={t.id}
-                className={`bg-white rounded-2xl border p-4 transition-all shadow-[0_1px_4px_rgba(31,24,44,0.03)] ${
+                className={`rounded-2xl p-4 transition-all flex flex-col justify-between gap-3 shadow-[0_3px_12px_rgba(31,22,56,0.05)] ${
                   isSelected
-                    ? 'border-[#5B35B1] ring-1 ring-[#D8B4FE] bg-[#FCF9FF]'
-                    : 'border-[#E9E5F0] hover:border-[#D8CCF3]'
+                    ? 'border-[1.5px] border-[#58149c] ring-2 ring-[#dab9ff]/70 bg-[#fcf9ff] dark:bg-[#27184A]'
+                    : isUnassigned
+                    ? 'border border-[#e8ddff] dark:border-[#4b386b] bg-white dark:bg-[#1E1238] hover:border-[#a380fe]'
+                    : 'border border-[#e8ddff] dark:border-[#3E246F] bg-white dark:bg-[#1E1238] hover:border-[#d0bcff]'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  {/* Selection Checkbox */}
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleSelectTicket(t.id)}
-                    className="mt-1 w-4 h-4 accent-[#431599] rounded border-[#CBC3D5] cursor-pointer shrink-0"
-                  />
+                {/* Row 1: Checkbox + #WO + Category Pill + Slot/Status */}
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => onToggleSelectTicket(t.id)}
+                        aria-label={`Pilih ${t.woNumber}`}
+                        className="w-4 h-4 accent-[#58149c] rounded border-[#cec3d4] cursor-pointer shrink-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onSelectTicket(t)}
+                        className="font-mono font-extrabold text-[13.5px] text-[#1f1638] dark:text-white hover:text-[#58149c] dark:hover:text-[#dab9ff] hover:underline tabular-nums cursor-pointer"
+                      >
+                        {t.woNumber}
+                      </button>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          isUrgentOrIncident
+                            ? 'bg-[#ffdad6] dark:bg-rose-950/70 text-[#93000a] dark:text-rose-300'
+                            : 'bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]'
+                        }`}
+                      >
+                        {t.ticketCategory || 'FTTH'}
+                      </span>
+                    </div>
 
-                  {/* Main Card Grid */}
-                  <div className={`flex-1 min-w-0 grid gap-3 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
-                    {/* Left Column: WO Meta + Customer + Address */}
-                    <div className={`space-y-1.5 min-w-0 ${isMobileView ? '' : 'lg:col-span-5'}`}>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onSelectTicket(t)}
-                          className="font-mono font-bold text-[12px] text-[#211A2E] hover:text-[#431599] hover:underline tabular-nums cursor-pointer"
-                        >
-                          {t.woNumber}
-                        </button>
-                        <span className="px-2 py-0.5 rounded-md bg-[#F5F1FF] border border-[#E9DDFF] text-[#431599] text-[10.5px] font-bold">
-                          {t.ticketCategory || 'FTTH'}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#E0F2FE] text-[#1D4ED8] text-[10.5px] font-bold tabular-nums">
-                          {slotBadgeLabel}
-                        </span>
-                        {isUnassigned && (
-                          <span className="px-2 py-0.5 rounded-md bg-[#FEF3C7] text-[#B45309] text-[10px] font-extrabold uppercase tracking-wide">
-                            UNASSIGNED
-                          </span>
-                        )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${instBadge.cls}`}
+                      >
+                        {instBadge.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Secondary meta line: Slot Time & WA status */}
+                  <div className="flex flex-wrap items-center gap-1.5 pl-6 text-[11px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] font-semibold tabular-nums">
+                      <Clock className="w-3 h-3 text-[#58149c] dark:text-[#dab9ff]" />
+                      {slotBadgeLabel}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${waBadge.cls}`}>
+                      {waBadge.label}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Optional Real OTDR/OPM Dark Telemetry Bar (Only shown if real OPM exists in DB) */}
+                {realOpm !== undefined && realOpm !== null && String(realOpm).trim() !== '' && (
+                  <div className="rounded-xl bg-[#1f1638] dark:bg-[#120924] text-white p-3 space-y-1">
+                    <div className="flex items-center justify-between text-[10.5px] font-mono">
+                      <span className="flex items-center gap-1.5 font-bold text-amber-300 uppercase">
+                        <span className="w-2 h-2 rounded-full bg-amber-400" />
+                        OPM TELEMETRY TERCATAT
+                      </span>
+                      <span className="font-extrabold text-amber-300 tabular-nums">
+                        {String(realOpm).includes('dBm') ? realOpm : `${realOpm} dBm`}
+                      </span>
+                    </div>
+                    {(t.remarksWOInstaller || t.technicalReport?.rootCause) && (
+                      <p className="text-[11px] text-[#e8ddff] line-clamp-2">
+                        {t.remarksWOInstaller || t.technicalReport?.rootCause}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Customer & Network Info Card */}
+                <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-3 border border-[#e8ddff] dark:border-[#35105E] space-y-2">
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#e8ddff] dark:bg-[#2E1B59] text-[#58149c] dark:text-[#dab9ff] font-extrabold text-xs flex items-center justify-center shrink-0">
+                        {getCustomerInitials(t.customerName)}
                       </div>
-
-                      <div className="flex items-baseline gap-1.5 min-w-0">
-                        <span
-                          className="font-bold text-[14px] text-[#211A2E] truncate"
+                      <div className="min-w-0">
+                        <div
+                          className="font-bold text-[13.5px] text-[#1f1638] dark:text-white truncate"
                           style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                         >
                           {t.customerName}
-                        </span>
-                        <span className="text-[11px] font-mono text-[#766B83] shrink-0 tabular-nums">
-                          (ID: {t.idCustomer || t.customerId || '-'})
-                        </span>
+                        </div>
+                        <div className="text-[11px] font-mono text-[#7d7484] dark:text-[#CEC0E8] truncate tabular-nums">
+                          ID: {t.idCustomer || t.customerId || '-'} · {t.customerPhone || '-'}
+                        </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => openCustomerAddressInGoogleMaps(t)}
-                        className="flex items-center gap-1 text-[11.5px] text-[#766B83] hover:text-[#431599] text-left group max-w-full cursor-pointer"
-                        title="Buka alamat pelanggan di Google Maps"
-                      >
-                        <MapPin className="w-3.5 h-3.5 text-[#8B8495] group-hover:text-[#431599] shrink-0" />
-                        <span className="truncate group-hover:underline">
-                          {[t.streetName, t.clusterName, t.area].filter(Boolean).join(', ') || '-'}
-                        </span>
-                      </button>
                     </div>
 
-                    {/* Right Column: 4-Dimension Badges + Action Controls */}
-                    <div className={`flex flex-col justify-between gap-2.5 ${isMobileView ? '' : 'lg:col-span-7 lg:items-end'}`}>
-                      {/* 4 Operational Dimension Badges */}
-                      <div className={`flex flex-wrap items-center gap-1.5 ${isMobileView ? '' : 'lg:justify-end'}`}>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide tabular-nums ${agentBadge.cls}`}>
-                          {agentBadge.label}
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide tabular-nums ${instBadge.cls}`}>
-                          {instBadge.label}
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide tabular-nums ${waBadge.cls}`}>
-                          {waBadge.label}
-                        </span>
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide tabular-nums ${approvalBadge.cls}`}>
-                          <span>{approvalBadge.label}</span>
-                        </span>
-                      </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenWhatsAppModal(t)}
+                      title="Hubungi / Kirim Notifikasi WhatsApp"
+                      className="w-8 h-8 rounded-xl bg-white dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff] hover:bg-[#eedbff] flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                      {/* Assignment Controls Row */}
-                      {isUnassigned ? (
-                        <div className="w-full flex flex-wrap items-center gap-2 lg:justify-end">
-                          {isLeaderRole ? (
-                            <>
+                  <button
+                    type="button"
+                    onClick={() => openCustomerAddressInGoogleMaps(t)}
+                    className="w-full flex items-start gap-1.5 text-[11.5px] text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#58149c] dark:hover:text-[#dab9ff] text-left group cursor-pointer"
+                    title="Buka alamat pelanggan di Google Maps"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0 mt-0.5" />
+                    <span className="line-clamp-2 group-hover:underline">
+                      {[t.streetName, t.clusterName, t.area].filter(Boolean).join(', ') || 'Alamat belum tercatat'}
+                    </span>
+                  </button>
+
+                  {/* ODP / FAT Network Strip */}
+                  {(t.fdtCode || t.fatCode || t.remarksAgent) && (
+                    <div className="pt-1.5 border-t border-[#e8ddff] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <span className="inline-flex items-center gap-1 font-mono font-bold text-[#1f1638] dark:text-[#e8ddff]">
+                        <GitBranch className="w-3 h-3 text-[#58149c] dark:text-[#dab9ff]" />
+                        {t.fatCode || t.fdtCode || 'ODP/FAT -'}
+                      </span>
+                      {t.fdtCode && t.fatCode && (
+                        <span className="font-mono text-[10.5px] text-[#7d7484] dark:text-[#CEC0E8]">
+                          OLT/FDT: {t.fdtCode}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Action Area */}
+                {isUnassigned ? (
+                  isLeaderRole ? (
+                    <div className="space-y-2">
+                      {/* Stitch Recommended Technician Selector Box */}
+                      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#160D29] border border-[#d0bcff] dark:border-[#4b386b]">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-7 h-7 rounded-full bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center shrink-0">
+                            <UserCheck className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-[#58149c] dark:text-[#dab9ff] uppercase">
+                                {pendingInlineChoice[t.id] ? 'Teknisi Dipilih' : 'Rekomendasi Slot'}
+                              </span>
+                              {chosenTechObj && (
+                                <span className="text-[10px] font-mono font-bold text-[#16A36A] dark:text-emerald-400 tabular-nums">
+                                  ({chosenTechObj.assignedCount}/{chosenTechObj.maxLimit})
+                                </span>
+                              )}
+                            </div>
+                            <div className="relative flex items-center">
                               <select
-                                value={currentInlineChoice}
+                                value={chosenInstallerName}
                                 onChange={e =>
                                   setPendingInlineChoice(prev => ({
                                     ...prev,
                                     [t.id]: e.target.value
                                   }))
                                 }
-                                className="flex-1 min-w-[190px] max-w-[260px] px-2.5 py-1.5 bg-[#F7F6FA] border border-[#E9E5F0] rounded-xl text-xs font-medium text-[#211A2E] focus:outline-hidden focus:border-[#5B35B1]"
+                                aria-label={`Pilih teknisi untuk ${t.woNumber}`}
+                                className="w-full appearance-none bg-transparent pr-5 py-0.5 font-bold text-xs text-[#1f1638] dark:text-white focus:outline-hidden cursor-pointer truncate"
                               >
-                                <option value="">
-                                  Pilih Teknisi Siaga {slotIdx ? `Slot ${slotIdx}` : ''}...
-                                </option>
-                                {sortedInlineCandidates.map(tech => (
-                                  <option key={tech.installer.id} value={tech.installer.name}>
-                                    {tech.installer.name} ({tech.assignedCount}/{tech.maxLimit} Slot)
-                                    {tech.isFull ? ' - PENUH' : ''}
-                                  </option>
-                                ))}
+                                {sortedInlineCandidates.length === 0 ? (
+                                  <option value="">Belum ada teknisi aktif</option>
+                                ) : (
+                                  sortedInlineCandidates.map(tech => (
+                                    <option key={tech.installer.id} value={tech.installer.name} className="bg-white dark:bg-[#1E1238]">
+                                      {tech.installer.name} ({tech.assignedCount}/{tech.maxLimit} Slot{tech.isFull ? ' · PENUH' : ''})
+                                    </option>
+                                  ))
+                                )}
                               </select>
-                              <button
-                                type="button"
-                                disabled={!currentInlineChoice}
-                                onClick={() => {
-                                  if (!currentInlineChoice) return;
-                                  onInlineAssign(t, currentInlineChoice);
-                                  setPendingInlineChoice(prev => {
-                                    const next = { ...prev };
-                                    delete next[t.id];
-                                    return next;
-                                  });
-                                }}
-                                className="px-3.5 py-1.5 rounded-xl bg-[#5B35B1] hover:bg-[#431599] disabled:opacity-45 text-white font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                Tugaskan Sekarang
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-[11px] font-semibold text-[#B45309]">
-                              Menunggu penugasan Korlap
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(t)}
-                            className="px-3 py-1.5 rounded-xl border border-[#E9E5F0] bg-white hover:bg-[#F7F6FA] text-[#211A2E] font-semibold text-xs cursor-pointer"
-                          >
-                            Detail
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="w-full flex flex-wrap items-center gap-2 lg:justify-end">
-                          <div className="text-xs text-[#494453]">
-                            Teknisi:{' '}
-                            <strong className="text-[#211A2E]">{t.installerName}</strong>
+                              <ChevronDown className="w-3.5 h-3.5 text-[#7d7484] pointer-events-none absolute right-0" />
+                            </div>
                           </div>
-
-                          {assignedTech ? (
-                            <span
-                              className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold font-mono tabular-nums ${
-                                assignedTech.isFull
-                                  ? 'bg-[#FEE2E2] text-[#DC4C5A]'
-                                  : 'bg-[#DCFCE7] text-[#15803D]'
-                              }`}
-                            >
-                              {assignedTech.isFull
-                                ? `KUOTA ${assignedTech.assignedCount}/${assignedTech.maxLimit} (FULL)`
-                                : `${assignedTech.assignedCount}/${assignedTech.maxLimit} Slot`}
-                            </span>
-                          ) : null}
-
-                          {isLeaderRole && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenReassignModal(t)}
-                              className="px-2.5 py-1.5 rounded-xl border border-[#E9E5F0] bg-white hover:bg-[#F5F1FF] hover:border-[#D8CCF3] text-[#211A2E] font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                            >
-                              <RotateCcw className="w-3 h-3 text-[#5B35B1]" />
-                              <span>Reassign</span>
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => onOpenWhatsAppModal(t)}
-                            title="Kirim notifikasi penugasan via WhatsApp"
-                            className="p-1.5 rounded-xl bg-[#DCFCE7] hover:bg-[#BBF7D0] text-[#15803D] transition-colors cursor-pointer"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(t)}
-                            className="px-3 py-1.5 rounded-xl border border-[#E9E5F0] bg-white hover:bg-[#F7F6FA] text-[#211A2E] font-semibold text-xs cursor-pointer"
-                          >
-                            Detail
-                          </button>
                         </div>
+                      </div>
+
+                      {/* Primary Action + Secondary Detail & WA */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={!chosenInstallerName}
+                          onClick={() => {
+                            if (!chosenInstallerName) return;
+                            onInlineAssign(t, chosenInstallerName);
+                            setPendingInlineChoice(prev => {
+                              const next = { ...prev };
+                              delete next[t.id];
+                              return next;
+                            });
+                          }}
+                          className="btn-3d-primary flex-1 py-2.5 px-3 rounded-xl disabled:opacity-45 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>
+                            {chosenFirstName ? `Assign Cepat ke ${chosenFirstName}` : 'Assign Teknisi'}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onSelectTicket(t)}
+                          className="btn-3d-secondary px-3 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                        >
+                          <Info className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                          <span>Detail</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onOpenWhatsAppModal(t)}
+                          title="Kirim / pratinjau pesan WhatsApp"
+                          className="btn-3d-icon-wa w-10 h-10 shrink-0 cursor-pointer"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <span className="text-[11px] font-semibold text-[#b45309] dark:text-amber-300">
+                        Menunggu penugasan Korlap
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectTicket(t)}
+                        className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs cursor-pointer"
+                      >
+                        Detail
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <div className="space-y-2 pt-0.5">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <UserCheck className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+                        <span className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                          {t.installerName}
+                        </span>
+                      </div>
+                      {assignedTech && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold font-mono tabular-nums shrink-0 ${
+                            assignedTech.isFull
+                              ? 'bg-[#ba1a1a] text-white'
+                              : 'bg-[#dcfce7] dark:bg-emerald-950/70 text-[#15803d] dark:text-emerald-300'
+                          }`}
+                        >
+                          {assignedTech.assignedCount}/{assignedTech.maxLimit} Slot
+                        </span>
                       )}
                     </div>
+
+                    <div className="flex items-center gap-2">
+                      {isLeaderRole && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenReassignModal(t)}
+                          className="btn-3d-secondary flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                          <span>Reassign</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onSelectTicket(t)}
+                        className="btn-3d-secondary flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Info className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                        <span>Detail</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenWhatsAppModal(t)}
+                        title="Kirim pesan WhatsApp ke teknisi"
+                        className="btn-3d-icon-wa w-9 h-9 shrink-0 cursor-pointer"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
         </div>
       ) : (
         /* CLASSIC TABLE VIEW (PRESERVED WITH COLUMN CUSTOMIZER & EXPANDABLE ROWS) */
-        <div className="bg-white rounded-2xl border border-[#E9E5F0] shadow-[0_1px_4px_rgba(31,24,44,0.04)] overflow-hidden">
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] shadow-[0_2px_8px_rgba(31,22,56,0.04)] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-[#35105E] text-white text-[11px] font-bold uppercase sticky top-0 z-10 border-b border-[#431599] [&_button]:text-white [&_button:hover]:text-[#E9D5FF] [&_svg]:text-white/90">
                 <tr>{visibleColumns.map(col => renderHeaderCell(col))}</tr>
               </thead>
-              <tbody className="divide-y divide-[#F1EDF7]">
+              <tbody className="divide-y divide-[#F1EDF7] dark:divide-[#2E1859]">
                 {paginatedTickets.map(t => {
                   const { label, progressPercent } = classifyTicketOperational(t);
                   const isSelected = selectedTicketIds.includes(t.id);
@@ -788,8 +970,8 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                   return (
                     <React.Fragment key={t.id}>
                       <tr
-                        className={`transition-colors hover:bg-[#F7F6FA] ${
-                          isSelected ? 'bg-[#F5F1FF]' : ''
+                        className={`transition-colors hover:bg-[#F7F6FA] dark:hover:bg-[#261942] ${
+                          isSelected ? 'bg-[#F5F1FF] dark:bg-[#2C1A4E]' : ''
                         }`}
                       >
                         {visibleColumns.map(col =>
@@ -797,34 +979,34 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                         )}
                       </tr>
                       {isExpanded && (
-                        <tr className="bg-[#F7F6FA]">
+                        <tr className="bg-[#F7F6FA] dark:bg-[#160D29]">
                           <td colSpan={visibleColumns.length} className="p-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                               <div className="space-y-1.5">
-                                <span className="font-bold text-[#211A2E] block">
+                                <span className="font-bold text-[#1f1638] dark:text-white block">
                                   Detail Lokasi &amp; Alamat Pelanggan
                                 </span>
-                                <div className="text-[#494453]">
+                                <div className="text-[#494453] dark:text-[#CBD5E1]">
                                   <strong>Alamat Lengkap:</strong> {t.streetName || '-'}
                                 </div>
-                                <div className="text-[#494453]">
+                                <div className="text-[#494453] dark:text-[#CBD5E1]">
                                   <strong>Patokan:</strong> {t.streetAlternatif || 'Tidak ada'}
                                 </div>
-                                <div className="text-[#494453]">
+                                <div className="text-[#494453] dark:text-[#CBD5E1]">
                                   <strong>Area &amp; Cluster:</strong> {t.area} · {t.clusterName || '-'}
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => openCustomerAddressInGoogleMaps(t)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs font-semibold text-[#431599] bg-[#F5F1FF] hover:bg-[#EDE9FE] rounded-lg border border-[#D8CCF3] cursor-pointer"
+                                  className="btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs font-semibold text-[#58149c] rounded-lg cursor-pointer"
                                 >
                                   <MapPin className="w-3.5 h-3.5" />
                                   <span>Buka di Google Maps</span>
                                 </button>
                               </div>
 
-                              <div className="space-y-1 font-mono text-[11px] text-[#494453]">
-                                <span className="font-bold text-[#211A2E] block font-sans text-xs">
+                              <div className="space-y-1 font-mono text-[11px] text-[#494453] dark:text-[#CBD5E1]">
+                                <span className="font-bold text-[#1f1638] dark:text-white block font-sans text-xs">
                                   Data Jaringan &amp; Perangkat
                                 </span>
                                 <div>OLT / FDT Code: <strong>{t.fdtCode || '-'}</strong></div>
@@ -834,12 +1016,12 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                               </div>
 
                               <div className="space-y-1.5">
-                                <span className="font-bold text-[#211A2E] block text-xs">
+                                <span className="font-bold text-[#1f1638] dark:text-white block text-xs">
                                   Catatan &amp; Status Kerja (WIB)
                                 </span>
-                                <div className="p-2.5 rounded-lg bg-white border border-[#E9E5F0] text-[#494453] text-[11px] space-y-1">
+                                <div className="p-2.5 rounded-lg bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#3E246F] text-[#494453] dark:text-[#CBD5E1] text-[11px] space-y-1">
                                   <div>{t.remarksWOInstaller || t.remarksAgent || 'Belum ada catatan.'}</div>
-                                  <div className="pt-1 border-t border-[#F1EDF7] flex flex-wrap gap-3 font-mono text-[10.5px]">
+                                  <div className="pt-1 border-t border-[#F1EDF7] dark:border-[#3E246F] flex flex-wrap gap-3 font-mono text-[10.5px]">
                                     <span>Status: <strong>{getTicketWorkStatus(t).status}</strong></span>
                                     <span>Check-in: <strong>{t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '-'}</strong></span>
                                     <span>Check-out: <strong>{t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '-'}</strong></span>
@@ -860,16 +1042,16 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
       )}
 
       {/* PAGINATION FOOTER */}
-      <div className="bg-white rounded-2xl border border-[#E9E5F0] px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#766B83] shadow-[0_1px_4px_rgba(31,24,44,0.03)]">
+      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#7d7484] dark:text-[#A79BC0] shadow-[0_2px_6px_rgba(31,22,56,0.03)]">
         <div className="flex flex-wrap items-center gap-3">
           <span className="tabular-nums">
-            Menampilkan <strong className="text-[#211A2E]">{startIdx} - {endIdx}</strong> dari{' '}
-            <strong className="text-[#211A2E]">{filteredTickets.length}</strong> Work Order Scoped
+            Menampilkan <strong className="text-[#1f1638] dark:text-white">{startIdx} - {endIdx}</strong> dari{' '}
+            <strong className="text-[#1f1638] dark:text-white">{filteredTickets.length}</strong> Work Order
           </span>
           <select
             value={rowsPerPage}
             onChange={e => onRowsPerPageChange(Number(e.target.value))}
-            className="px-2 py-1 rounded-lg border border-[#E9E5F0] bg-[#F7F6FA] text-[11px] font-semibold text-[#211A2E]"
+            className="px-2 py-1 rounded-lg border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] text-[11px] font-semibold text-[#1f1638] dark:text-white"
           >
             <option value={6}>6 / hal</option>
             <option value={10}>10 / hal</option>
@@ -885,7 +1067,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               type="button"
               disabled={currentPage === 1}
               onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              className="px-3 py-1.5 rounded-xl border border-[#E9E5F0] bg-white hover:bg-[#F7F6FA] text-[#494453] font-semibold disabled:opacity-40 cursor-pointer"
+              className="btn-3d-secondary px-3 py-1.5 rounded-xl font-semibold disabled:opacity-40 cursor-pointer"
             >
               Sebelumnya
             </button>
@@ -894,10 +1076,8 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 key={p}
                 type="button"
                 onClick={() => onPageChange(p)}
-                className={`w-8 h-8 rounded-xl font-bold text-xs tabular-nums transition-colors cursor-pointer ${
-                  currentPage === p
-                    ? 'bg-[#2A1459] text-white'
-                    : 'border border-[#E9E5F0] bg-white text-[#494453] hover:bg-[#F7F6FA]'
+                className={`w-8 h-8 rounded-xl font-bold text-xs tabular-nums cursor-pointer ${
+                  currentPage === p ? 'btn-3d-primary' : 'btn-3d-secondary'
                 }`}
               >
                 {p}
@@ -907,7 +1087,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               type="button"
               disabled={currentPage === totalPages}
               onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-              className="px-3 py-1.5 rounded-xl border border-[#E9E5F0] bg-white hover:bg-[#F7F6FA] text-[#494453] font-semibold disabled:opacity-40 cursor-pointer"
+              className="btn-3d-secondary px-3 py-1.5 rounded-xl font-semibold disabled:opacity-40 cursor-pointer"
             >
               Selanjutnya
             </button>

@@ -90,6 +90,7 @@ import {
 } from './LeaderQuotaModals';
 import { LeaderQuotaSidebar } from './LeaderQuotaSidebar';
 import { LeaderAssignMatrixPanel } from './LeaderAssignMatrixPanel';
+import { LeaderTechnicianManagementView } from './LeaderTechnicianManagementView';
 import {
   fetchLeaderQuotaConfig,
   saveLeaderQuotaConfig,
@@ -357,16 +358,11 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     toast.info('Pengaturan kolom dikembalikan ke default.', 'Kolom Direset');
   };
 
-  // Installer creation state
-  const [instName, setInstName] = useState('');
-  const [instUsername, setInstUsername] = useState('');
-  const [instPhone, setInstPhone] = useState('');
-  const [instEmail, setInstEmail] = useState('');
-  const [installerSearch, setInstallerSearch] = useState('');
   const [notice, setNotice] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
   // Table Filters & Search
   const [statusFilter, setStatusFilter] = useState<LeaderStatusFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
   const [slotFilter, setSlotFilter] = useState<string>('ALL');
@@ -736,6 +732,17 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [todayContractorTickets]);
 
+  const categoryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    todayContractorTickets.forEach(t => {
+      const cat = String(t.ticketCategory || '').trim();
+      if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [todayContractorTickets]);
+
   const technicianSummaries = useMemo(() => {
     return buildTechnicianCapacitySummaries({
       installers: myInstallers,
@@ -844,6 +851,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         if (cName.toLowerCase() !== clusterFilter.toLowerCase()) return false;
       }
 
+      // Ticket Category filter
+      if (categoryFilter !== 'ALL') {
+        const tCat = String(t.ticketCategory || '').trim();
+        if (tCat.toLowerCase() !== categoryFilter.toLowerCase()) return false;
+      }
+
       // Strict Asia/Jakarta Appointment Date === todayWIB (Auto-resets at 00:00 WIB)
       const ticketDate = getTicketAppointmentDate(t);
       if (!ticketDate || ticketDate !== todayWIB) return false;
@@ -883,6 +896,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   }, [
     contractorTickets,
     statusFilter,
+    categoryFilter,
     selectedInstallerFilter,
     slotFilter,
     clusterFilter,
@@ -1938,34 +1952,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   };
 
-  // Add technician submit
-  const handleAddInstaller = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!instName.trim() || !instUsername.trim() || !instPhone.trim()) {
-      triggerNotice('error', 'Nama lengkap, username, dan nomor telepon WhatsApp wajib diisi.');
-      return;
-    }
-
-    const res = registerInstallerAccount({
-      name: instName,
-      username: instUsername,
-      phone: instPhone,
-      email: instEmail
-    });
-
-    if (res.success) {
-      toast.success('BERHASIL – Akun Installer berhasil dibuat.', 'Pendaftaran Sukses');
-      triggerNotice('success', `Teknisi ${instName} berhasil didaftarkan ke ${displayContractor}! Password default: 12345678`);
-      setInstName('');
-      setInstUsername('');
-      setInstPhone('');
-      setInstEmail('');
-    } else {
-      toast.error(res.error || 'Gagal menambahkan installer.', 'Pendaftaran Gagal');
-      triggerNotice('error', res.error || 'Gagal menambahkan installer.');
-    }
-  };
-
   const todayAppointmentDisplay = useMemo(() => {
     try {
       const [y, m, d] = String(todayWIB || '').split('-').map(Number);
@@ -1999,357 +1985,327 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       ? 'Mode Offline'
       : 'Menghubungkan SSE...';
 
+  const isStandaloneFocusedTab =
+    activeTab === 'installer_mgmt' ||
+    activeTab === 'progress_dashboard' ||
+    activeTab === 'contractor_recap';
+
   return (
     <div className="space-y-4">
       {/* ============================================================ */}
       {/* 1. LEADER CONTEXT & OPERATIONAL HEADER (STITCH DESIGN)       */}
       {/* ============================================================ */}
-      <div className={`flex flex-col justify-between gap-4 ${isMobileView ? '' : 'lg:flex-row lg:items-center'}`}>
-        <div className="space-y-2">
-          <div className="text-[12px] font-medium text-[#766B83] flex items-center gap-1.5">
-            <span>MoraJaws</span>
-            <span>/</span>
-            <span>Contractor &amp; Area</span>
-            <span>/</span>
-            <span className="font-bold text-[#431599]">Assign WO &amp; Quota Management</span>
+      {!isStandaloneFocusedTab && (
+        <>
+          <div className={`flex flex-col justify-between gap-3.5 ${isMobileView ? '' : 'lg:flex-row lg:items-end'}`}>
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                  ANTREAN LAPANGAN
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    databaseStatus === 'connected'
+                      ? 'bg-[#dcfce7] dark:bg-emerald-950/60 text-[#15803d] dark:text-emerald-300'
+                      : 'bg-[#fef3c7] dark:bg-amber-950/60 text-[#b45309] dark:text-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      databaseStatus === 'connected' ? 'bg-[#16A36A] animate-pulse' : 'bg-[#d97706]'
+                    }`}
+                  />
+                  <span>{realtimeBadgeLabel}</span>
+                </span>
+              </div>
+
+              <h1
+                className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tracking-tight leading-tight"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                {activeTab === 'quota_settings' ? 'Manajemen Kuota & Kolom' : 'Penugasan Perintah Kerja'}
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                <span className="inline-flex items-center gap-1 font-semibold text-[#1f1638] dark:text-white">
+                  <Building2 className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                  {displayContractor}
+                </span>
+                <span>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-[#58149c] dark:text-[#dab9ff]" />
+                  {displayArea} ({clusterOptions.length || 1} Cluster)
+                </span>
+                <span>·</span>
+                <span className="font-mono tabular-nums">WIB {todayAppointmentDisplay}</span>
+              </div>
+            </div>
+
+            {/* Right Action Cluster: Primary Smart Dispatch + Secondary Tools */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {isLeaderRole && activeTab === 'wo_assignment' && (
+                <button
+                  type="button"
+                  onClick={handleExecuteAutoBalance}
+                  className="btn-3d-primary px-4 py-2 rounded-2xl font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  title="Smart Dispatch: Distribusikan otomatis WO Unassigned sesuai slot waktu & kuota terendah"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Smart Dispatch</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={!isLeaderRole}
+                onClick={() => setIsUploadAssignModalOpen(true)}
+                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              >
+                <FileUp className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <span className="hidden sm:inline">Upload Assign</span>
+                <span className="sm:hidden">Upload</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!isLeaderRole}
+                onClick={() => setIsBulkReassignModalOpen(true)}
+                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <span className="hidden sm:inline">Bulk Reassign</span>
+                <span className="sm:hidden">Reassign</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsDailyLimitModalOpen(true)}
+                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Sliders className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <span className="hidden sm:inline">Limit Harian</span>
+                <span className="sm:hidden">Limit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <span>Export</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] text-xs font-semibold">
-              <Building2 className="w-3.5 h-3.5 text-[#5B35B1]" />
-              <span>{displayContractor}</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] text-xs font-semibold">
-              <MapPin className="w-3.5 h-3.5 text-[#5B35B1]" />
-              <span>
-                {displayArea} ({clusterOptions.length || 1} Sub-Cluster)
-              </span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F1FF] border border-[#D8CCF3] text-[#431599] text-xs font-semibold">
-              <UserCheck className="w-3.5 h-3.5 text-[#5B35B1]" />
-              <span>Korlap: {currentUser.name}</span>
-            </span>
-
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${
-                databaseStatus === 'connected'
-                  ? 'bg-[#DCFCE7] border-[#BBF7D0] text-[#15803D]'
-                  : 'bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]'
-              }`}
+          {/* ============================================================ */}
+          {/* 2. RESPONSIVE KPI STRIP (3 Compact Mobile / 6 Desktop)       */}
+          {/* ============================================================ */}
+          <div className={`grid gap-2.5 sm:gap-3 ${isMobileView ? 'grid-cols-3' : 'grid-cols-3 lg:grid-cols-6'}`}>
+            {/* Mobile Compact 1 / Desktop 2: Unassigned */}
+            <div
+              onClick={() => {
+                setStatusFilter('unassigned');
+                setActiveTab('wo_assignment');
+                setCurrentPage(1);
+              }}
+              className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
             >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  databaseStatus === 'connected' ? 'bg-[#16A36A] animate-pulse' : 'bg-[#E59A27]'
-                }`}
-              />
-              <span className="tabular-nums">{realtimeBadgeLabel}</span>
-            </span>
-          </div>
-        </div>
+              <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                <span className="text-[10.5px] font-bold truncate">Unassigned</span>
+                <AlertCircle className="w-3.5 h-3.5 text-[#d97706] shrink-0" />
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-1">
+                <span
+                  className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {summaryMetrics.unassigned}
+                </span>
+                <span className="text-[10.5px] font-bold text-[#ba1a1a] dark:text-rose-400">WO</span>
+              </div>
+              <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#58149c] rounded-full"
+                  style={{ width: `${summaryMetrics.total > 0 ? Math.min(100, Math.round((summaryMetrics.unassigned / summaryMetrics.total) * 100)) : 0}%` }}
+                />
+              </div>
+            </div>
 
-        {/* Top-Right Quick Action 2x2 Matrix */}
-        <div className="grid grid-cols-2 gap-2 shrink-0">
-          <button
-            type="button"
-            disabled={!isLeaderRole}
-            onClick={() => setIsUploadAssignModalOpen(true)}
-            title={isLeaderRole ? 'Upload Excel/CSV untuk penugasan massal' : 'Hanya Leader yang berwenang'}
-            className="px-3.5 py-2 rounded-xl bg-[#F5F1FF] hover:bg-[#EDE9FE] border border-[#D8CCF3] text-[#431599] font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <FileUp className="w-3.5 h-3.5" />
-            <span>Upload Assign (.xlsx)</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={!isLeaderRole}
-            onClick={() => setIsBulkReassignModalOpen(true)}
-            title={isLeaderRole ? 'Alihkan beberapa WO aktif ke teknisi lain' : 'Hanya Leader yang berwenang'}
-            className="px-3.5 py-2 rounded-xl bg-[#F5F1FF] hover:bg-[#EDE9FE] border border-[#D8CCF3] text-[#431599] font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <ArrowRightLeft className="w-3.5 h-3.5" />
-            <span>Bulk Reassign</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsDailyLimitModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#F7F6FA] border border-[#E9E5F0] text-[#211A2E] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Sliders className="w-3.5 h-3.5 text-[#5B35B1]" />
-            <span>Atur Limit Harian</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="px-3.5 py-2 rounded-xl bg-[#5B35B1] hover:bg-[#431599] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export Matriks</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ============================================================ */}
-      {/* 2. 6 KPI SUMMARY CARDS (REAL SCOPED DATA)                    */}
-      {/* ============================================================ */}
-      <div className={`grid gap-3 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
-        {/* KPI 1: Total WO Hari Ini */}
-        <div
-          onClick={() => {
-            setStatusFilter('all');
-            setActiveTab('wo_assignment');
-          }}
-          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#D8CCF3] transition-colors"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83]">
-              Total WO Hari Ini
-            </span>
-            <Calendar className="w-4 h-4 text-[#5B35B1] shrink-0" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span
-              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            {/* Mobile Compact 2 / Desktop 4: Teknisi Ready */}
+            <div
+              onClick={() => setActiveTab('installer_mgmt')}
+              className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#16A36A] transition-all"
             >
-              {summaryMetrics.total}
-            </span>
-            <span className="text-xs font-semibold text-[#766B83]">WO</span>
-          </div>
-          <div className="mt-1 text-[11px] text-[#766B83] tabular-nums">
-            Appointment: {todayAppointmentDisplay}
-          </div>
-        </div>
+              <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                <span className="text-[10.5px] font-bold truncate">Teknisi Ready</span>
+                <Users2 className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-1">
+                <span
+                  className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {summaryMetrics.activeInstallers}
+                </span>
+                <span className="text-[11px] font-semibold text-[#7d7484] dark:text-[#A79BC0] tabular-nums">
+                  / {myInstallers.length}
+                </span>
+              </div>
+              <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#16A36A] rounded-full"
+                  style={{ width: `${myInstallers.length > 0 ? Math.min(100, Math.round((summaryMetrics.activeInstallers / myInstallers.length) * 100)) : 0}%` }}
+                />
+              </div>
+            </div>
 
-        {/* KPI 2: Unassigned */}
-        <div
-          onClick={() => {
-            setStatusFilter('unassigned');
-            setActiveTab('wo_assignment');
-            setCurrentPage(1);
-          }}
-          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#FCD34D] transition-colors"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#E59A27]">
-              Unassigned
-            </span>
-            <AlertCircle className="w-4 h-4 text-[#E59A27] shrink-0" />
-          </div>
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <span
-              className="text-2xl font-extrabold text-[#E59A27] tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {summaryMetrics.unassigned}
-            </span>
-            {summaryMetrics.unassigned > 0 && (
-              <span className="px-2 py-0.5 rounded-md bg-[#FEF3C7] text-[#B45309] text-[10px] font-bold">
-                Butuh Dispatch
-              </span>
+            {/* Mobile Compact 3 / Desktop 6: Avg SLA */}
+            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                <span className="text-[10.5px] font-bold truncate">Avg SLA</span>
+                <Clock className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-1">
+                <span
+                  className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {avgAssignSlaMinutes}
+                </span>
+                <span className="text-[11px] font-semibold text-[#7d7484] dark:text-[#A79BC0]">mnt</span>
+              </div>
+              <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${avgAssignSlaMinutes <= 30 ? 'bg-[#6a46c1]' : 'bg-[#d97706]'}`}
+                  style={{ width: `${avgAssignSlaMinutes > 0 ? Math.min(100, Math.round((avgAssignSlaMinutes / 60) * 100)) : 12}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Desktop Extra KPIs (hidden in Mobile Mode for clean 3-card density) */}
+            {!isMobileView && (
+              <>
+                <div
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setActiveTab('wo_assignment');
+                  }}
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
+                >
+                  <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                    <span className="text-[10.5px] font-bold truncate">Total WO</span>
+                    <Calendar className="w-3.5 h-3.5 text-[#58149c] shrink-0" />
+                  </div>
+                  <div className="mt-1.5 flex items-baseline gap-1">
+                    <span className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+                      {summaryMetrics.total}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#7d7484]">Hari Ini</span>
+                  </div>
+                  <div className="text-[10.5px] text-[#7d7484] mt-1 tabular-nums">{todayAppointmentDisplay}</div>
+                </div>
+
+                <div
+                  onClick={() => {
+                    setStatusFilter('assigned');
+                    setActiveTab('wo_assignment');
+                    setCurrentPage(1);
+                  }}
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#2563EB] transition-all"
+                >
+                  <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                    <span className="text-[10.5px] font-bold truncate">Assigned</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
+                  </div>
+                  <div className="mt-1.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-extrabold text-[#2563EB] dark:text-sky-300 tabular-nums">
+                      {summaryMetrics.assigned}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#16A36A] tabular-nums">
+                      {summaryMetrics.total > 0 ? Math.round((summaryMetrics.assigned / summaryMetrics.total) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="text-[10.5px] text-[#7d7484] mt-1 truncate">
+                    Ke {assignedTechnicianCount} Teknisi
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setIsDailyLimitModalOpen(true)}
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
+                >
+                  <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                    <span className="text-[10.5px] font-bold truncate">Utilisasi Kuota</span>
+                    <Gauge className="w-3.5 h-3.5 text-[#58149c] shrink-0" />
+                  </div>
+                  <div className="mt-1.5">
+                    <span className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+                      {quotaUtilizationPct}%
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        quotaUtilizationPct >= 95
+                          ? 'bg-[#ba1a1a]'
+                          : quotaUtilizationPct >= 80
+                          ? 'bg-[#58149c]'
+                          : 'bg-[#16A36A]'
+                      }`}
+                      style={{ width: `${Math.min(100, quotaUtilizationPct)}%` }}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
-          <div className="mt-1 text-[11px] text-[#766B83]">
-            Prioritas Slot 1 &amp; 2
-          </div>
-        </div>
-
-        {/* KPI 3: Assigned Terjadwal */}
-        <div
-          onClick={() => {
-            setStatusFilter('assigned');
-            setActiveTab('wo_assignment');
-            setCurrentPage(1);
-          }}
-          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#BAE6FD] transition-colors"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#3977C9]">
-              Assigned Terjadwal
-            </span>
-            <CheckCircle2 className="w-4 h-4 text-[#3977C9] shrink-0" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span
-              className="text-2xl font-extrabold text-[#3977C9] tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {summaryMetrics.assigned}
-            </span>
-            <span className="text-xs font-bold text-[#16A36A] tabular-nums">
-              {summaryMetrics.total > 0 ? ((summaryMetrics.assigned / summaryMetrics.total) * 100).toFixed(1) : '0.0'}%
-            </span>
-          </div>
-          <div className="mt-1 text-[11px] text-[#766B83]">
-            Terdistribusi ke {assignedTechnicianCount} Teknisi
-          </div>
-        </div>
-
-        {/* KPI 4: Teknisi Siaga */}
-        <div
-          onClick={() => setActiveTab('installer_mgmt')}
-          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#D8CCF3] transition-colors"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83]">
-              Teknisi Siaga
-            </span>
-            <Users2 className="w-4 h-4 text-[#5B35B1] shrink-0" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span
-              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {summaryMetrics.activeInstallers} / {myInstallers.length}
-            </span>
-            <span className="text-[11px] font-bold text-[#16A36A]">Online</span>
-          </div>
-          <div className="mt-1 text-[11px] text-[#766B83] tabular-nums">
-            Kapasitas Maks: {totalMaxSlots} Slot
-          </div>
-        </div>
-
-        {/* KPI 5: Utilisasi Kuota */}
-        <div
-          onClick={() => setIsDailyLimitModalOpen(true)}
-          className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#D8CCF3] transition-colors"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83]">
-              Utilisasi Kuota
-            </span>
-            <Gauge className="w-4 h-4 text-[#5B35B1] shrink-0" />
-          </div>
-          <div className="mt-2">
-            <span
-              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {quotaUtilizationPct}%
-            </span>
-          </div>
-          <div className="mt-2 w-full h-1.5 bg-[#F1EDF7] rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                quotaUtilizationPct >= 95
-                  ? 'bg-[#DC4C5A]'
-                  : quotaUtilizationPct >= 80
-                  ? 'bg-[#5B35B1]'
-                  : 'bg-[#16A36A]'
-              }`}
-              style={{ width: `${Math.min(100, quotaUtilizationPct)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* KPI 6: SLA Respon Penugasan */}
-        <div className="bg-white rounded-2xl border border-[#E9E5F0] p-4 shadow-[0_1px_4px_rgba(31,24,44,0.04)] flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#16A36A]">
-              SLA Respon Penugasan
-            </span>
-            <Clock className="w-4 h-4 text-[#16A36A] shrink-0" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span
-              className="text-2xl font-extrabold text-[#211A2E] tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {avgAssignSlaMinutes}
-            </span>
-            <span className="text-xs font-semibold text-[#766B83]">Menit</span>
-          </div>
-          <div
-            className={`mt-1 text-[11px] font-bold ${
-              avgAssignSlaMinutes <= 30 ? 'text-[#16A36A]' : 'text-[#DC4C5A]'
-            }`}
-          >
-            {avgAssignSlaMinutes === 0
-              ? 'Belum ada penugasan hari ini'
-              : avgAssignSlaMinutes <= 30
-              ? 'Target < 30 Menit (Aman)'
-              : 'Melebihi Target 30 Menit'}
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* ============================================================ */}
-      {/* 3. CLEAN STITCH NAVIGATION TAB RIBBON                        */}
+      {/* 3. DESKTOP SEGMENTED NAVIGATION PILL (Hidden on Mobile Mode) */}
       {/* ============================================================ */}
-      <div className="border-b border-[#E9E5F0] flex items-center gap-2 sm:gap-5 overflow-x-auto scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setActiveTab('wo_assignment')}
-          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
-            activeTab === 'wo_assignment'
-              ? 'border-[#431599] text-[#431599]'
-              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Assign WO &amp; Slot Matrix</span>
-          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-[#FEF3C7] text-[#B45309] tabular-nums">
-            {summaryMetrics.unassigned}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('progress_dashboard')}
-          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
-            activeTab === 'progress_dashboard'
-              ? 'border-[#431599] text-[#431599]'
-              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
-          }`}
-        >
-          <Activity className="w-3.5 h-3.5" />
-          <span>Dashboard Progress WO (Live)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('quota_settings')}
-          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
-            activeTab === 'quota_settings'
-              ? 'border-[#431599] text-[#431599]'
-              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
-          }`}
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>Manajemen Kuota &amp; Beban Teknisi</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('installer_mgmt')}
-          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
-            activeTab === 'installer_mgmt'
-              ? 'border-[#431599] text-[#431599]'
-              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
-          }`}
-        >
-          <UserPlus className="w-3.5 h-3.5" />
-          <span>Pendaftaran Akun Teknisi</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('contractor_recap')}
-          className={`pb-3 pt-1 px-1 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors shrink-0 cursor-pointer whitespace-nowrap ${
-            activeTab === 'contractor_recap'
-              ? 'border-[#431599] text-[#431599]'
-              : 'border-transparent text-[#766B83] hover:text-[#211A2E]'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Rekap WO Mitra</span>
-        </button>
-      </div>
+      {!isMobileView && (
+        <div className="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-[#f3eaff] dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-[#35105E] overflow-x-auto scrollbar-none">
+          {[
+            { id: 'wo_assignment' as const, label: 'Assign WO', badge: summaryMetrics.unassigned, icon: Layers },
+            { id: 'progress_dashboard' as const, label: 'Progress Live', icon: Activity },
+            { id: 'installer_mgmt' as const, label: 'Tim Teknisi', badge: myInstallers.length, icon: UserPlus },
+            { id: 'contractor_recap' as const, label: 'Rekap Mitra', icon: FileText },
+            { id: 'quota_settings' as const, label: 'Kuota & Kolom', icon: Sliders }
+          ].map(item => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer transition-all ${
+                  isActive
+                    ? 'bg-white dark:bg-[#342b4e] text-[#58149c] dark:text-[#dab9ff] shadow-[0_2px_6px_rgba(31,22,56,0.08)]'
+                    : 'text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#1f1638] dark:hover:text-white'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{item.label}</span>
+                {item.badge !== undefined && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold tabular-nums ${
+                      item.id === 'wo_assignment' && item.badge > 0
+                        ? 'bg-[#d97706] text-white'
+                        : 'bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Notice Banner */}
       {notice && (
@@ -2793,6 +2749,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 pendingCount={summaryMetrics.pending}
                 problemCount={summaryMetrics.problem}
                 clusterOptions={clusterOptions}
+                categoryOptions={categoryOptions}
                 technicians={technicianSummaries}
                 viewMode={matrixViewMode}
                 onViewModeChange={mode => {
@@ -2816,6 +2773,11 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setStatusFilter(s as LeaderStatusFilter);
                   setCurrentPage(1);
                 }}
+                categoryFilter={categoryFilter}
+                onCategoryFilterChange={cat => {
+                  setCategoryFilter(cat);
+                  setCurrentPage(1);
+                }}
                 clusterFilter={clusterFilter}
                 onClusterFilterChange={c => {
                   setClusterFilter(c);
@@ -2830,6 +2792,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setSearchQuery('');
                   setSlotFilter('ALL');
                   setStatusFilter('all');
+                  setCategoryFilter('ALL');
                   setClusterFilter('ALL');
                   setSelectedInstallerFilter('ALL');
                   setActiveKpiDrilldown(null);
@@ -2932,161 +2895,38 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* TAB 3: PENDAFTARAN AKUN TEKNISI (BAGIAN 3.1 & 3.2)           */}
+      {/* TAB 3: MANAJEMEN TEKNISI & PENDAFTARAN AKUN (STITCH)         */}
       {/* ============================================================ */}
       {activeTab === 'installer_mgmt' && (
-        <div className="space-y-5">
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold shadow-xs">
-                <UserPlus className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#21183A] dark:text-white">
-                  Pendaftaran Akun Teknisi Mitra
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Daftarkan teknisi baru di bawah naungan kontraktor <strong>{displayContractor}</strong>.
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleAddInstaller} className={`grid gap-4 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Nama Lengkap Teknisi *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Budi Santoso"
-                  value={instName}
-                  onChange={e => setInstName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Username Login *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: budi_mjs"
-                  value={instUsername}
-                  onChange={e => setInstUsername(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  No. Telepon WhatsApp *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: 08123456789"
-                  value={instPhone}
-                  onChange={e => setInstPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Email (Opsional)
-                </label>
-                <input
-                  type="email"
-                  placeholder="budi@mitra.com"
-                  value={instEmail}
-                  onChange={e => setInstEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
-              <div className="sm:col-span-2 lg:col-span-4 flex items-center justify-between pt-2">
-                <span className="text-[11px] text-slate-400">
-                  Password awal default adalah <code className="font-mono font-bold text-purple-600 bg-purple-50 dark:bg-purple-950 px-1.5 py-0.5 rounded">12345678</code>
-                </span>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Daftarkan Akun Teknisi</span>
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* List of Registered Installers */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-sm text-[#21183A] dark:text-white">
-                  Daftar Teknisi Terdaftar ({myInstallers.length})
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Semua teknisi aktif di bawah naungan kontraktor {displayContractor}
-                </p>
-              </div>
-
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cari teknisi..."
-                  value={installerSearch}
-                  onChange={e => setInstallerSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-slate-700 dark:text-purple-200 uppercase font-semibold">
-                  <tr>
-                    <th className="py-2 px-3">Nama</th>
-                    <th className="py-2 px-3">Username</th>
-                    <th className="py-2 px-3">No. WhatsApp</th>
-                    <th className="py-2 px-3">Area</th>
-                    <th className="py-2 px-3 text-center">Beban WO</th>
-                    <th className="py-2 px-3 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {myInstallers
-                    .filter(u => !installerSearch || String(u.name || '').toLowerCase().includes(installerSearch.toLowerCase()) || String(u.username || '').toLowerCase().includes(installerSearch.toLowerCase()))
-                    .map(u => {
-                      const woCount = contractorTickets.filter(t => t.installerName?.toLowerCase().trim() === u.name.toLowerCase().trim() && t.statusWOInstaller !== 'Completed').length;
-                      return (
-                        <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-purple-950/20">
-                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{u.name}</td>
-                          <td className="py-2.5 px-3 font-mono text-purple-700 dark:text-purple-300">@{u.username}</td>
-                          <td className="py-2.5 px-3 font-mono">{u.phone || '-'}</td>
-                          <td className="py-2.5 px-3">{u.area || displayArea}</td>
-                          <td className="py-2.5 px-3 text-center font-mono font-bold">{woCount} WO</td>
-                          <td className="py-2.5 px-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedInstallerForDetail(u)}
-                              className="px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 rounded-lg border border-purple-200 dark:border-purple-800 cursor-pointer"
-                            >
-                              Detail
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <LeaderTechnicianManagementView
+          displayContractor={displayContractor}
+          displayArea={displayArea}
+          clusterOptions={clusterOptions}
+          technicians={technicianSummaries}
+          todayTickets={todayContractorTickets}
+          allContractorTickets={contractorTickets}
+          isLeaderRole={isLeaderRole}
+          onRefresh={() => {
+            refreshActiveTickets();
+            handleRefresh();
+          }}
+          onSelectTechnicianDetail={inst => setSelectedInstallerForDetail(inst)}
+          onAssignWorkOrderToTechnician={inst => {
+            setBulkQuickInstaller(inst.name);
+            setStatusFilter('unassigned');
+            setActiveTab('wo_assignment');
+            setCurrentPage(1);
+            toast.info(
+              `Pilih WO pada antrean untuk langsung ditugaskan ke ${inst.name}.`,
+              'Siap Tugaskan WO'
+            );
+          }}
+          onSelectTicket={onSelectTicket}
+          onRegisterInstaller={payload => {
+            const res = registerInstallerAccount(payload);
+            return { success: res.success, error: res.error };
+          }}
+        />
       )}
 
       {/* ============================================================ */}
@@ -3095,30 +2935,34 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {activeTab === 'contractor_recap' && (
         <ContractorAreaRecapView />
       )}
+
       {/* ============================================================ */}
-      {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS                  */}
+      {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS (STITCH)         */}
       {/* ============================================================ */}
       {activeTab === 'quota_settings' && (
-        <div className={`grid gap-5 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+        <div className={`grid gap-4 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {/* Card 1: Batas Kuota Beban Teknisi */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="p-2.5 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl">
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-5">
+            <div className="flex items-center gap-3 pb-3 border-b border-[#f3eaff] dark:border-[#35105E]">
+              <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
                 <Sliders className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                <h3
+                  className="font-bold text-sm text-[#1f1638] dark:text-white"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
                   Pengaturan Batas Kuota Beban Teknisi
                 </h3>
-                <p className="text-[11px] text-slate-500">
-                  Kontrol limit maksimal penugasan Work Order per hari untuk teknisi di bawah {leaderContractor}
+                <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                  Kontrol limit maksimal penugasan Work Order per hari untuk {displayContractor}
                 </p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
+                <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1.5">
                   Batas Default Maksimal WO per Hari:
                 </label>
                 <div className="flex items-center gap-3">
@@ -3126,22 +2970,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     type="number"
                     min={1}
                     max={12}
+                    disabled={!isLeaderRole || isSavingQuota}
                     value={quotaSettings.defaultMaxDailyQuota}
                     onChange={e => saveQuotaSettings({ defaultMaxDailyQuota: Number(e.target.value) })}
-                    className="w-24 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono font-bold text-sm"
+                    className="w-24 px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl font-mono font-bold text-sm text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
                   />
-                  <span className="text-slate-500">WO per hari per teknisi</span>
+                  <span className="text-[#4b4452] dark:text-[#CEC0E8] font-medium">WO per hari per teknisi</span>
                 </div>
               </div>
 
-              <div className="pt-3 border-t">
-                <label className="flex items-center justify-between cursor-pointer">
+              <div className="pt-3 border-t border-[#f3eaff] dark:border-[#35105E]">
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
                   <div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                    <span className="font-bold text-[#1f1638] dark:text-white block">
                       Mode Pembatasan Ketat (Strict Limit Enforcement)
                     </span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Jika aktif: sistem akan menolak penugasan jika kuota teknisi telah penuh. Jika mati: sistem memberikan pop-up peringatan konfirmasi.
+                    <span className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] block mt-0.5">
+                      Jika aktif: sistem menolak penugasan jika kuota teknisi penuh. Jika mati: muncul konfirmasi peringatan.
                     </span>
                   </div>
                   <input
@@ -3149,19 +2994,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     disabled={!isLeaderRole || isSavingQuota}
                     checked={quotaSettings.enforceStrictLimit}
                     onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
-                    className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                    className="w-4 h-4 accent-[#58149c] rounded cursor-pointer shrink-0"
                   />
                 </label>
               </div>
 
-              <div className="pt-3 border-t flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-500">
-                  Custom limit teknisi aktif: <strong>{Object.keys(quotaSettings.customInstallerLimits || {}).length}</strong> override tersimpan di Supabase.
+              <div className="pt-3 border-t border-[#f3eaff] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                  Custom limit teknisi aktif:{' '}
+                  <strong className="text-[#1f1638] dark:text-white">
+                    {Object.keys(quotaSettings.customInstallerLimits || {}).length}
+                  </strong>{' '}
+                  override tersimpan.
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsDailyLimitModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-[#F5F1FF] hover:bg-[#EDE9FE] border border-[#D8CCF3] text-[#431599] font-bold text-xs cursor-pointer shrink-0"
+                  className="btn-3d-secondary px-3.5 py-2 rounded-xl text-[#58149c] dark:text-[#dab9ff] font-bold text-xs cursor-pointer shrink-0"
                 >
                   Kelola Custom Limit per Teknisi
                 </button>
@@ -3170,35 +3019,38 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           </div>
 
           {/* Card 2: Pengaturan Kolom Visibilitas Tabel */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 rounded-xl">
-                <Table className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Pengaturan Kolom Visibilitas Tabel
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Kustomisasi kolom yang tampil pada tabel Assign WO dan Dashboard Leader
-                </p>
-              </div>
-            </div>
-
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Pilih kolom mana saja yang ingin Anda tampilkan atau sembunyikan sesuai alur kerja lapangan: ID Customer, WO Number, Alamat, Status, Teknisi, Slot Waktu, Kontak, dan Tanggal WO.
-              </p>
+              <div className="flex items-center gap-3 pb-3 border-b border-[#f3eaff] dark:border-[#35105E]">
+                <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
+                  <Table className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3
+                    className="font-bold text-sm text-[#1f1638] dark:text-white"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    Pengaturan Kolom Visibilitas Tabel
+                  </h3>
+                  <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                    Kustomisasi kolom yang tampil pada tabel Assign WO &amp; ekspor data
+                  </p>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setIsColumnModalOpen(true)}
-                className="w-full py-2.5 px-4 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-              >
-                <Sliders className="w-4 h-4" />
-                <span>Buka Pengaturan Kolom Tabel</span>
-              </button>
+              <p className="text-[#4b4452] dark:text-[#CEC0E8] leading-relaxed">
+                Pilih dan urutkan kolom yang ingin ditampilkan pada mode Tabel Klasik: ID Customer, WO Number, Alamat, Status WO, Teknisi, Slot Time, Kontak Pelanggan, dan Tanggal Appointment.
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setIsColumnModalOpen(true)}
+              className="btn-3d-primary w-full py-2.5 px-4 font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Buka Pengaturan Kolom Tabel</span>
+            </button>
           </div>
         </div>
       )}

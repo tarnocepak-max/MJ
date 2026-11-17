@@ -22,8 +22,11 @@ import {
   MessageSquare,
   AlertCircle,
   Activity,
-  FileText
+  FileText,
+  Copy,
+  Check
 } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 interface ContactTicketDetailDrawerProps {
   ticket: Ticket;
@@ -47,13 +50,34 @@ export const ContactTicketDetailDrawer: React.FC<ContactTicketDetailDrawerProps>
   onOpenWhatsApp
 }) => {
   const { currentUser, approveProgressReport, rejectProgressReport } = useApp();
+  const { toast } = useToast();
 
   const [approvalMode, setApprovalMode] = useState<'none' | 'approve' | 'reject'>('none');
   const [approvalNotes, setApprovalNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleCopySummary = async () => {
+    const summaryText = [
+      `WO: ${ticket.woNumber} (ID: ${ticket.idCustomer || ticket.customerId || '-'})`,
+      `Pelanggan: ${ticket.customerName} (${ticket.customerPhone || '-'})`,
+      `Lokasi: ${ticket.clusterName ? `[${ticket.clusterName}] ` : ''}${ticket.address || ticket.streetName || '-'}`,
+      `Slot: ${ticket.slotTime || '-'} | Teknisi: ${ticket.installerName || '-'}`,
+      `OLT/FAT: ${ticket.oltCode || '-'} / ${ticket.fatCode || '-'}${ticket.fatPort ? ` (${ticket.fatPort})` : ''}`,
+      `Redaman OPM: ${ticket.rosetRedamanDbm ?? ticket.technicalReport?.opticalPowerRx ?? '-'} dBm | SN: ${ticket.ontSerialNumber || '-'}`
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      setCopiedSummary(true);
+      toast.success(`Rekap singkat ${ticket.woNumber} berhasil disalin.`, 'Rekap Disalin');
+      setTimeout(() => setCopiedSummary(false), 1800);
+    } catch {
+      toast.error('Gagal menyalin rekap WO.');
+    }
+  };
 
   const canApproveOrReject =
     (currentUser?.role === 'dispatch' || currentUser?.role === 'super_admin') &&
@@ -110,12 +134,13 @@ export const ContactTicketDetailDrawer: React.FC<ContactTicketDetailDrawerProps>
       <aside
         aria-label="Detail Tiket Work Order"
         data-testid="contact-ticket-detail-drawer"
-        className="fixed xl:static inset-y-0 right-0 z-50 xl:z-auto w-full max-w-[390px] xl:w-[390px] bg-white dark:bg-[#1A0E2E] border-l border-[#E9E5F0] dark:border-[#35105E] flex flex-col shrink-0 shadow-2xl xl:shadow-none h-full overflow-hidden"
+        className="fixed xl:static inset-y-0 right-0 z-50 xl:z-auto w-full max-w-[390px] xl:w-[390px] bg-white dark:bg-[#1A0E2E] border-l border-[#E9E5F0] dark:border-[#35105E] flex flex-col shrink-0 shadow-2xl h-full overflow-hidden"
       >
         {/* Drawer Header */}
-        <div className="px-4 py-3.5 bg-[#F5F1FF] dark:bg-[#22123F] border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 shrink-0">
+        <div className="px-4 py-3.5 bg-[#F0E3FF] dark:bg-[#22123F] border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 shrink-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
               <span className="font-mono font-bold text-sm text-[#35105E] dark:text-[#D8B4FE] truncate">
                 {ticket.woNumber}
               </span>
@@ -125,15 +150,15 @@ export const ContactTicketDetailDrawer: React.FC<ContactTicketDetailDrawerProps>
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate mt-0.5">
-              Detail Operasional & Verifikasi Tiket · Shift + D
+            <p className="text-[11px] text-[#494453] dark:text-[#CEC0E8] truncate mt-0.5">
+              Data Lembar Kerja & Verifikasi · Shift + D
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup Detail Tiket"
-            className="p-1.5 rounded-lg text-[#766B83] hover:text-[#211A2E] hover:bg-white dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E] transition-colors cursor-pointer shrink-0"
+            className="btn-3d-icon w-8 h-8 rounded-lg cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -499,12 +524,12 @@ export const ContactTicketDetailDrawer: React.FC<ContactTicketDetailDrawerProps>
         </div>
 
         {/* Drawer Footer */}
-        <div className="p-3.5 bg-[#F7F6FA] dark:bg-[#160D29] border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2 shrink-0">
+        <div className="p-3.5 bg-[#F9F0FF] dark:bg-[#160D29] border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-2 shrink-0">
           {onOpenFullModal ? (
             <button
               type="button"
               onClick={() => onOpenFullModal(ticket, 'overview')}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#35105E] to-[#7135B5] hover:brightness-110 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+              className="btn-3d-primary w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Buka Detail Tiket Lengkap</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -513,11 +538,23 @@ export const ContactTicketDetailDrawer: React.FC<ContactTicketDetailDrawerProps>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-[#35105E] text-white font-bold text-xs cursor-pointer"
+              className="btn-3d-primary w-full py-2.5 px-4 rounded-xl font-bold text-xs cursor-pointer"
             >
               Tutup Drawer
             </button>
           )}
+          <button
+            type="button"
+            onClick={handleCopySummary}
+            className="btn-3d-secondary w-full py-2 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            {copiedSummary ? (
+              <Check className="w-3.5 h-3.5 text-[#16A36A]" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+            )}
+            <span>{copiedSummary ? 'Ringkasan Disalin' : 'Salin Rekap Log Tiket'}</span>
+          </button>
         </div>
       </aside>
     </>

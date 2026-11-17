@@ -5057,7 +5057,8 @@ export async function createExpressApp(options?: {
       reasonReportId,
       reasonReportLabel,
       rootcauseId,
-      rootcauseLabel
+      rootcauseLabel,
+      technicalTelemetry
     } = req.body;
 
     const cleanId = (id || '').trim();
@@ -5229,6 +5230,75 @@ export async function createExpressApp(options?: {
       updatedAt: now,
       updatedBy: req.user!.name
     };
+
+    if (technicalTelemetry && typeof technicalTelemetry === 'object') {
+      const prevTr = ticket.technicalReport && typeof ticket.technicalReport === 'object'
+        ? ticket.technicalReport
+        : {};
+      const telemetryOpm = technicalTelemetry.opticalPowerDbm !== undefined
+        ? String(technicalTelemetry.opticalPowerDbm).trim()
+        : (prevTr.opticalPowerDbm || '');
+      const telemetryFatRedaman = technicalTelemetry.fatRedamanDbm !== undefined
+        ? String(technicalTelemetry.fatRedamanDbm).trim()
+        : (prevTr.fatRedamanDbm || (ticket.fatRedamanDbm ? String(ticket.fatRedamanDbm) : ''));
+      const telemetrySn = technicalTelemetry.ontSerialNumber !== undefined
+        ? String(technicalTelemetry.ontSerialNumber).trim()
+        : (prevTr.deviceSerialNumber || ticket.ontSerialNumber || '');
+      const telemetryDropcore = technicalTelemetry.dropcoreLength !== undefined
+        ? String(technicalTelemetry.dropcoreLength).trim()
+        : (prevTr.dropcoreLength || (ticket.dropcoreLength ? String(ticket.dropcoreLength) : ''));
+      const telemetryFatPort = technicalTelemetry.fatPort !== undefined
+        ? String(technicalTelemetry.fatPort).trim()
+        : (prevTr.fatPort || ticket.fatPort || '');
+      const telemetryPhotoSlots = Array.isArray(technicalTelemetry.photoSlots)
+        ? technicalTelemetry.photoSlots
+        : prevTr.photoSlots;
+      const telemetryPhotos = Array.isArray(technicalTelemetry.photos)
+        ? technicalTelemetry.photos.filter((p: unknown) => typeof p === 'string' && p.trim().length > 0)
+        : (Array.isArray(telemetryPhotoSlots)
+            ? telemetryPhotoSlots.map((s: any) => s?.url).filter((u: unknown) => typeof u === 'string' && u.trim().length > 0)
+            : prevTr.photos);
+      const telemetrySignature = typeof technicalTelemetry.customerSignatureUrl === 'string' && technicalTelemetry.customerSignatureUrl.trim()
+        ? technicalTelemetry.customerSignatureUrl.trim()
+        : (prevTr.customerSignatureUrl || ticket.customerSignatureUrl);
+
+      updates.technicalReport = {
+        ...prevTr,
+        id: prevTr.id || `rep_${Date.now()}`,
+        ticketId: ticket.id,
+        mainCategory: finalReportStatusLabel,
+        workResult: reportEntry.reasonReportLabel || finalReportStatusLabel,
+        rootCause: reportEntry.rootcauseLabel || prevTr.rootCause || '',
+        technicalDescription: reportEntry.remarksReport,
+        correctiveAction: reportEntry.reasonReportLabel || prevTr.correctiveAction || '',
+        opticalPowerDbm: telemetryOpm || prevTr.opticalPowerDbm,
+        opticalPowerRx: telemetryOpm || prevTr.opticalPowerRx,
+        fatRedamanDbm: telemetryFatRedaman || prevTr.fatRedamanDbm,
+        deviceSerialNumber: telemetrySn || prevTr.deviceSerialNumber,
+        dropcoreLength: telemetryDropcore || prevTr.dropcoreLength,
+        fatPort: telemetryFatPort || prevTr.fatPort,
+        photos: telemetryPhotos,
+        photoSlots: telemetryPhotoSlots,
+        photoAfterUrl: Array.isArray(telemetryPhotos) && telemetryPhotos.length > 0 ? telemetryPhotos[0] : prevTr.photoAfterUrl,
+        customerSignatureUrl: telemetrySignature,
+        customerConsentConfirmed: Boolean(technicalTelemetry.customerConsentConfirmed),
+        submittedBy: req.user!.name,
+        submittedAt: now,
+        updatedAt: now
+      };
+
+      if (telemetryOpm) updates.rosetRedamanDbm = telemetryOpm;
+      if (telemetryFatRedaman) updates.fatRedamanDbm = telemetryFatRedaman;
+      if (telemetrySn) updates.ontSerialNumber = telemetrySn;
+      if (telemetryDropcore) {
+        updates.dropcoreLength = telemetryDropcore;
+        const numDrop = parseFloat(telemetryDropcore);
+        if (!Number.isNaN(numDrop)) updates.dropcoreLengthMeter = numDrop;
+      }
+      if (telemetryFatPort) updates.fatPort = telemetryFatPort;
+      if (Array.isArray(telemetryPhotos)) updates.photoEvidenceCount = telemetryPhotos.length;
+      if (telemetrySignature) updates.customerSignatureUrl = telemetrySignature;
+    }
 
     if (checkOutAt !== undefined) {
       updates.checkOutAt = checkOutAt;

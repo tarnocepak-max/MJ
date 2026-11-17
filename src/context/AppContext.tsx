@@ -215,6 +215,17 @@ interface AppContextType {
       reasonReportLabel?: string;
       rootcauseId?: string;
       rootcauseLabel?: string;
+      technicalTelemetry?: {
+        opticalPowerDbm?: string;
+        fatRedamanDbm?: string;
+        ontSerialNumber?: string;
+        dropcoreLength?: string;
+        fatPort?: string;
+        photos?: string[];
+        photoSlots?: import('../types/index.ts').TechnicalPhotoSlot[];
+        customerSignatureUrl?: string;
+        customerConsentConfirmed?: boolean;
+      };
     }
   ) => Promise<{ success: boolean; error?: string; code?: string; report?: ProgressReportEntry }>;
   verifyTechnicalReport: (ticketId: string) => void;
@@ -3205,6 +3216,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reasonReportLabel?: string;
       rootcauseId?: string;
       rootcauseLabel?: string;
+      technicalTelemetry?: {
+        opticalPowerDbm?: string;
+        fatRedamanDbm?: string;
+        ontSerialNumber?: string;
+        dropcoreLength?: string;
+        fatPort?: string;
+        photos?: string[];
+        photoSlots?: import('../types/index.ts').TechnicalPhotoSlot[];
+        customerSignatureUrl?: string;
+        customerConsentConfirmed?: boolean;
+      };
     }
   ): Promise<{ success: boolean; error?: string; code?: string; report?: ProgressReportEntry }> => {
     const ticket = getTicketById(ticketId);
@@ -3373,7 +3395,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       approvalStatus: 'BUTUH APPROVAL'
     };
 
+    const tel = data.technicalTelemetry;
+    const telPhotos = tel?.photos?.filter(Boolean) || tel?.photoSlots?.map(s => s.url).filter(Boolean) || ticket.technicalReport?.photos;
     const techReport: TechnicalReport = {
+      ...(ticket.technicalReport || {}),
       id: ticket.technicalReport?.id || ('rep-' + Date.now()),
       ticketId,
       mainCategory: finalStatusName,
@@ -3381,8 +3406,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       workResult: finalReasonName,
       technicalDescription: finalRemarks,
       correctiveAction: finalReasonName,
+      opticalPowerDbm: tel?.opticalPowerDbm || ticket.technicalReport?.opticalPowerDbm,
+      opticalPowerRx: tel?.opticalPowerDbm || ticket.technicalReport?.opticalPowerRx,
+      fatRedamanDbm: tel?.fatRedamanDbm || ticket.technicalReport?.fatRedamanDbm,
+      deviceSerialNumber: tel?.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber,
+      dropcoreLength: tel?.dropcoreLength || ticket.technicalReport?.dropcoreLength,
+      fatPort: tel?.fatPort || ticket.technicalReport?.fatPort,
+      photos: telPhotos,
+      photoSlots: tel?.photoSlots || ticket.technicalReport?.photoSlots,
+      photoAfterUrl: telPhotos && telPhotos.length > 0 ? telPhotos[0] : ticket.technicalReport?.photoAfterUrl,
+      customerSignatureUrl: tel?.customerSignatureUrl || ticket.customerSignatureUrl,
+      customerConsentConfirmed: tel?.customerConsentConfirmed ?? ticket.technicalReport?.customerConsentConfirmed,
       submittedBy: currentUser.name,
-      submittedAt: now
+      submittedAt: now,
+      updatedAt: now
     };
 
     const nextInstallerStatus = (matchedStatus?.code || finalStatusName) as TicketStatusWOInstaller;
@@ -3435,6 +3472,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rootcauseLabel: finalRootcauseName,
       remarksWOInstaller: finalRemarks,
       technicalReport: techReport,
+      ...(tel?.opticalPowerDbm ? { rosetRedamanDbm: tel.opticalPowerDbm } : {}),
+      ...(tel?.fatRedamanDbm ? { fatRedamanDbm: tel.fatRedamanDbm } : {}),
+      ...(tel?.ontSerialNumber ? { ontSerialNumber: tel.ontSerialNumber } : {}),
+      ...(tel?.dropcoreLength ? { dropcoreLength: tel.dropcoreLength } : {}),
+      ...(tel?.fatPort ? { fatPort: tel.fatPort } : {}),
+      ...(telPhotos ? { photoEvidenceCount: telPhotos.length } : {}),
+      ...(tel?.customerSignatureUrl ? { customerSignatureUrl: tel.customerSignatureUrl } : {}),
       checkOutAt: checkOutAtVal,
       workDurationMinutes: workDurationMinVal,
       workDurationFormatted: workDurationStrVal,
@@ -3501,7 +3545,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             reasonReportId: finalReasonId,
             reasonReportLabel: finalReasonName,
             rootcauseId: finalRootcauseId,
-            rootcauseLabel: finalRootcauseName
+            rootcauseLabel: finalRootcauseName,
+            technicalTelemetry: data.technicalTelemetry
           })
         });
         const json = await resp.json().catch(() => null);

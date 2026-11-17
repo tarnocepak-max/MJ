@@ -101,6 +101,17 @@ export interface RootCauseCategory {
   items: string[];
 }
 
+export interface TechnicalPhotoSlot {
+  slotKey: 'opm' | 'barcode_sn' | 'fat_pole' | 'customer_install';
+  title: string;
+  url: string;
+  fileName?: string;
+  fileSizeBytes?: number;
+  capturedAt?: string;
+  badgeText?: string;
+  statusTag?: string;
+}
+
 export interface TechnicalReport {
   id: string;
   ticketId: string;
@@ -114,9 +125,15 @@ export interface TechnicalReport {
   deviceSerialNumber?: string;
   opticalPowerDbm?: string;
   opticalPowerRx?: string;
+  fatRedamanDbm?: string;
+  dropcoreLength?: string;
+  fatPort?: string;
   rootCauseCategory?: string;
   rootCauseSubCategory?: string;
   photos?: string[];
+  photoSlots?: TechnicalPhotoSlot[];
+  customerSignatureUrl?: string;
+  customerConsentConfirmed?: boolean;
   startTime?: string;
   endTime?: string;
   photoBeforeUrl?: string;

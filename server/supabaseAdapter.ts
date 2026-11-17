@@ -748,6 +748,11 @@ export function postgresRowToTicket(row: any): any {
     reopenReason: row.reopen_reason || undefined,
 
     technicalReport: row.technical_report || undefined,
+    rosetRedamanDbm: payload.rosetRedamanDbm ?? undefined,
+    fatRedamanDbm: payload.fatRedamanDbm ?? undefined,
+    dropcoreLengthMeter: payload.dropcoreLengthMeter ?? undefined,
+    photoEvidenceCount: payload.photoEvidenceCount ?? undefined,
+    customerSignatureUrl: payload.customerSignatureUrl || undefined,
 
     isArchived: Boolean(row.is_archived),
     archivedAt: row.archived_at || undefined,
@@ -1862,6 +1867,11 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
     if (updates.distributedAt !== undefined) mergedPayload.distributedAt = updates.distributedAt;
     if (updates.distributedBy !== undefined) mergedPayload.distributedBy = updates.distributedBy;
     if (updates.closedById !== undefined) mergedPayload.closedById = updates.closedById;
+    if (updates.rosetRedamanDbm !== undefined) mergedPayload.rosetRedamanDbm = updates.rosetRedamanDbm;
+    if (updates.fatRedamanDbm !== undefined) mergedPayload.fatRedamanDbm = updates.fatRedamanDbm;
+    if (updates.dropcoreLengthMeter !== undefined) mergedPayload.dropcoreLengthMeter = updates.dropcoreLengthMeter;
+    if (updates.photoEvidenceCount !== undefined) mergedPayload.photoEvidenceCount = updates.photoEvidenceCount;
+    if (updates.customerSignatureUrl !== undefined) mergedPayload.customerSignatureUrl = updates.customerSignatureUrl;
     if (updates.payload && typeof updates.payload === 'object') {
       Object.assign(mergedPayload, updates.payload);
     }

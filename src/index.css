@@ -329,6 +329,308 @@ html.dark .mj-tactile-icon-key {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 #160d29;
 }
 
+/* -------------------------------------------------------------
+   Stitch AI 3D Tactile Kinetic Button & Active Nav System
+   ------------------------------------------------------------- */
+.btn-3d-primary {
+  background: linear-gradient(180deg, #7c3aed 0%, #5b35b1 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.45), 0 3.5px 0 0 #35105e, 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -2px rgba(91, 53, 177, 0.35);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+}
+.btn-3d-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%);
+}
+.btn-3d-primary:active:not(:disabled) {
+  transform: translateY(2.5px);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3), 0 1px 0 0 #35105e, 0 2px 3px -1px rgba(0, 0, 0, 0.2);
+}
+
+.btn-3d-success {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 3.5px 0 0 #064e3b, 0 4px 6px -1px rgba(0, 0, 0, 0.12);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+}
+.btn-3d-success:hover:not(:disabled) {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+}
+.btn-3d-success:active:not(:disabled) {
+  transform: translateY(2.5px);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.25), 0 1px 0 0 #064e3b, 0 2px 3px -1px rgba(0, 0, 0, 0.18);
+}
+
+.btn-3d-ceramic,
+.btn-3d-secondary {
+  background: #ffffff;
+  border: 1px solid #d8ccf3;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.9), 0 3px 0 0 #cec3d4, 0 3px 5px -1px rgba(0, 0, 0, 0.06);
+  color: #211A2E;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.1s, border-color 0.1s;
+}
+.btn-3d-ceramic:hover:not(:disabled),
+.btn-3d-secondary:hover:not(:disabled) {
+  background: #fcfaff;
+  border-color: #a78bfa;
+}
+.btn-3d-ceramic:active:not(:disabled),
+.btn-3d-secondary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 0 rgba(0, 0, 0, 0.04), 0 1px 0 0 #cec3d4, 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+html.dark .btn-3d-ceramic,
+html.dark .btn-3d-secondary {
+  background: #261942;
+  border-color: #4b386b;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 3px 0 0 #160d29;
+  color: #f5eeff;
+}
+html.dark .btn-3d-ceramic:hover:not(:disabled),
+html.dark .btn-3d-secondary:hover:not(:disabled) {
+  background: #342b4e;
+  border-color: #a78bfa;
+}
+html.dark .btn-3d-ceramic:active:not(:disabled),
+html.dark .btn-3d-secondary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 #160d29;
+}
+
+.btn-3d-danger {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 3.5px 0 0 #991b1b, 0 4px 6px -1px rgba(0, 0, 0, 0.12);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+}
+.btn-3d-danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+}
+.btn-3d-danger:active:not(:disabled) {
+  transform: translateY(2.5px);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 1px 0 0 #991b1b, 0 2px 3px -1px rgba(0, 0, 0, 0.18);
+}
+
+.btn-3d-warning {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 3px 0 0 #92400e, 0 3px 5px -1px rgba(0, 0, 0, 0.12);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+}
+.btn-3d-warning:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+}
+.btn-3d-warning:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 1px 0 0 #92400e, 0 1px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.btn-3d-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #d8ccf3;
+  box-shadow: inset 0 1px 0 0 #ffffff, 0 2.5px 0 0 #cec3d4, 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  color: #63597b;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, color 0.1s, background-color 0.1s, border-color 0.1s;
+}
+.btn-3d-icon:hover:not(:disabled) {
+  color: #431599;
+  background: #faf8ff;
+  border-color: #a78bfa;
+}
+.btn-3d-icon:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 0 rgba(0, 0, 0, 0.04), 0 0.5px 0 0 #cec3d4;
+}
+html.dark .btn-3d-icon {
+  background: #261942;
+  border-color: #4b386b;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 2.5px 0 0 #160d29;
+  color: #dab9ff;
+}
+html.dark .btn-3d-icon:hover:not(:disabled) {
+  color: #ffffff;
+  background: #342b4e;
+  border-color: #a78bfa;
+}
+html.dark .btn-3d-icon:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 0.5px 0 0 #160d29;
+}
+
+.nav-3d-active {
+  background: linear-gradient(180deg, #7135b5 0%, #431599 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.35), 0 3px 0 0 #21005e, 0 4px 8px -2px rgba(0, 0, 0, 0.35);
+}
+
+.btn-3d-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 3.5px solid #064e3b;
+  box-shadow: 0 3px 6px -1px rgba(6, 78, 59, 0.28);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, border-bottom-width 0.08s ease, filter 0.12s ease;
+}
+.btn-3d-emerald:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.btn-3d-emerald:active:not(:disabled) {
+  transform: translateY(2.5px);
+  border-bottom-width: 1px;
+  box-shadow: 0 1px 2px rgba(6, 78, 59, 0.28);
+}
+
+.btn-3d-crimson {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 3.5px solid #93000a;
+  box-shadow: 0 3px 6px -1px rgba(147, 0, 10, 0.28);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, border-bottom-width 0.08s ease, filter 0.12s ease;
+}
+.btn-3d-crimson:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.btn-3d-crimson:active:not(:disabled) {
+  transform: translateY(2.5px);
+  border-bottom-width: 1px;
+  box-shadow: 0 1px 2px rgba(147, 0, 10, 0.28);
+}
+
+.btn-3d-amber {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom: 3.5px solid #78350f;
+  box-shadow: 0 3px 6px -1px rgba(120, 53, 15, 0.28);
+  color: #ffffff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, border-bottom-width 0.08s ease, filter 0.12s ease;
+}
+.btn-3d-amber:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.btn-3d-amber:active:not(:disabled) {
+  transform: translateY(2.5px);
+  border-bottom-width: 1px;
+  box-shadow: 0 1px 2px rgba(120, 53, 15, 0.28);
+}
+
+.btn-3d-icon-wa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-bottom: 2.5px solid #059669;
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.12);
+  border-radius: 0.625rem;
+  color: #047857;
+  transition: transform 0.08s ease, background-color 0.12s ease, color 0.12s ease, border-bottom-width 0.08s ease;
+}
+.btn-3d-icon-wa:hover:not(:disabled) {
+  background: #10b981;
+  border-color: #059669;
+  color: #ffffff;
+}
+.btn-3d-icon-wa:active:not(:disabled) {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+html.dark .btn-3d-icon-wa {
+  background: rgba(6, 78, 59, 0.45);
+  border-color: #047857;
+  border-bottom-color: #064e3b;
+  color: #6ee7b7;
+}
+html.dark .btn-3d-icon-wa:hover:not(:disabled) {
+  background: #059669;
+  color: #ffffff;
+}
+
+.tab-3d-active {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f1ff 100%);
+  border: 1px solid #d8b4fe;
+  border-bottom: 3.5px solid #7135b5;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 -2px 6px rgba(113, 53, 181, 0.08);
+  color: #431599;
+}
+html.dark .tab-3d-active {
+  background: linear-gradient(180deg, #2a194b 0%, #1e1238 100%);
+  border-color: #5b35b1;
+  border-bottom-color: #a78bfa;
+  color: #e9d5ff;
+}
+
+.tab-3d-idle {
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 8px 8px 0 0;
+  color: #766b83;
+  transition: all 0.12s ease;
+}
+.tab-3d-idle:hover {
+  background: #f9f0ff;
+  border-color: #e9d5ff;
+  border-bottom-color: #cec3d4;
+  color: #211a2e;
+}
+html.dark .tab-3d-idle {
+  color: #a79bc0;
+}
+html.dark .tab-3d-idle:hover {
+  background: rgba(113, 53, 181, 0.16);
+  border-color: #3e246f;
+  border-bottom-color: #5b35b1;
+  color: #ffffff;
+}
+
+.badge-3d-tactile {
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.1);
+}
+
+.tactile-chip {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f1ff 100%);
+  border: 1px solid #e2d4f0;
+  border-bottom: 2px solid #cec3d4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 #ffffff;
+  transition: transform 0.1s ease, border-color 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
+  transform: translateY(0);
+}
+.tactile-chip:hover:not(:disabled) {
+  border-color: #a78bfa;
+  color: #5b35b1;
+  background: linear-gradient(180deg, #ffffff 0%, #ede4ff 100%);
+}
+.tactile-chip:active:not(:disabled) {
+  transform: translateY(1.5px);
+  border-bottom-width: 1px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+html.dark .tactile-chip {
+  background: linear-gradient(180deg, #261942 0%, #1d1234 100%);
+  border-color: #4b386b;
+  border-bottom-color: #160d29;
+  color: #e9ddff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+html.dark .tactile-chip:hover:not(:disabled) {
+  border-color: #a78bfa;
+  color: #ffffff;
+  background: linear-gradient(180deg, #342b4e 0%, #261942 100%);
+}
+
+.tactile-chip-active {
+  background: linear-gradient(180deg, #5b35b1 0%, #35105e 100%);
+  color: #ffffff !important;
+  border: 1px solid #7135b5;
+  border-bottom: 2.5px solid #160d29;
+  box-shadow: 0 2px 4px rgba(53, 16, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
 /* MoraJaws Minimal Enterprise Elevation & Component Primitives */
 .mj-enterprise-card {
   background-color: #FFFFFF;
@@ -515,6 +817,74 @@ html.dark .mj-tactile-icon-key {
   );
   animation: morajaws-gloss-sweep 3.5s infinite ease-in-out;
   pointer-events: none;
+}
+
+/* -------------------------------------------------------------
+   Stitch AI Mobile 3D Tactile Checkout Primitives
+   ------------------------------------------------------------- */
+.tactile-btn-primary {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4.5px 0 #35105E, 0 8px 18px rgba(53, 16, 94, 0.32);
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), filter 0.12s ease;
+}
+.tactile-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+.tactile-btn-primary:active:not(:disabled) {
+  transform: translateY(3.5px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 #35105E, 0 2px 6px rgba(53, 16, 94, 0.2);
+}
+
+.tactile-btn-secondary {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 #CEC3D4, 0 5px 12px rgba(75, 68, 82, 0.08);
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), background-color 0.12s ease;
+}
+.tactile-btn-secondary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 0 #CEC3D4, 0 2px 4px rgba(75, 68, 82, 0.06);
+}
+html.dark .tactile-btn-secondary {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 #160D29, 0 5px 12px rgba(0, 0, 0, 0.35);
+}
+html.dark .tactile-btn-secondary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #160D29;
+}
+
+.tactile-pill-btn {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2.5px 0 #D8CCF3, 0 3px 6px rgba(113, 53, 181, 0.08);
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+.tactile-pill-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0.5px 0 #D8CCF3, 0 1px 2px rgba(113, 53, 181, 0.05);
+}
+html.dark .tactile-pill-btn {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2.5px 0 #160D29;
+}
+
+.tactile-micro-key {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 3.5px 0 #6A46C1, 0 6px 12px rgba(113, 53, 181, 0.22);
+  transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 0.12s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+.tactile-micro-key:active:not(:disabled) {
+  transform: translateY(2.5px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 0 #6A46C1, 0 2px 4px rgba(113, 53, 181, 0.18);
+}
+
+.tactile-card-shell {
+  border: 1px solid rgba(216, 180, 254, 0.55);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 3.5px 0 rgba(216, 180, 254, 0.35), 0 10px 24px rgba(53, 16, 94, 0.05);
+}
+html.dark .tactile-card-shell {
+  border: 1px solid rgba(167, 139, 250, 0.24);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 3.5px 0 #160D29, 0 10px 24px rgba(0, 0, 0, 0.38);
+}
+
+.tactile-debossed-input {
+  box-shadow: inset 0 2px 4px rgba(27, 18, 48, 0.07), inset 0 0 0 1px rgba(216, 204, 243, 0.7), 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+html.dark .tactile-debossed-input {
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(91, 53, 177, 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {

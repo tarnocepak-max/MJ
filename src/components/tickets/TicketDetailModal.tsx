@@ -1,12 +1,27 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
+import {
+  StatusAgentBadge,
+  StatusInstallerBadge,
+  StatusWhatsAppBadge,
+  StatusApprovalBadge,
+  StatusBadge
+} from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
 import { HistoryProgressReportView } from '../reports/HistoryProgressReportView';
-import { isTicketAssigned, isTicketCheckedIn, getTicketCanonicalReportStatus, getTicketCanonicalApprovalStatus, isTicketClosed as isLifecycleClosed } from '../../services/woLifecycleService';
+import {
+  isTicketAssigned,
+  isTicketCheckedIn,
+  getTicketCanonicalReportStatus,
+  getTicketCanonicalApprovalStatus,
+  isTicketClosed as isLifecycleClosed
+} from '../../services/woLifecycleService';
+import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
+import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
 import {
   X,
   MessageSquare,
@@ -24,20 +39,24 @@ import {
   User,
   ShieldCheck,
   CheckCircle2,
-  ArrowDown,
-  ExternalLink,
-  Layers,
-  Cpu,
-  Wifi,
   FileText,
   AlertCircle,
   ThumbsUp,
   ThumbsDown,
-  Sparkles
+  Copy,
+  Zap,
+  Lock,
+  Gauge,
+  Network,
+  Camera,
+  ZoomIn,
+  Save,
+  Navigation,
+  ArrowRight,
+  Printer,
+  History,
+  ImageOff
 } from 'lucide-react';
-import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
-import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
-import { History } from 'lucide-react';
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -46,6 +65,13 @@ interface TicketDetailModalProps {
   onApprovedAndClosed?: () => void;
   onOpenWhatsApp: (ticket: Ticket) => void;
   defaultTab?: 'overview' | 'report' | 'chat' | 'history';
+}
+
+interface EvidencePhotoItem {
+  id: string;
+  url: string;
+  title: string;
+  subtitle: string;
 }
 
 export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
@@ -58,6 +84,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 }) => {
   const {
     currentUser,
+    syncStatus,
     updateTicket,
     assignTicketPersonnel,
     closeTicket,
@@ -69,7 +96,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     approveProgressReport,
     rejectProgressReport,
     getTicketUnreadCount,
-    setTicketChatCategory
+    setTicketChatCategory,
+    getMessagesForTicket,
+    ticketActivities,
+    toast
   } = useApp();
   const { isMobileView } = useUIConfig();
 
@@ -78,47 +108,150 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [selectedLeader, setSelectedLeader] = useState('');
   const [selectedInstaller, setSelectedInstaller] = useState('');
 
-  // Dispatch Approval state
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalNotes, setApprovalNotes] = useState('');
+  // Dispatcher verification & decision state
+  const [decisionNotes, setDecisionNotes] = useState('');
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
-  // Close ticket modal state
+  // Close ticket banner state
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeNotes, setCloseNotes] = useState('');
   const [closeError, setCloseError] = useState<string | null>(null);
 
-  // Reopen ticket modal state
+  // Reopen ticket banner state
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
 
-  // Delete confirm state (Super Admin guard)
+  // Delete confirm state (management_data exclusive)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Show report editor modal/drawer
-  const [showReportEditor, setShowReportEditor] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(defaultTab === 'chat');
+  // Technical report editor & chat visibility
+  const [showReportEditor, setShowReportEditor] = useState(defaultTab === 'report');
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInitialCategory, setChatInitialCategory] = useState<string | undefined>(undefined);
+
+  // Evidence lightbox & error fallback
+  const [zoomPhoto, setZoomPhoto] = useState<EvidencePhotoItem | null>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const chatSectionRef = useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
-    setIsChatOpen(defaultTab === 'chat');
+  const unreadChatCount = ticket ? getTicketUnreadCount(ticket.id) : 0;
+
+  useEffect(() => {
+    if (!isOpen || !ticket) return;
+    setIsEditing(false);
+    setShowCloseModal(false);
+    setShowReopenModal(false);
+    setDecisionError(null);
+    setDecisionNotes(ticket.remarksAgent || '');
+    setShowReportEditor(defaultTab === 'report');
     setChatInitialCategory(undefined);
-    if (isOpen && defaultTab === 'chat') {
+    setZoomPhoto(null);
+    setFailedImages({});
+
+    // Respect unread preservation invariant:
+    // If ticket has unread chat messages and user didn't explicitly open 'chat' tab, keep LiveChat folded until clicked.
+    const initialUnread = getTicketUnreadCount(ticket.id);
+    const openImmediately = defaultTab === 'chat' || initialUnread === 0;
+    setIsChatOpen(openImmediately);
+
+    if (defaultTab === 'chat') {
       const timer = setTimeout(() => {
         chatSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 200);
+      }, 180);
       return () => clearTimeout(timer);
     }
   }, [isOpen, defaultTab, ticket?.id]);
 
+  // Escape key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (zoomPhoto) {
+          setZoomPhoto(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, zoomPhoto, onClose]);
+
+  const ticketMessages = useMemo(() => {
+    if (!ticket) return [];
+    return getMessagesForTicket(ticket.id);
+  }, [ticket, getMessagesForTicket]);
+
+  const relatedActivities = useMemo(() => {
+    if (!ticket) return [];
+    return (ticketActivities || [])
+      .filter(a => a.ticketId === ticket.id || a.woNumber === ticket.woNumber)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [ticket, ticketActivities]);
+
+  // Deduplicated real photo evidence from technicalReport, signature, and LiveChat image attachments
+  const evidencePhotos = useMemo<EvidencePhotoItem[]>(() => {
+    if (!ticket) return [];
+    const seenUrls = new Set<string>();
+    const items: EvidencePhotoItem[] = [];
+
+    const pushPhoto = (url: string | undefined | null, title: string, subtitle: string, idPrefix: string) => {
+      if (!url || typeof url !== 'string' || !url.trim()) return;
+      const safe = getSafePreviewUrl(url.trim());
+      if (!safe || seenUrls.has(safe)) return;
+      seenUrls.add(safe);
+      items.push({
+        id: `${idPrefix}-${items.length + 1}`,
+        url: safe,
+        title,
+        subtitle
+      });
+    };
+
+    const tr = ticket.technicalReport;
+    if (tr) {
+      pushPhoto(tr.photoBeforeUrl, 'Foto Kondisi Awal', 'Technical Report (Before)', 'tr-before');
+      pushPhoto(tr.photoAfterUrl, 'Foto Hasil & OPM', tr.opticalPowerRx || tr.opticalPowerDbm || 'Technical Report (After)', 'tr-after');
+      if (Array.isArray(tr.photos)) {
+        tr.photos.forEach((p, idx) => {
+          pushPhoto(p, `Lampiran Teknis #${idx + 1}`, tr.deviceSerialNumber || 'Technical Report', `tr-photo-${idx}`);
+        });
+      }
+    }
+
+    pushPhoto(ticket.customerSignatureUrl, 'Tanda Tangan Pelanggan', 'Konfirmasi Instalasi', 'cust-sig');
+
+    ticketMessages.forEach(msg => {
+      if (!Array.isArray(msg.attachments)) return;
+      msg.attachments.forEach((att, idx) => {
+        if (!att.url) return;
+        const mime = String(att.mimeType || '').toLowerCase();
+        const isImg = mime.startsWith('image/') || att.url.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(att.url);
+        if (!isImg) return;
+        pushPhoto(
+          att.url,
+          att.fileName || `Bukti LiveChat #${idx + 1}`,
+          `${msg.senderName} · ${msg.category || 'CHAT'}`,
+          `chat-${att.id || idx}`
+        );
+      });
+    });
+
+    return items;
+  }, [ticket, ticketMessages]);
+
   if (!isOpen || !ticket) return null;
 
-  const unreadChatCount = getTicketUnreadCount(ticket.id);
+  const hasValue = (val: unknown): boolean => {
+    if (val === undefined || val === null) return false;
+    const str = String(val).trim();
+    return str !== '' && str !== '-' && str !== 'null' && str !== 'undefined';
+  };
 
   const scrollToChat = () => {
     setIsChatOpen(true);
@@ -127,32 +260,49 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     }, 80);
   };
 
+  const handleCopyWO = async () => {
+    try {
+      await navigator.clipboard.writeText(ticket.woNumber);
+      toast.success(`WO Number ${ticket.woNumber} disalin ke clipboard.`);
+    } catch {
+      toast.info(`WO Number: ${ticket.woNumber}`);
+    }
+  };
+
   const handleStartEdit = () => {
-    setEditFormData({ ...ticket });
+    setEditFormData({
+      customerName: ticket.customerName,
+      customerPhone: ticket.customerPhone,
+      address: ticket.address || ticket.streetName || '',
+      clusterName: ticket.clusterName || '',
+      slotTime: ticket.slotTime || '',
+      remarksAgent: ticket.remarksAgent || '',
+      remarksWOInstaller: ticket.remarksWOInstaller || '',
+      remarks: ticket.remarks || ''
+    });
     setSelectedLeader(ticket.leaderName || '');
     setSelectedInstaller(ticket.installerName || '');
     setIsEditing(true);
   };
 
   const handleSaveEdit = () => {
-    const updates: Partial<Ticket> = {
-      ...editFormData
-    };
+    const updates: Partial<Ticket> = { ...editFormData };
     if (currentUser.role === 'super_admin') {
       updates.leaderName = selectedLeader;
     } else {
-      delete (updates as any).leaderName;
-      delete (updates as any).corlapName;
-      delete (updates as any).distributionStatus;
+      delete (updates as Record<string, unknown>).leaderName;
+      delete (updates as Record<string, unknown>).corlapName;
+      delete (updates as Record<string, unknown>).distributionStatus;
     }
     if (currentUser.role === 'leader') {
       updates.installerName = selectedInstaller;
     }
     const res = updateTicket(ticket.id, updates, 'Manual ticket detail edit');
     if (res && !res.success && res.error) {
-      alert(res.error);
+      toast.error(res.error, 'Gagal Menyimpan');
       return;
     }
+    toast.success(`Perubahan data WO ${ticket.woNumber} tersimpan.`);
     setIsEditing(false);
   };
 
@@ -176,179 +326,380 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   };
 
   const handleConfirmReopen = () => {
-    if (reopenReason.trim()) {
-      reopenTicket(ticket.id, reopenReason.trim());
-      setShowReopenModal(false);
-      setRejectReason('');
-    }
+    if (!reopenReason.trim()) return;
+    reopenTicket(ticket.id, reopenReason.trim());
+    setShowReopenModal(false);
+    setReopenReason('');
   };
 
   const handleConfirmApprove = async () => {
-    if (isApproving) return;
-    if (ticket.approvalStatus !== 'BUTUH APPROVAL') {
-      return;
-    }
+    if (isApproving || ticket.approvalStatus !== 'BUTUH APPROVAL') return;
+    setDecisionError(null);
     setIsApproving(true);
-    const result = await approveProgressReport(ticket.id, approvalNotes);
+    const result = await approveProgressReport(ticket.id, decisionNotes.trim() || undefined);
     setIsApproving(false);
     if (result && result.success) {
-      setShowApprovalModal(false);
-      setApprovalNotes('');
+      setDecisionNotes('');
       onClose();
       onApprovedAndClosed?.();
+    } else if (result?.error) {
+      setDecisionError(result.error);
     }
   };
 
   const handleConfirmReject = async () => {
-    if (!rejectReason.trim()) return;
+    if (isRejecting) return;
+    if (decisionNotes.trim().length < 3) {
+      setDecisionError('Catatan pemeriksaan / alasan revisi wajib diisi minimal 3 karakter sebelum menolak laporan.');
+      return;
+    }
+    setDecisionError(null);
     setIsRejecting(true);
-    await rejectProgressReport(ticket.id, rejectReason.trim());
+    const res = await rejectProgressReport(ticket.id, decisionNotes.trim());
     setIsRejecting(false);
-    setShowRejectModal(false);
-    setRejectReason('');
+    if (res && !res.success && res.error) {
+      setDecisionError(res.error);
+    }
   };
 
-  // Helper: Strictly verify if a field has real, non-empty data
-  const hasValue = (val: any): boolean => {
-    if (val === undefined || val === null) return false;
-    const str = String(val).trim();
-    return str !== '' && str !== '-' && str !== 'null' && str !== 'undefined';
+  const handleSaveInternalNote = async () => {
+    if (isSavingNote) return;
+    setIsSavingNote(true);
+    const res = updateTicket(ticket.id, { remarksAgent: decisionNotes.trim() }, 'Simpan catatan pemeriksaan dispatcher');
+    setIsSavingNote(false);
+    if (res && !res.success && res.error) {
+      setDecisionError(res.error);
+      toast.error(res.error, 'Gagal Menyimpan Catatan');
+    } else {
+      toast.success('Catatan pemeriksaan dispatcher berhasil disimpan.');
+    }
   };
 
-  const canCloseTicket = (currentUser.role === 'dispatch' || currentUser.role === 'super_admin') && ticket.statusWOAgent !== 'Closed';
+  const canManageApproval = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
+  const canCloseTicket = canManageApproval && ticket.statusWOAgent !== 'Closed';
   const isTicketClosed = ticket.statusWOAgent === 'Closed';
+  const canEditTicket = !isTicketClosed && currentUser.role !== 'installer';
+
+  // Lifecycle steps (preserved 7-step MoraJaws contract)
+  const lifecycleSteps = [
+    { label: '1. Import', done: Boolean(ticket.createdAt), detail: ticket.appointmentDate || '-' },
+    { label: '2. Distribusi', done: Boolean(ticket.leaderName), detail: ticket.leaderName || 'Unmapped' },
+    { label: '3. Assign', done: isTicketAssigned(ticket), detail: ticket.installerName || 'Belum Assign' },
+    { label: '4. Check-in', done: isTicketCheckedIn(ticket), detail: ticket.checkInAt ? 'PROGRESS' : 'Belum' },
+    {
+      label: '5. Report',
+      done: getTicketCanonicalReportStatus(ticket) !== 'NONE',
+      detail: getTicketCanonicalReportStatus(ticket) !== 'NONE' ? getTicketCanonicalReportStatus(ticket) : 'Belum'
+    },
+    {
+      label: '6. Approval',
+      done: getTicketCanonicalApprovalStatus(ticket) === 'APPROVED',
+      detail: getTicketCanonicalApprovalStatus(ticket) !== 'NONE' ? getTicketCanonicalApprovalStatus(ticket) : '-'
+    },
+    { label: '7. Closed', done: isLifecycleClosed(ticket), detail: isLifecycleClosed(ticket) ? 'CLOSED' : 'Open' }
+  ];
+  const completedStepsCount = lifecycleSteps.filter(s => s.done).length;
+
+  // Derived Telemetry Values (strictly from real fields)
+  const latestProgress = ticket.progressReports?.[0];
+  const rawOpmValue =
+    ticket.technicalReport?.opticalPowerRx ||
+    ticket.technicalReport?.opticalPowerDbm ||
+    (hasValue(ticket.rosetRedamanDbm) ? `${ticket.rosetRedamanDbm}` : '');
+  const numericOpm = rawOpmValue ? parseFloat(String(rawOpmValue).replace(/[^\d.-]/g, '')) : NaN;
+  const isOpmValid = !Number.isNaN(numericOpm) && numericOpm <= -8 && numericOpm >= -25;
+
+  const serialOnt =
+    ticket.technicalReport?.deviceSerialNumber ||
+    ticket.ontSerialNumber ||
+    ticket.routerSerialNumber ||
+    '';
+
+  const dropcoreMeter = ticket.dropcoreLengthMeter ?? ticket.dropcoreLength;
+  const fatLabel = ticket.fatCode || ticket.fat;
+
+  const tier1Label =
+    latestProgress?.reportStatusLabel ||
+    latestProgress?.reportStatus ||
+    ticket.reportStatusLabel ||
+    ticket.technicalReport?.workResult ||
+    ticket.statusWOInstaller ||
+    '-';
+  const tier2Label =
+    latestProgress?.reasonReportLabel ||
+    latestProgress?.reasonReport ||
+    ticket.reasonReportLabel ||
+    ticket.technicalReport?.mainCategory ||
+    '-';
+  const tier3Label =
+    latestProgress?.rootcauseLabel ||
+    latestProgress?.rootCause ||
+    ticket.rootcauseLabel ||
+    ticket.technicalReport?.rootCause ||
+    '-';
+
+  const topGradientBar =
+    ticket.approvalStatus === 'BUTUH APPROVAL'
+      ? 'from-[#E59A27] via-[#7135B5] to-[#16A36A]'
+      : ticket.approvalStatus === 'APPROVED'
+      ? 'from-[#10B981] via-[#16A36A] to-[#059669]'
+      : ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI'
+      ? 'from-[#EF4444] via-[#DC2626] to-[#B91C1C]'
+      : 'from-[#7135B5] via-[#A78BFA] to-[#35105E]';
+
+  const mapsQuery =
+    hasValue(ticket.latitude) && hasValue(ticket.longitude)
+      ? `${ticket.latitude},${ticket.longitude}`
+      : ticket.customerCoordinates || ticket.address || ticket.streetName || ticket.clusterName || '';
+
+  const canonicalFields: { label: string; value: unknown; mono?: boolean }[] = [
+    { label: 'No Ticket', value: ticket.ticketNumber, mono: true },
+    { label: 'Area', value: ticket.area },
+    { label: 'Cluster', value: ticket.clusterName },
+    { label: 'Paket / Plan', value: ticket.plan },
+    { label: 'Tipe Instalasi', value: ticket.installationType },
+    { label: 'Tipe Layanan', value: ticket.serviceType },
+    { label: 'Tipe Homepass', value: ticket.homepassType },
+    { label: 'Homepass ID', value: ticket.homepassDetailId, mono: true },
+    { label: 'Kode OLT', value: ticket.oltCode, mono: true },
+    { label: 'Status OLT', value: ticket.oltRegistrationStatus },
+    { label: 'Kode FDT', value: ticket.fdtCode || ticket.fdt, mono: true },
+    { label: 'Kode FAT', value: ticket.fatCode || ticket.fat, mono: true },
+    { label: 'Port FAT', value: ticket.fatPort, mono: true },
+    { label: 'Redaman FAT', value: hasValue(ticket.fatRedamanDbm) ? `${ticket.fatRedamanDbm} dBm` : '', mono: true },
+    { label: 'Dropcore', value: hasValue(dropcoreMeter) ? `${dropcoreMeter} Meter` : '', mono: true },
+    { label: 'Brand ONT', value: hasValue(ticket.ontBrand) ? `${ticket.ontBrand} ${ticket.ontModel || ''}`.trim() : '' },
+    { label: 'SN ONT', value: ticket.ontSerialNumber, mono: true },
+    { label: 'MAC ONT', value: ticket.ontMacAddress, mono: true },
+    { label: 'Router', value: hasValue(ticket.routerBrand) ? `${ticket.routerBrand} ${ticket.routerModel || ''}`.trim() : ticket.router },
+    { label: 'SN Router', value: ticket.routerSerialNumber, mono: true },
+    { label: 'STB 1 SN', value: ticket.stb1Sn || ticket.stbSerialNumber, mono: true },
+    { label: 'Telepon 2', value: ticket.customerContact2, mono: true },
+    { label: 'Agent ID', value: ticket.agentId, mono: true },
+    { label: 'File Sumber', value: ticket.fileName, mono: true }
+  ].filter(f => hasValue(f.value));
 
   return (
-    <div className={`fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs ${isMobileView ? 'p-0' : 'p-2 sm:p-4'}`}>
+    <div
+      className={`fixed inset-0 z-60 flex items-start sm:items-center justify-center bg-[#160D29]/65 backdrop-blur-sm transition-opacity ${
+        isMobileView ? 'p-0' : 'p-2 sm:p-4 lg:p-6'
+      }`}
+      onClick={onClose}
+    >
       <div
-        className={`bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 w-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
-          isMobileView ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl h-[95vh] rounded-2xl'
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-ticket-title"
+        onClick={e => e.stopPropagation()}
+        className={`relative w-full bg-white dark:bg-[#1E1238] shadow-2xl border border-[#E8DDFF] dark:border-[#35105E] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+          isMobileView ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl max-h-[94vh] rounded-2xl'
         }`}
       >
-        
-        {/* ============================================================ */}
-        {/* SIMPLE, CLEAN TOP BAR                                        */}
-        {/* ============================================================ */}
+        {/* TOP SYSTEM & SYNC STRIP */}
+        <div className="w-full bg-[#F5F1FF] dark:bg-[#160D29] px-4 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8] border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'SAVED'
+                    ? 'bg-[#16A36A]'
+                    : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
+                    ? 'bg-[#D97706] animate-pulse'
+                    : 'bg-[#DC4C5A]'
+                }`}
+              />
+              <span className="font-mono font-bold text-[#160D29] dark:text-white uppercase">
+                SUPABASE SYNC: {syncStatus}
+              </span>
+            </div>
+            <span className="text-[#CEC3D4] dark:text-[#4B386B]">|</span>
+            <span className="font-bold uppercase tracking-wide text-[#766B83] dark:text-[#A78BFA]">
+              Cluster: {ticket.clusterName || ticket.area || '-'}
+            </span>
+            <span className="hidden sm:inline text-[#CEC3D4] dark:text-[#4B386B]">|</span>
+            <span className="hidden sm:inline font-semibold text-[#7135B5] dark:text-[#DAB9FF]">
+              Durasi Kerja: {ticket.workDurationFormatted || (ticket.checkInAt ? 'Sedang Dikerjakan' : 'Belum Check-in')}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#8B8495] dark:text-[#A78BFA]">
+            <Lock className="w-3 h-3" />
+            <span className="truncate max-w-[260px]">
+              Sesi: {currentUser.name} ({currentUser.role})
+            </span>
+          </div>
+        </div>
+
+        {/* MODAL HEADER */}
         <div
-          className={`bg-slate-50 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3 shrink-0 ${
-            isMobileView ? 'px-3.5 py-3' : 'px-5 py-3.5 md:flex-row md:items-center'
+          className={`bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 ${
+            isMobileView ? 'px-3.5 py-3' : 'px-5 py-3.5'
           }`}
         >
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="font-mono font-bold text-lg text-indigo-600 dark:text-indigo-400">
-              {ticket.woNumber}
-            </span>
-            <span className="px-2 py-0.5 rounded-md font-mono text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-              ID Cust: {ticket.idCustomer}
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
-              {ticket.customerName}
-            </span>
-            <div className="flex items-center gap-1.5 ml-1">
-              <StatusAgentBadge status={ticket.statusWOAgent} />
-              <StatusInstallerBadge status={ticket.statusWOInstaller} />
-              <StatusApprovalBadge status={ticket.approvalStatus} />
-              <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
-            </div>
-            {ticket.isArchived && (
-              <span className="text-[11px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-medium">
-                Archived
+          {/* Left: Title + Category + Cust ID + 4 Operational Status Dimensions */}
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-[#F7F6FA] dark:bg-[#160D29] px-2.5 py-1 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] shadow-inner">
+                <span
+                  id="modal-ticket-title"
+                  className="font-mono font-extrabold text-[15px] sm:text-[17px] text-[#35105E] dark:text-[#DAB9FF] tracking-tight tabular-nums"
+                >
+                  {ticket.woNumber}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyWO}
+                  className="btn-3d-icon w-6 h-6 rounded-md cursor-pointer"
+                  title="Salin Work Order Number"
+                >
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
+
+              {hasValue(ticket.ticketCategory) && (
+                <span className="px-2.5 py-1 rounded-full bg-[#35105E] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                  <Zap className="w-3 h-3 text-[#DAB9FF]" />
+                  <span>{ticket.ticketCategory}</span>
+                </span>
+              )}
+
+              <span className="px-2.5 py-1 rounded-full bg-[#F4EAFF] dark:bg-[#261942] text-[#35105E] dark:text-[#E9D5FF] font-mono text-[11px] font-bold flex items-center gap-1 tabular-nums">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#16A36A]" />
+                <span>CUST-ID: {ticket.idCustomer}</span>
               </span>
-            )}
+
+              <div className="flex items-center text-[15px] font-bold text-[#211A2E] dark:text-white truncate max-w-[260px] sm:max-w-xs">
+                <span className="text-[#8B8495] font-normal mr-1.5">/</span>
+                <span className="truncate">{ticket.customerName}</span>
+              </div>
+
+              {ticket.isArchived && (
+                <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold uppercase">
+                  Archived
+                </span>
+              )}
+            </div>
+
+            {/* 4 Strictly Independent Status Dimensions */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
+                <span>1. Agent:</span>
+                <StatusAgentBadge status={ticket.statusWOAgent} />
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
+                <span>2. Installer:</span>
+                <StatusInstallerBadge status={ticket.statusWOInstaller} />
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
+                <span>3. WA:</span>
+                <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
+                <span>4. Approval:</span>
+                {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' ? (
+                  <StatusApprovalBadge status={ticket.approvalStatus} />
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-[#F1F5F9] dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#475569] dark:text-slate-300 text-[10px] font-bold uppercase">
+                    NONE
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Action Toolbar */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Quick scroll to live chat */}
+          {/* Right: 3D Tactile Header Action Utilities */}
+          <div className="flex flex-wrap items-center gap-2 self-end lg:self-center shrink-0">
             <button
+              type="button"
               onClick={scrollToChat}
-              className="px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Buka & gulir langsung ke kolom Live Chat di bawah"
+              className="btn-3d-ceramic px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer lg:hidden"
+              title="Buka & gulir ke LiveChat"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Live Chat</span>
+              <MessageSquare className="w-3.5 h-3.5 text-[#7135B5]" />
+              <span>Chat</span>
               {unreadChatCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#DC4C5A] text-white">
                   {unreadChatCount > 99 ? '99+' : unreadChatCount}
                 </span>
               )}
-              <ArrowDown className="w-3 h-3" />
             </button>
 
-            {/* WhatsApp */}
             <button
+              type="button"
               onClick={() => onOpenWhatsApp(ticket)}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+              className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+              title="Kirim / Update Status WhatsApp Pelanggan"
             >
               <Phone className="w-3.5 h-3.5" />
               <span>WhatsApp</span>
             </button>
 
-            {/* Close Ticket Action */}
             {canCloseTicket && (
               <button
-                onClick={() => setShowCloseModal(true)}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+                type="button"
+                onClick={() => setShowCloseModal(v => !v)}
+                className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Close Ticket</span>
+                <span>Close WO</span>
               </button>
             )}
 
-            {isTicketClosed && (currentUser.role === 'dispatch' || currentUser.role === 'super_admin') && (
+            {isTicketClosed && canManageApproval && (
               <button
-                onClick={() => setShowReopenModal(true)}
-                className="px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-lg flex items-center gap-1.5"
+                type="button"
+                onClick={() => setShowReopenModal(v => !v)}
+                className="btn-3d-warning px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reopen</span>
               </button>
             )}
 
-            {/* Edit / Save */}
-            {!isTicketClosed && (
-              isEditing ? (
-                <button
-                  onClick={handleSaveEdit}
-                  className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Simpan</span>
-                </button>
+            {canEditTicket &&
+              (isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Simpan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="btn-3d-ceramic px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </>
               ) : (
                 <button
+                  type="button"
                   onClick={handleStartEdit}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-lg flex items-center gap-1.5"
+                  className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>Edit Data</span>
+                  <Edit2 className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
+                  <span>Edit</span>
                 </button>
-              )
-            )}
+              ))}
 
-            {isEditing && (
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-              >
-                Batal
-              </button>
-            )}
-
-            {/* Archive */}
             <button
+              type="button"
               onClick={handleArchive}
-              className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg"
-              title={ticket.isArchived ? 'Restore Ticket' : 'Arsipkan Ticket'}
+              className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+              title={ticket.isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan Tiket'}
             >
-              <Archive className="w-4 h-4" />
+              <Archive className="w-3.5 h-3.5 text-[#766B83] dark:text-[#CEC0E8]" />
+              <span>{ticket.isArchived ? 'Restore' : 'Arsipkan'}</span>
             </button>
 
-            {/* Management Data Exclusive Delete */}
             {currentUser.role === 'management_data' && (
               <button
+                type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                className="btn-3d-danger px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                 title="Hapus Work Order (Khusus Management Data)"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -356,26 +707,27 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </button>
             )}
 
-            {/* Close Modal button */}
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg ml-1"
+              className="btn-3d-icon w-9 h-9 rounded-xl cursor-pointer hover:text-[#BA1A1A]"
               aria-label="Tutup Dialog"
+              title="Tutup Modal (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Close Ticket Modal Banner */}
+        {/* Close Ticket Inline Banner */}
         {showCloseModal && (
-          <div className="p-4 bg-indigo-50 dark:bg-indigo-950/80 border-b border-indigo-200 dark:border-indigo-900 text-xs space-y-3 shrink-0">
-            <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+          <div className="p-4 bg-[#F5F1FF] dark:bg-[#261942] border-b border-[#D8CCF3] dark:border-[#4B386B] text-xs space-y-2.5 shrink-0">
+            <div className="font-bold text-[#35105E] dark:text-[#E9D5FF] flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-[#7135B5]" />
               <span>Verifikasi & Penyelesaian Resmi Tiket (Close Ticket WO: {ticket.woNumber})</span>
             </div>
             {closeError && (
-              <div className="p-2 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-medium">
+              <div className="p-2 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-semibold">
                 {closeError}
               </div>
             )}
@@ -385,18 +737,20 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 placeholder="Catatan penutupan (contoh: Redaman -18 dBm baik, internet aktif, pelanggan puas)..."
                 value={closeNotes}
                 onChange={e => setCloseNotes(e.target.value)}
-                className="w-full sm:flex-1 px-3 py-2 border border-indigo-300 dark:border-indigo-800 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs"
+                className="w-full sm:flex-1 px-3 py-2 border border-[#D8CCF3] dark:border-[#4B386B] rounded-lg bg-white dark:bg-[#160D29] text-[#211A2E] dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               />
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
+                  type="button"
                   onClick={() => setShowCloseModal(false)}
-                  className="px-3 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg font-medium text-xs"
+                  className="btn-3d-ceramic px-3 py-2 rounded-lg font-bold text-xs cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmCloseTicket}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs"
+                  className="btn-3d-primary px-4 py-2 rounded-lg font-bold text-xs cursor-pointer"
                 >
                   Konfirmasi Close Ticket
                 </button>
@@ -405,9 +759,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
           </div>
         )}
 
-        {/* Reopen Ticket Banner */}
+        {/* Reopen Ticket Inline Banner */}
         {showReopenModal && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/80 border-b border-amber-200 dark:border-amber-900 text-xs space-y-3 shrink-0">
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/70 border-b border-amber-200 dark:border-amber-800 text-xs space-y-2.5 shrink-0">
             <div className="font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
               <RotateCcw className="w-4 h-4 text-amber-600" />
               <span>Buka Kembali Tiket (Reopen Work Order)</span>
@@ -418,19 +772,21 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 placeholder="Alasan reopen (contoh: keluhan ulang pelanggan, redaman drop kembali)..."
                 value={reopenReason}
                 onChange={e => setReopenReason(e.target.value)}
-                className="w-full sm:flex-1 px-3 py-2 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs"
+                className="w-full sm:flex-1 px-3 py-2 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-[#160D29] text-[#211A2E] dark:text-white text-xs"
               />
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
+                  type="button"
                   onClick={() => setShowReopenModal(false)}
-                  className="px-3 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg font-medium text-xs"
+                  className="btn-3d-ceramic px-3 py-2 rounded-lg font-bold text-xs cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmReopen}
                   disabled={!reopenReason.trim()}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-lg font-bold text-xs"
+                  className="btn-3d-warning px-4 py-2 rounded-lg font-bold text-xs disabled:opacity-40 cursor-pointer"
                 >
                   Buka Kembali
                 </button>
@@ -439,741 +795,940 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
           </div>
         )}
 
-        {/* Approve Report Modal Banner */}
-        {showApprovalModal && (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/80 border-b border-emerald-200 dark:border-emerald-900 text-xs space-y-3 shrink-0 animate-in fade-in">
-            <div className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Verifikasi & Setujui Laporan Teknisi (Approve WO: {ticket.woNumber})</span>
-            </div>
-            <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-              Ketika laporan disetujui Dispatch, status tiket WO otomatis menjadi <strong className="text-emerald-700 dark:text-emerald-300">CLOSED</strong> dan status approval menjadi <strong className="text-emerald-700 dark:text-emerald-300">APPROVED</strong>.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center gap-2">
-              <input
-                type="text"
-                placeholder="Catatan approval Dispatch (opsional, contoh: Hasil redaman terverifikasi oke)..."
-                value={approvalNotes}
-                onChange={e => setApprovalNotes(e.target.value)}
-                className="w-full sm:flex-1 px-3 py-2 border border-emerald-300 dark:border-emerald-800 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs"
-              />
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  onClick={() => setShowApprovalModal(false)}
-                  className="px-3 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg font-medium text-xs cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleConfirmApprove}
-                  disabled={isApproving}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                  <span>{isApproving ? 'Memproses...' : 'Konfirmasi Setujui'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* SCROLLABLE INTERACTIVE BODY STAGE */}
+        <div className="flex-1 overflow-y-auto bg-[#F7F6FA] dark:bg-[#140827] p-3.5 sm:p-5 space-y-5 text-xs">
+          {/* ============================================================== */}
+          {/* ZONE 1: DISPATCH APPROVAL & VERIFIKASI HUB                     */}
+          {/* ============================================================== */}
+          <section className="bg-white dark:bg-[#1E1238] rounded-xl shadow-md p-4 sm:p-5 relative overflow-hidden border border-[#E9E5F0] dark:border-[#35105E] space-y-4">
+            <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${topGradientBar}`} />
 
-        {/* Reject Report Modal Banner */}
-        {showRejectModal && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/80 border-b border-rose-200 dark:border-rose-900 text-xs space-y-3 shrink-0 animate-in fade-in">
-            <div className="font-bold text-rose-950 dark:text-rose-200 flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-rose-600" />
-              <span>Tolak / Minta Revisi Laporan Teknisi (WO: {ticket.woNumber})</span>
-            </div>
-            <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-              Status approval akan berubah menjadi REJECTED dan teknisi diminta merevisi laporan atau bukti penanganan.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center gap-2">
-              <input
-                type="text"
-                placeholder="Alasan penolakan / instruksi revisi (wajib diisi, contoh: foto ODP belum jelas)..."
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                className="w-full sm:flex-1 px-3 py-2 border border-rose-300 dark:border-rose-800 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs"
-              />
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  onClick={() => setShowRejectModal(false)}
-                  className="px-3 py-2 bg-slate-200 dark:bg-slate-800 rounded-lg font-medium text-xs cursor-pointer"
+            {/* Banner Header & Lifecycle Pill */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
+              <div className="flex items-start sm:items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    ticket.approvalStatus === 'APPROVED'
+                      ? 'bg-[#16A36A]/15 text-[#16A36A]'
+                      : ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI'
+                      ? 'bg-[#DC4C5A]/15 text-[#DC4C5A]'
+                      : 'bg-[#E59A27]/15 text-[#D97706]'
+                  }`}
                 >
-                  Batal
-                </button>
-                <button
-                  onClick={handleConfirmReject}
-                  disabled={isRejecting || !rejectReason.trim()}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <ThumbsDown className="w-3.5 h-3.5" />
-                  <span>{isRejecting ? 'Memproses...' : 'Kirim Penolakan'}</span>
-                </button>
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold text-[15px] sm:text-[16px] text-[#160D29] dark:text-white">
+                      Verifikasi Hasil Pengerjaan Teknisi Lapangan
+                    </h3>
+                    <StatusApprovalBadge status={ticket.approvalStatus} />
+                  </div>
+                  <div className="text-[12px] text-[#766B83] dark:text-[#CEC0E8] flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                    <span>
+                      Teknisi: <strong className="text-[#211A2E] dark:text-white">{ticket.installerName || 'Belum Ditugaskan'}</strong>
+                      {ticket.contactorName ? ` (${ticket.contactorName})` : ''}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      Mulai:{' '}
+                      <strong className="text-[#211A2E] dark:text-white font-mono">
+                        {ticket.workStartedAt
+                          ? new Date(ticket.workStartedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                          : ticket.checkInAt
+                          ? new Date(ticket.checkInAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                          : '-'}
+                      </strong>
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      Durasi:{' '}
+                      <strong className="text-[#7135B5] dark:text-[#DAB9FF] font-mono font-bold">
+                        {ticket.workDurationFormatted || (ticket.checkInAt ? 'Aktif' : '-')}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* ============================================================ */}
-        {/* CONTINUOUS SCROLLABLE FULL BODY                              */}
-        {/* ============================================================ */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 text-xs">
-
-          {/* DISPATCH APPROVAL & PENGERJAAN TEKNISI HUB */}
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-indigo-500" />
-                <span className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wide">
-                  Status Alur Kerja & Verifikasi Dispatch
-                </span>
-                <StatusApprovalBadge status={ticket.approvalStatus} />
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                <span>Mulai Pengerjaan:</span>
-                <strong className="text-slate-700 dark:text-slate-300 font-mono">
-                  {ticket.workStartedAt ? new Date(ticket.workStartedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Belum Dimulai'}
-                </strong>
-                {ticket.workStartedBy && <span>({ticket.workStartedBy})</span>}
+              <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#F5F1FF] dark:bg-[#261942] rounded-xl border border-[#D8CCF3] dark:border-[#4B386B] self-start lg:self-auto shrink-0">
+                <Gauge className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                <div className="flex flex-col text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B8495] dark:text-[#A78BFA]">
+                    Lifecycle Progress
+                  </span>
+                  <span className="font-mono text-[12px] font-bold text-[#16A36A] tabular-nums">
+                    {completedStepsCount}/7 TAHAP SELESAI
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Compact 7-Step WO Lifecycle Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-1">
-              {[
-                { label: '1. Import', done: Boolean(ticket.createdAt), detail: ticket.appointmentDate || '-' },
-                { label: '2. Distribusi', done: Boolean(ticket.leaderName), detail: ticket.leaderName || 'Unmapped' },
-                { label: '3. Assign', done: isTicketAssigned(ticket), detail: ticket.installerName || 'Belum Assign' },
-                { label: '4. Check-in', done: isTicketCheckedIn(ticket), detail: ticket.checkInAt ? 'PROGRESS' : 'Belum' },
-                { label: '5. Report', done: getTicketCanonicalReportStatus(ticket) !== 'NONE', detail: getTicketCanonicalReportStatus(ticket) !== 'NONE' ? getTicketCanonicalReportStatus(ticket) : 'Belum' },
-                { label: '6. Approval', done: getTicketCanonicalApprovalStatus(ticket) === 'APPROVED', detail: getTicketCanonicalApprovalStatus(ticket) !== 'NONE' ? getTicketCanonicalApprovalStatus(ticket) : '-' },
-                { label: '7. Closed', done: isLifecycleClosed(ticket), detail: isLifecycleClosed(ticket) ? 'CLOSED' : 'Open' }
-              ].map(step => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {lifecycleSteps.map(step => (
                 <div
                   key={step.label}
                   className={`rounded-lg px-2.5 py-2 border text-[10.5px] ${
                     step.done
                       ? 'bg-[#ECFDF5]/70 dark:bg-emerald-950/30 border-[#86EFAC] dark:border-emerald-800 text-[#15803D] dark:text-emerald-300'
-                      : 'bg-[#F8FAFC] dark:bg-slate-800/50 border-[#E2E8F0] dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                      : 'bg-[#F8FAFC] dark:bg-[#160D29] border-[#E2E8F0] dark:border-[#35105E] text-[#766B83] dark:text-[#CEC0E8]'
                   }`}
                 >
                   <div className="font-bold truncate">{step.label}</div>
-                  <div className="truncate font-mono text-[10px] mt-0.5">{step.detail}</div>
+                  <div className="truncate font-mono text-[10px] mt-0.5 tabular-nums">{step.detail}</div>
                 </div>
               ))}
             </div>
 
-            {/* Approval specific state banner */}
-            {ticket.approvalStatus === 'BUTUH APPROVAL' && (
-              <div className="p-3.5 rounded-xl bg-[#FFF7ED] dark:bg-orange-950/40 border border-[#FDBA74] dark:border-orange-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-[#9A3412] dark:text-orange-200 font-bold text-xs">
-                    <Clock className="w-4 h-4 text-[#C2410C]" />
-                    <span>Laporan Teknisi Siap Diperiksa & Membutuhkan Approval Dispatch</span>
-                  </div>
-                  <div className="text-[11px] text-[#9A3412] dark:text-orange-300 flex flex-wrap items-center gap-1.5">
-                    <span>Report Status:</span>
-                    <StatusBadge status={ticket.progressReports?.[0]?.reportStatus || ticket.reportStatusLabel || ticket.statusWOInstaller} variant="report" size="xs" />
-                    {ticket.progressReports?.[0]?.reasonReport && <span>· Reason: {ticket.progressReports[0].reasonReport}</span>}
-                    {ticket.progressReports?.[0]?.rootCause && <span>· Rootcause: {ticket.progressReports[0].rootCause}</span>}
-                  </div>
-                  {ticket.progressReports?.[0]?.remarksReport && (
-                    <div className="text-[11px] text-slate-700 dark:text-slate-300 italic bg-white/80 dark:bg-slate-900/40 p-2 rounded-lg border border-[#FDBA74]/50">
-                      "{ticket.progressReports[0].remarksReport}"
-                    </div>
+            {/* 4 Precision Telemetry Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              {/* 1. Redaman OPM */}
+              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-1.5 gap-2">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">Redaman OPM ONT</span>
+                  {rawOpmValue ? (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isOpmValid
+                          ? 'bg-[#16A36A]/15 text-[#16A36A]'
+                          : 'bg-[#E59A27]/15 text-[#D97706]'
+                      }`}
+                    >
+                      {isOpmValid ? 'PASS (-8 s/d -25)' : 'PERLU CEK'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-[#8B8495]">Belum Diisi</span>
                   )}
                 </div>
-
-                {(currentUser.role === 'dispatch' || currentUser.role === 'super_admin') && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setShowApprovalModal(true)}
-                      className="px-3.5 py-2 bg-[#15803D] hover:bg-[#166534] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>Approve & Close WO</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowRejectModal(true)}
-                      className="px-3.5 py-2 bg-[#B91C1C] hover:bg-[#991B1B] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                    >
-                      <ThumbsDown className="w-3.5 h-3.5" />
-                      <span>Minta Revisi</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {ticket.approvalStatus === 'APPROVED' && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>
-                    Laporan telah <strong>DISETUJUI (APPROVED)</strong> oleh <strong>{ticket.approvedBy || 'Dispatch'}</strong>
-                    {ticket.approvedAt && ` pada ${new Date(ticket.approvedAt).toLocaleString('id-ID')}`}, dan status tiket <strong>RESMI CLOSED</strong>.
-                    {ticket.approvalNotes && ` Catatan: "${ticket.approvalNotes}"`}
+                <div className="flex items-baseline gap-1">
+                  <span
+                    className={`font-mono text-[22px] font-bold tracking-tight tabular-nums ${
+                      rawOpmValue ? (isOpmValid ? 'text-[#16A36A]' : 'text-[#D97706]') : 'text-[#8B8495]'
+                    }`}
+                  >
+                    {rawOpmValue ? String(rawOpmValue).replace(/\s*dBm/i, '') : '-'}
                   </span>
+                  {rawOpmValue && <span className="text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8]">dBm</span>}
+                </div>
+                <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1 truncate">
+                  {hasValue(ticket.technicalReport?.opticalPowerRx) ? 'Data Technical Report OPM' : 'Menunggu input teknisi'}
+                </div>
+              </div>
+
+              {/* 2. SN ONT / Modem */}
+              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">SN ONT / Modem</span>
+                  {serialOnt && <CheckCircle2 className="w-4 h-4 text-[#16A36A]" />}
+                </div>
+                <div className="font-mono text-[16px] text-[#35105E] dark:text-[#DAB9FF] font-bold tracking-wide truncate tabular-nums">
+                  {serialOnt || '-'}
+                </div>
+                <div className="text-[11px] text-[#16A36A] font-medium mt-1 truncate">
+                  {hasValue(ticket.oltRegistrationStatus)
+                    ? ticket.oltRegistrationStatus
+                    : hasValue(ticket.oltCode)
+                    ? `OLT: ${ticket.oltCode}`
+                    : 'Serial perangkat ONT'}
+                </div>
+              </div>
+
+              {/* 3. Dropcore & FAT */}
+              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">Dropcore & FAT</span>
+                  <span className="font-mono text-[10.5px] text-[#7135B5] dark:text-[#DAB9FF] font-bold">
+                    {hasValue(ticket.fatPort) ? `Port ${ticket.fatPort}` : 'FAT Port -'}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="font-mono text-[22px] text-[#160D29] dark:text-white font-bold tabular-nums">
+                    {hasValue(dropcoreMeter) ? dropcoreMeter : '-'}
+                  </span>
+                  {hasValue(dropcoreMeter) && <span className="text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8]">Meter</span>}
+                </div>
+                <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1 truncate">
+                  {fatLabel ? `${fatLabel}${hasValue(ticket.fatRedamanDbm) ? ` (${ticket.fatRedamanDbm} dBm)` : ''}` : 'Kode FAT belum tercatat'}
+                </div>
+              </div>
+
+              {/* 4. Laporan 3-Tingkat */}
+              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">Laporan 3-Tingkat</span>
+                  <Network className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                </div>
+                <div className="text-xs font-bold text-[#16A36A] truncate">
+                  L1: {tier1Label}
+                </div>
+                <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1 leading-snug">
+                  <div className="truncate">L2: {tier2Label}</div>
+                  <div className="truncate text-[#8B8495] text-[10.5px]">L3: {tier3Label}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bukti Dokumentasi Fisik (Real Photos) */}
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                  <h4 className="font-bold text-[14px] text-[#160D29] dark:text-white">
+                    Bukti Dokumentasi Fisik & Lampiran Lapangan
+                  </h4>
+                </div>
+                <span
+                  className={`text-[10.5px] font-bold uppercase ${
+                    evidencePhotos.length > 0 ? 'text-[#16A36A]' : 'text-[#8B8495]'
+                  }`}
+                >
+                  {evidencePhotos.length > 0
+                    ? `${evidencePhotos.length} Foto Terunggah`
+                    : 'Belum Ada Foto Bukti'}
+                </span>
+              </div>
+
+              {evidencePhotos.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {evidencePhotos.map(photo => (
+                    <div
+                      key={photo.id}
+                      onClick={() => setZoomPhoto(photo)}
+                      className="group relative rounded-xl overflow-hidden bg-[#F7F6FA] dark:bg-[#160D29] shadow-xs hover:shadow-md transition-all border border-[#E9E5F0] dark:border-[#35105E] cursor-pointer"
+                    >
+                      <div className="w-full h-28 overflow-hidden relative bg-[#E9E5F0] dark:bg-[#261942]">
+                        {!failedImages[photo.id] ? (
+                          <img
+                            src={photo.url}
+                            alt={photo.title}
+                            referrerPolicy="no-referrer"
+                            onError={() => setFailedImages(prev => ({ ...prev, [photo.id]: true }))}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-[#8B8495] p-2 text-center">
+                            <ImageOff className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] truncate w-full">{photo.title}</span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setZoomPhoto(photo);
+                          }}
+                          className="btn-3d-icon absolute top-2 right-2 w-7 h-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Zoom Foto"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="p-2 bg-white dark:bg-[#1E1238] flex items-center justify-between gap-1.5">
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-[#211A2E] dark:text-white truncate">{photo.title}</div>
+                          <div className="font-mono text-[10px] text-[#766B83] dark:text-[#CEC0E8] truncate">{photo.subtitle}</div>
+                        </div>
+                        <span className="tactile-chip text-[10px] px-1.5 py-0.5 rounded text-[#35105E] font-bold shrink-0">
+                          Zoom
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border border-dashed border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-center text-[#8B8495] text-xs">
+                  Belum ada foto bukti lapangan yang diunggah teknisi melalui Technical Report atau LiveChat.
+                </div>
+              )}
+            </div>
+
+            {/* Approved / Rejected Historical Banners */}
+            {ticket.approvalStatus === 'APPROVED' && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5 text-xs text-emerald-900 dark:text-emerald-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  Laporan telah <strong>DISETUJUI (APPROVED)</strong> oleh <strong>{ticket.approvedBy || 'Dispatch'}</strong>
+                  {ticket.approvedAt && ` pada ${new Date(ticket.approvedAt).toLocaleString('id-ID')}`}, dan status WO <strong>RESMI CLOSED</strong>.
+                  {ticket.approvalNotes && <div className="mt-1 italic">Catatan: "{ticket.approvalNotes}"</div>}
                 </div>
               </div>
             )}
 
             {ticket.approvalStatus === 'REJECTED' && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-rose-800 dark:text-rose-200">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>
-                    Laporan <strong>DITOLAK / PERLU REVISI</strong> oleh <strong>{ticket.rejectedBy || 'Dispatch'}</strong>
-                    {ticket.rejectedAt && ` pada ${new Date(ticket.rejectedAt).toLocaleString('id-ID')}`}.
-                    {ticket.rejectionReason && ` Alasan: "${ticket.rejectionReason}"`}
-                  </span>
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-200">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  Laporan <strong>DITOLAK / PERLU REVISI</strong> oleh <strong>{ticket.rejectedBy || 'Dispatch'}</strong>
+                  {ticket.rejectedAt && ` pada ${new Date(ticket.rejectedAt).toLocaleString('id-ID')}`}.
+                  {ticket.rejectionReason && <div className="mt-1 font-semibold">Alasan: "{ticket.rejectionReason}"</div>}
                 </div>
-                {(currentUser.role === 'dispatch' || currentUser.role === 'super_admin') && (
-                  <button
-                    type="button"
-                    onClick={() => setShowApprovalModal(true)}
-                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold shrink-0 self-end sm:self-auto cursor-pointer"
-                  >
-                    Re-evaluasi & Setujui
-                  </button>
-                )}
               </div>
             )}
-          </div>
-          
-          {/* SECTION 1: HIGHLIGHT SUMMARY CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Customer & Location */}
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 space-y-2">
-              <div className="flex items-center justify-between text-slate-400 font-bold uppercase tracking-wider text-[10.5px]">
-                <span className="flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-indigo-500" />
-                  Data Pelanggan
-                </span>
-                <span className="font-mono text-indigo-600 dark:text-indigo-400">ID: {ticket.idCustomer}</span>
-              </div>
-              <div className="font-bold text-sm text-slate-900 dark:text-white">
-                {ticket.customerName}
-              </div>
-              <div className="flex items-center justify-between gap-2 font-mono text-xs text-slate-700 dark:text-slate-300">
-                <div className="flex items-center gap-2">
-                  <span>{ticket.customerPhone || '-'}</span>
-                  {ticket.customerPhone && (
-                    <a
-                      href={`tel:${ticket.customerPhone}`}
-                      className="p-1 rounded bg-slate-200 dark:bg-slate-700 hover:text-indigo-600"
-                      title="Telepon Pelanggan"
-                    >
-                      <Phone className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-                {ticket.customerPhone && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenWhatsApp(ticket)}
-                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors shrink-0 cursor-pointer"
-                    title="Buka WhatsApp Pelanggan"
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    <span>WhatsApp</span>
-                  </button>
+
+            {/* Dispatcher Verification Control Block (RBAC: Dispatch & Super Admin when BUTUH APPROVAL or active notes) */}
+            {canManageApproval && ticket.approvalStatus === 'BUTUH APPROVAL' && (
+              <div className="bg-[#F5F1FF] dark:bg-[#261942] rounded-xl p-4 border border-[#D8CCF3] dark:border-[#4B386B] space-y-3">
+                {decisionError && (
+                  <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200 font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{decisionError}</span>
+                  </div>
                 )}
+
+                <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-end">
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label htmlFor="dispatcher-review-note" className="text-[13px] font-bold text-[#160D29] dark:text-white flex items-center gap-1">
+                        <span>Catatan Pemeriksaan Dispatcher</span>
+                        <span className="text-[#DC4C5A]">*</span>
+                        <span className="text-[11px] font-normal text-[#8B8495]">(Wajib min. 3 karakter jika minta revisi)</span>
+                      </label>
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10.5px] font-bold uppercase text-[#8B8495]">Template Cepat:</span>
+                        <button
+                          type="button"
+                          onClick={() => setDecisionNotes('Redaman optik sesuai standar, foto bukti lengkap dan sesuai SOP. Disetujui.')}
+                          className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
+                        >
+                          Acc Redaman Normal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDecisionNotes('Foto barcode ONT atau bukti lapangan belum jelas, harap unggah ulang.')}
+                          className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
+                        >
+                          Kirim Ulang Foto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDecisionNotes('SOP pemasangan lengkap, koordinat check-in valid, koneksi aktif.')}
+                          className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
+                        >
+                          SOP Lengkap
+                        </button>
+                      </div>
+                    </div>
+
+                    <textarea
+                      id="dispatcher-review-note"
+                      rows={2}
+                      value={decisionNotes}
+                      onChange={e => {
+                        setDecisionNotes(e.target.value);
+                        if (decisionError) setDecisionError(null);
+                      }}
+                      placeholder="Tuliskan catatan verifikasi hasil teknisi di sini..."
+                      className="w-full p-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#D8CCF3] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#7135B5] shadow-sm"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleConfirmReject}
+                      disabled={isRejecting || isApproving}
+                      className="btn-3d-danger flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <ThumbsDown className="w-3.5 h-3.5" />
+                      <span>{isRejecting ? 'Memproses...' : 'Tolak / Minta Revisi'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveInternalNote}
+                      disabled={isSavingNote || isApproving || isRejecting}
+                      className="btn-3d-ceramic flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
+                      <span>{isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleConfirmApprove}
+                      disabled={isApproving || isRejecting}
+                      className="btn-3d-success flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      <span>{isApproving ? 'Menyetujui...' : 'Setujui & Selesaikan WO'}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-              {(ticket.address || ticket.streetName || ticket.clusterName) && (
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-[11.5px] text-slate-600 dark:text-slate-400">
-                  <div className="flex items-start gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                    <div>
-                      {ticket.clusterName && <span className="font-semibold text-slate-800 dark:text-slate-200">[{ticket.clusterName}] </span>}
-                      <span>{ticket.address || ticket.streetName}</span>
-                      {ticket.city && <span className="block text-[11px] text-slate-400">{ticket.city} {ticket.postalCode || ''}</span>}
+            )}
+          </section>
+
+          {/* ============================================================== */}
+          {/* ZONE 2: 2-COLUMN MAIN ARCHITECTURE                             */}
+          {/* ============================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* LEFT COLUMN (7/12): Customer, Schedule, Technical Specs & Audit Trail */}
+            <div className="lg:col-span-7 space-y-5">
+              {/* Card 1: Identitas Pelanggan & Lokasi Pemasangan */}
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                      Identitas Pelanggan & Lokasi Pemasangan
+                    </h4>
+                  </div>
+                  <span className="text-[10.5px] font-bold uppercase text-[#16A36A] bg-[#16A36A]/10 px-2 py-0.5 rounded">
+                    ID: {ticket.idCustomer}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Nama Pelanggan</div>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editFormData.customerName ?? ''}
+                        onChange={e => setEditFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-sm font-bold"
+                      />
+                    ) : (
+                      <div className="font-bold text-[16px] text-[#211A2E] dark:text-white">{ticket.customerName}</div>
+                    )}
+                    <div className="font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                      Cust ID: {ticket.idCustomer}{ticket.ticketNumber ? ` · Tiket: ${ticket.ticketNumber}` : ''}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Kontak Pelanggan</div>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editFormData.customerPhone ?? ''}
+                        onChange={e => setEditFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-sm font-mono font-bold"
+                      />
+                    ) : (
+                      <div className="font-mono font-bold text-[15px] text-[#211A2E] dark:text-white tabular-nums">
+                        {ticket.customerPhone || '-'}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => onOpenWhatsApp(ticket)}
+                        className="btn-3d-success px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </button>
+                      {ticket.customerPhone && (
+                        <a
+                          href={`tel:${ticket.customerPhone}`}
+                          className="btn-3d-ceramic px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1"
+                        >
+                          <Phone className="w-3 h-3 text-[#7135B5] dark:text-[#DAB9FF]" />
+                          <span>Telepon</span>
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Schedule & Appointment */}
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 space-y-2">
-              <div className="text-slate-400 font-bold uppercase tracking-wider text-[10.5px] flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                Jadwal Kunjungan & Slot
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-xs flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{ticket.slotTime || 'Belum Ditentukan'}</span>
-                </span>
-                {ticket.ticketCategory && (
-                  <span className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px] uppercase">
-                    {ticket.ticketCategory}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 pt-1 space-y-1">
-                <div>Tanggal Appointment: <strong className="text-purple-700 dark:text-purple-300 font-semibold">{formatAppointmentDateDisplay(ticket.appointmentDate)}</strong></div>
-                {hasValue(ticket.appointmentType) && <div>Tipe Janji Temu: <span className="font-medium text-slate-700 dark:text-slate-300">{ticket.appointmentType}</span></div>}
-                <div>Tanggal Upload: <span className="font-mono text-slate-500">{ticket.dateUpload || ticket.createdAt?.slice(0, 10)}</span></div>
-              </div>
-            </div>
-
-            {/* Contractor & Assigned Team */}
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 space-y-2">
-              <div className="text-slate-400 font-bold uppercase tracking-wider text-[10.5px] flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-                Mitra Kontraktor & Tim
-              </div>
-              <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>{ticket.contactorName || 'Mitra Belum Ditentukan'}</span>
-              </div>
-              <div className="pt-1 space-y-1.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Teknisi (Installer):</span>
-                  {isEditing ? (
-                    currentUser.role === 'leader' ? (
-                      <select
-                        value={selectedInstaller}
-                        onChange={e => setSelectedInstaller(e.target.value)}
-                        className="px-2 py-1 text-xs bg-white dark:bg-slate-800 border rounded font-semibold text-slate-800 dark:text-slate-200"
-                      >
-                        <option value="">-- Belum Ditugaskan --</option>
-                        {installersList.map(inst => (
-                          <option key={inst} value={inst}>{inst}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="text-right">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {ticket.installerName || 'Belum Ditugaskan'}
-                        </span>
-                        <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                          Hanya Leader yang berwenang menugaskan teknisi
+                {/* Address & Geo */}
+                <div className="p-3.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl space-y-2 border border-[#E9E5F0] dark:border-[#35105E]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Alamat Instalasi</div>
+                      {isEditing ? (
+                        <textarea
+                          rows={2}
+                          value={editFormData.address ?? ''}
+                          onChange={e => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
+                          className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] text-xs"
+                        />
+                      ) : (
+                        <div className="text-[13px] text-[#211A2E] dark:text-white font-medium mt-0.5 leading-relaxed">
+                          {ticket.clusterName && <span className="font-bold text-[#35105E] dark:text-[#DAB9FF]">[{ticket.clusterName}] </span>}
+                          {ticket.address || ticket.streetName || '-'}
+                          {ticket.city && <span className="block text-[11px] text-[#766B83] dark:text-[#CEC0E8]">{ticket.city} {ticket.postalCode || ''}</span>}
                         </div>
+                      )}
+                    </div>
+
+                    {mapsQuery && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-3d-ceramic shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
+                        <span>Buka Maps</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {(hasValue(ticket.latitude) || hasValue(ticket.longitude) || hasValue(ticket.area)) && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                      <MapPin className="w-3.5 h-3.5 text-[#DC4C5A]" />
+                      <span>Area: {ticket.area || '-'}</span>
+                      {hasValue(ticket.latitude) && hasValue(ticket.longitude) && (
+                        <>
+                          <span>·</span>
+                          <span>LAT: {ticket.latitude}</span>
+                          <span>·</span>
+                          <span>LONG: {ticket.longitude}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: Jadwal & Penugasan Kontraktor */}
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                      Jadwal & Penugasan Kontraktor
+                    </h4>
+                  </div>
+                  {hasValue(ticket.distributionStatus) && (
+                    <span className="text-[10.5px] font-bold uppercase bg-[#E9D5FF]/60 dark:bg-[#35105E] text-[#35105E] dark:text-[#DAB9FF] px-2 py-0.5 rounded">
+                      {String(ticket.distributionStatus).replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
+                    <span className="text-[10px] font-bold uppercase text-[#8B8495]">Tanggal Appointment</span>
+                    <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 tabular-nums">
+                      {formatAppointmentDateDisplay(ticket.appointmentDate)}
+                    </div>
+                    <span className="text-[11px] text-[#7135B5] dark:text-[#DAB9FF] font-semibold">
+                      {ticket.appointmentType || ticket.ticketCategory || 'Reguler'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
+                    <span className="text-[10px] font-bold uppercase text-[#8B8495]">Slot Waktu</span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editFormData.slotTime ?? ''}
+                        onChange={e => setEditFormData(prev => ({ ...prev, slotTime: e.target.value }))}
+                        className="w-full mt-1 px-2 py-1 rounded border border-[#D8CCF3] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] text-xs font-bold"
+                      />
+                    ) : (
+                      <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 flex items-center gap-1 tabular-nums">
+                        <Clock className="w-3.5 h-3.5 text-[#D97706]" />
+                        <span>{ticket.slotTime || 'Belum Ditentukan'}</span>
                       </div>
-                    )
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {ticket.installerName || <em className="text-amber-600 dark:text-amber-400 font-normal">Belum Ditugaskan</em>}
-                      </span>
-                      {currentUser.role === 'leader' && (
+                    )}
+                    <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                      Upload: {ticket.dateUpload || ticket.createdAt?.slice(0, 10) || '-'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
+                    <span className="text-[10px] font-bold uppercase text-[#8B8495]">Mitra Pelaksana</span>
+                    <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 truncate flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+                      <span className="truncate">{ticket.contactorName || 'Belum Dipetakan'}</span>
+                    </div>
+                    <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate block">
+                      {ticket.contractorId ? `ID: ${ticket.contractorId}` : ticket.area || '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Hierarchy Assignment Flow (Korlap -> Teknisi) */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 bg-[#F5F1FF] dark:bg-[#160D29] rounded-xl gap-3 border border-[#D8CCF3] dark:border-[#4B386B]">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#35105E] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                      {(ticket.leaderName || 'KL').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-bold uppercase text-[#8B8495]">Koordinator Lapangan (Korlap)</div>
+                      {isEditing && currentUser.role === 'super_admin' ? (
                         <select
-                          value={ticket.installerName || ''}
-                          onChange={e => {
-                            if (e.target.value !== ticket.installerName) {
-                              assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
-                            }
-                          }}
-                          className="px-2 py-0.5 text-[11px] bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded font-semibold text-indigo-700 dark:text-indigo-300 cursor-pointer"
-                          title="Tugaskan Teknisi (Wewenang Khusus Leader)"
+                          value={selectedLeader}
+                          onChange={e => setSelectedLeader(e.target.value)}
+                          className="w-full mt-0.5 px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#D8CCF3] rounded font-semibold"
                         >
-                          <option value="">-- Pilih Teknisi --</option>
+                          <option value="">-- Belum Ditugaskan --</option>
+                          {leadersList.map(lead => (
+                            <option key={lead} value={lead}>{lead}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
+                          {ticket.leaderName || '-'} {ticket.leaderContact ? `(${ticket.leaderContact})` : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <ArrowRight className="w-4 h-4 text-[#8B8495] self-center rotate-90 sm:rotate-0 shrink-0" />
+
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#7135B5] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                      {(ticket.installerName || 'TK').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-bold uppercase text-[#8B8495]">Teknisi Eksekutor</div>
+                      {isEditing && currentUser.role === 'leader' ? (
+                        <select
+                          value={selectedInstaller}
+                          onChange={e => setSelectedInstaller(e.target.value)}
+                          className="w-full mt-0.5 px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#D8CCF3] rounded font-semibold"
+                        >
+                          <option value="">-- Belum Ditugaskan --</option>
                           {installersList.map(inst => (
                             <option key={inst} value={inst}>{inst}</option>
                           ))}
                         </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Koordinator (Korlap):</span>
-                  {isEditing && currentUser.role === 'super_admin' ? (
-                    <select
-                      value={selectedLeader}
-                      onChange={e => setSelectedLeader(e.target.value)}
-                      className="px-2 py-1 text-xs bg-white dark:bg-slate-800 border rounded font-semibold"
-                    >
-                      <option value="">-- Belum Ditugaskan --</option>
-                      {leadersList.map(lead => (
-                        <option key={lead} value={lead}>{lead}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="text-right">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">
-                        {ticket.leaderName || '-'}
-                      </span>
-                      {isEditing && (
-                        <div className="text-[10px] text-slate-400">
-                          (Wewenang Super Admin / Distribusi Otomatis)
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
+                            {ticket.installerName || <em className="text-[#D97706] font-normal">Belum Ditugaskan</em>}
+                          </span>
+                          {!isEditing && currentUser.role === 'leader' && (
+                            <select
+                              value={ticket.installerName || ''}
+                              onChange={e => {
+                                if (e.target.value !== ticket.installerName) {
+                                  assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
+                                }
+                              }}
+                              className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#A78BFA] rounded font-semibold text-[#5B35B1] dark:text-[#DAB9FF] cursor-pointer"
+                              title="Tugaskan Teknisi (Wewenang Khusus Leader)"
+                            >
+                              <option value="">-- Assign Teknisi --</option>
+                              {installersList.map(inst => (
+                                <option key={inst} value={inst}>{inst}</option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                {hasValue(ticket.distributionStatus) && (
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400">Status Distribusi:</span>
-                    <span className="font-semibold capitalize text-indigo-600 dark:text-indigo-400">
-                      {ticket.distributionStatus?.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                )}
-
-                {/* Assignment History Timeline */}
+                {/* Assignment / Reassignment History */}
                 {ticket.assignmentHistory && ticket.assignmentHistory.length > 0 && (
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[10.5px]">
-                      <History className="w-3 h-3 text-amber-500" />
-                      <span>Riwayat Reassign Penugasan ({ticket.assignmentHistory.length}):</span>
+                  <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[#766B83] dark:text-[#CEC0E8] font-bold text-[11px]">
+                      <History className="w-3.5 h-3.5 text-[#D97706]" />
+                      <span>Riwayat Penugasan & Reassign ({ticket.assignmentHistory.length})</span>
                     </div>
-                    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                       {ticket.assignmentHistory.map((h, i) => (
-                        <div key={i} className="p-2 rounded bg-slate-100 dark:bg-slate-800 text-[10px] space-y-0.5">
-                          <div className="flex items-center justify-between font-semibold">
-                            <span>{h.previousInstaller || 'Unassigned'} &rarr; <span className="text-emerald-600 dark:text-emerald-400">{h.assignedInstaller}</span></span>
-                            <span className="font-mono text-slate-400 text-[9px]">{new Date(h.timestamp).toLocaleString('id-ID')}</span>
+                        <div key={h.id || i} className="p-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[10.5px] space-y-0.5">
+                          <div className="flex items-center justify-between font-semibold gap-2">
+                            <span>
+                              {h.previousInstaller || h.previousInstallerName || 'Unassigned'} &rarr;{' '}
+                              <span className="text-[#16A36A]">{h.assignedInstaller || h.newInstallerName}</span>
+                            </span>
+                            <span className="font-mono text-[#8B8495] text-[10px] tabular-nums">
+                              {new Date(h.timestamp).toLocaleString('id-ID')}
+                            </span>
                           </div>
-                          <div className="text-slate-500 italic">"{h.reason}"</div>
-                          <div className="text-slate-400 text-[9px]">Oleh: {h.performedBy} ({h.performedByRole})</div>
+                          {h.reason && <div className="text-[#766B83] dark:text-[#CEC0E8] italic">"{h.reason}"</div>}
+                          {h.performedBy && (
+                            <div className="text-[#8B8495] text-[10px]">
+                              Oleh: {h.performedBy} {h.performedByRole ? `(${h.performedByRole})` : ''}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* SECTION 2: CLEAN POPULATED FIELDS (STRICTLY OMIT EMPTY DATA) */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-indigo-500" />
-                <span>Informasi Rinci Work Order (Hanya Menampilkan Data Terisi)</span>
-              </h4>
-              <span className="text-[11px] text-slate-400">
-                Kolom kosong disembunyikan otomatis
-              </span>
-            </div>
+              {/* Card 3: Spesifikasi Teknis FTTH & Technical Report Form */}
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                      Spesifikasi Teknis FTTH & Data Kanonik
+                    </h4>
+                  </div>
+                  <span className="font-mono text-[10.5px] text-[#8B8495]">Hanya field terisi</span>
+                </div>
 
-            {/* Grid of populated canonical fields */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {hasValue(ticket.ticketNumber) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">No Ticket</div>
-                  <div className="font-mono font-semibold text-slate-800 dark:text-slate-200">{ticket.ticketNumber}</div>
-                </div>
-              )}
-              {hasValue(ticket.area) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Area</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.area}</div>
-                </div>
-              )}
-              {hasValue(ticket.clusterName) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Cluster</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.clusterName}</div>
-                </div>
-              )}
-              {hasValue(ticket.installationType) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Tipe Instalasi</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.installationType}</div>
-                </div>
-              )}
-              {hasValue(ticket.serviceType) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Tipe Layanan</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.serviceType}</div>
-                </div>
-              )}
-              {hasValue(ticket.homepassType) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Tipe Homepass</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.homepassType}</div>
-                </div>
-              )}
-              {hasValue(ticket.homepassDetailId) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Homepass ID</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.homepassDetailId}</div>
-                </div>
-              )}
-              {hasValue(ticket.oltCode) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Kode OLT</div>
-                  <div className="font-mono font-semibold text-slate-800 dark:text-slate-200">{ticket.oltCode}</div>
-                </div>
-              )}
-              {hasValue(ticket.fdtCode) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Kode FDT</div>
-                  <div className="font-mono font-semibold text-slate-800 dark:text-slate-200">{ticket.fdtCode}</div>
-                </div>
-              )}
-              {hasValue(ticket.fatCode) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Kode FAT</div>
-                  <div className="font-mono font-semibold text-slate-800 dark:text-slate-200">{ticket.fatCode}</div>
-                </div>
-              )}
-              {hasValue(ticket.fatPort) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Port FAT</div>
-                  <div className="font-mono font-semibold text-slate-800 dark:text-slate-200">{ticket.fatPort}</div>
-                </div>
-              )}
-              {hasValue(ticket.dropcoreLength) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Panjang Dropcore</div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200">{ticket.dropcoreLength} Meter</div>
-                </div>
-              )}
-              {hasValue(ticket.ontBrand) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Brand ONT</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.ontBrand} {ticket.ontModel || ''}</div>
-                </div>
-              )}
-              {hasValue(ticket.ontSerialNumber) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">SN ONT</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.ontSerialNumber}</div>
-                </div>
-              )}
-              {hasValue(ticket.ontMacAddress) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">MAC ONT</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.ontMacAddress}</div>
-                </div>
-              )}
-              {hasValue(ticket.routerBrand) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Router Brand/Model</div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{ticket.routerBrand} {ticket.routerModel || ''}</div>
-                </div>
-              )}
-              {hasValue(ticket.routerSerialNumber) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">SN Router</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.routerSerialNumber}</div>
-                </div>
-              )}
-              {hasValue(ticket.stb1Sn) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">STB 1 SN</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.stb1Sn}</div>
-                </div>
-              )}
-              {hasValue(ticket.customerContact2) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Telepon 2</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.customerContact2}</div>
-                </div>
-              )}
-              {hasValue(ticket.agentId) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">Agent ID</div>
-                  <div className="font-mono text-slate-800 dark:text-slate-200">{ticket.agentId}</div>
-                </div>
-              )}
-              {hasValue(ticket.fileName) && (
-                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10.5px] text-slate-400">File Sumber</div>
-                  <div className="truncate font-mono text-[11px] text-slate-700 dark:text-slate-300">{ticket.fileName}</div>
-                </div>
-              )}
-            </div>
-
-            {/* Remarks / Notes (Only if populated) */}
-            {(hasValue(ticket.remarksAgent) || hasValue(ticket.remarksWOInstaller) || hasValue(ticket.remarks)) && (
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                {hasValue(ticket.remarksAgent) && (
-                  <div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
-                    <span className="font-bold text-indigo-900 dark:text-indigo-300 block mb-1">Catatan Dispatch (Remarks Agent):</span>
-                    <p className="text-slate-700 dark:text-slate-300">{ticket.remarksAgent}</p>
+                {canonicalFields.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {canonicalFields.map(item => (
+                      <div
+                        key={item.label}
+                        className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]"
+                      >
+                        <span className="text-[10px] font-bold uppercase text-[#8B8495] block truncate">
+                          {item.label}
+                        </span>
+                        <span
+                          className={`text-[12px] font-bold text-[#211A2E] dark:text-white block truncate mt-0.5 ${
+                            item.mono ? 'font-mono tabular-nums' : ''
+                          }`}
+                          title={String(item.value)}
+                        >
+                          {String(item.value)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
-                {hasValue(ticket.remarksWOInstaller) && (
-                  <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
-                    <span className="font-bold text-emerald-900 dark:text-emerald-300 block mb-1">Catatan Teknisi Lapangan:</span>
-                    <p className="text-slate-700 dark:text-slate-300">{ticket.remarksWOInstaller}</p>
+
+                {/* Remarks Grid */}
+                {(hasValue(ticket.remarksAgent) || hasValue(ticket.remarksWOInstaller) || hasValue(ticket.remarks)) && (
+                  <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {hasValue(ticket.remarksAgent) && (
+                      <div className="p-3 rounded-lg bg-[#F5F1FF] dark:bg-[#261942] border border-[#D8CCF3] dark:border-[#4B386B]">
+                        <span className="font-bold text-[#35105E] dark:text-[#DAB9FF] block mb-1">Catatan Dispatch:</span>
+                        <p className="text-[#211A2E] dark:text-slate-200">{ticket.remarksAgent}</p>
+                      </div>
+                    )}
+                    {hasValue(ticket.remarksWOInstaller) && (
+                      <div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                        <span className="font-bold text-emerald-900 dark:text-emerald-300 block mb-1">Catatan Teknisi Lapangan:</span>
+                        <p className="text-[#211A2E] dark:text-slate-200">{ticket.remarksWOInstaller}</p>
+                      </div>
+                    )}
+                    {hasValue(ticket.remarks) && !ticket.remarksAgent && (
+                      <div className="p-3 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
+                        <span className="font-bold text-[#211A2E] dark:text-white block mb-1">Catatan Umum:</span>
+                        <p className="text-[#766B83] dark:text-[#CEC0E8]">{ticket.remarks}</p>
+                      </div>
+                    )}
                   </div>
                 )}
-                {hasValue(ticket.remarks) && !ticket.remarksAgent && (
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1">Catatan Umum:</span>
-                    <p className="text-slate-600 dark:text-slate-300">{ticket.remarks}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* SECTION 3: TECHNICAL REPORT SUMMARY (If filled or accessible) */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Wrench className="w-4 h-4 text-emerald-600" />
-                <h4 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  Laporan Hasil Pengerjaan Teknisi (Technical Report)
-                </h4>
-              </div>
-              <button
-                onClick={() => setShowReportEditor(!showReportEditor)}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-colors"
-              >
-                {showReportEditor ? 'Sembunyikan Form Edit' : (ticket.technicalReport ? 'Ubah Laporan Teknis' : '+ Input Laporan Teknis')}
-              </button>
-            </div>
-
-            {ticket.technicalReport ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border">
-                  <div className="text-[10.5px] text-slate-400">Redaman Optik (Rx)</div>
-                  <div className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">
-                    {ticket.technicalReport.opticalPowerRx} dBm
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border">
-                  <div className="text-[10.5px] text-slate-400">Hasil Pekerjaan</div>
-                  <div className="font-semibold text-slate-800 dark:text-slate-200">
-                    {ticket.technicalReport.workResult}
-                  </div>
-                </div>
-                {ticket.technicalReport.rootCauseCategory && (
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border">
-                    <div className="text-[10.5px] text-slate-400">Katalog Root Cause</div>
-                    <div className="font-semibold text-amber-700 dark:text-amber-300">
-                      {ticket.technicalReport.rootCauseCategory} - {ticket.technicalReport.rootCauseSubCategory || ''}
+                {/* Technical Report Section & Toggle */}
+                <div className="pt-3 border-t border-[#E9E5F0] dark:border-[#35105E] space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-[#16A36A]" />
+                      <span className="font-bold text-[13px] text-[#160D29] dark:text-white">
+                        Laporan Teknis Lapangan (Technical Report)
+                      </span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowReportEditor(v => !v)}
+                      className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
+                    >
+                      {showReportEditor
+                        ? 'Sembunyikan Form Laporan'
+                        : ticket.technicalReport
+                        ? 'Lihat / Ubah Laporan Teknis'
+                        : '+ Input Laporan Teknis'}
+                    </button>
                   </div>
-                )}
-                {ticket.technicalReport.photos && ticket.technicalReport.photos.length > 0 && (
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border">
-                    <div className="text-[10.5px] text-slate-400">Foto Bukti Terupload</div>
-                    <div className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {ticket.technicalReport.photos.length} Foto
+
+                  {ticket.technicalReport && !showReportEditor && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      <div className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
+                        <div className="text-[10px] text-[#8B8495] uppercase font-bold">Hasil Pekerjaan</div>
+                        <div className="font-bold text-[#16A36A] mt-0.5">{ticket.technicalReport.workResult}</div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
+                        <div className="text-[10px] text-[#8B8495] uppercase font-bold">Root Cause</div>
+                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5 truncate">
+                          {ticket.technicalReport.rootCause || '-'}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
+                        <div className="text-[10px] text-[#8B8495] uppercase font-bold">Material Terpakai</div>
+                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5 truncate">
+                          {ticket.technicalReport.usedMaterials || '-'}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              !showReportEditor && (
-                <div className="py-3 text-slate-400 text-xs italic">
-                  Belum ada laporan teknis yang disimpan. Klik tombol di atas untuk mengisi data redaman, root cause, dan foto pengerjaan.
-                </div>
-              )
-            )}
-
-            {showReportEditor && (
-              <div className="pt-2">
-                <TechnicalReportForm
-                  ticket={ticket}
-                  onRequestProgressCheckIn={() => {
-                    setChatInitialCategory('PROGRESS');
-                    setTicketChatCategory(ticket.id, 'PROGRESS');
-                    scrollToChat();
-                  }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* SECTION 3B: HISTORY PROGRESS REPORT VERSIONS & DISPATCH APPROVAL TRAIL */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-[#7135B5]" />
-                <h4 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
-                  History Progress Report & Riwayat Approval ({ticket.progressReports?.length || 0} Versi)
-                </h4>
-              </div>
-            </div>
-            <HistoryProgressReportView ticketId={ticket.id} compact />
-          </div>
-
-          {/* ============================================================ */}
-          {/* SECTION 4: DOMINANT, LARGE LIVE CHAT AT BOTTOM               */}
-          {/* ============================================================ */}
-          <div ref={chatSectionRef} className="pt-2 space-y-2">
-            <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>Live Chat Komunikasi Dispatch & Teknisi</span>
-                  <span className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950">
-                    WO: {ticket.woNumber}
-                  </span>
-                  {unreadChatCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white">
-                      {unreadChatCount > 99 ? '99+' : unreadChatCount} Baru
-                    </span>
                   )}
-                </h3>
+
+                  {showReportEditor && (
+                    <TechnicalReportForm
+                      ticket={ticket}
+                      onRequestProgressCheckIn={() => {
+                        setChatInitialCategory('PROGRESS');
+                        setTicketChatCategory(ticket.id, 'PROGRESS');
+                        scrollToChat();
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span>{isChatOpen ? 'LiveChat aktif — pesan ditandai dibaca' : 'Buka LiveChat untuk membaca & membalas pesan'}</span>
-                {isChatOpen && (
+
+              {/* Card 4: Riwayat Transaksi, Progress Reports & Log Perubahan Tiket */}
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                      Riwayat Transaksi & Log Perubahan Tiket
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-bold text-[#8B8495] tabular-nums">
+                    {relatedActivities.length} Aktivitas · {ticket.progressReports?.length || 0} Versi Report
+                  </span>
+                </div>
+
+                {relatedActivities.length > 0 && (
+                  <div className="relative pl-6 space-y-3.5 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-[#E9E5F0] dark:before:bg-[#35105E] max-h-64 overflow-y-auto pr-1">
+                    {relatedActivities.map((act, idx) => (
+                      <div key={act.id || idx} className="relative">
+                        <span
+                          className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white dark:ring-[#1E1238] ${
+                            idx === 0 ? 'bg-[#7135B5]' : 'bg-[#3977C9]'
+                          }`}
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[11px] font-bold text-[#35105E] dark:text-[#DAB9FF] tabular-nums">
+                            {new Date(act.timestamp).toLocaleString('id-ID')}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase text-[#8B8495]">
+                            {act.performedBy} ({act.userRole})
+                          </span>
+                        </div>
+                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5">{act.action}</div>
+                        <div className="text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">{act.description}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#8B8495] mb-2">
+                    History Progress Report & Approval Versions
+                  </div>
+                  <HistoryProgressReportView ticketId={ticket.id} compact />
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN (5/12): STICKY REAL-TIME LIVECHAT */}
+            <div ref={chatSectionRef} className="lg:col-span-5 lg:sticky lg:top-0">
+              {isChatOpen ? (
+                <div className="rounded-xl shadow-md overflow-hidden border border-[#D8CCF3] dark:border-[#35105E] bg-white dark:bg-[#1E1238]">
+                  <TicketLiveChat
+                    ticket={ticket}
+                    initialCategory={chatInitialCategory}
+                    heightClass="h-[640px] lg:h-[740px]"
+                    onCollapse={() => setIsChatOpen(false)}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-[#D8CCF3] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-[#160D29] text-[#A78BFA] flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-sm text-[#160D29] dark:text-white flex items-center gap-2">
+                        <span>Ticket LiveChat</span>
+                        {unreadChatCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DC4C5A] text-white">
+                            {unreadChatCount > 99 ? '99+' : unreadChatCount} Belum Dibaca
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                        Thread WO {ticket.woNumber} · {ticketMessages.length} Pesan Tersimpan
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
+                    Panel LiveChat dilipat sementara agar status <strong>unread</strong> tidak terhapus otomatis saat membuka detail WO. Klik tombol di bawah untuk membuka percakapan real-time.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setIsChatOpen(false)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer"
+                    onClick={() => setIsChatOpen(true)}
+                    className="btn-3d-primary w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    Tutup Chat
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {isChatOpen ? (
-              <div className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/80 shadow-md overflow-hidden bg-white dark:bg-slate-900">
-                <TicketLiveChat ticket={ticket} initialCategory={chatInitialCategory} />
-              </div>
-            ) : (
-              <div className="rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-900/80 bg-indigo-50/40 dark:bg-indigo-950/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-indigo-600" />
-                    <span>Panel Live Chat Terlipat (Unread Tidak Dihapus Otomatis)</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Membuka Detail WO tidak otomatis menandai chat sebagai terbaca. Klik tombol di kanan untuk membuka Live Chat.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsChatOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shrink-0 cursor-pointer shadow-xs"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Buka Live Chat</span>
-                  {unreadChatCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
-                      {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                    <MessageSquare className="w-4 h-4" />
+                    <span>
+                      {unreadChatCount > 0
+                        ? `Buka LiveChat (${unreadChatCount} Pesan Baru)`
+                        : 'Buka Panel LiveChat'}
                     </span>
-                  )}
-                </button>
-              </div>
-            )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-
         </div>
 
-        {/* ============================================================ */}
-        {/* SIMPLE FOOTER                                                */}
-        {/* ============================================================ */}
-        <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-400 flex items-center justify-between shrink-0">
-          <div>
-            WO ID: <span className="font-mono">{ticket.id}</span> · Terakhir Diperbarui: {new Date(ticket.updatedAt).toLocaleTimeString()}
+        {/* MODAL FOOTER */}
+        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0">
+          <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                syncStatus === 'SAVED' ? 'bg-[#16A36A]' : 'bg-[#D97706] animate-pulse'
+              }`}
+            />
+            <span>
+              Sync Status: <strong className="text-[#211A2E] dark:text-white">Express API & Supabase PostgreSQL</strong>
+            </span>
+            <span className="text-[#8B8495]">
+              · WO ID: <span className="font-mono">{ticket.id}</span> · Update:{' '}
+              {new Date(ticket.updatedAt).toLocaleTimeString('id-ID')}
+            </span>
           </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors text-xs"
-          >
-            Tutup Dialog
-          </button>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-3d-ceramic px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              Tutup Modal
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Cetak Berita Acara (BA)</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Evidence Photo Lightbox */}
+      {zoomPhoto && (
+        <div
+          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs"
+          onClick={() => setZoomPhoto(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setZoomPhoto(null)}
+              className="absolute -top-2 -right-2 p-2 bg-[#160D29] text-white rounded-full border border-white/20 hover:bg-[#DC4C5A] transition-colors z-10 cursor-pointer shadow-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={zoomPhoto.url}
+              alt={zoomPhoto.title}
+              referrerPolicy="no-referrer"
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+            />
+            <div className="px-4 py-2 rounded-xl bg-[#160D29]/90 text-white text-xs text-center border border-[#A78BFA]/30">
+              <div className="font-bold">{zoomPhoto.title}</div>
+              <div className="text-[11px] text-[#DAB9FF] font-mono">{zoomPhoto.subtitle}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Management Data Delete Modal Guard */}
       {showDeleteConfirm && currentUser.role === 'management_data' && (
