@@ -687,102 +687,46 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Display Mode Switch: Available for ALL non-Teknisi roles (hidden strictly for installer) */}
           {canSwitchDisplayMode && (
-            <>
-              {/* Compact single-button switch on small screens (< sm), replacing the topbar search button */}
+            <div
+              role="group"
+              aria-label="Display Mode Switch"
+              data-testid="display-mode-switch"
+              className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-[#1E1238] border border-slate-200/90 dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] shrink-0 gap-0.5"
+            >
               <button
                 type="button"
-                onClick={() => setDisplayMode(displayMode === 'mobile' ? 'desktop' : 'mobile')}
-                aria-label={displayMode === 'mobile' ? 'Switch ke Desktop Mode' : 'Switch ke Mobile Mode'}
-                aria-pressed={displayMode === 'mobile'}
-                title={displayMode === 'mobile' ? 'Mode saat ini: Mobile — Ketuk untuk pindah ke Desktop Mode' : 'Mode saat ini: Desktop — Ketuk untuk pindah ke Mobile Mode'}
-                data-testid="display-mode-toggle"
-                className="inline-flex sm:hidden btn-3d-icon min-w-[38px] min-h-[38px] cursor-pointer text-[#58149C] dark:text-[#DAB9FF]"
+                onClick={() => setDisplayMode('desktop')}
+                aria-label="Desktop Mode"
+                aria-pressed={displayMode === 'desktop'}
+                data-testid="display-mode-desktop"
+                title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
+                className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                  displayMode === 'desktop'
+                    ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
+                }`}
               >
-                {displayMode === 'mobile' ? (
-                  <Monitor className="w-4 h-4 shrink-0" />
-                ) : (
-                  <Smartphone className="w-4 h-4 shrink-0" />
-                )}
+                <Monitor className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Desktop</span>
               </button>
-
-              {/* Segmented Desktop | Mobile switch on sm+ screens */}
-              <div
-                role="group"
-                aria-label="Display Mode Switch"
-                data-testid="display-mode-switch"
-                className="hidden sm:inline-flex items-center p-0.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0 gap-0.5"
+              <button
+                type="button"
+                onClick={() => setDisplayMode('mobile')}
+                aria-label="Mobile Mode"
+                aria-pressed={displayMode === 'mobile'}
+                data-testid="display-mode-mobile"
+                title="Mobile Mode — Layout compact, drawer navigation, dan card view"
+                className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                  displayMode === 'mobile'
+                    ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
+                }`}
               >
-                <button
-                  type="button"
-                  onClick={() => setDisplayMode('desktop')}
-                  aria-pressed={displayMode === 'desktop'}
-                  data-testid="display-mode-desktop"
-                  title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                    displayMode === 'desktop'
-                      ? 'btn-3d-primary'
-                      : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
-                  }`}
-                >
-                  <Monitor className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Desktop</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDisplayMode('mobile')}
-                  aria-pressed={displayMode === 'mobile'}
-                  data-testid="display-mode-mobile"
-                  title="Mobile Mode — Layout compact, drawer navigation, dan card view"
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                    displayMode === 'mobile'
-                      ? 'btn-3d-primary'
-                      : 'text-[#63597B] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Mobile</span>
-                </button>
-              </div>
-            </>
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Mobile</span>
+              </button>
+            </div>
           )}
-
-          {/* Offline Queue & Online Status Chip */}
-          <button
-            type="button"
-            onClick={() => setIsOfflineModalOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-              !isOnline
-                ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#B45309] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
-                : pendingCount > 0
-                ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#92400E] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
-                : 'bg-[#16A36A]/10 border-[#16A36A]/20 text-[#16A36A] dark:bg-emerald-950/50 dark:border-emerald-700/50 dark:text-emerald-300'
-            }`}
-            title="Pusat Sinkronisasi Database Offline"
-          >
-            {!isOnline ? (
-              <>
-                <WifiOff className="w-3.5 h-3.5 shrink-0" />
-                <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>
-                  {isSimulatedOffline ? 'Simulasi Offline' : 'Offline'}
-                </span>
-              </>
-            ) : isSyncing ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-[#7135B5]" />
-                <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>Syncing</span>
-              </>
-            ) : (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A] animate-ping shrink-0" />
-                <span className={isMobileView ? 'hidden sm:inline' : 'hidden md:inline'}>● Online</span>
-              </>
-            )}
-            {!isMobileView && (
-              <span className="hidden lg:inline font-medium text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
-                {pendingCount} Pending
-              </span>
-            )}
-          </button>
 
           {/* Cloud Live Pill & Trigger Refresh */}
           <button
@@ -1056,6 +1000,44 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               </>
             )}
           </div>
+
+          {/* Offline Queue & Online Status Chip */}
+          <button
+            type="button"
+            onClick={() => setIsOfflineModalOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-full border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              !isOnline
+                ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#B45309] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
+                : pendingCount > 0
+                ? 'bg-[#FEF3C7] border-[#E59A27]/40 text-[#92400E] dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
+                : 'bg-[#16A36A]/10 border-[#16A36A]/20 text-[#16A36A] dark:bg-emerald-950/50 dark:border-emerald-700/50 dark:text-emerald-300'
+            }`}
+            title="Pusat Sinkronisasi Database Offline"
+          >
+            {!isOnline ? (
+              <>
+                <WifiOff className="w-3.5 h-3.5 shrink-0" />
+                <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>
+                  {isSimulatedOffline ? 'Simulasi Offline' : 'Offline'}
+                </span>
+              </>
+            ) : isSyncing ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-[#7135B5]" />
+                <span className={isMobileView ? 'hidden' : 'hidden sm:inline'}>Syncing</span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A] animate-ping shrink-0" />
+                <span className={isMobileView ? 'hidden sm:inline' : 'hidden md:inline'}>● Online</span>
+              </>
+            )}
+            {!isMobileView && (
+              <span className="hidden lg:inline font-medium text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+                {pendingCount} Pending
+              </span>
+            )}
+          </button>
         </div>
       </header>
     </>

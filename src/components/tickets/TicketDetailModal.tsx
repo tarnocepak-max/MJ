@@ -595,18 +595,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 <span className="hidden sm:inline">Hapus WO</span>
               </button>
             )}
-
-            <div className="hidden sm:block h-5 w-px bg-[#E9E5F0] dark:bg-[#35105E] mx-0.5" aria-hidden="true" />
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-3d-icon w-8 h-8 rounded-lg cursor-pointer hover:text-[#BA1A1A] ml-auto sm:ml-0"
-              aria-label="Tutup Dialog"
-              title="Tutup Modal (Esc)"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -753,23 +741,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   </span>
                 </div>
               </div>
-            </div>
-
-            {/* Compact 7-Step WO Lifecycle Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-              {lifecycleSteps.map(step => (
-                <div
-                  key={step.label}
-                  className={`rounded-lg px-2.5 py-2 border text-[10.5px] ${
-                    step.done
-                      ? 'bg-[#ECFDF5]/70 dark:bg-emerald-950/30 border-[#86EFAC] dark:border-emerald-800 text-[#15803D] dark:text-emerald-300'
-                      : 'bg-[#F8FAFC] dark:bg-[#160D29] border-[#E2E8F0] dark:border-[#35105E] text-[#766B83] dark:text-[#CEC0E8]'
-                  }`}
-                >
-                  <div className="font-bold truncate">{step.label}</div>
-                  <div className="truncate font-mono text-[10px] mt-0.5 tabular-nums">{step.detail}</div>
-                </div>
-              ))}
             </div>
 
             {/* 4 Precision Telemetry Cards */}
@@ -1495,22 +1466,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0">
-          <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                syncStatus === 'SAVED' ? 'bg-[#16A36A]' : 'bg-[#D97706] animate-pulse'
-              }`}
-            />
-            <span>
-              Sync Status: <strong className="text-[#211A2E] dark:text-white">Express API & Supabase PostgreSQL</strong>
-            </span>
-            <span className="text-[#8B8495]">
-              · WO ID: <span className="font-mono">{ticket.id}</span> · Update:{' '}
-              {new Date(ticket.updatedAt).toLocaleTimeString('id-ID')}
-            </span>
-          </div>
-
+        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0">
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               type="button"

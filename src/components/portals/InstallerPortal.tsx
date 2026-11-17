@@ -7,7 +7,6 @@ import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusB
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from '../tickets/TechnicalReportForm';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
-import { WorkOrderQuickUpdateSheet } from '../tickets/WorkOrderQuickUpdateSheet';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
@@ -39,7 +38,6 @@ import {
   Eye,
   Check,
   X,
-  Play,
   AlertCircle,
   Router,
   RefreshCw,
@@ -47,7 +45,6 @@ import {
   Package,
   ShieldAlert,
   SlidersHorizontal,
-  Zap,
   ArrowUpDown
 } from 'lucide-react';
 
@@ -146,7 +143,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   const {
     tickets,
     updateTicketStatus,
-    startWorkOnTicket,
     sendTicketMessage,
     currentUser,
     users,
@@ -228,7 +224,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   }, [activeKpiDrilldown]);
 
   const [fullviewTicket, setFullviewTicket] = useState<Ticket | null>(null);
-  const [quickUpdateTicket, setQuickUpdateTicket] = useState<Ticket | null>(null);
   const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'details' | 'chat'>('details');
   const [chatInitialCategory, setChatInitialCategory] = useState<string | undefined>(undefined);
@@ -1166,47 +1161,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   {/* 5. TACTILE ACTION BAR */}
                   <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-[#E8DDFF] dark:border-[#35105E]">
                     <div className="flex flex-wrap items-center gap-2">
-                      {!ticketClosed && !ticket.workStartedAt && (ticket.statusWOInstaller === 'Assigned' || !ticket.statusWOInstaller) && (
-                        <button
-                          type="button"
-                          onClick={async e => {
-                            e.stopPropagation();
-                            try {
-                              const res = await startWorkOnTicket(ticket.id);
-                              if (res.success && res.ticket) {
-                                setFullviewTicket(res.ticket);
-                                toast.success(
-                                  `Tiket WO ${ticket.woNumber} dibuka dan status pengerjaan dimulai.`,
-                                  'Mulai Dikerjakan',
-                                  { withSound: true }
-                                );
-                              } else if (!res.success && res.error) {
-                                toast.error(res.error, 'Gagal Memulai Pengerjaan');
-                              } else {
-                                setFullviewTicket(ticket);
-                              }
-                            } catch {
-                              setFullviewTicket(ticket);
-                            }
-                          }}
-                          className="tactile-btn-primary px-4 py-2 min-h-[42px] bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>Mulai Kerjakan</span>
-                        </button>
-                      )}
-
-                      {!ticketClosed && ticket.statusWOInstaller === 'Assigned' && !ticket.workStartedAt && (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickStatus(ticket.id, 'En Route', 'Teknisi berangkat menuju lokasi pelanggan')}
-                          className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-white dark:bg-[#261942] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-700/50 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Navigation className="w-3.5 h-3.5" />
-                          <span>Otw</span>
-                        </button>
-                      )}
-
                       {!ticketClosed && ticket.statusWOInstaller === 'En Route' && (
                         <button
                           type="button"
@@ -1260,18 +1214,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                           </span>
                         )}
                       </button>
-
-                      {!ticketClosed && currentUser.role !== 'leader' && (
-                        <button
-                          type="button"
-                          onClick={() => setQuickUpdateTicket(ticket)}
-                          className="px-4 py-2 min-h-[42px] bg-[#006194] hover:bg-[#004b73] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
-                          title="Update status cepat, log #PROGRESS, foto & tanda tangan PIC"
-                        >
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>Update Cepat</span>
-                        </button>
-                      )}
 
                       <button
                         type="button"
@@ -1521,14 +1463,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           <TicketLiveChat ticket={chatModalTicket} initialCategory={chatInitialCategory} />
         )}
       </ResponsiveModal>
-
-      {/* Stitch Screen 3: Quick Status, Photo, Log & Signature Bottom Sheet */}
-      <WorkOrderQuickUpdateSheet
-        ticket={quickUpdateTicket}
-        isOpen={Boolean(quickUpdateTicket)}
-        onClose={() => setQuickUpdateTicket(null)}
-        onOpenFullReport={t => handleOpenTicket(t)}
-      />
     </div>
   );
 };

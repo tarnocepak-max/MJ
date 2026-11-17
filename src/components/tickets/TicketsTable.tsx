@@ -56,7 +56,6 @@ import {
   ExternalLink,
   Lock,
   Camera,
-  MoreVertical,
   UserX,
   UserCheck,
   Server,
@@ -214,14 +213,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     databaseStatus,
     syncStatus
   } = useApp();
-  const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
+  const { config, setColumnVisibility, applyPreset, isMobileView, canSwitchDisplayMode, setDisplayMode } = useUIConfig();
   const { isCompactUI } = useResponsiveViewport();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Layout mode: 'cards' or 'table' ('auto' follows Display Mode & responsive viewport)
+  // Layout mode: 'cards' or 'table' ('auto' follows synchronized Display Mode)
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
   // Table presentation mode: 'stitch' (rich 9-col grouped view) vs 'canonical' (46-col configurable view)
   const [tableStyleMode, setTableStyleMode] = useState<'stitch' | 'canonical'>('stitch');
@@ -241,10 +240,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
   const effectiveLayout: 'cards' | 'table' =
     layoutMode === 'auto'
-      ? isCompactUI || config.device?.android?.layoutType === 'cards'
+      ? isCompactUI
         ? 'cards'
         : 'table'
       : layoutMode;
+
+  const handleSelectLayoutMode = (nextLayout: 'table' | 'cards') => {
+    setLayoutMode(nextLayout);
+    if (canSwitchDisplayMode) {
+      setDisplayMode(nextLayout === 'table' ? 'desktop' : 'mobile');
+    }
+  };
 
   // Search & 6-Column Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -265,7 +271,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [copiedWoId, setCopiedWoId] = useState<string | null>(null);
-  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
 
   // Bulk Approve confirmation state
   const [showBulkApproveConfirm, setShowBulkApproveConfirm] = useState(false);
@@ -1983,30 +1988,38 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
           {/* Right: Table/Cards Toggle, 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
           <div className="flex items-center gap-2 flex-wrap ml-auto">
-            {/* Layout Toggle */}
-            <div className="flex items-center bg-[#F4EAFF] dark:bg-[#22123F] rounded-lg p-0.5 border border-[#D8CCF3] dark:border-[#35105E] gap-1">
+            {/* Layout Toggle (Synchronized with Topbar Display Mode Switch) */}
+            <div
+              role="group"
+              aria-label="Table & Cards Layout Switch"
+              className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-[#1E1238] border border-slate-200/90 dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] shrink-0 gap-0.5"
+            >
               <button
                 type="button"
-                onClick={() => setLayoutMode('table')}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-all ${
+                onClick={() => handleSelectLayoutMode('table')}
+                aria-pressed={effectiveLayout === 'table'}
+                title="Tampilan Table (Terintegrasi dengan Desktop Mode)"
+                className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                   effectiveLayout === 'table'
-                    ? 'btn-3d-primary'
-                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                    ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
                 }`}
               >
-                <Monitor className="w-3.5 h-3.5" />
+                <Monitor className="w-3.5 h-3.5 shrink-0" />
                 <span>Table</span>
               </button>
               <button
                 type="button"
-                onClick={() => setLayoutMode('cards')}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-all ${
+                onClick={() => handleSelectLayoutMode('cards')}
+                aria-pressed={effectiveLayout === 'cards'}
+                title="Tampilan Cards (Terintegrasi dengan Mobile Mode)"
+                className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                   effectiveLayout === 'cards'
-                    ? 'btn-3d-primary'
-                    : 'text-[#766B83] dark:text-[#CEC0E8] hover:text-[#211A2E] dark:hover:text-white'
+                    ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
                 }`}
               >
-                <Smartphone className="w-3.5 h-3.5" />
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
                 <span>Cards</span>
               </button>
             </div>
@@ -2504,7 +2517,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         isRejectedRow ||
                         Boolean(ticket.technicalReport) ||
                         Boolean(ticket.progressReports && ticket.progressReports.length > 0);
-                      const unread = getTicketUnreadCount(ticket.id);
                       const phoneStr = ticket.customerPhone || (ticket as any).phoneNumber || '';
                       const addressStr =
                         ticket.streetName ||
@@ -2716,210 +2728,23 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               </div>
                             </td>
 
-                            {/* 9. Sticky-Right Aksi Operasional */}
+                            {/* 9. Sticky-Right Aksi Operasional (Hanya tombol Detail Ticket) */}
                             <td
                               className={`py-3 px-3 align-top text-right whitespace-nowrap sticky right-0 z-10 ${stickyBg} shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)] transition-colors`}
                             >
-                              <div className="flex items-center justify-end gap-1.5 relative">
-                                {hasInlineEvidence && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      toggleInlineDrawer(ticket);
-                                    }}
-                                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap ${
-                                      isExpanded ? 'btn-3d-primary' : 'btn-3d-ceramic text-[#35105E]'
-                                    }`}
-                                  >
-                                    {isExpanded ? 'Tutup' : 'Review'}
-                                  </button>
-                                )}
-
-                                {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      if (!isExpanded) {
-                                        toggleInlineDrawer(ticket);
-                                      } else {
-                                        handleInlineApprove(ticket);
-                                      }
-                                    }}
-                                    className="btn-3d-success px-3 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                                  >
-                                    Approve
-                                  </button>
-                                )}
-
-                                {ticket.approvalStatus === 'APPROVED' ? (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      onSelectTicket(ticket, 'report');
-                                    }}
-                                    className="btn-3d-ceramic px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                                  >
-                                    Detail BA
-                                  </button>
-                                ) : isRejectedRow ? (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      onSelectTicket(ticket, 'report');
-                                    }}
-                                    className="btn-3d-danger px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                                  >
-                                    Revisi
-                                  </button>
-                                ) : !ticket.installerName && currentUser.role === 'leader' ? (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      onSelectTicket(ticket, 'overview');
-                                    }}
-                                    className="btn-3d-primary px-3 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                                  >
-                                    Assign
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      onSelectTicket(ticket);
-                                    }}
-                                    className="btn-3d-ceramic px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                                  >
-                                    Detail
-                                  </button>
-                                )}
-
-                                {/* Overflow Action Menu */}
-                                <div className="relative">
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      setOpenRowMenuId(prev =>
-                                        prev === ticket.id ? null : ticket.id
-                                      );
-                                    }}
-                                    className="btn-3d-icon w-7 h-7 relative cursor-pointer"
-                                    aria-label="Aksi lainnya"
-                                    title="Aksi lainnya"
-                                  >
-                                    <MoreVertical className="w-3.5 h-3.5" />
-                                    {unread > 0 && (
-                                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#DC4C5A] ring-2 ring-white dark:ring-[#1E1238]" />
-                                    )}
-                                  </button>
-
-                                  {openRowMenuId === ticket.id && (
-                                    <>
-                                      <div
-                                        className="fixed inset-0 z-30"
-                                        onClick={e => {
-                                          e.stopPropagation();
-                                          setOpenRowMenuId(null);
-                                        }}
-                                      />
-                                      <div className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xl border border-[#D8CCF3] dark:border-[#35105E] py-1.5 z-40 text-left text-xs">
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            setOpenRowMenuId(null);
-                                            onSelectTicket(ticket, 'overview');
-                                          }}
-                                          className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 text-[#211A2E] dark:text-white cursor-pointer"
-                                        >
-                                          <Eye className="w-3.5 h-3.5 text-[#7135B5]" />
-                                          <span>Buka Ticket Fullview</span>
-                                        </button>
-
-                                        {['super_admin', 'dispatch', 'installer'].includes(
-                                          currentUser.role
-                                        ) && (
-                                          <button
-                                            type="button"
-                                            onClick={e => {
-                                              e.stopPropagation();
-                                              setOpenRowMenuId(null);
-                                              onSelectTicket(ticket, 'chat');
-                                            }}
-                                            className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center justify-between text-[#211A2E] dark:text-white cursor-pointer"
-                                          >
-                                            <span className="flex items-center gap-2">
-                                              <MessageCircle className="w-3.5 h-3.5 text-[#431599]" />
-                                              <span>Live Chat</span>
-                                            </span>
-                                            {unread > 0 && (
-                                              <span className="px-1.5 py-0.2 bg-[#DC4C5A] text-white text-[10px] rounded-full font-bold tabular-nums">
-                                                {unread}
-                                              </span>
-                                            )}
-                                          </button>
-                                        )}
-
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            setOpenRowMenuId(null);
-                                            onOpenWhatsApp(ticket);
-                                          }}
-                                          className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 text-[#16A36A] font-semibold cursor-pointer"
-                                        >
-                                          <MessageSquare className="w-3.5 h-3.5" />
-                                          <span>WhatsApp Pelanggan</span>
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            setOpenRowMenuId(null);
-                                            if (ticket.isArchived) restoreTicket(ticket.id);
-                                            else archiveTicket(ticket.id);
-                                          }}
-                                          className="w-full px-3 py-1.5 hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 text-[#766B83] dark:text-[#CEC0E8] cursor-pointer"
-                                        >
-                                          {ticket.isArchived ? (
-                                            <>
-                                              <RotateCcw className="w-3.5 h-3.5" />
-                                              <span>Restore dari Arsip</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Archive className="w-3.5 h-3.5" />
-                                              <span>Arsipkan WO</span>
-                                            </>
-                                          )}
-                                        </button>
-
-                                        {currentUser.role === 'management_data' && (
-                                          <button
-                                            type="button"
-                                            onClick={e => {
-                                              e.stopPropagation();
-                                              setOpenRowMenuId(null);
-                                              setTicketToDelete(ticket);
-                                            }}
-                                            className="w-full px-3 py-1.5 hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 flex items-center gap-2 text-[#DC4C5A] font-semibold cursor-pointer border-t border-[#E9E5F0] dark:border-[#35105E] mt-1 pt-2"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                            <span>Hapus Work Order</span>
-                                          </button>
-                                        )}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
+                              <div className="flex items-center justify-end">
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    onSelectTicket(ticket);
+                                  }}
+                                  className="btn-3d-ceramic px-2.5 py-1 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                                  title="Buka Detail Ticket"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                                  <span>Detail</span>
+                                </button>
                               </div>
                             </td>
                           </tr>
