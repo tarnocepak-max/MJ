@@ -94,7 +94,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 backdrop-blur-xs">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
         {/* Header with Security Badge */}
         <div className="px-5 py-4 bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-900/60 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">

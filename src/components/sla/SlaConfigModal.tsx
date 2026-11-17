@@ -84,19 +84,19 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4">
+      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between bg-[#F7F6FA] dark:bg-[#160D29]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#431599]/10 dark:bg-[#7135B5]/25 text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 bg-[#F7F6FA] dark:bg-[#160D29]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#431599]/10 dark:bg-[#7135B5]/25 text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
               <Sliders className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
+            <div className="min-w-0">
+              <h3 className="font-display font-bold text-sm sm:text-base text-[#211A2E] dark:text-white truncate">
                 Ambang Batas SLA &amp; Klausul PKS Vendor
               </h3>
-              <p className="text-[11px] text-[#766B83] dark:text-[#A78BFA]">
+              <p className="text-[11px] text-[#766B83] dark:text-[#A78BFA] truncate">
                 Versi Konfigurasi: v{configVersion} • {isConfigPersistedInDb ? 'Tersimpan di Database Pusat' : 'Baseline Default Sistem'}
               </p>
             </div>
@@ -104,18 +104,18 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-[#766B83] hover:bg-white dark:hover:bg-[#35105E] transition-colors"
+            className="p-2 rounded-lg text-[#766B83] hover:bg-white dark:hover:bg-[#35105E] transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-6 pt-3 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2 bg-white dark:bg-[#1E1238]">
+        <div className="px-4 sm:px-6 pt-3 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2 bg-white dark:bg-[#1E1238] overflow-x-auto no-scrollbar shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('thresholds')}
-            className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'thresholds'
                 ? 'border-[#431599] text-[#431599] dark:text-[#D8B4FE] dark:border-[#A78BFA]'
                 : 'border-transparent text-[#766B83] hover:text-[#211A2E] dark:hover:text-white'
@@ -127,7 +127,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('pks')}
-            className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'pks'
                 ? 'border-[#431599] text-[#431599] dark:text-[#D8B4FE] dark:border-[#A78BFA]'
                 : 'border-transparent text-[#766B83] hover:text-[#211A2E] dark:hover:text-white'
@@ -138,7 +138,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {!canEdit && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300">
               <Shield className="w-4 h-4 shrink-0 mt-0.5" />

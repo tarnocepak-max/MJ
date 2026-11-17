@@ -59,10 +59,14 @@ import {
   UserCheck,
   Server,
   BadgeCheck,
-  XCircle
+  XCircle,
+  Filter
 } from 'lucide-react';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { ResponsiveModal } from '../common/ResponsiveModal';
+import { PaginationBar } from '../common/PaginationBar';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
 import {
@@ -208,15 +212,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     syncStatus
   } = useApp();
   const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Layout mode: 'cards' or 'table' ('auto' follows Display Mode)
+  // Layout mode: 'cards' or 'table' ('auto' follows Display Mode & responsive viewport)
   const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
   // Table presentation mode: 'stitch' (rich 9-col grouped view) vs 'canonical' (46-col configurable view)
   const [tableStyleMode, setTableStyleMode] = useState<'stitch' | 'canonical'>('stitch');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   useEffect(() => {
     setLayoutMode('auto');
@@ -231,7 +237,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
   const effectiveLayout: 'cards' | 'table' =
     layoutMode === 'auto'
-      ? isMobileView || config.device?.android?.layoutType === 'cards'
+      ? isCompactUI || config.device?.android?.layoutType === 'cards'
         ? 'cards'
         : 'table'
       : layoutMode;
@@ -1540,50 +1546,74 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       </section>
 
       {/* 2. COMPREHENSIVE FILTER & OPERATIONAL TOOLBAR */}
-      <section className="bg-white dark:bg-[#1E1238] rounded-lg p-3.5 shadow-xs space-y-3 border border-[#E9E5F0] dark:border-[#35105E]">
+      <section className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 shadow-xs space-y-3 border border-[#E9E5F0] dark:border-[#35105E]">
         {/* Search Row & Appointment Scope + Live SSE */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 justify-between">
-          <div className="relative flex-1 max-w-2xl">
-            <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder={
-                isCrossDateSearchEligible
-                  ? 'Cari Nomor WO (e.g. WO20267399330) atau ID Customer 7-digit... (Cross-Date aktif jika diisi)'
-                  : 'Cari WO Hari Ini (Nomor WO, ID Customer, Nama, Teknisi)...'
-              }
-              value={searchTerm}
-              onChange={e => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full pl-9 pr-24 py-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:border-[#A78BFA] focus:ring-2 focus:ring-[#A78BFA]/40 transition-all"
-            />
-            <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
-              {searchTerm ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm('');
-                    setCurrentPage(1);
-                  }}
-                  className="px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#766B83] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] shadow-2xs cursor-pointer hover:bg-[#E9D5FF]"
-                >
-                  ESC clear
-                </button>
-              ) : (
-                !isMobileView && (
-                  <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[10px] font-mono font-semibold text-[#766B83] dark:text-[#D8B4FE]">
-                    /
-                  </kbd>
-                )
-              )}
+          <div className="flex items-center gap-2 flex-1 max-w-2xl">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={
+                  isCrossDateSearchEligible
+                    ? 'Cari Nomor WO / ID Customer 7-digit...'
+                    : 'Cari WO Hari Ini (Nomor WO, ID, Nama, Teknisi)...'
+                }
+                value={searchTerm}
+                onChange={e => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[42px] sm:min-h-[36px] pl-9 pr-20 py-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:border-[#A78BFA] focus:ring-2 focus:ring-[#A78BFA]/40 transition-all"
+              />
+              <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+                {searchTerm ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#766B83] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] shadow-2xs cursor-pointer hover:bg-[#E9D5FF]"
+                  >
+                    Clear
+                  </button>
+                ) : (
+                  !isCompactUI && (
+                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[10px] font-mono font-semibold text-[#766B83] dark:text-[#D8B4FE]">
+                      /
+                    </kbd>
+                  )
+                )}
+              </div>
             </div>
+
+            {isCompactUI && (
+              <button
+                type="button"
+                onClick={() => setShowMobileFilters(prev => !prev)}
+                className={`min-h-[42px] px-3 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors ${
+                  showMobileFilters ||
+                  selectedArea !== 'ALL' ||
+                  selectedContractor !== 'ALL' ||
+                  selectedAgentStatus !== 'ALL' ||
+                  selectedInstallerStatus !== 'ALL' ||
+                  selectedWhatsAppStatus !== 'ALL' ||
+                  selectedApprovalStatus !== 'ALL' ||
+                  selectedCategory !== 'ALL'
+                    ? 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border-[#7135B5]'
+                    : 'bg-[#F7F6FA] dark:bg-[#160D29] text-[#4B4452] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E]'
+                }`}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filter</span>
+              </button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="btn-3d-ceramic flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[#35105E] dark:text-[#E9D5FF]">
+            <div className="btn-3d-ceramic flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[#35105E] dark:text-[#E9D5FF]">
               <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
               <span className="text-[11px] font-bold whitespace-nowrap tabular-nums">
                 {isCrossDateActive
@@ -1592,7 +1622,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] text-[#766B83] shadow-2xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] text-[#766B83] shadow-2xs">
               <span
                 className={`w-2 h-2 rounded-full ${
                   databaseStatus === 'connected'
@@ -1613,7 +1643,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   );
                   toast.sync('Tabel Work Order berhasil diperbarui.');
                 }}
-                className="btn-3d-icon w-6 h-6 ml-1 cursor-pointer"
+                className="btn-3d-icon w-7 h-7 sm:w-6 sm:h-6 ml-1 cursor-pointer"
                 title="Refresh Data"
                 aria-label="Refresh Data"
               >
@@ -1644,7 +1674,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 setSearchTerm('');
                 setCurrentPage(1);
               }}
-              className="btn-3d-ceramic px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer whitespace-nowrap"
+              className="btn-3d-ceramic px-2.5 py-1.5 min-h-[36px] sm:min-h-0 rounded-lg text-xs font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer whitespace-nowrap"
             >
               <X className="w-3.5 h-3.5" />
               <span>Reset ke Hari Ini</span>
@@ -1652,148 +1682,174 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           </div>
         )}
 
-        {/* 6-Column Filter Matrix (Area Servis, Mitra Kontraktor, Status WO Agent, Status Lapangan, WA Handshake, Approval Dispatch) */}
-        <div
-          className={`grid gap-2 text-xs ${
-            isMobileView
-              ? 'grid-cols-1 sm:grid-cols-2'
-              : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
-          }`}
-        >
-          <div>
-            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
-              Area Servis
-            </label>
-            <select
-              value={selectedArea}
-              onChange={e => {
-                setSelectedArea(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-            >
-              <option value="ALL">Semua Area ({areaOptions.length})</option>
-              {areaOptions.map(a => (
-                <option key={a.name} value={a.name}>
-                  {a.name} ({a.count})
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* 6-Column Filter Matrix (Always shown on desktop; collapsible on mobile/compact UI) */}
+        {(!isCompactUI || showMobileFilters) && (
+          <div
+            className={`grid gap-2 text-xs ${
+              isCompactUI
+                ? 'grid-cols-1 sm:grid-cols-2'
+                : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
+            }`}
+          >
+            <div>
+              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                Area Servis
+              </label>
+              <select
+                value={selectedArea}
+                onChange={e => {
+                  setSelectedArea(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+              >
+                <option value="ALL">Semua Area ({areaOptions.length})</option>
+                {areaOptions.map(a => (
+                  <option key={a.name} value={a.name}>
+                    {a.name} ({a.count})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
-              Mitra Kontraktor
-            </label>
-            <select
-              value={selectedContractor}
-              onChange={e => {
-                setSelectedContractor(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-            >
-              <option value="ALL">Semua Kontraktor ({contractorOptions.length})</option>
-              {contractorOptions.map(c => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                Mitra Kontraktor
+              </label>
+              <select
+                value={selectedContractor}
+                onChange={e => {
+                  setSelectedContractor(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+              >
+                <option value="ALL">Semua Kontraktor ({contractorOptions.length})</option>
+                {contractorOptions.map(c => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
-              Status WO Agent
-            </label>
-            <select
-              value={selectedAgentStatus}
-              onChange={e => {
-                setSelectedAgentStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-            >
-              <option value="ALL">statusWOAgent (All)</option>
-              <option value="Pending">Pending</option>
-              <option value="Assigned">Assigned</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-              <option value="Closed">Closed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-          </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                Status WO Agent
+              </label>
+              <select
+                value={selectedAgentStatus}
+                onChange={e => {
+                  setSelectedAgentStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+              >
+                <option value="ALL">statusWOAgent (All)</option>
+                <option value="Pending">Pending</option>
+                <option value="Assigned">Assigned</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Closed">Closed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
-              Status Lapangan (Tech)
-            </label>
-            <select
-              value={selectedInstallerStatus}
-              onChange={e => {
-                setSelectedInstallerStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-            >
-              <option value="ALL">statusWOInstaller (All)</option>
-              <option value="Unassigned">Unassigned</option>
-              <option value="Assigned">Assigned</option>
-              <option value="En Route">En Route</option>
-              <option value="On Site">On Site</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Pending Technical">Pending Technical</option>
-              <option value="Completed">Completed</option>
-              <option value="Installed">Installed</option>
-              <option value="Failed / Cancelled">Failed / Cancelled</option>
-            </select>
-          </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                Status Lapangan (Tech)
+              </label>
+              <select
+                value={selectedInstallerStatus}
+                onChange={e => {
+                  setSelectedInstallerStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+              >
+                <option value="ALL">statusWOInstaller (All)</option>
+                <option value="Unassigned">Unassigned</option>
+                <option value="Assigned">Assigned</option>
+                <option value="En Route">En Route</option>
+                <option value="On Site">On Site</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Pending Technical">Pending Technical</option>
+                <option value="Completed">Completed</option>
+                <option value="Installed">Installed</option>
+                <option value="Failed / Cancelled">Failed / Cancelled</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
-              WhatsApp Handshake
-            </label>
-            <select
-              value={selectedWhatsAppStatus}
-              onChange={e => {
-                setSelectedWhatsAppStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-            >
-              <option value="ALL">statusWhatsApp (All)</option>
-              <option value="not_prepared">Not Prepared</option>
-              <option value="ready">Ready</option>
-              <option value="opened_in_whatsapp">Opened in WhatsApp</option>
-              <option value="awaiting_confirmation">Awaiting Confirmation</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="reschedule_requested">Reschedule Requested</option>
-              <option value="unreachable">Unreachable</option>
-              <option value="invalid_number">Invalid Phone</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                WhatsApp Handshake
+              </label>
+              <select
+                value={selectedWhatsAppStatus}
+                onChange={e => {
+                  setSelectedWhatsAppStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+              >
+                <option value="ALL">statusWhatsApp (All)</option>
+                <option value="not_prepared">Not Prepared</option>
+                <option value="ready">Ready</option>
+                <option value="opened_in_whatsapp">Opened in WhatsApp</option>
+                <option value="awaiting_confirmation">Awaiting Confirmation</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="reschedule_requested">Reschedule Requested</option>
+                <option value="unreachable">Unreachable</option>
+                <option value="invalid_number">Invalid Phone</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-[#35105E] dark:text-[#D8B4FE] mb-0.5">
-              Approval Dispatch
-            </label>
-            <select
-              value={selectedApprovalStatus}
-              onChange={e => {
-                setSelectedApprovalStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-1.5 px-2 bg-[#F7F6FA] dark:bg-[#35105E]/50 rounded text-xs text-[#35105E] dark:text-[#F5F1FF] font-semibold border border-[#D8CCF3] dark:border-[#5B35B1] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-            >
-              <option value="ALL">approvalStatus (All)</option>
-              <option value="BUTUH APPROVAL">BUTUH APPROVAL ({approvalCounts.butuhApproval})</option>
-              <option value="APPROVED">APPROVED ({approvalCounts.approved})</option>
-              <option value="REJECTED">REJECTED / REVISI ({approvalCounts.rejected})</option>
-              <option value="CLOSED">CLOSED ({approvalCounts.closed})</option>
-            </select>
+            <div>
+              <label className="block text-[10px] font-semibold text-[#35105E] dark:text-[#D8B4FE] mb-0.5">
+                Approval Dispatch
+              </label>
+              <select
+                value={selectedApprovalStatus}
+                onChange={e => {
+                  setSelectedApprovalStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#35105E]/50 rounded-lg text-xs text-[#35105E] dark:text-[#F5F1FF] font-semibold border border-[#D8CCF3] dark:border-[#5B35B1] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+              >
+                <option value="ALL">approvalStatus (All)</option>
+                <option value="BUTUH APPROVAL">BUTUH APPROVAL ({approvalCounts.butuhApproval})</option>
+                <option value="APPROVED">APPROVED ({approvalCounts.approved})</option>
+                <option value="REJECTED">REJECTED / REVISI ({approvalCounts.rejected})</option>
+                <option value="CLOSED">CLOSED ({approvalCounts.closed})</option>
+              </select>
+            </div>
+
+            {isCompactUI && ticketCategories.length > 0 && (
+              <div>
+                <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                  Kategori Tiket
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={e => {
+                    setSelectedCategory(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Filter Kategori Tiket Mobile"
+                  className="w-full min-h-[40px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E]"
+                >
+                  <option value="ALL">Kategori (All)</option>
+                  {ticketCategories.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Action Utilities Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 bg-[#F7F6FA] dark:bg-[#160D29]/80 p-2.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
@@ -1990,158 +2046,155 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               </button>
             )}
 
-            {/* 46 Kolom Kanonik + Presets Selector Popover */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowColManager(!showColManager)}
-                className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                title={
-                  omittedEmptyCount > 0
-                    ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini`
-                    : 'Atur tampilan & 46 Kolom Kanonik'
-                }
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
-                <span>
-                  46 Kolom Kanonik
-                  {tableStyleMode === 'canonical' ? ` (${activeColumns.length})` : ''}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#8B8495]" />
-              </button>
+            {/* 46 Kolom Kanonik + Presets Selector Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => setShowColManager(true)}
+              className="btn-3d-ceramic px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              title={
+                omittedEmptyCount > 0
+                  ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini`
+                  : 'Atur tampilan & 46 Kolom Kanonik'
+              }
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+              <span>
+                46 Kolom Kanonik
+                {tableStyleMode === 'canonical' ? ` (${activeColumns.length})` : ''}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#8B8495]" />
+            </button>
 
-              {showColManager && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowColManager(false)} />
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] rounded-xl shadow-xl border border-[#D8CCF3] dark:border-[#35105E] p-3.5 z-50 text-xs space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-[#E9E5F0] dark:border-[#35105E]">
-                      <div>
-                        <span className="font-bold text-[#211A2E] dark:text-white">
-                          Mode Tabel &amp; 46 Kolom Kanonik
-                        </span>
-                        {omittedEmptyCount > 0 && tableStyleMode === 'canonical' && (
-                          <span className="block text-[10px] text-[#7135B5] dark:text-[#D8B4FE]">
-                            Smart Omit: {omittedEmptyCount} kolom kosong disembunyikan
-                          </span>
-                        )}
+            <ResponsiveModal
+              isOpen={showColManager}
+              onClose={() => setShowColManager(false)}
+              title="Mode Tabel & 46 Kolom Kanonik"
+              subtitle={
+                omittedEmptyCount > 0 && tableStyleMode === 'canonical'
+                  ? `Smart Omit: ${omittedEmptyCount} kolom kosong disembunyikan otomatis`
+                  : 'Sesuaikan preset tampilan atau kolom kanonik yang ditampilkan'
+              }
+              icon={<SlidersHorizontal className="w-4 h-4" />}
+              size="md"
+              footer={
+                <button
+                  type="button"
+                  onClick={() => setShowColManager(false)}
+                  className="btn-3d-primary px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Selesai
+                </button>
+              }
+            >
+              <div className="space-y-4 text-xs">
+                {/* Table Presentation Switcher */}
+                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4EAFF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTableStyleMode('stitch');
+                      applyPreset('preset_default');
+                    }}
+                    className={`min-h-[40px] sm:min-h-0 py-2 px-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                      tableStyleMode === 'stitch'
+                        ? 'btn-3d-primary'
+                        : 'text-[#63597B] dark:text-[#CEC0E8]'
+                    }`}
+                  >
+                    Ringkas (9 Kolom)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTableStyleMode('canonical')}
+                    className={`min-h-[40px] sm:min-h-0 py-2 px-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                      tableStyleMode === 'canonical'
+                        ? 'btn-3d-primary'
+                        : 'text-[#63597B] dark:text-[#CEC0E8]'
+                    }`}
+                  >
+                    Kanonik ({activeColumns.length} Kolom)
+                  </button>
+                </div>
+
+                {/* Quick Preset Selector */}
+                <div>
+                  <label className="block text-[10.5px] font-bold text-[#766B83] dark:text-[#A78BFA] uppercase mb-1">
+                    Preset Kolom
+                  </label>
+                  <select
+                    value={config.ticketsTable.activePresetId || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      applyPreset(val);
+                      setTableStyleMode(val === 'preset_default' ? 'stitch' : 'canonical');
+                    }}
+                    className="w-full min-h-[40px] sm:min-h-[34px] px-2.5 py-1.5 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-semibold cursor-pointer"
+                  >
+                    {config.ticketsTable.presets.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Grouped 46 Canonical Columns Checklist */}
+                <div className="space-y-3">
+                  {CANONICAL_COLUMN_GROUPS.map(group => {
+                    const groupCols = [...config.ticketsTable.columns]
+                      .filter(c => c.categoryGroup === group.id && c.key !== 'actions' && c.key !== 'selection')
+                      .sort((a, b) => a.order - b.order);
+                    if (groupCols.length === 0) return null;
+                    return (
+                      <div key={group.id} className="space-y-1">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#7135B5] dark:text-[#D8B4FE] px-1">
+                          {group.title}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                          {groupCols.map(col => (
+                            <label
+                              key={col.key}
+                              className={`flex items-center justify-between gap-2 p-2 rounded-lg border border-transparent ${
+                                col.mandatory
+                                  ? 'bg-[#F5F1FF]/70 dark:bg-[#251545]/70 cursor-not-allowed'
+                                  : 'hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 border-[#E8DDFF]/50 dark:border-[#35105E] cursor-pointer'
+                              }`}
+                            >
+                              <div className="min-w-0 flex items-center gap-1.5">
+                                {col.mandatory && (
+                                  <Lock className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
+                                )}
+                                <span className="text-[#211A2E] dark:text-[#F5F1FF] truncate">
+                                  {col.label}
+                                </span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                disabled={col.mandatory}
+                                checked={col.mandatory ? true : col.visible}
+                                onChange={e => {
+                                  if (!col.mandatory) {
+                                    setTableStyleMode('canonical');
+                                    setColumnVisibility(col.key, e.target.checked);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5] disabled:opacity-60"
+                              />
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowColManager(false)}
-                        className="text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white text-xs font-semibold cursor-pointer"
-                      >
-                        Tutup
-                      </button>
-                    </div>
-
-                    {/* Table Presentation Switcher */}
-                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-[#F4EAFF] dark:bg-[#160D29]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTableStyleMode('stitch');
-                          applyPreset('preset_default');
-                        }}
-                        className={`py-1.5 px-2 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
-                          tableStyleMode === 'stitch'
-                            ? 'btn-3d-primary'
-                            : 'text-[#63597B] dark:text-[#CEC0E8]'
-                        }`}
-                      >
-                        Ringkas (9 Kolom)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTableStyleMode('canonical')}
-                        className={`py-1.5 px-2 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
-                          tableStyleMode === 'canonical'
-                            ? 'btn-3d-primary'
-                            : 'text-[#63597B] dark:text-[#CEC0E8]'
-                        }`}
-                      >
-                        Kanonik ({activeColumns.length} Kolom)
-                      </button>
-                    </div>
-
-                    {/* Quick Preset Selector */}
-                    <div>
-                      <label className="block text-[10.5px] font-bold text-[#766B83] dark:text-[#A78BFA] uppercase mb-1">
-                        Preset Kolom
-                      </label>
-                      <select
-                        value={config.ticketsTable.activePresetId || ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          applyPreset(val);
-                          setTableStyleMode(val === 'preset_default' ? 'stitch' : 'canonical');
-                        }}
-                        className="w-full px-2.5 py-1.5 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-semibold cursor-pointer"
-                      >
-                        {config.ticketsTable.presets.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Grouped 46 Canonical Columns Checklist */}
-                    <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1">
-                      {CANONICAL_COLUMN_GROUPS.map(group => {
-                        const groupCols = [...config.ticketsTable.columns]
-                          .filter(c => c.categoryGroup === group.id && c.key !== 'actions' && c.key !== 'selection')
-                          .sort((a, b) => a.order - b.order);
-                        if (groupCols.length === 0) return null;
-                        return (
-                          <div key={group.id} className="space-y-1">
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7135B5] dark:text-[#D8B4FE] px-1">
-                              {group.title}
-                            </div>
-                            {groupCols.map(col => (
-                              <label
-                                key={col.key}
-                                className={`flex items-center justify-between gap-2 p-1.5 rounded-lg ${
-                                  col.mandatory
-                                    ? 'bg-[#F5F1FF]/70 dark:bg-[#251545]/70 cursor-not-allowed'
-                                    : 'hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 cursor-pointer'
-                                }`}
-                              >
-                                <div className="min-w-0 flex items-center gap-1.5">
-                                  {col.mandatory && (
-                                    <Lock className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
-                                  )}
-                                  <span className="text-[#211A2E] dark:text-[#F5F1FF] truncate">
-                                    {col.label}
-                                  </span>
-                                </div>
-                                <input
-                                  type="checkbox"
-                                  disabled={col.mandatory}
-                                  checked={col.mandatory ? true : col.visible}
-                                  onChange={e => {
-                                    if (!col.mandatory) {
-                                      setTableStyleMode('canonical');
-                                      setColumnVisibility(col.key, e.target.checked);
-                                    }
-                                  }}
-                                  className="rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5] disabled:opacity-60"
-                                />
-                              </label>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </ResponsiveModal>
 
             {/* Export XLSX */}
             <button
               type="button"
               onClick={handleExportXLSX}
-              className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="btn-3d-success px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export XLSX</span>
@@ -2193,7 +2246,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           ) : (
             <div
               className={`grid gap-3 ${
-                isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
               }`}
             >
               {paginatedTickets.map(ticket => (
@@ -3385,102 +3438,19 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             )}
           </div>
 
-          {/* 4. PAGINATION & SYSTEM STATUS FOOTER WITH 3D TACTILE BUTTONS */}
-          <div className="p-3 bg-white dark:bg-[#1E1238] flex flex-col md:flex-row items-center justify-between gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] text-xs text-[#766B83] dark:text-[#CEC0E8]">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span>Baris per halaman:</span>
-                <select
-                  value={pageSize === 'ALL' ? 'ALL' : String(pageSize)}
-                  onChange={e => {
-                    const val = e.target.value;
-                    setPageSize(val === 'ALL' ? 'ALL' : Number(val));
-                    setCurrentPage(1);
-                  }}
-                  className="py-1 px-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded text-xs font-semibold text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none cursor-pointer"
-                >
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                  <option value="ALL">Semua ({sortedTickets.length})</option>
-                </select>
-              </div>
-
-              <span className="tabular-nums">
-                Menampilkan{' '}
-                <span className="font-semibold text-[#211A2E] dark:text-white">
-                  {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}-
-                  {Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
-                </span>{' '}
-                dari{' '}
-                <span className="font-semibold text-[#211A2E] dark:text-white">
-                  {sortedTickets.length}
-                </span>{' '}
-                Work Orders
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1 || pageSize === 'ALL'}
-                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                aria-label="Halaman pertama"
-              >
-                <ChevronsLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                disabled={currentPage === 1 || pageSize === 'ALL'}
-                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                aria-label="Halaman sebelumnya"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-
-              {pageSize !== 'ALL' &&
-                pageNumbers.map((item, idx) =>
-                  item === 'ellipsis' ? (
-                    <span key={`e-${idx}`} className="px-1 text-[#8B8495] font-bold">
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setCurrentPage(item)}
-                      className={`w-8 h-8 rounded-lg text-[11px] font-bold tabular-nums cursor-pointer ${
-                        currentPage === item ? 'btn-3d-primary' : 'btn-3d-ceramic'
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  )
-                )}
-
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                aria-label="Halaman berikutnya"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-                className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                aria-label="Halaman terakhir"
-              >
-                <ChevronsRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+          {/* 4. PAGINATION & SYSTEM STATUS FOOTER */}
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={Math.max(1, totalPages)}
+            totalItems={sortedTickets.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={val => {
+              setPageSize(val);
+              setCurrentPage(1);
+            }}
+            itemLabel="Work Orders"
+          />
 
           {/* Operational Audit Telemetry Notice */}
           <div className="px-4 py-2 bg-[#F7F6FA] dark:bg-[#160D29]/70 flex items-center justify-between text-xs text-[#8B8495] dark:text-[#CEC0E8] border-t border-[#E9E5F0] dark:border-[#35105E]">
@@ -3503,42 +3473,19 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
       {/* Cards Mode Pagination Footer (only when Cards layout active) */}
       {effectiveLayout === 'cards' && sortedTickets.length > 0 && (
-        <div className="bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#766B83] dark:text-[#CEC0E8]">
-          <div className="tabular-nums">
-            Menampilkan{' '}
-            <span className="font-semibold text-[#211A2E] dark:text-white">
-              {sortedTickets.length === 0 ? 0 : (currentPage - 1) * effectiveRowsPerPage + 1}-
-              {Math.min(currentPage * effectiveRowsPerPage, sortedTickets.length)}
-            </span>{' '}
-            dari{' '}
-            <span className="font-semibold text-[#211A2E] dark:text-white">
-              {sortedTickets.length}
-            </span>{' '}
-            Work Orders
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-              disabled={currentPage === 1 || pageSize === 'ALL'}
-              className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-              aria-label="Halaman sebelumnya"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="px-2 font-mono font-bold text-[#211A2E] dark:text-white tabular-nums">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages || totalPages === 0 || pageSize === 'ALL'}
-              className="btn-3d-icon w-8 h-8 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-              aria-label="Halaman berikutnya"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden">
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={Math.max(1, totalPages)}
+            totalItems={sortedTickets.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={val => {
+              setPageSize(val);
+              setCurrentPage(1);
+            }}
+            itemLabel="Work Orders"
+          />
         </div>
       )}
 

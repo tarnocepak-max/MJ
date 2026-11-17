@@ -105,7 +105,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const [quickResults, setQuickResults] = useState<Ticket[]>([]);
   const [isQuickSearching, setIsQuickSearching] = useState(false);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
+  const [mobileSearchOverlayOpen, setMobileSearchOverlayOpen] = useState(false);
   const quickSearchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   const canCrossDateSearch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
@@ -172,9 +174,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         setQuickSearchOpen(false);
       }
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setQuickSearchOpen(false);
+        setMobileSearchOverlayOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
+
+  useEffect(() => {
+    if (mobileSearchOverlayOpen) {
+      const t = setTimeout(() => mobileSearchInputRef.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+  }, [mobileSearchOverlayOpen]);
 
   // Real notification items computed from live unread messages, pending dispatch approvals, and offline queue
   const notificationSummary = useMemo(() => {
@@ -380,15 +399,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </div>
           </div>
 
-          {/* Row 2: Compact Cloud & Connectivity Strip */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#E9E5F0]/80 dark:border-[#35105E]/70">
-            <div className="flex items-center gap-1.5 min-w-0">
+          {/* Row 2: Compact Cloud & Connectivity Strip (wrapping safe on 360px screens) */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-[#E9E5F0]/80 dark:border-[#35105E]/70">
+            <div className="flex items-center gap-1 min-w-0">
               {/* Cloud Live indicator */}
               <button
                 type="button"
                 onClick={handleGlobalRefresh}
                 disabled={isRefreshing}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   syncStatus === 'SAVED'
                     ? 'bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300'
                     : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
@@ -400,7 +419,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 title="Ketuk untuk sinkronisasi cloud"
               >
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                     syncStatus === 'SAVED'
                       ? 'bg-[#16A36A]'
                       : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
@@ -417,20 +436,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               <button
                 type="button"
                 onClick={() => setIsOfflineModalOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
                   pendingCount > 0
                     ? 'bg-[#FEF3C7] border-[#F59E0B]/40 text-[#92400E] dark:bg-amber-950/60 dark:text-amber-300'
                     : 'bg-[#F7F6FA] border-[#E9E5F0] text-[#494453] dark:bg-[#22123F] dark:border-[#35105E] dark:text-[#CEC0E8]'
                 }`}
                 title="Lihat antrean sinkronisasi offline"
               >
-                <Cloud className="w-3 h-3 text-[#766B83] dark:text-[#A78BFA]" />
+                <Cloud className="w-3 h-3 text-[#766B83] dark:text-[#A78BFA] shrink-0" />
                 <span className="font-mono">{pendingCount} Pending</span>
               </button>
             </div>
 
             {/* Right: Online / Offline pill + mini refresh */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 onClick={handleGlobalRefresh}
@@ -444,7 +463,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               <button
                 type="button"
                 onClick={() => setIsOfflineModalOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-extrabold tracking-wide uppercase cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase cursor-pointer whitespace-nowrap ${
                   !isOnline
                     ? 'bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950/60 dark:text-amber-300'
                     : isSyncing
@@ -491,7 +510,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               const current = config.global.sidebarState || 'expanded';
               setSidebarState(current === 'closed' ? 'expanded' : 'closed');
             }}
-            className="btn-3d-icon w-9 h-9 cursor-pointer shrink-0"
+            className="btn-3d-icon min-w-[38px] min-h-[38px] sm:w-9 sm:h-9 cursor-pointer shrink-0"
             title="Buka / Tutup Sidebar"
             aria-label="Buka / Tutup Sidebar"
           >
@@ -505,10 +524,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 <MoraJawsLogo size="sm" animated={false} withGlow={false} />
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-display font-extrabold text-[14px] text-[#1f1638] dark:text-white tracking-tight leading-none">
+                    <span className="font-display font-extrabold text-[14px] text-[#1f1638] dark:text-white tracking-tight leading-none truncate">
                       {config.global.appName || 'MoraJaws'}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none">
+                    <span className="px-1.5 py-0.5 rounded bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none shrink-0">
                       LEADER
                     </span>
                   </div>
@@ -531,7 +550,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             <>
               <nav
                 aria-label="Breadcrumb"
-                className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[300px]"
+                className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[260px]"
               >
                 <button
                   type="button"
@@ -556,18 +575,23 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 </span>
               </nav>
 
+              {/* Page title shown cleanly on Tablet / Small Desktop (<1280px) where full breadcrumb is hidden */}
+              <span className="xl:hidden text-xs sm:text-sm font-bold text-[#211A2E] dark:text-white truncate">
+                {activePageTitle}
+              </span>
+
               {/* Active Appointment Date Pill */}
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shadow-2xs shrink-0">
+              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shadow-2xs shrink-0">
                 <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
                 <span className="text-[11px] font-bold tracking-tight whitespace-nowrap tabular-nums">
-                  Appointment: Hari Ini (todayWIB) - {formattedToday}
+                  {formattedToday}
                 </span>
               </div>
             </>
           )}
         </div>
 
-        {/* Zone 2: Quick Cross-Date Search (Desktop non-mobile mode) */}
+        {/* Zone 2: Quick Cross-Date Search (Desktop >= 1024px non-mobile mode) */}
         {!isMobileView && (
           <div ref={quickSearchRef} className="hidden lg:block flex-1 max-w-xs xl:max-w-sm mx-2 relative">
             <div className="relative flex items-center w-full">
@@ -666,15 +690,32 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </div>
         )}
 
-        {/* Zone 2 & 3: Display Mode Switch + Connectivity + Cloud Live + Quick Actions + Notifications + User Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Zone 2 & 3: Quick Search Trigger (Mobile/Tablet) + Display Mode Switch + Connectivity + Cloud Live + Quick Actions + Notifications + User Profile */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Mobile & Tablet Topbar Search Icon -> Opens Overlay Search */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileSearchOverlayOpen(prev => !prev);
+              setNotifOpen(false);
+              setUserMenuOpen(false);
+            }}
+            aria-label="Buka Pencarian Cepat"
+            aria-expanded={mobileSearchOverlayOpen}
+            title="Cari Work Order"
+            data-testid="mobile-topbar-search-trigger"
+            className={`${isMobileView ? 'inline-flex' : 'inline-flex lg:hidden'} btn-3d-icon min-w-[38px] min-h-[38px] sm:w-9 sm:h-9 cursor-pointer`}
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
           {/* Display Mode Switch: Available for ALL non-Teknisi roles (hidden strictly for installer) */}
           {canSwitchDisplayMode && (
             <div
               role="group"
               aria-label="Display Mode Switch"
               data-testid="display-mode-switch"
-              className="inline-flex items-center p-0.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0 gap-0.5"
+              className="hidden sm:inline-flex items-center p-0.5 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] shrink-0 gap-0.5"
             >
               <button
                 type="button"
@@ -1021,6 +1062,114 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </div>
         </div>
       </header>
+
+      {/* Mobile & Tablet Topbar Quick Search Overlay */}
+      {mobileSearchOverlayOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-45 bg-[#160D29]/55 backdrop-blur-xs"
+            onClick={() => setMobileSearchOverlayOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-label="Overlay Pencarian Cepat Work Order"
+            data-testid="mobile-topbar-search-overlay"
+            className="fixed top-16 inset-x-0 z-50 px-3 pt-2.5 pb-4 bg-white dark:bg-[#1A0E2E] border-b border-[#D8CCF3] dark:border-[#35105E] shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150"
+          >
+            <div className="max-w-2xl mx-auto space-y-2.5">
+              <div className="relative flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    ref={mobileSearchInputRef}
+                    type="text"
+                    value={quickSearch}
+                    onChange={e => setQuickSearch(e.target.value)}
+                    placeholder={
+                      canCrossDateSearch
+                        ? 'Cari No. WO, ID Cust, Nama, HP, Teknisi (Lintas Tanggal)...'
+                        : 'Cari Work Order hari ini...'
+                    }
+                    className="w-full pl-9 pr-9 py-2.5 min-h-[44px] bg-[#F8F1FF] dark:bg-[#160D29] border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/50"
+                  />
+                  {quickSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickSearch('');
+                        setQuickResults([]);
+                        mobileSearchInputRef.current?.focus();
+                      }}
+                      aria-label="Bersihkan teks pencarian"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileSearchOverlayOpen(false)}
+                  className="btn-3d-secondary px-3 min-h-[44px] rounded-xl text-xs font-bold cursor-pointer shrink-0"
+                >
+                  Tutup
+                </button>
+              </div>
+
+              {quickSearch.trim().length > 0 && (
+                <div className="bg-[#FDF7FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-xl overflow-hidden text-xs">
+                  <div className="px-3.5 py-2 bg-[#F3EAFF] dark:bg-[#22123F] border-b border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] uppercase">
+                    <span>{canCrossDateSearch ? 'Hasil Pencarian Lintas Tanggal' : 'Hasil Work Order'}</span>
+                    {isQuickSearching ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <span className="font-mono tabular-nums">{quickResults.length} WO</span>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-[#E8DDFF] dark:divide-[#35105E]">
+                    {!isQuickSearching && quickResults.length === 0 ? (
+                      <div className="p-4 text-center text-[#7D7484]">
+                        Tidak ditemukan Work Order untuk &ldquo;{quickSearch}&rdquo;
+                      </div>
+                    ) : (
+                      quickResults.map(t => (
+                        <button
+                          key={`mob-search-${t.id}`}
+                          type="button"
+                          onClick={() => {
+                            setMobileSearchOverlayOpen(false);
+                            setQuickSearch('');
+                            if (onSelectTicket) onSelectTicket(t, 'overview');
+                            else onNavigate('tickets');
+                          }}
+                          className="w-full text-left px-3.5 py-3 hover:bg-[#F3EAFF]/60 dark:hover:bg-[#35105E]/60 flex items-center justify-between gap-2 cursor-pointer"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                                {t.woNumber}
+                              </span>
+                              <span className="font-mono text-[10px] text-[#7D7484]">
+                                {getTicketAppointmentDate(t) || '-'}
+                              </span>
+                            </div>
+                            <div className="font-semibold text-[#1F1638] dark:text-white truncate mt-0.5">
+                              {t.customerName} · {t.idCustomer || '-'}
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] text-[10px] font-bold shrink-0">
+                            {t.statusWOInstaller || t.statusWOAgent || 'OPEN'}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 };

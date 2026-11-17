@@ -11,12 +11,13 @@ import {
   Sliders,
   CheckCircle2,
   AlertCircle,
-  X,
   Search,
   Users
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { getAuthHeaders } from '../../services/authService';
+import { ResponsiveModal } from '../common/ResponsiveModal';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface SessionManagementModalProps {
   isOpen?: boolean;
@@ -160,38 +161,32 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
   });
 
   return (
-    <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden text-xs animate-in zoom-in-95 duration-150">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-slate-800/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                Manajemen Sesi Login Staf (Session Management)
-              </h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Kelola masa berlaku sesi, timeout aktivitas, dan pantau sesi aktif staf Dispatch, Leader, dan Installer.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Manajemen Sesi Login Staf (Session Management)"
+      subtitle="Kelola masa berlaku sesi, timeout aktivitas, dan pantau sesi aktif staf Dispatch, Leader, dan Installer."
+      icon={<ShieldAlert className="w-5 h-5" />}
+      size="xl"
+      mobileVariant="fullscreen"
+      zIndexClass="z-60"
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 min-h-[40px] bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl font-semibold text-xs cursor-pointer"
+        >
+          Tutup
+        </button>
+      }
+    >
+      <div className="space-y-4 text-xs">
         {/* Tab Selector */}
-        <div className="flex items-center gap-2 px-5 pt-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 text-xs font-semibold">
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('monitoring')}
-            className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer ${
+            className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === 'monitoring'
                 ? 'border-[#5B35B1] text-[#5B35B1] dark:text-[#E9E1FF] font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -202,7 +197,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
           <button
             type="button"
             onClick={() => setActiveTab('config')}
-            className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer ${
+            className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === 'config'
                 ? 'border-[#5B35B1] text-[#5B35B1] dark:text-[#E9E1FF] font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -213,234 +208,280 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
         </div>
 
         {/* Body Content */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
-          {activeTab === 'monitoring' && (
-            <div className="space-y-3">
-              {/* Search & Status Filter */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Cari nama staf atau username..."
-                    value={searchUser}
-                    onChange={e => setSearchUser(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value as any)}
-                    className="py-1.5 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium"
-                  >
-                    <option value="ALL">Semua Sesi</option>
-                    <option value="active">Aktif Saja</option>
-                    <option value="expired">Kedaluwarsa</option>
-                    <option value="revoked">Dicabut</option>
-                  </select>
+        {activeTab === 'monitoring' && (
+          <div className="space-y-3">
+            {/* Search & Status Filter */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="relative flex-1 sm:max-w-sm">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama staf atau username..."
+                  value={searchUser}
+                  onChange={e => setSearchUser(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 min-h-[38px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as any)}
+                  className="flex-1 sm:flex-none py-1.5 px-3 min-h-[38px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium"
+                >
+                  <option value="ALL">Semua Sesi</option>
+                  <option value="active">Aktif Saja</option>
+                  <option value="expired">Kedaluwarsa</option>
+                  <option value="revoked">Dicabut</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={fetchSessionsAndConfig}
+                  className="min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-500 hover:text-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
+                  title="Refresh"
+                >
+                  <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            <ResponsiveDataTable<SessionMetadata>
+              data={filteredSessions}
+              getRowKey={s => s.sessionId}
+              isLoading={isLoading}
+              emptyState={{
+                icon: <Users className="w-7 h-7" />,
+                title: 'Tidak ada sesi staf ditemukan',
+                description: 'Belum ada sesi staf yang cocok dengan pencarian atau filter status saat ini.'
+              }}
+              mobileTitle={s => <span className="font-bold text-slate-900 dark:text-white">{s.name}</span>}
+              mobileSubtitle={s => (
+                <span className="font-mono capitalize">
+                  @{s.username} · {s.role.replace('_', ' ')}
+                </span>
+              )}
+              mobileStatus={s => (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    s.status === 'active'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                      : s.status === 'expired'
+                      ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                  }`}
+                >
+                  {s.status === 'active' ? 'Aktif' : s.status === 'expired' ? 'Kedaluwarsa' : 'Dicabut'}
+                </span>
+              )}
+              columns={[
+                {
+                  key: 'user',
+                  label: 'Pengguna & Peran',
+                  priority: 'hidden_mobile',
+                  render: s => (
+                    <div>
+                      <div className="font-bold text-slate-900 dark:text-white">{s.name}</div>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        @{s.username} · <span className="capitalize">{s.role.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                  )
+                },
+                {
+                  key: 'loginAt',
+                  label: 'Waktu Login',
+                  priority: 'primary',
+                  render: s => (
+                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                      {new Date(s.loginAt).toLocaleTimeString('id-ID')} WIB
+                    </span>
+                  )
+                },
+                {
+                  key: 'lastActivityAt',
+                  label: 'Aktivitas Terakhir',
+                  priority: 'secondary',
+                  render: s => (
+                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                      {new Date(s.lastActivityAt).toLocaleTimeString('id-ID')} WIB
+                    </span>
+                  )
+                },
+                {
+                  key: 'expiresAt',
+                  label: 'Kedaluwarsa',
+                  priority: 'secondary',
+                  render: s => (
+                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                      {new Date(s.expiresAt).toLocaleTimeString('id-ID')} WIB
+                    </span>
+                  )
+                },
+                {
+                  key: 'device',
+                  label: 'Perangkat',
+                  priority: 'primary',
+                  render: s => (
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                      {s.deviceType === 'mobile' ? <Smartphone className="w-3.5 h-3.5" /> : <Laptop className="w-3.5 h-3.5" />}
+                      <span>{s.ipAddress || '127.0.0.1'}</span>
+                    </div>
+                  )
+                },
+                {
+                  key: 'status',
+                  label: 'Status',
+                  priority: 'hidden_mobile',
+                  render: s => (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        s.status === 'active'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                          : s.status === 'expired'
+                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                      }`}
+                    >
+                      {s.status === 'active' ? 'Aktif' : s.status === 'expired' ? 'Kedaluwarsa' : 'Dicabut'}
+                    </span>
+                  )
+                }
+              ] satisfies ResponsiveColumn<SessionMetadata>[]}
+              desktopActionHeader="Tindakan"
+              getRowActions={s =>
+                s.status === 'active'
+                  ? [
+                      {
+                        id: 'revoke',
+                        label: 'Cabut Sesi',
+                        icon: <LogOut className="w-3.5 h-3.5" />,
+                        onClick: () => handleRevokeSession(s.sessionId, s.name),
+                        variant: 'danger' as const
+                      }
+                    ]
+                  : []
+              }
+              renderDesktopActions={s =>
+                s.status === 'active' ? (
                   <button
                     type="button"
-                    onClick={fetchSessionsAndConfig}
-                    className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100"
-                    title="Refresh"
+                    onClick={() => handleRevokeSession(s.sessionId, s.name)}
+                    className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
                   >
-                    <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Cabut Sesi
                   </button>
-                </div>
+                ) : null
+              }
+            />
+          </div>
+        )}
+
+        {activeTab === 'config' && (
+          <form onSubmit={handleSaveConfig} className="space-y-4 max-w-xl">
+            {!isSuperAdmin && (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Mode Hanya-Baca: Hanya <strong>Super Admin</strong> yang dapat mengubah kebijakan sesi global aplikasi.</span>
               </div>
+            )}
 
-              {filteredSessions.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 space-y-1">
-                  <Users className="w-7 h-7 mx-auto text-slate-300 dark:text-slate-700" />
-                  <div className="font-semibold text-slate-600 dark:text-slate-400">Tidak ada sesi staf ditemukan.</div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-900/30">
-                        <th className="py-2.5 px-3">Pengguna & Peran</th>
-                        <th className="py-2.5 px-3">Waktu Login</th>
-                        <th className="py-2.5 px-3">Aktivitas Terakhir</th>
-                        <th className="py-2.5 px-3">Kedaluwarsa</th>
-                        <th className="py-2.5 px-3">Perangkat</th>
-                        <th className="py-2.5 px-3">Status</th>
-                        <th className="py-2.5 px-3 text-right">Tindakan</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans text-xs">
-                      {filteredSessions.map(s => (
-                        <tr key={s.sessionId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="py-2.5 px-3">
-                            <div className="font-bold text-slate-900 dark:text-white">{s.name}</div>
-                            <div className="text-[11px] text-slate-400 font-mono">@{s.username} · <span className="capitalize">{s.role.replace('_', ' ')}</span></div>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
-                            {new Date(s.loginAt).toLocaleTimeString('id-ID')} WIB
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
-                            {new Date(s.lastActivityAt).toLocaleTimeString('id-ID')} WIB
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
-                            {new Date(s.expiresAt).toLocaleTimeString('id-ID')} WIB
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
-                              {s.deviceType === 'mobile' ? <Smartphone className="w-3.5 h-3.5" /> : <Laptop className="w-3.5 h-3.5" />}
-                              <span>{s.ipAddress || '127.0.0.1'}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              s.status === 'active'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                                : s.status === 'expired'
-                                ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
-                            }`}>
-                              {s.status === 'active' ? 'Aktif' : s.status === 'expired' ? 'Kedaluwarsa' : 'Dicabut'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            {s.status === 'active' && (
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeSession(s.sessionId, s.name)}
-                                className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
-                              >
-                                Cabut Sesi
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <h5 className="font-bold text-slate-900 dark:text-white text-xs">
+                Kebijakan Waktu Sesi (Duration & Timeout)
+              </h5>
 
-          {activeTab === 'config' && (
-            <form onSubmit={handleSaveConfig} className="space-y-4 max-w-xl">
-              {!isSuperAdmin && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Mode Hanya-Baca: Hanya <strong>Super Admin</strong> yang dapat mengubah kebijakan sesi global aplikasi.</span>
-                </div>
-              )}
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <h5 className="font-bold text-slate-900 dark:text-white text-xs">
-                  Kebijakan Waktu Sesi (Duration & Timeout)
-                </h5>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Durasi Maksimum Sesi (Jam):</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={72}
-                      disabled={!isSuperAdmin || isSavingConfig}
-                      value={sessionConfig.sessionMaxDurationHours}
-                      onChange={e => setSessionConfig({ ...sessionConfig, sessionMaxDurationHours: parseInt(e.target.value) || 8 })}
-                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Batas Waktu Tidak Aktif / Idle (Menit):</label>
-                    <input
-                      type="number"
-                      min={5}
-                      max={480}
-                      disabled={!isSuperAdmin || isSavingConfig}
-                      value={sessionConfig.idleTimeoutMinutes}
-                      onChange={e => setSessionConfig({ ...sessionConfig, idleTimeoutMinutes: parseInt(e.target.value) || 60 })}
-                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
-                    />
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Batas Maksimum Sesi Bersamaan per Akun:</label>
+                  <label className="block text-[11px] text-slate-500 mb-1">Durasi Maksimum Sesi (Jam):</label>
                   <input
                     type="number"
                     min={1}
-                    max={10}
+                    max={72}
                     disabled={!isSuperAdmin || isSavingConfig}
-                    value={sessionConfig.maxActiveSessionsPerUser}
-                    onChange={e => setSessionConfig({ ...sessionConfig, maxActiveSessionsPerUser: parseInt(e.target.value) || 3 })}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
+                    value={sessionConfig.sessionMaxDurationHours}
+                    onChange={e => setSessionConfig({ ...sessionConfig, sessionMaxDurationHours: parseInt(e.target.value) || 8 })}
+                    className="w-full px-3 py-1.5 min-h-[38px] bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-slate-500 mb-1">Batas Waktu Tidak Aktif / Idle (Menit):</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={480}
+                    disabled={!isSuperAdmin || isSavingConfig}
+                    value={sessionConfig.idleTimeoutMinutes}
+                    onChange={e => setSessionConfig({ ...sessionConfig, idleTimeoutMinutes: parseInt(e.target.value) || 60 })}
+                    className="w-full px-3 py-1.5 min-h-[38px] bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
-                <h5 className="font-bold text-slate-900 dark:text-white text-xs">
-                  Otomatisasi Pembatalan Sesi
-                </h5>
-
-                <label className={`flex items-center gap-2 text-xs ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
-                  <input
-                    type="checkbox"
-                    disabled={!isSuperAdmin || isSavingConfig}
-                    checked={sessionConfig.extendOnActivity}
-                    onChange={e => setSessionConfig({ ...sessionConfig, extendOnActivity: e.target.checked })}
-                    className="rounded text-[#5B35B1]"
-                  />
-                  <span>Perpanjang sesi otomatis saat pengguna aktif mengerjakan tiket</span>
-                </label>
-
-                <label className={`flex items-center gap-2 text-xs ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
-                  <input
-                    type="checkbox"
-                    disabled={!isSuperAdmin || isSavingConfig}
-                    checked={sessionConfig.revokeOnDeactivate}
-                    onChange={e => setSessionConfig({ ...sessionConfig, revokeOnDeactivate: e.target.checked })}
-                    className="rounded text-[#5B35B1]"
-                  />
-                  <span>Cabut seluruh sesi aktif saat akun dinonaktifkan oleh administrator</span>
-                </label>
-
-                <label className={`flex items-center gap-2 text-xs ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
-                  <input
-                    type="checkbox"
-                    disabled={!isSuperAdmin || isSavingConfig}
-                    checked={sessionConfig.revokeOnPasswordChange}
-                    onChange={e => setSessionConfig({ ...sessionConfig, revokeOnPasswordChange: e.target.checked })}
-                    className="rounded text-[#5B35B1]"
-                  />
-                  <span>Cabut seluruh sesi aktif saat kata sandi akun diubah</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
+              <div>
+                <label className="block text-[11px] text-slate-500 mb-1">Batas Maksimum Sesi Bersamaan per Akun:</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
                   disabled={!isSuperAdmin || isSavingConfig}
-                  className="px-5 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSavingConfig ? 'Menyimpan...' : 'Simpan Kebijakan Sesi'}
-                </button>
+                  value={sessionConfig.maxActiveSessionsPerUser}
+                  onChange={e => setSessionConfig({ ...sessionConfig, maxActiveSessionsPerUser: parseInt(e.target.value) || 3 })}
+                  className="w-full px-3 py-1.5 min-h-[38px] bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
+                />
               </div>
-            </form>
-          )}
-        </div>
+            </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end shrink-0 bg-slate-50/80 dark:bg-slate-800/50">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl font-semibold text-xs"
-          >
-            Tutup
-          </button>
-        </div>
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+              <h5 className="font-bold text-slate-900 dark:text-white text-xs">
+                Otomatisasi Pembatalan Sesi
+              </h5>
+
+              <label className={`flex items-center gap-2 text-xs min-h-[32px] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                <input
+                  type="checkbox"
+                  disabled={!isSuperAdmin || isSavingConfig}
+                  checked={sessionConfig.extendOnActivity}
+                  onChange={e => setSessionConfig({ ...sessionConfig, extendOnActivity: e.target.checked })}
+                  className="rounded text-[#5B35B1]"
+                />
+                <span>Perpanjang sesi otomatis saat pengguna aktif mengerjakan tiket</span>
+              </label>
+
+              <label className={`flex items-center gap-2 text-xs min-h-[32px] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                <input
+                  type="checkbox"
+                  disabled={!isSuperAdmin || isSavingConfig}
+                  checked={sessionConfig.revokeOnDeactivate}
+                  onChange={e => setSessionConfig({ ...sessionConfig, revokeOnDeactivate: e.target.checked })}
+                  className="rounded text-[#5B35B1]"
+                />
+                <span>Cabut seluruh sesi aktif saat akun dinonaktifkan oleh administrator</span>
+              </label>
+
+              <label className={`flex items-center gap-2 text-xs min-h-[32px] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                <input
+                  type="checkbox"
+                  disabled={!isSuperAdmin || isSavingConfig}
+                  checked={sessionConfig.revokeOnPasswordChange}
+                  onChange={e => setSessionConfig({ ...sessionConfig, revokeOnPasswordChange: e.target.checked })}
+                  className="rounded text-[#5B35B1]"
+                />
+                <span>Cabut seluruh sesi aktif saat kata sandi akun diubah</span>
+              </label>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={!isSuperAdmin || isSavingConfig}
+                className="px-5 py-2.5 min-h-[40px] bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingConfig ? 'Menyimpan...' : 'Simpan Kebijakan Sesi'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
-    </div>
+    </ResponsiveModal>
   );
 };

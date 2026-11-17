@@ -21,7 +21,8 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Ticket } from '../../types/index.ts';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { PaginationBar } from '../common/PaginationBar';
 import { ColumnConfig } from './LeaderColumnSettingsModal';
 import {
   formatSlotBadgeLabel,
@@ -242,7 +243,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   onPageChange
 }) => {
   const [pendingInlineChoice, setPendingInlineChoice] = useState<Record<string, string>>({});
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
 
   const unassignedTicketsInView = filteredTickets.filter(t => !t.installerName);
   const allUnassignedChecked =
@@ -254,17 +255,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
     techLookupMap.set(tech.installer.name.toLowerCase().trim(), tech);
   });
 
-  const startIdx = filteredTickets.length > 0 ? (rowsPerPage === -1 ? 1 : (currentPage - 1) * rowsPerPage + 1) : 0;
-  const endIdx = rowsPerPage === -1 ? filteredTickets.length : Math.min(currentPage * rowsPerPage, filteredTickets.length);
-
-  const pageNumbers: number[] = [];
-  const maxPageButtons = 5;
-  let startPage = Math.max(1, currentPage - 2);
-  const endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
-  if (endPage - startPage + 1 < maxPageButtons) {
-    startPage = Math.max(1, endPage - maxPageButtons + 1);
-  }
-  for (let p = startPage; p <= endPage; p++) pageNumbers.push(p);
+  const effectiveViewMode = isCompactUI ? 'cards' : viewMode;
 
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
@@ -390,7 +381,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
           <select
             value={clusterFilter}
             onChange={e => onClusterFilterChange(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs font-semibold text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] cursor-pointer max-w-[175px]"
+            className="w-full sm:w-auto sm:max-w-[175px] px-3 py-2 bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs font-semibold text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] cursor-pointer"
           >
             <option value="ALL">Semua Cluster</option>
             {clusterOptions.map(c => (
@@ -400,39 +391,41 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             ))}
           </select>
 
-          {/* View Mode Toggle: Card Matrix vs Table View */}
-          <div className="inline-flex items-center rounded-xl border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] p-0.5 ml-auto shrink-0 gap-0.5">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('cards')}
-              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
-                viewMode === 'cards'
-                  ? 'btn-3d-primary'
-                  : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
-              }`}
-              title="Tampilan Kartu Stitch"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Kartu</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('table')}
-              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
-                viewMode === 'table'
-                  ? 'btn-3d-primary'
-                  : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
-              }`}
-              title="Tampilan Tabel Klasik"
-            >
-              <TableIcon className="w-3.5 h-3.5" />
-              <span>Tabel</span>
-            </button>
-          </div>
+          {/* View Mode Toggle: Card Matrix vs Table View (desktop/tablet) */}
+          {!isCompactUI && (
+            <div className="inline-flex items-center rounded-xl border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] p-0.5 ml-auto shrink-0 gap-0.5">
+              <button
+                type="button"
+                onClick={() => onViewModeChange('cards')}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
+                  viewMode === 'cards'
+                    ? 'btn-3d-primary'
+                    : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
+                }`}
+                title="Tampilan Kartu Stitch"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Kartu</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onViewModeChange('table')}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
+                  viewMode === 'table'
+                    ? 'btn-3d-primary'
+                    : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
+                }`}
+                title="Tampilan Tabel Klasik"
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+                <span>Tabel</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Active Installer Filter indicator + Table Extra Controls */}
-        {(installerFilter !== 'ALL' || hasActiveFilters || viewMode === 'table') && (
+        {(installerFilter !== 'ALL' || hasActiveFilters || effectiveViewMode === 'table') && (
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#f3eaff] dark:border-[#3E246F] text-[11px]">
             <div className="flex flex-wrap items-center gap-2">
               {installerFilter !== 'ALL' && (
@@ -459,7 +452,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               )}
             </div>
 
-            {viewMode === 'table' && (
+            {effectiveViewMode === 'table' && (
               <div className="flex flex-wrap items-center gap-1.5 ml-auto">
                 <button
                   type="button"
@@ -539,11 +532,11 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
           </div>
 
           {isLeaderRole ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <select
                 value={bulkQuickInstaller}
                 onChange={e => onBulkQuickInstallerChange(e.target.value)}
-                className="px-3 py-1.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#d0bcff] dark:border-[#4B386B] rounded-xl text-xs font-medium text-[#1f1638] dark:text-white min-w-[180px] focus:outline-hidden focus:border-[#58149c]"
+                className="px-3 py-2 sm:py-1.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#d0bcff] dark:border-[#4B386B] rounded-xl text-xs font-medium text-[#1f1638] dark:text-white w-full sm:w-auto sm:min-w-[180px] focus:outline-hidden focus:border-[#58149c]"
               >
                 <option value="">Tugaskan Terpilih Ke...</option>
                 {technicians.map(tech => (
@@ -610,9 +603,9 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             </button>
           )}
         </div>
-      ) : viewMode === 'cards' ? (
+      ) : effectiveViewMode === 'cards' ? (
         /* STITCH WO DISPATCH CARDS */
-        <div className={`grid gap-3.5 ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+        <div className={`grid gap-3.5 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           {paginatedTickets.map(t => {
             const isSelected = selectedTicketIds.includes(t.id);
             const isUnassigned = !t.installerName;
@@ -1042,57 +1035,18 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
       )}
 
       {/* PAGINATION FOOTER */}
-      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#7d7484] dark:text-[#A79BC0] shadow-[0_2px_6px_rgba(31,22,56,0.03)]">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="tabular-nums">
-            Menampilkan <strong className="text-[#1f1638] dark:text-white">{startIdx} - {endIdx}</strong> dari{' '}
-            <strong className="text-[#1f1638] dark:text-white">{filteredTickets.length}</strong> Work Order
-          </span>
-          <select
-            value={rowsPerPage}
-            onChange={e => onRowsPerPageChange(Number(e.target.value))}
-            className="px-2 py-1 rounded-lg border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] text-[11px] font-semibold text-[#1f1638] dark:text-white"
-          >
-            <option value={6}>6 / hal</option>
-            <option value={10}>10 / hal</option>
-            <option value={25}>25 / hal</option>
-            <option value={50}>50 / hal</option>
-            <option value={-1}>Semua ({filteredTickets.length})</option>
-          </select>
-        </div>
-
-        {rowsPerPage !== -1 && totalPages > 1 && (
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              className="btn-3d-secondary px-3 py-1.5 rounded-xl font-semibold disabled:opacity-40 cursor-pointer"
-            >
-              Sebelumnya
-            </button>
-            {pageNumbers.map(p => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => onPageChange(p)}
-                className={`w-8 h-8 rounded-xl font-bold text-xs tabular-nums cursor-pointer ${
-                  currentPage === p ? 'btn-3d-primary' : 'btn-3d-secondary'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={currentPage === totalPages}
-              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-              className="btn-3d-secondary px-3 py-1.5 rounded-xl font-semibold disabled:opacity-40 cursor-pointer"
-            >
-              Selanjutnya
-            </button>
-          </div>
-        )}
+      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] overflow-hidden shadow-[0_2px_6px_rgba(31,22,56,0.03)]">
+        <PaginationBar
+          currentPage={currentPage}
+          totalPages={rowsPerPage === -1 ? 1 : totalPages}
+          totalItems={filteredTickets.length}
+          pageSize={rowsPerPage === -1 ? 'ALL' : rowsPerPage}
+          pageSizeOptions={[6, 10, 25, 50, 'ALL']}
+          onPageChange={onPageChange}
+          onPageSizeChange={size => onRowsPerPageChange(size === 'ALL' ? -1 : size)}
+          itemLabel="Work Order"
+          className="border-t-0"
+        />
       </div>
     </div>
   );

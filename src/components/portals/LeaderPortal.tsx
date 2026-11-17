@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User, TicketStatusWOInstaller } from '../../types/index.ts';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusBadge } from '../common/Badge';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
@@ -156,7 +158,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     activeKpiDrilldown,
     setActiveKpiDrilldown
   } = useApp();
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
 
   // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
   const [internalTab, setInternalTab] = useState<'dashboard' | 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap'>(
@@ -371,10 +373,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [bulkQuickInstaller, setBulkQuickInstaller] = useState<string>('');
 
   useEffect(() => {
-    if (isMobileView) {
+    if (isCompactUI) {
       setMatrixViewMode('cards');
     }
-  }, [isMobileView]);
+  }, [isCompactUI]);
   
   // Date Filter for Assign WO (Strict Asia/Jakarta Appointment Date === todayWIB, auto-resets at 00:00 WIB)
   const [dateFilterType, setDateFilterTypeState] = useState<'today'>('today');
@@ -1997,7 +1999,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {!isStandaloneFocusedTab && (
         <>
-          <div className={`flex flex-col justify-between gap-3.5 ${isMobileView ? '' : 'lg:flex-row lg:items-end'}`}>
+          <div className={`flex flex-col justify-between gap-3.5 ${isCompactUI ? '' : 'lg:flex-row lg:items-end'}`}>
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
@@ -2101,7 +2103,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           {/* ============================================================ */}
           {/* 2. RESPONSIVE KPI STRIP (3 Compact Mobile / 6 Desktop)       */}
           {/* ============================================================ */}
-          <div className={`grid gap-2.5 sm:gap-3 ${isMobileView ? 'grid-cols-3' : 'grid-cols-3 lg:grid-cols-6'}`}>
+          <div className={`grid gap-2.5 sm:gap-3 ${isCompactUI ? 'grid-cols-3' : 'grid-cols-3 lg:grid-cols-6'}`}>
             {/* Mobile Compact 1 / Desktop 2: Unassigned */}
             <div
               onClick={() => {
@@ -2184,7 +2186,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             </div>
 
             {/* Desktop Extra KPIs (hidden in Mobile Mode for clean 3-card density) */}
-            {!isMobileView && (
+            {!isCompactUI && (
               <>
                 <div
                   onClick={() => {
@@ -2266,7 +2268,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {/* 3. DESKTOP SEGMENTED NAVIGATION PILL (Hidden on Mobile Mode) */}
       {/* ============================================================ */}
-      {!isMobileView && (
+      {!isCompactUI && (
         <div className="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-[#f3eaff] dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-[#35105E] overflow-x-auto scrollbar-none">
           {[
             { id: 'wo_assignment' as const, label: 'Assign WO', badge: summaryMetrics.unassigned, icon: Layers },
@@ -2346,7 +2348,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           />
 
           {/* 10 ACCURATE SUMMARY METRIC CARDS */}
-          <div className={`grid gap-3 sm:gap-4 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'}`}>
+          <div className={`grid gap-3 sm:gap-4 ${isCompactUI ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'}`}>
             {/* 1. Total WO */}
             <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
@@ -2603,92 +2605,148 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               </div>
             </div>
 
-            {/* Table of Installers */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-slate-700 dark:text-purple-200 uppercase font-semibold">
-                  <tr>
-                    <th className="py-2.5 px-3">Teknisi</th>
-                    <th className="py-2.5 px-3">Kontak WhatsApp</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-center">WO Aktif</th>
-                    <th className="py-2.5 px-3 text-center">Beban / Kuota</th>
-                    <th className="py-2.5 px-3 text-center">Progres Selesai</th>
-                    <th className="py-2.5 px-3 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {installerProgressRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-400">
-                        Belum ada teknisi yang terdaftar untuk kontraktor ini. Silakan tambahkan akun teknisi melalui menu Pendaftaran Akun Teknisi.
-                      </td>
-                    </tr>
-                  ) : (
-                    installerProgressRows.map(row => {
+            {/* Table / Priority Cards of Installers */}
+            <ResponsiveDataTable
+              data={installerProgressRows}
+              getRowKey={row => row.installer.id}
+              emptyState={{
+                title: 'Belum Ada Teknisi Terdaftar',
+                description:
+                  'Belum ada teknisi yang terdaftar untuk kontraktor ini. Silakan tambahkan akun teknisi melalui menu Manajemen Teknisi.'
+              }}
+              mobileTitle={row => (
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
+                    {row.installer.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate">{row.installer.name}</div>
+                    <div className="text-[10px] text-slate-400 font-normal">@{row.installer.username}</div>
+                  </div>
+                </div>
+              )}
+              mobileSubtitle={row => row.installer.phone || 'Nomor WA belum diisi'}
+              mobileStatus={row => {
+                const isActive = row.inProgress > 0 || row.notStarted > 0;
+                return isActive ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                    Aktif ({row.inProgress > 0 ? 'Sedang di Lokasi' : 'Siap Menuju'})
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                    Siaga (Idle)
+                  </span>
+                );
+              }}
+              getRowActions={row => [
+                {
+                  id: 'detail',
+                  label: 'Lihat Detail Teknisi',
+                  icon: <Eye className="w-3.5 h-3.5" />,
+                  onClick: () => setSelectedInstallerForDetail(row.installer)
+                }
+              ]}
+              renderDesktopActions={row => (
+                <button
+                  type="button"
+                  onClick={() => setSelectedInstallerForDetail(row.installer)}
+                  className="px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 rounded-lg border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer"
+                >
+                  Lihat Detail
+                </button>
+              )}
+              columns={
+                [
+                  {
+                    key: 'installer',
+                    label: 'Teknisi',
+                    priority: 'hidden_mobile',
+                    render: row => (
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
+                          {row.installer.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div>{row.installer.name}</div>
+                          <div className="text-[10px] text-slate-400 font-normal">@{row.installer.username}</div>
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'phone',
+                    label: 'Kontak WhatsApp',
+                    priority: 'secondary',
+                    render: row => (
+                      <span className="font-mono text-slate-600 dark:text-slate-300">
+                        {row.installer.phone || '-'}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    align: 'center',
+                    priority: 'hidden_mobile',
+                    render: row => {
                       const isActive = row.inProgress > 0 || row.notStarted > 0;
-                      return (
-                        <tr key={row.installer.id} className="hover:bg-slate-50 dark:hover:bg-purple-950/20 transition-colors">
-                          <td className="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
-                              {row.installer.name.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <div>{row.installer.name}</div>
-                              <div className="text-[10px] text-slate-400 font-normal">@{row.installer.username}</div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 font-mono text-slate-600 dark:text-slate-300">
-                            {row.installer.phone || '-'}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            {isActive ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
-                                Aktif ({row.inProgress > 0 ? 'Sedang di Lokasi' : 'Siap Menuju'})
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
-                                Siaga (Idle)
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono font-bold text-slate-800 dark:text-slate-200">
-                            {row.totalWO}
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono">
-                            <span className={row.totalWO >= row.maxQuota ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}>
-                              {row.totalWO} / {row.maxQuota} WO
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <div className="w-16 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                  style={{ width: `${row.progressPercent}%` }}
-                                  className="h-full bg-emerald-500 rounded-full"
-                                />
-                              </div>
-                              <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
-                                {row.progressPercent}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedInstallerForDetail(row.installer)}
-                              className="px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 rounded-lg border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer"
-                            >
-                              Lihat Detail
-                            </button>
-                          </td>
-                        </tr>
+                      return isActive ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                          Aktif ({row.inProgress > 0 ? 'Sedang di Lokasi' : 'Siap Menuju'})
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                          Siaga (Idle)
+                        </span>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    }
+                  },
+                  {
+                    key: 'totalWO',
+                    label: 'WO Aktif',
+                    align: 'center',
+                    numeric: true,
+                    priority: 'primary',
+                    render: row => (
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {row.totalWO}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'quota',
+                    label: 'Beban / Kuota',
+                    align: 'center',
+                    numeric: true,
+                    priority: 'primary',
+                    render: row => (
+                      <span className={row.totalWO >= row.maxQuota ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}>
+                        {row.totalWO} / {row.maxQuota} WO
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'progress',
+                    label: 'Progres Selesai',
+                    align: 'center',
+                    priority: 'secondary',
+                    render: row => (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-16 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${row.progressPercent}%` }}
+                            className="h-full bg-emerald-500 rounded-full"
+                          />
+                        </div>
+                        <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
+                          {row.progressPercent}%
+                        </span>
+                      </div>
+                    )
+                  }
+                ] as ResponsiveColumn<(typeof installerProgressRows)[number]>[]
+              }
+            />
           </div>
         </div>
       )}
@@ -2735,9 +2793,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             </div>
           )}
 
-          <div className={`grid gap-5 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-12'}`}>
+          <div className={`grid gap-5 items-start ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-12'}`}>
             {/* LEFT 8 COLUMNS: FILTER, BULK ACTIONS, CARD MATRIX / TABLE */}
-            <div className={isMobileView ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
+            <div className={isCompactUI ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
               <LeaderAssignMatrixPanel
                 totalScopedCount={summaryMetrics.total}
                 filteredTickets={filteredTickets}
@@ -2859,7 +2917,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           </div>
 
           {/* RIGHT 4 COLUMNS: TECHNICIAN CAPACITY, 4-SLOT MATRIX & AUDIT TRAIL */}
-          <div className={isMobileView ? 'min-w-0' : 'xl:col-span-4 min-w-0'}>
+          <div className={isCompactUI ? 'min-w-0' : 'xl:col-span-4 min-w-0'}>
             <LeaderQuotaSidebar
               quotaConfig={quotaSettings}
               technicians={technicianSummaries}
@@ -2940,7 +2998,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS (STITCH)         */}
       {/* ============================================================ */}
       {activeTab === 'quota_settings' && (
-        <div className={`grid gap-4 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+        <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {/* Card 1: Batas Kuota Beban Teknisi */}
           <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-5">
             <div className="flex items-center gap-3 pb-3 border-b border-[#f3eaff] dark:border-[#35105E]">
@@ -3058,150 +3116,27 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {/* MODAL 1: BULK / MANUAL ASSIGN WO MODAL                      */}
       {/* ============================================================ */}
-      {isBulkAssignModalOpen && (() => {
+      {(() => {
         const modalTargetTickets = contractorTickets.filter(t => selectedTicketIds.includes(t.id));
         const firstTicket = modalTargetTickets[0];
         const isSingle = modalTargetTickets.length === 1;
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-            <div className="bg-white dark:bg-[#1A0E2E] w-full max-w-lg rounded-2xl shadow-2xl border-2 border-[#D8CCF3] dark:border-purple-800 flex flex-col overflow-hidden text-xs max-h-[92vh]">
-              {/* Header */}
-              <div className="px-5 py-4 border-b border-[#D8CCF3] dark:border-purple-800 flex items-center justify-between bg-[#F5F1FF] dark:bg-[#251545]">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-[#E9E1FF] dark:bg-purple-900/60 text-[#3B1D78] dark:text-purple-300 rounded-xl border border-[#D8CCF3]">
-                    <UserCheck className="w-5 h-5 text-[#5B35B1] dark:text-purple-300" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-[#21183A] dark:text-white">
-                      Penugasan Work Order ke Teknisi
-                    </h3>
-                    <p className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
-                      Otorisasi Khusus Leader / Korlap ({selectedTicketIds.length} WO Dipilih)
-                    </p>
-                  </div>
-                </div>
+          <ResponsiveModal
+            isOpen={isBulkAssignModalOpen}
+            onClose={() => setIsBulkAssignModalOpen(false)}
+            size="md"
+            mobileVariant="sheet"
+            zIndexClass="z-60"
+            icon={<UserCheck className="w-5 h-5" />}
+            title="Penugasan Work Order ke Teknisi"
+            subtitle={`Otorisasi Khusus Leader / Korlap (${selectedTicketIds.length} WO Dipilih)`}
+            footer={
+              <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsBulkAssignModalOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="p-5 space-y-4 overflow-y-auto">
-                {/* 8 Requirements Panel */}
-                <div className="p-3.5 bg-[#F5F1FF] dark:bg-[#21113B] rounded-xl border border-[#D8CCF3] dark:border-purple-800 space-y-2 text-xs">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#5B35B1] dark:text-purple-300 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Rincian Tiket Work Order</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-slate-700 dark:text-slate-300">
-                    {/* 1. WO Number */}
-                    <div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">1. Nomor WO:</span>
-                      <span className="font-mono font-bold text-[#3B1D78] dark:text-purple-300 break-all">
-                        {isSingle ? firstTicket?.woNumber : `${modalTargetTickets.length} Tiket (${modalTargetTickets.slice(0, 3).map(t => t.woNumber).join(', ')}${modalTargetTickets.length > 3 ? '...' : ''})`}
-                      </span>
-                    </div>
-
-                    {/* 2. Customer Name */}
-                    <div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">2. Nama Pelanggan:</span>
-                      <span className="font-semibold text-slate-900 dark:text-white truncate block">
-                        {isSingle ? firstTicket?.customerName || '-' : `${modalTargetTickets.length} Pelanggan`}
-                      </span>
-                    </div>
-
-                    {/* 3. Appointment Date */}
-                    <div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">3. Appointment Date:</span>
-                      <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
-                        {firstTicket?.appointmentDate || scheduleDate}
-                      </span>
-                    </div>
-
-                    {/* 4. Slot Time */}
-                    <div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">4. Slot Time:</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {bulkSlotTime || firstTicket?.slotTime || 'Standar Operasional'}
-                      </span>
-                    </div>
-
-                    {/* 5. Kontraktor */}
-                    <div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">5. Kontraktor:</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {firstTicket?.contactorName || firstTicket?.contractorName || leaderContractor}
-                      </span>
-                    </div>
-
-                    {/* 6. Area */}
-                    <div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">6. Area / Coverage:</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {firstTicket?.area || leaderArea}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 7. Eligible Installer Dropdown */}
-                <div>
-                  <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1.5">
-                    7. Pilih Teknisi Tujuan Penugasan <span className="text-rose-500">*</span>:
-                  </label>
-                  <select
-                    value={bulkTargetInstaller}
-                    onChange={e => setBulkTargetInstaller(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border-2 border-[#D8CCF3] dark:border-purple-800 rounded-xl font-medium text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5B35B1] min-h-[44px]"
-                  >
-                    <option value="">Pilih teknisi aktif...</option>
-                    {myInstallers.map(inst => {
-                      const currentCount = getInstallerWOCountForDate(inst.name, scheduleDate);
-                      const maxLimit = getMaxQuotaForInstaller(inst.name);
-                      const isFull = currentCount >= maxLimit;
-                      return (
-                        <option key={inst.id} value={inst.name}>
-                          {inst.name} ({currentCount}/{maxLimit} WO){isFull ? ' - KUOTA PENUH' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                {/* Slot Time Modifier (Optional) */}
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Ubah Slot Waktu Penugasan (Opsional):
-                  </label>
-                  <select
-                    value={bulkSlotTime}
-                    onChange={e => setBulkSlotTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 min-h-[40px]"
-                  >
-                    <option value="">Pertahankan slot waktu asli masing-masing tiket</option>
-                    {STANDARD_SLOTS.map(slot => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="p-3 bg-[#F5F1FF] dark:bg-purple-950/40 rounded-xl border border-[#D8CCF3] dark:border-purple-900 text-[11px] text-purple-900 dark:text-purple-200">
-                  Sistem MoraJaws memvalidasi batas beban kerja teknisi ({quotaSettings.defaultMaxDailyQuota} WO/hari). Penugasan hanya dapat dilakukan oleh Leader/Korlap terdaftar.
-                </div>
-              </div>
-
-              {/* 8. Confirm & Cancel Buttons (Responsive Layout & min 44px touch targets) */}
-              <div className="px-5 py-3.5 border-t border-[#D8CCF3] dark:border-purple-800 bg-[#F5F1FF] dark:bg-[#251545] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsBulkAssignModalOpen(false)}
-                  className="min-h-[44px] px-4 py-2.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl font-semibold transition-colors flex items-center justify-center cursor-pointer"
+                  className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl font-semibold text-xs flex items-center justify-center cursor-pointer"
                 >
                   Batal
                 </button>
@@ -3209,70 +3144,131 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   type="button"
                   disabled={!bulkTargetInstaller}
                   onClick={handleExecuteBulkAssignModal}
-                  className="min-h-[44px] px-5 py-2.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                  className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-5 py-2 font-bold rounded-xl text-xs disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Konfirmasi Penugasan</span>
                 </button>
               </div>
+            }
+          >
+            <div className="space-y-4 text-xs">
+              <div className="p-3.5 bg-[#F5F1FF] dark:bg-[#21113B] rounded-xl border border-[#D8CCF3] dark:border-purple-800 space-y-2 text-xs">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5B35B1] dark:text-purple-300 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Rincian Tiket Work Order</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-slate-700 dark:text-slate-300">
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">1. Nomor WO:</span>
+                    <span className="font-mono font-bold text-[#3B1D78] dark:text-purple-300 break-all">
+                      {isSingle ? firstTicket?.woNumber : `${modalTargetTickets.length} Tiket (${modalTargetTickets.slice(0, 3).map(t => t.woNumber).join(', ')}${modalTargetTickets.length > 3 ? '...' : ''})`}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">2. Nama Pelanggan:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white truncate block">
+                      {isSingle ? firstTicket?.customerName || '-' : `${modalTargetTickets.length} Pelanggan`}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">3. Appointment Date:</span>
+                    <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
+                      {firstTicket?.appointmentDate || scheduleDate}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">4. Slot Time:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {bulkSlotTime || firstTicket?.slotTime || 'Standar Operasional'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">5. Kontraktor:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {firstTicket?.contactorName || firstTicket?.contractorName || leaderContractor}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">6. Area / Coverage:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {firstTicket?.area || leaderArea}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                  7. Pilih Teknisi Tujuan Penugasan <span className="text-rose-500">*</span>:
+                </label>
+                <select
+                  value={bulkTargetInstaller}
+                  onChange={e => setBulkTargetInstaller(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border-2 border-[#D8CCF3] dark:border-purple-800 rounded-xl font-medium text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5B35B1] min-h-[44px]"
+                >
+                  <option value="">Pilih teknisi aktif...</option>
+                  {myInstallers.map(inst => {
+                    const currentCount = getInstallerWOCountForDate(inst.name, scheduleDate);
+                    const maxLimit = getMaxQuotaForInstaller(inst.name);
+                    const isFull = currentCount >= maxLimit;
+                    return (
+                      <option key={inst.id} value={inst.name}>
+                        {inst.name} ({currentCount}/{maxLimit} WO){isFull ? ' - KUOTA PENUH' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Ubah Slot Waktu Penugasan (Opsional):
+                </label>
+                <select
+                  value={bulkSlotTime}
+                  onChange={e => setBulkSlotTime(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 min-h-[40px]"
+                >
+                  <option value="">Pertahankan slot waktu asli masing-masing tiket</option>
+                  {STANDARD_SLOTS.map(slot => (
+                    <option key={slot} value={slot}>{slot}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-3 bg-[#F5F1FF] dark:bg-purple-950/40 rounded-xl border border-[#D8CCF3] dark:border-purple-900 text-[11px] text-purple-900 dark:text-purple-200">
+                Sistem MoraJaws memvalidasi batas beban kerja teknisi ({quotaSettings.defaultMaxDailyQuota} WO/hari). Penugasan hanya dapat dilakukan oleh Leader/Korlap terdaftar.
+              </div>
             </div>
-          </div>
+          </ResponsiveModal>
         );
       })()}
 
       {/* ============================================================ */}
       {/* MODAL 2: WHATSAPP ASSIGNMENT CONFIRMATION MODAL             */}
       {/* ============================================================ */}
-      {assignmentNoticeModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn text-xs">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-            <div className="px-5 py-4 border-b flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/40">
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Konfirmasi WhatsApp Penugasan Teknisi
-                </h3>
-              </div>
-              <button onClick={() => setAssignmentNoticeModal(null)}>
-                <X className="w-4 h-4 text-slate-400" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3">
-              <p className="text-slate-600 dark:text-slate-400 text-[11px]">
-                Penugasan WO <strong className="font-mono text-indigo-600">{assignmentNoticeModal.ticket.woNumber}</strong> berhasil disimpan di sistem. Kirimkan pesan rincian tugas langsung ke WhatsApp teknisi <strong>{assignmentNoticeModal.installer.name}</strong>:
-              </p>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Nomor Telepon Teknisi:
-                </label>
-                <input
-                  type="text"
-                  value={assignmentNoticeModal.targetPhone}
-                  onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, targetPhone: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Pratinjau Pesan Penugasan:
-                </label>
-                <textarea
-                  rows={6}
-                  value={assignmentNoticeModal.renderedMessage}
-                  onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, renderedMessage: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono text-[11px]"
-                />
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t bg-slate-50 flex items-center justify-between">
+      <ResponsiveModal
+        isOpen={Boolean(assignmentNoticeModal)}
+        onClose={() => setAssignmentNoticeModal(null)}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<Phone className="w-4 h-4 text-emerald-600" />}
+        title="Konfirmasi WhatsApp Penugasan Teknisi"
+        footer={
+          assignmentNoticeModal ? (
+            <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setAssignmentNoticeModal(null)}
-                className="px-4 py-1.5 text-slate-600 cursor-pointer"
+                className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Lewati / Selesai
               </button>
@@ -3287,63 +3283,97 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   toast.success('Pesan WhatsApp dibuka di tab baru.', 'WhatsApp Terkirim');
                   setAssignmentNoticeModal(null);
                 }}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+                className="btn-3d-success min-h-[42px] sm:min-h-[38px] px-5 py-2 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Kirim via WhatsApp</span>
               </a>
             </div>
+          ) : undefined
+        }
+      >
+        {assignmentNoticeModal && (
+          <div className="space-y-3 text-xs">
+            <p className="text-slate-600 dark:text-slate-300 text-[11px]">
+              Penugasan WO <strong className="font-mono text-indigo-600 dark:text-indigo-300">{assignmentNoticeModal.ticket.woNumber}</strong> berhasil disimpan di sistem. Kirimkan pesan rincian tugas langsung ke WhatsApp teknisi <strong>{assignmentNoticeModal.installer.name}</strong>:
+            </p>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Nomor Telepon Teknisi:
+              </label>
+              <input
+                type="text"
+                value={assignmentNoticeModal.targetPhone}
+                onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, targetPhone: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-[#160D29] border border-slate-200 dark:border-[#3E246F] rounded-lg font-mono text-xs text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Pratinjau Pesan Penugasan:
+              </label>
+              <textarea
+                rows={6}
+                value={assignmentNoticeModal.renderedMessage}
+                onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, renderedMessage: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 dark:bg-[#160D29] border border-slate-200 dark:border-[#3E246F] rounded-xl font-mono text-[11px] text-slate-900 dark:text-white"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL 3: QUOTA WARNING MODAL                                */}
       {/* ============================================================ */}
-      {quotaWarningModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn text-xs">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl border p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-100 text-amber-700 rounded-xl">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                  Peringatan Batas Kuota Harian
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Teknisi {quotaWarningModal.installerName} telah mencapai batas beban kerja
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] space-y-1">
-              <div>Jumlah WO saat ini: <strong>{quotaWarningModal.currentCount} WO</strong></div>
-              <div>Batas Kuota: <strong>{quotaWarningModal.maxLimit} WO / hari</strong></div>
-              <div>Apakah Anda yakin ingin tetap menugaskan WO {quotaWarningModal.ticket.woNumber} kepada teknisi ini?</div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
+      <ResponsiveModal
+        isOpen={Boolean(quotaWarningModal)}
+        onClose={() => setQuotaWarningModal(null)}
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<AlertTriangle className="w-5 h-5 text-amber-600" />}
+        title="Peringatan Batas Kuota Harian"
+        subtitle={
+          quotaWarningModal
+            ? `Teknisi ${quotaWarningModal.installerName} telah mencapai batas beban kerja`
+            : undefined
+        }
+        footer={
+          quotaWarningModal ? (
+            <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setQuotaWarningModal(null)}
-                className="px-4 py-2 border rounded-xl text-slate-600"
+                className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={() => {
                   const { ticket, installerName, slotTime } = quotaWarningModal;
                   setQuotaWarningModal(null);
                   handleAssignTicket(ticket, installerName, slotTime, true);
                 }}
-                className="px-4 py-2 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700"
+                className="min-h-[42px] sm:min-h-[38px] px-4 py-2 bg-amber-600 text-white font-bold rounded-xl text-xs hover:bg-amber-700 cursor-pointer"
               >
                 Tetap Tugaskan
               </button>
             </div>
+          ) : undefined
+        }
+      >
+        {quotaWarningModal && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1">
+            <div>Jumlah WO saat ini: <strong>{quotaWarningModal.currentCount} WO</strong></div>
+            <div>Batas Kuota: <strong>{quotaWarningModal.maxLimit} WO / hari</strong></div>
+            <div>Apakah Anda yakin ingin tetap menugaskan WO {quotaWarningModal.ticket.woNumber} kepada teknisi ini?</div>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL 4: INSTALLER DETAIL 7 TAB MODAL                        */}
@@ -3395,173 +3425,153 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {/* MODAL 7: REASSIGN WO MODAL (LEADER ONLY)                     */}
       {/* ============================================================ */}
-      {reassignModalState.isOpen && reassignModalState.ticket && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-xs">
-            {/* Modal Header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-amber-600 via-amber-700 to-orange-700 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white">
-                  <RotateCcw className="w-4 h-4" />
+      <ResponsiveModal
+        isOpen={Boolean(reassignModalState.isOpen && reassignModalState.ticket)}
+        onClose={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<RotateCcw className="w-4 h-4 text-amber-600" />}
+        title="Reassign Work Order"
+        subtitle="Alihkan penugasan teknisi dengan validasi wilayah & pencatatan riwayat"
+        footer={
+          <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <button
+              type="button"
+              onClick={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
+              className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 font-semibold rounded-xl text-xs cursor-pointer"
+            >
+              Batal
+            </button>
+
+            <button
+              type="button"
+              disabled={reassignModalState.isSubmitting || !reassignModalState.targetInstaller || !reassignModalState.reason.trim()}
+              onClick={handleExecuteReassign}
+              className="min-h-[42px] sm:min-h-[38px] px-5 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${reassignModalState.isSubmitting ? 'animate-spin' : ''}`} />
+              <span>{reassignModalState.isSubmitting ? 'Memproses Reassign...' : 'Konfirmasi & Alihkan WO'}</span>
+            </button>
+          </div>
+        }
+      >
+        {reassignModalState.ticket && (
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 bg-slate-50 dark:bg-[#160D29] rounded-xl border border-slate-200 dark:border-[#3E246F] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+                  {reassignModalState.ticket.woNumber}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                  {reassignModalState.ticket.ticketCategory}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200 dark:border-[#3E246F]">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Nama Pelanggan</span>
+                  <strong className="text-slate-800 dark:text-slate-200">{reassignModalState.ticket.customerName}</strong>
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm tracking-tight">Reassign Work Order</h3>
-                  <p className="text-[11px] text-amber-100">
-                    Alihkan penugasan teknisi dengan validasi wilayah & pencatatan riwayat
-                  </p>
+                  <span className="text-slate-400 block text-[10px]">Customer ID (7 Digit)</span>
+                  <strong className="font-mono text-slate-800 dark:text-slate-200">{reassignModalState.ticket.idCustomer || '-'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Kontraktor &amp; Area</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {reassignModalState.ticket.contactorName || reassignModalState.ticket.contractorName || '-'} ({reassignModalState.ticket.area || '-'})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Appointment Date (WO Sumber)</span>
+                  <strong className="text-purple-700 dark:text-purple-300 font-medium">
+                    {formatAppointmentDateDisplay(reassignModalState.ticket.appointmentDate)} {reassignModalState.ticket.slotTime ? `(${reassignModalState.ticket.slotTime})` : ''}
+                  </strong>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
-                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              {/* WO Master Details Card */}
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                    {reassignModalState.ticket.woNumber}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40">
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block mb-1">
+                    Teknisi Saat Ini (Lama)
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                    {reassignModalState.ticket.ticketCategory}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200 dark:border-slate-700">
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Nama Pelanggan</span>
-                    <strong className="text-slate-800 dark:text-slate-200">{reassignModalState.ticket.customerName}</strong>
+                  <div className="font-bold text-sm text-slate-900 dark:text-white">
+                    {reassignModalState.ticket.installerName || 'Belum Ditugaskan'}
                   </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Customer ID (7 Digit)</span>
-                    <strong className="font-mono text-slate-800 dark:text-slate-200">{reassignModalState.ticket.idCustomer || '-'}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Kontraktor & Area</span>
-                    <span className="text-slate-700 dark:text-slate-300">
-                      {reassignModalState.ticket.contactorName || reassignModalState.ticket.contractorName || '-'} ({reassignModalState.ticket.area || '-'})
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Appointment Date (WO Sumber)</span>
-                    <strong className="text-purple-700 dark:text-purple-300 font-medium">
-                      {formatAppointmentDateDisplay(reassignModalState.ticket.appointmentDate)} {reassignModalState.ticket.slotTime ? `(${reassignModalState.ticket.slotTime})` : ''}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Technician Handoff Selector */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40">
-                    <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block mb-1">
-                      Teknisi Saat Ini (Lama)
-                    </span>
-                    <div className="font-bold text-sm text-slate-900 dark:text-white">
-                      {reassignModalState.ticket.installerName || 'Belum Ditugaskan'}
-                    </div>
-                    <div className="text-[10.5px] text-slate-500 mt-0.5">
-                      Status: {reassignModalState.ticket.statusWOInstaller || 'Unassigned'}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40">
-                    <label className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">
-                      Pilih Teknisi Baru (Tujuan) *
-                    </label>
-                    <select
-                      value={reassignModalState.targetInstaller}
-                      onChange={e => setReassignModalState(prev => ({ ...prev, targetInstaller: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-lg font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value="">-- Pilih Teknisi Tujuan --</option>
-                      {myInstallers
-                        .filter(inst => inst.name !== reassignModalState.ticket?.installerName && inst.active && !inst.isArchived)
-                        .map(inst => (
-                          <option key={inst.id} value={inst.name}>
-                            {inst.name} {inst.phone ? `(${inst.phone})` : ''}
-                          </option>
-                        ))}
-                    </select>
+                  <div className="text-[10.5px] text-slate-500 mt-0.5">
+                    Status: {reassignModalState.ticket.statusWOInstaller || 'Unassigned'}
                   </div>
                 </div>
 
-                {/* Reason Input */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Alasan Reassign / Pengalihan Tugas *
+                <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40">
+                  <label className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">
+                    Pilih Teknisi Baru (Tujuan) *
                   </label>
-                  <textarea
-                    rows={2}
-                    value={reassignModalState.reason}
-                    onChange={e => setReassignModalState(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Contoh: Kendala armada teknisi di lapangan / pemerataan kuota harian / kendala jarak tempuh..."
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                  />
-                  <span className="text-[10.5px] text-slate-400">
-                    Alasan ini akan dicatat ke dalam audit log dan riwayat penugasan resmi (append-only history).
-                  </span>
-                </div>
-
-                {/* Assignment History Display */}
-                {reassignModalState.ticket.assignmentHistory && reassignModalState.ticket.assignmentHistory.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-semibold text-[11px] mb-1.5">
-                      <History className="w-3.5 h-3.5" />
-                      <span>Riwayat Penugasan Sebelumnya ({reassignModalState.ticket.assignmentHistory.length}):</span>
-                    </div>
-                    <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
-                      {reassignModalState.ticket.assignmentHistory.map((h, idx) => (
-                        <div key={idx} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-[10.5px] text-slate-600 dark:text-slate-400">
-                          <div className="flex items-center justify-between font-medium">
-                            <span className="text-slate-800 dark:text-slate-200">
-                              {h.previousInstaller || 'Unassigned'} &rarr; <strong>{h.assignedInstaller}</strong>
-                            </span>
-                            <span className="text-slate-400 font-mono text-[9.5px]">
-                              {new Date(h.timestamp).toLocaleString('id-ID')}
-                            </span>
-                          </div>
-                          <div className="text-slate-500 italic mt-0.5">
-                            "{h.reason}" &mdash; oleh {h.performedBy} ({h.performedByRole})
-                          </div>
-                        </div>
+                  <select
+                    value={reassignModalState.targetInstaller}
+                    onChange={e => setReassignModalState(prev => ({ ...prev, targetInstaller: e.target.value }))}
+                    className="w-full px-2.5 py-2 text-xs bg-white dark:bg-[#160D29] border border-emerald-300 dark:border-emerald-700 rounded-lg font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 min-h-[38px]"
+                  >
+                    <option value="">-- Pilih Teknisi Tujuan --</option>
+                    {myInstallers
+                      .filter(inst => inst.name !== reassignModalState.ticket?.installerName && inst.active && !inst.isArchived)
+                      .map(inst => (
+                        <option key={inst.id} value={inst.name}>
+                          {inst.name} {inst.phone ? `(${inst.phone})` : ''}
+                        </option>
                       ))}
-                    </div>
-                  </div>
-                )}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
-                className="px-4 py-2 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
-              >
-                Batal
-              </button>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Alasan Reassign / Pengalihan Tugas *
+                </label>
+                <textarea
+                  rows={2}
+                  value={reassignModalState.reason}
+                  onChange={e => setReassignModalState(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="Contoh: Kendala armada teknisi di lapangan / pemerataan kuota harian / kendala jarak tempuh..."
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#160D29] border border-slate-300 dark:border-[#3E246F] rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                />
+                <span className="text-[10.5px] text-slate-400">
+                  Alasan ini akan dicatat ke dalam audit log dan riwayat penugasan resmi (append-only history).
+                </span>
+              </div>
 
-              <button
-                type="button"
-                disabled={reassignModalState.isSubmitting || !reassignModalState.targetInstaller || !reassignModalState.reason.trim()}
-                onClick={handleExecuteReassign}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-              >
-                <RotateCcw className={`w-3.5 h-3.5 ${reassignModalState.isSubmitting ? 'animate-spin' : ''}`} />
-                <span>{reassignModalState.isSubmitting ? 'Memproses Reassign...' : 'Konfirmasi & Alihkan WO'}</span>
-              </button>
+              {reassignModalState.ticket.assignmentHistory && reassignModalState.ticket.assignmentHistory.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#3E246F]">
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-semibold text-[11px] mb-1.5">
+                    <History className="w-3.5 h-3.5" />
+                    <span>Riwayat Penugasan Sebelumnya ({reassignModalState.ticket.assignmentHistory.length}):</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                    {reassignModalState.ticket.assignmentHistory.map((h, idx) => (
+                      <div key={idx} className="p-2 rounded-lg bg-slate-100 dark:bg-[#160D29] text-[10.5px] text-slate-600 dark:text-slate-400">
+                        <div className="flex items-center justify-between font-medium">
+                          <span className="text-slate-800 dark:text-slate-200">
+                            {h.previousInstaller || 'Unassigned'} &rarr; <strong>{h.assignedInstaller}</strong>
+                          </span>
+                          <span className="text-slate-400 font-mono text-[9.5px]">
+                            {new Date(h.timestamp).toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        <div className="text-slate-500 italic mt-0.5">
+                          "{h.reason}" &mdash; oleh {h.performedBy} ({h.performedByRole})
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL 8: DAILY LIMIT SETTINGS MODAL (ATUR LIMIT HARIAN)      */}

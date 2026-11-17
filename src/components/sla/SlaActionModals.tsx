@@ -51,8 +51,8 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
   if (!isOpen || !vendor) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4">
+      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] flex items-center justify-between gap-4">
           <div>
             <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
@@ -247,24 +247,24 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className={`px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between ${isCriticalStyle ? 'bg-rose-50 dark:bg-rose-950/30' : 'bg-[#F7F6FA] dark:bg-[#160D29]'}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCriticalStyle ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300' : 'bg-[#431599]/10 text-[#431599] dark:text-[#D8B4FE]'}`}>
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4">
+      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden">
+        <div className={`px-4 sm:px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 shrink-0 ${isCriticalStyle ? 'bg-rose-50 dark:bg-rose-950/30' : 'bg-[#F7F6FA] dark:bg-[#160D29]'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCriticalStyle ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300' : 'bg-[#431599]/10 text-[#431599] dark:text-[#D8B4FE]'}`}>
               {context.actionType === 'ISSUE_SP1' ? <FileWarning className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
             </div>
-            <div>
-              <h3 className="font-display font-bold text-sm text-[#211A2E] dark:text-white">{context.title}</h3>
-              <p className="text-[11px] text-[#766B83] dark:text-[#A78BFA]">{context.subtitle}</p>
+            <div className="min-w-0">
+              <h3 className="font-display font-bold text-sm text-[#211A2E] dark:text-white truncate">{context.title}</h3>
+              <p className="text-[11px] text-[#766B83] dark:text-[#A78BFA] truncate">{context.subtitle}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-[#766B83] hover:bg-white/70">
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-[#766B83] hover:bg-white/70 shrink-0 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleConfirm} className="p-6 space-y-4">
+        <form onSubmit={handleConfirm} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -272,7 +272,7 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 text-xs bg-[#F7F6FA] dark:bg-[#140827] p-3 rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#F7F6FA] dark:bg-[#140827] p-3 rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
             <div>
               <span className="text-[10px] uppercase font-bold text-[#8B8495] block">Vendor / Mitra</span>
               <span className="font-semibold text-[#211A2E] dark:text-white">{context.contractorName || 'Semua Vendor Aktif'}</span>

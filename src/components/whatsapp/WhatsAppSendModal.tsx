@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Ticket, WhatsAppTemplate } from '../../types';
+import { Ticket } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl, normalizePhoneNumber, isValidPhoneNumber } from '../../services/whatsappService';
 import {
@@ -8,11 +8,9 @@ import {
   ExternalLink,
   Check,
   AlertTriangle,
-  X,
-  Calendar,
-  PhoneCall,
   Info
 } from 'lucide-react';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 interface WhatsAppSendModalProps {
   ticket: Ticket;
@@ -115,49 +113,69 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/60 p-2 sm:p-4 backdrop-blur-xs">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                WhatsApp Customer Confirmation
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                WO: <span className="font-mono font-medium">{ticket.woNumber}</span> · {ticket.customerName}
-              </p>
+    <ResponsiveModal
+      isOpen={isOpen && Boolean(ticket)}
+      onClose={onClose}
+      size="md"
+      mobileVariant="sheet"
+      zIndexClass="z-60"
+      icon={<MessageSquare className="w-4 h-4" />}
+      title="WhatsApp Customer Confirmation"
+      subtitle={
+        <>
+          WO: <span className="font-mono font-medium">{ticket.woNumber}</span> · {ticket.customerName}
+        </>
+      }
+      footer={
+        <div className="w-full flex flex-col-reverse sm:flex-row items-center justify-between gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors min-h-[40px] text-center cursor-pointer"
+          >
+            Tutup
+          </button>
+          {url && isPhoneValid ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleOpenWhatsApp}
+              className="w-full sm:w-auto px-5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm min-h-[40px]"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Buka WhatsApp Web / App</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full sm:w-auto px-5 py-2 text-xs font-semibold text-white bg-slate-400 rounded-lg cursor-not-allowed flex items-center justify-center gap-2 min-h-[40px]"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Nomor Tidak Valid</span>
+            </button>
+          )}
+        </div>
+      }
+    >
+      <div className="space-y-4 text-xs">
+        {statusMessage && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>{statusMessage}</span>
+          </div>
+        )}
+
+        {/* Recipient Details & Phone Normalization */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700">
+          <div>
+            <span className="text-slate-500 text-[11px] block">Customer Contact</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">{ticket.customerName}</span>
+            <div className="font-mono text-slate-600 dark:text-slate-400 mt-0.5">
+              {ticket.customerPhone || '(Belum ada nomor)'}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content body */}
-        <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
-          {statusMessage && (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
-              <Check className="w-4 h-4 shrink-0" />
-              <span>{statusMessage}</span>
-            </div>
-          )}
-
-          {/* Recipient Details & Phone Normalization */}
-          <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700">
-            <div>
-              <span className="text-slate-500 text-[11px] block">Customer Contact</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{ticket.customerName}</span>
-              <div className="font-mono text-slate-600 dark:text-slate-400 mt-0.5">
-                {ticket.customerPhone || '(Belum ada nomor)'}
-              </div>
-            </div>
             <div>
               <span className="text-slate-500 text-[11px] block">Normalized ID WhatsApp (+62)</span>
               <span className={`font-mono font-medium ${isPhoneValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
@@ -354,38 +372,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
               </div>
             </div>
           )}
-        </div>
-
-        {/* Modal Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-3 bg-slate-50 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 gap-2.5 shrink-0">
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors min-h-[40px] text-center"
-          >
-            Tutup
-          </button>
-          {url && isPhoneValid ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleOpenWhatsApp}
-              className="w-full sm:w-auto px-5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm min-h-[40px]"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Buka WhatsApp Web / App</span>
-            </a>
-          ) : (
-            <button
-              disabled
-              className="w-full sm:w-auto px-5 py-2 text-xs font-semibold text-white bg-slate-400 rounded-lg cursor-not-allowed flex items-center justify-center gap-2 min-h-[40px]"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Nomor Tidak Valid</span>
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </ResponsiveModal>
   );
 };

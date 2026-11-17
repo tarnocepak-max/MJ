@@ -9,6 +9,7 @@ import { TechnicalReportForm } from '../tickets/TechnicalReportForm';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
   matchesKpiFilter,
   KPI_FILTER_LABELS,
@@ -1323,152 +1324,149 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {/* ============================================================ */}
       {/* 6. DEDICATED TICKET DETAIL MODAL WITH LIVE CHAT              */}
       {/* ============================================================ */}
-      {detailTicket && (
-        <div className="fixed inset-0 z-60 bg-[#160D29]/75 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#35105E] shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
-            <div className="px-5 py-4 bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-mono font-bold text-base text-[#58149C] dark:text-[#DAB9FF]">
-                  {detailTicket.woNumber}
-                </span>
-                <span className="px-2 py-0.5 rounded font-mono text-xs font-semibold bg-[#F3EAFF] dark:bg-[#35105E] text-[#1F1638] dark:text-[#E9D5FF]">
-                  ID: {detailTicket.idCustomer || detailTicket.customerId}
-                </span>
-                <span className="font-bold text-[#1F1638] dark:text-white text-sm">
-                  {detailTicket.customerName}
-                </span>
-                <StatusInstallerBadge status={detailTicket.statusWOInstaller} />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {(() => {
-                  const detailUnread = getTicketUnreadCount(detailTicket.id);
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setDetailModalTab(prev => (prev === 'chat' ? 'details' : 'chat'))}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ${
-                        detailModalTab === 'chat'
-                          ? 'bg-[#58149C] text-white'
-                          : 'bg-white hover:bg-[#F3EAFF] text-[#58149C] dark:bg-[#261942] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B]'
-                      }`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>{detailModalTab === 'chat' ? 'Kembali ke Rincian' : 'Buka Live Chat'}</span>
-                      {detailUnread > 0 && detailModalTab !== 'chat' && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#BA1A1A] text-white">
-                          {detailUnread > 99 ? '99+' : detailUnread}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })()}
-
-                <button
-                  type="button"
-                  onClick={() => onOpenWhatsApp(detailTicket)}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>WhatsApp</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDetailTicket(null)}
-                  className="p-1.5 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white rounded-lg cursor-pointer ml-1"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-6 text-xs">
-              {detailModalTab === 'chat' ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#E8DDFF] dark:border-[#35105E]">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <h4 className="font-bold text-[#1F1638] dark:text-white text-sm">
-                        Live Chat Koordinasi WO {detailTicket.woNumber}
-                      </h4>
-                    </div>
-                    <span className="text-[11px] text-[#7D7484]">
-                      Terhubung langsung dengan Dispatch dan Korlap Leader
+      <ResponsiveModal
+        isOpen={Boolean(detailTicket)}
+        onClose={() => setDetailTicket(null)}
+        size="xl"
+        mobileVariant="fullscreen"
+        zIndexClass="z-60"
+        icon={<Wrench className="w-4 h-4" />}
+        title={
+          detailTicket ? (
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                {detailTicket.woNumber}
+              </span>
+              <span className="text-sm font-bold text-[#1F1638] dark:text-white">
+                {detailTicket.customerName}
+              </span>
+              <StatusInstallerBadge status={detailTicket.statusWOInstaller} />
+            </span>
+          ) : (
+            'Detail Tiket'
+          )
+        }
+        subtitle={
+          detailTicket
+            ? `ID Pelanggan: ${detailTicket.idCustomer || detailTicket.customerId || '-'}`
+            : undefined
+        }
+        headerExtra={
+          detailTicket ? (
+            <div className="flex items-center gap-1.5">
+              {(() => {
+                const detailUnread = getTicketUnreadCount(detailTicket.id);
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setDetailModalTab(prev => (prev === 'chat' ? 'details' : 'chat'))}
+                    className={`min-h-[36px] px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ${
+                      detailModalTab === 'chat'
+                        ? 'bg-[#58149C] text-white'
+                        : 'bg-white hover:bg-[#F3EAFF] text-[#58149C] dark:bg-[#261942] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B]'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">
+                      {detailModalTab === 'chat' ? 'Kembali ke Rincian' : 'Buka Live Chat'}
                     </span>
-                  </div>
+                    <span className="sm:hidden">
+                      {detailModalTab === 'chat' ? 'Rincian' : 'Chat'}
+                    </span>
+                    {detailUnread > 0 && detailModalTab !== 'chat' && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#BA1A1A] text-white">
+                        {detailUnread > 99 ? '99+' : detailUnread}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
 
-                  <div className="rounded-xl border border-[#E8DDFF] dark:border-[#4B386B] overflow-hidden">
-                    <TicketLiveChat ticket={detailTicket} initialCategory={chatInitialCategory} />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="p-4 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] bg-white dark:bg-[#160D29] space-y-3">
-                    <h5 className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-[#E8DDFF] dark:border-[#35105E]">
-                      <Wifi className="w-3.5 h-3.5 text-[#58149C]" />
-                      <span>Laporan Teknis Lapangan (Optical Power OPM &amp; Root Cause)</span>
-                    </h5>
-                    <TechnicalReportForm
-                      ticket={detailTicket}
-                      onRequestProgressCheckIn={() => {
-                        setChatInitialCategory('PROGRESS');
-                        setTicketChatCategory(detailTicket.id, 'PROGRESS');
-                        setDetailModalTab('chat');
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => onOpenWhatsApp(detailTicket)}
+                className="min-h-[36px] px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </button>
             </div>
+          ) : undefined
+        }
+      >
+        {detailTicket && (
+          <div className="space-y-5 text-xs">
+            {detailModalTab === 'chat' ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E8DDFF] dark:border-[#35105E]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <h4 className="font-bold text-[#1F1638] dark:text-white text-sm">
+                      Live Chat Koordinasi WO {detailTicket.woNumber}
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
+                    Terhubung langsung dengan Dispatch dan Korlap Leader
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-[#E8DDFF] dark:border-[#4B386B] overflow-hidden">
+                  <TicketLiveChat ticket={detailTicket} initialCategory={chatInitialCategory} />
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] bg-white dark:bg-[#160D29] space-y-3">
+                <h5 className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-[#E8DDFF] dark:border-[#35105E]">
+                  <Wifi className="w-3.5 h-3.5 text-[#58149C]" />
+                  <span>Laporan Teknis Lapangan (Optical Power OPM &amp; Root Cause)</span>
+                </h5>
+                <TechnicalReportForm
+                  ticket={detailTicket}
+                  onRequestProgressCheckIn={() => {
+                    setChatInitialCategory('PROGRESS');
+                    setTicketChatCategory(detailTicket.id, 'PROGRESS');
+                    setDetailModalTab('chat');
+                  }}
+                />
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* 7. STANDALONE QUICK LIVE CHAT MODAL (DIRECT FROM CARD)       */}
       {/* ============================================================ */}
-      {chatModalTicket && (
-        <div className="fixed inset-0 z-60 bg-[#160D29]/75 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#5B35B1] shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[88vh]">
-            <div className="px-5 py-3.5 bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <MessageSquare className="w-5 h-5 text-[#EEDBFF]" />
-                <div>
-                  <h4 className="font-bold text-sm">
-                    Live Chat: {chatModalTicket.woNumber}
-                  </h4>
-                  <p className="text-[11px] text-[#EEDBFF]">
-                    Pelanggan: {chatModalTicket.customerName} ({chatModalTicket.area})
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setChatModalTicket(null)}
-                className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 flex-1 overflow-y-auto">
-              <TicketLiveChat ticket={chatModalTicket} initialCategory={chatInitialCategory} />
-            </div>
-
-            <div className="px-5 py-2.5 bg-[#F8F1FF] dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between text-xs text-[#7D7484] dark:text-[#CEC0E8]">
-              <span>Koordinasi cepat dengan Dispatch &amp; Leader</span>
-              <button
-                type="button"
-                onClick={() => setChatModalTicket(null)}
-                className="tactile-btn-secondary px-3 py-1.5 bg-white dark:bg-[#261942] text-[#1F1638] dark:text-white border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl font-bold text-xs cursor-pointer"
-              >
-                Tutup Chat
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={Boolean(chatModalTicket)}
+        onClose={() => setChatModalTicket(null)}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<MessageSquare className="w-4 h-4" />}
+        title={chatModalTicket ? `Live Chat: ${chatModalTicket.woNumber}` : 'Live Chat'}
+        subtitle={
+          chatModalTicket
+            ? `Pelanggan: ${chatModalTicket.customerName} (${chatModalTicket.area || '-'})`
+            : undefined
+        }
+        footer={
+          <div className="w-full flex items-center justify-between gap-3 text-xs text-[#7D7484] dark:text-[#CEC0E8]">
+            <span>Koordinasi cepat dengan Dispatch &amp; Leader</span>
+            <button
+              type="button"
+              onClick={() => setChatModalTicket(null)}
+              className="btn-3d-secondary min-h-[40px] sm:min-h-[36px] px-4 py-1.5 rounded-xl font-bold text-xs cursor-pointer"
+            >
+              Tutup Chat
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {chatModalTicket && (
+          <TicketLiveChat ticket={chatModalTicket} initialCategory={chatInitialCategory} />
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

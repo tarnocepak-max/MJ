@@ -1704,7 +1704,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (prevIdentityRef.current !== identity) {
       prevIdentityRef.current = identity;
       if (isLoggedIn) {
-        const nextSidebarState = resolved === 'mobile' ? 'closed' : 'expanded';
+        const nextSidebarState = resolved === 'mobile' || windowWidth < 1024 ? 'closed' : 'expanded';
         setConfig(prev => ({
           ...prev,
           global: {
@@ -1716,6 +1716,18 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
   }, [isLoggedIn, currentUser?.id, currentUser?.username, currentUser?.role]);
+
+  // Auto-adapt sidebar drawer state when crossing 1024px desktop/tablet threshold
+  const prevIsCompactViewportRef = useRef<boolean>(windowWidth < 1024);
+  useEffect(() => {
+    const isNowCompact = windowWidth < 1024;
+    if (prevIsCompactViewportRef.current !== isNowCompact) {
+      prevIsCompactViewportRef.current = isNowCompact;
+      if (isLoggedIn && currentUser?.role !== 'installer') {
+        setSidebarState(isNowCompact || displayModeState === 'mobile' ? 'closed' : 'expanded');
+      }
+    }
+  }, [windowWidth, isLoggedIn, currentUser?.role, displayModeState]);
 
   // Guard against manual localStorage tampering (cross-tab & focus re-validation)
   useEffect(() => {
@@ -1738,8 +1750,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isLoggedIn, currentUser?.id, currentUser?.username, currentUser?.role, windowWidth]);
 
   // Derived Display Mode: Hard-locked to 'mobile' for TEKNISI (installer) regardless of any client storage
+  // Automatically adapt to mobile UI whenever viewport <= 767px
   const displayMode: DisplayMode = isInstallerRole ? 'mobile' : displayModeState;
-  const isMobileView = displayMode === 'mobile';
+  const isMobileView = displayMode === 'mobile' || windowWidth <= 767;
 
   // Sync HTML root dataset attribute for styling & verification hooks
   useEffect(() => {
@@ -1769,7 +1782,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch {}
     }
     setDisplayModeState(validMode);
-    setSidebarState(validMode === 'mobile' ? 'closed' : 'expanded');
+    setSidebarState(validMode === 'mobile' || windowWidth < 1024 ? 'closed' : 'expanded');
   };
 
   const setDeviceMode = async (mode: 'auto' | 'pc' | 'android') => {

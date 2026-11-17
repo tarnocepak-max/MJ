@@ -15,6 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { MessageStatusReceipt } from './MessageStatusReceipt';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 interface TicketLiveChatProps {
   ticket: Ticket;
@@ -563,28 +564,26 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
       )}
 
       {/* Fullscreen Lightbox / Zoom Modal */}
-      {zoomImage && (
-        <div
-          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs"
-          onClick={() => setZoomImage(null)}
-        >
-          <div className="relative max-w-5xl max-h-[92vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setZoomImage(null)}
-              className="absolute top-4 right-4 p-2 bg-black/70 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
-            >
-              <X className="w-6 h-6" />
-            </button>
+      <ResponsiveModal
+        isOpen={Boolean(zoomImage)}
+        onClose={() => setZoomImage(null)}
+        size="xl"
+        mobileVariant="fullscreen"
+        zIndexClass="z-70"
+        icon={<ImageIcon className="w-4 h-4" />}
+        title="Preview Lampiran Foto LiveChat"
+      >
+        {zoomImage && (
+          <div className="flex items-center justify-center min-h-[260px] bg-slate-950/90 rounded-xl p-2 sm:p-4">
             <img
               src={getSafePreviewUrl(zoomImage)}
               alt="Bukti Lapangan Zoom"
               referrerPolicy="no-referrer"
-              className="max-w-full max-h-[88vh] object-contain rounded-2xl shadow-2xl"
+              className="max-w-full max-h-[75dvh] object-contain rounded-xl shadow-2xl"
             />
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

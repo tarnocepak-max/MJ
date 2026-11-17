@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Download,
   FileSpreadsheet,
-  Filter,
   History,
   RefreshCw,
   Search,
@@ -11,7 +10,8 @@ import {
   Building2,
   MapPin,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ProgressReportHistoryItem } from '../../types';
@@ -19,6 +19,7 @@ import { supabaseDb } from '../../services/supabaseDb';
 import { extractProgressReportHistoryClient, scopeTicketsForRoleClient } from '../../services/woLifecycleService';
 import { StatusBadge } from '../common/Badge';
 import { formatJakartaTimestamp } from '../../services/workSessionService';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface HistoryProgressReportViewProps {
   ticketId?: string;
@@ -44,6 +45,8 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
   const [areaFilter, setAreaFilter] = useState('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | 'ALL'>(20);
 
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
@@ -199,7 +202,186 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
     setAreaFilter('ALL');
     setDateFrom('');
     setDateTo('');
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, reportStatusFilter, approvalFilter, vendorFilter, areaFilter, dateFrom, dateTo]);
+
+  const totalPages = useMemo(() => {
+    if (pageSize === 'ALL') return 1;
+    return Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  }, [filteredItems.length, pageSize]);
+
+  const paginatedItems = useMemo(() => {
+    if (pageSize === 'ALL') return filteredItems;
+    const start = (currentPage - 1) * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, currentPage, pageSize]);
+
+  const historyColumns = useMemo<ResponsiveColumn<ProgressReportHistoryItem>[]>(
+    () => [
+      {
+        key: 'woVersion',
+        label: 'WO & Versi',
+        priority: 'hidden_mobile',
+        tdClassName: 'whitespace-nowrap',
+        render: item => (
+          <>
+            {onSelectTicket ? (
+              <button
+                type="button"
+                onClick={() => onSelectTicket(item.ticketId)}
+                className="font-mono font-bold text-[#7135B5] hover:underline tabular-nums block cursor-pointer"
+              >
+                {item.woNumber}
+              </button>
+            ) : (
+              <span className="font-mono font-bold text-[#160D29] dark:text-white tabular-nums block">
+                {item.woNumber}
+              </span>
+            )}
+            <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-300">
+              v{item.versionNumber}
+            </span>
+          </>
+        )
+      },
+      {
+        key: 'appointment',
+        label: 'Appointment',
+        priority: 'primary',
+        tdClassName: 'whitespace-nowrap tabular-nums',
+        render: item => (
+          <>
+            <div className="font-semibold text-[#160D29] dark:text-white">
+              {item.appointmentDate || '-'}
+            </div>
+            <div className="text-[11px] text-slate-500">{item.slotTime || '-'}</div>
+            <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 max-w-[140px] truncate">
+              {item.customerName}
+            </div>
+          </>
+        ),
+        renderMobile: item => (
+          <span>
+            {item.appointmentDate || '-'} · {item.slotTime || '-'}
+          </span>
+        )
+      },
+      {
+        key: 'installerVendorArea',
+        label: 'Installer / Vendor / Area',
+        priority: 'primary',
+        widthClass: 'min-w-[150px]',
+        render: item => (
+          <>
+            <div className="font-semibold text-[#160D29] dark:text-white flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5 text-[#7135B5] shrink-0" />
+              <span>{item.installerName}</span>
+            </div>
+            <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1 mt-0.5">
+              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>{item.vendorName}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>{item.area}</span>
+            </div>
+          </>
+        ),
+        renderMobile: item => (
+          <span>
+            {item.installerName} ({item.vendorName} · {item.area})
+          </span>
+        )
+      },
+      {
+        key: 'reportStatus',
+        label: 'Report Status',
+        priority: 'hidden_mobile',
+        tdClassName: 'whitespace-nowrap',
+        render: item => <StatusBadge status={item.reportStatus} variant="report" size="xs" />
+      },
+      {
+        key: 'reasonRemarks',
+        label: 'Reason · Rootcause · Remarks',
+        priority: 'secondary',
+        widthClass: 'min-w-[210px] max-w-[280px]',
+        render: item => (
+          <div className="space-y-0.5">
+            {item.reasonReport && (
+              <div className="font-semibold text-[#160D29] dark:text-white">{item.reasonReport}</div>
+            )}
+            {item.rootCause && (
+              <div className="text-[11px] text-[#475569] dark:text-slate-300">
+                Rootcause: {item.rootCause}
+              </div>
+            )}
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
+              {item.remarks || '-'}
+            </div>
+          </div>
+        )
+      },
+      {
+        key: 'submittedAt',
+        label: 'Waktu Laporan',
+        priority: 'secondary',
+        tdClassName: 'whitespace-nowrap tabular-nums text-[11px] text-slate-600 dark:text-slate-300',
+        render: item => (
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+            <span>{item.submittedAt ? formatJakartaTimestamp(item.submittedAt) : '-'}</span>
+          </div>
+        )
+      },
+      {
+        key: 'approvalStatus',
+        label: 'Approval Status',
+        priority: 'hidden_mobile',
+        tdClassName: 'whitespace-nowrap',
+        render: item => <StatusBadge status={item.approvalStatus} variant="approval" size="xs" />
+      },
+      {
+        key: 'approverNotes',
+        label: 'Dispatch Approver & Catatan',
+        priority: 'secondary',
+        widthClass: 'min-w-[170px] max-w-[240px]',
+        render: item =>
+          item.dispatchApprover ? (
+            <div className="space-y-0.5">
+              <div className="font-semibold text-[#160D29] dark:text-white">{item.dispatchApprover}</div>
+              {item.approvalTimestamp && (
+                <div className="text-[10px] font-mono tabular-nums text-slate-500">
+                  {formatJakartaTimestamp(item.approvalTimestamp)}
+                </div>
+              )}
+              {(item.revisionReason || item.approvalNotes) && (
+                <div
+                  className={`text-[11px] rounded px-1.5 py-0.5 mt-1 ${
+                    item.revisionReason ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#ECFDF5] text-[#15803D]'
+                  }`}
+                >
+                  {item.revisionReason || item.approvalNotes}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-[11px] text-slate-400">Menunggu review Dispatch</span>
+          )
+      },
+      {
+        key: 'finalWoStatus',
+        label: 'Status Akhir WO',
+        priority: 'hidden_mobile',
+        tdClassName: 'whitespace-nowrap',
+        render: item => <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
+      }
+    ],
+    [onSelectTicket]
+  );
 
   return (
     <div className="space-y-4">
@@ -222,7 +404,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               type="button"
               onClick={loadHistory}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#241442] hover:bg-[#311C59] border border-[#4E2F8A] text-xs font-semibold text-purple-100"
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] sm:min-h-[36px] rounded-xl bg-[#241442] hover:bg-[#311C59] border border-[#4E2F8A] text-xs font-semibold text-purple-100 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -230,7 +412,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
             <button
               type="button"
               onClick={handleExportCsv}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#7135B5] hover:bg-[#8244CB] text-xs font-semibold text-white"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] sm:min-h-[36px] rounded-xl bg-[#7135B5] hover:bg-[#8244CB] text-xs font-semibold text-white cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
@@ -250,7 +432,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Cari WO Number, Customer, Teknisi, Reason, Approver..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+                className="w-full pl-9 pr-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               />
             </div>
 
@@ -258,7 +440,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Report Status"
               value={reportStatusFilter}
               onChange={(e) => setReportStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               <option value="ALL">Semua Report Status</option>
               <option value="PENDING">PENDING</option>
@@ -271,7 +453,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Approval Status"
               value={approvalFilter}
               onChange={(e) => setApprovalFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               <option value="ALL">Semua Approval Status</option>
               <option value="WAITING APPROVAL">WAITING APPROVAL</option>
@@ -283,7 +465,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Vendor"
               value={vendorFilter}
               onChange={(e) => setVendorFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               <option value="ALL">Semua Vendor</option>
               {contractorsList.map(v => (
@@ -297,7 +479,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Area"
               value={areaFilter}
               onChange={(e) => setAreaFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               <option value="ALL">Semua Area</option>
               {areasList.map(a => (
@@ -318,20 +500,20 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs tabular-nums"
+                className="px-2.5 py-1.5 min-h-[38px] sm:min-h-[34px] rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs tabular-nums"
               />
               <span className="text-slate-400">s/d</span>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs tabular-nums"
+                className="px-2.5 py-1.5 min-h-[38px] sm:min-h-[34px] rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs tabular-nums"
               />
               {(searchTerm || reportStatusFilter !== 'ALL' || approvalFilter !== 'ALL' || vendorFilter !== 'ALL' || areaFilter !== 'ALL' || dateFrom || dateTo) && (
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold text-[#7135B5] hover:bg-[#F5F1FF]"
+                  className="px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold text-[#7135B5] bg-[#F5F1FF] hover:bg-[#E9E1FF] cursor-pointer"
                 >
                   Reset Filter
                 </button>
@@ -351,211 +533,64 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         </div>
       )}
 
-      {/* Empty State */}
-      {filteredItems.length === 0 ? (
-        <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-8 text-center space-y-2">
-          <FileSpreadsheet className="w-8 h-8 text-slate-300 mx-auto" />
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Belum ada riwayat Progress Report yang cocok
-          </p>
-          <p className="text-xs text-slate-500">
-            Riwayat akan otomatis tercatat setiap kali teknisi mengirim Report Status Pembaruan dan saat Dispatch menyetujui atau meminta revisi.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Desktop Table */}
-          <div className="hidden md:block rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#F8FAFC] dark:bg-slate-800/50 text-[11px] uppercase tracking-wider text-[#475569] dark:text-slate-400 border-b border-[#E2E8F0] dark:border-slate-800">
-                    <th className="py-3 px-3 font-bold">WO & Versi</th>
-                    <th className="py-3 px-3 font-bold">Appointment</th>
-                    <th className="py-3 px-3 font-bold">Installer / Vendor / Area</th>
-                    <th className="py-3 px-3 font-bold">Report Status</th>
-                    <th className="py-3 px-3 font-bold">Reason · Rootcause · Remarks</th>
-                    <th className="py-3 px-3 font-bold">Waktu Laporan</th>
-                    <th className="py-3 px-3 font-bold">Approval Status</th>
-                    <th className="py-3 px-3 font-bold">Dispatch Approver & Catatan</th>
-                    <th className="py-3 px-3 font-bold">Status Akhir WO</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800">
-                  {filteredItems.map(item => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-[#F5F1FF]/40 dark:hover:bg-slate-800/40 transition-colors align-top"
-                    >
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        {onSelectTicket ? (
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(item.ticketId)}
-                            className="font-mono font-bold text-[#7135B5] hover:underline tabular-nums block"
-                          >
-                            {item.woNumber}
-                          </button>
-                        ) : (
-                          <span className="font-mono font-bold text-[#160D29] dark:text-white tabular-nums block">
-                            {item.woNumber}
-                          </span>
-                        )}
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-300">
-                          v{item.versionNumber}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap tabular-nums">
-                        <div className="font-semibold text-[#160D29] dark:text-white">
-                          {item.appointmentDate || '-'}
-                        </div>
-                        <div className="text-[11px] text-slate-500">{item.slotTime || '-'}</div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 max-w-[140px] truncate">
-                          {item.customerName}
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3 min-w-[150px]">
-                        <div className="font-semibold text-[#160D29] dark:text-white flex items-center gap-1">
-                          <UserCheck className="w-3.5 h-3.5 text-[#7135B5] shrink-0" />
-                          <span>{item.installerName}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1 mt-0.5">
-                          <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{item.vendorName}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{item.area}</span>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <StatusBadge status={item.reportStatus} variant="report" size="xs" />
-                      </td>
-
-                      <td className="py-3 px-3 min-w-[210px] max-w-[280px] space-y-0.5">
-                        {item.reasonReport && (
-                          <div className="font-semibold text-[#160D29] dark:text-white">
-                            {item.reasonReport}
-                          </div>
-                        )}
-                        {item.rootCause && (
-                          <div className="text-[11px] text-[#475569] dark:text-slate-300">
-                            Rootcause: {item.rootCause}
-                          </div>
-                        )}
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
-                          {item.remarks || '-'}
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap tabular-nums text-[11px] text-slate-600 dark:text-slate-300">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{item.submittedAt ? formatJakartaTimestamp(item.submittedAt) : '-'}</span>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <StatusBadge status={item.approvalStatus} variant="approval" size="xs" />
-                      </td>
-
-                      <td className="py-3 px-3 min-w-[170px] max-w-[240px]">
-                        {item.dispatchApprover ? (
-                          <div className="space-y-0.5">
-                            <div className="font-semibold text-[#160D29] dark:text-white">
-                              {item.dispatchApprover}
-                            </div>
-                            {item.approvalTimestamp && (
-                              <div className="text-[10px] font-mono tabular-nums text-slate-500">
-                                {formatJakartaTimestamp(item.approvalTimestamp)}
-                              </div>
-                            )}
-                            {(item.revisionReason || item.approvalNotes) && (
-                              <div
-                                className={`text-[11px] rounded px-1.5 py-0.5 mt-1 ${
-                                  item.revisionReason
-                                    ? 'bg-[#FEF2F2] text-[#B91C1C]'
-                                    : 'bg-[#ECFDF5] text-[#15803D]'
-                                }`}
-                              >
-                                {item.revisionReason || item.approvalNotes}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400">Menunggu review Dispatch</span>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <ResponsiveDataTable
+        data={paginatedItems}
+        columns={historyColumns}
+        getRowKey={item => item.id}
+        emptyState={{
+          icon: <FileSpreadsheet className="w-6 h-6" />,
+          title: 'Belum ada riwayat Progress Report yang cocok',
+          description:
+            'Riwayat akan otomatis tercatat setiap kali teknisi mengirim Report Status Pembaruan dan saat Dispatch menyetujui atau meminta revisi.'
+        }}
+        mobileTitle={item => (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+              {item.woNumber}
+            </span>
+            <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-300">
+              v{item.versionNumber}
+            </span>
           </div>
-
-          {/* Mobile Card Layout */}
-          <div className="md:hidden space-y-3">
-            {filteredItems.map(item => (
-              <div
-                key={item.id}
-                className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-3.5 space-y-2.5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    {onSelectTicket ? (
-                      <button
-                        type="button"
-                        onClick={() => onSelectTicket(item.ticketId)}
-                        className="font-mono text-sm font-bold text-[#7135B5] hover:underline tabular-nums"
-                      >
-                        {item.woNumber}
-                      </button>
-                    ) : (
-                      <span className="font-mono text-sm font-bold text-[#160D29] dark:text-white tabular-nums">
-                        {item.woNumber}
-                      </span>
-                    )}
-                    <div className="text-[11px] text-slate-500 tabular-nums">
-                      v{item.versionNumber} · {item.appointmentDate} · {item.slotTime || '-'}
-                    </div>
-                  </div>
-                  <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <StatusBadge status={item.reportStatus} variant="report" size="xs" />
-                  <StatusBadge status={item.approvalStatus} variant="approval" size="xs" />
-                </div>
-
-                <div className="text-xs text-slate-700 dark:text-slate-200 space-y-1">
-                  <div>
-                    <span className="font-semibold">{item.installerName}</span> · {item.vendorName} ({item.area})
-                  </div>
-                  {item.reasonReport && <div className="font-semibold">{item.reasonReport}</div>}
-                  {item.rootCause && <div className="text-[11px] text-slate-500">Rootcause: {item.rootCause}</div>}
-                  <div className="text-[11px] text-slate-600 dark:text-slate-300">{item.remarks}</div>
-                </div>
-
-                <div className="pt-2 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>{item.submittedAt ? formatJakartaTimestamp(item.submittedAt) : '-'}</span>
-                  {item.dispatchApprover && (
-                    <span className="font-semibold text-[#160D29] dark:text-white">
-                      Dispatch: {item.dispatchApprover}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+        )}
+        mobileSubtitle={item => item.customerName || '-'}
+        mobileStatus={item => (
+          <>
+            <StatusBadge status={item.reportStatus} variant="report" size="xs" />
+            <StatusBadge status={item.approvalStatus} variant="approval" size="xs" />
+            <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
+          </>
+        )}
+        getRowActions={
+          onSelectTicket
+            ? item => [
+                {
+                  id: 'open-wo',
+                  label: 'Buka Work Order',
+                  icon: <ExternalLink className="w-4 h-4" />,
+                  onClick: () => onSelectTicket(item.ticketId)
+                }
+              ]
+            : undefined
+        }
+        pagination={
+          filteredItems.length > 0
+            ? {
+                currentPage,
+                totalPages,
+                totalItems: filteredItems.length,
+                pageSize,
+                pageSizeOptions: [10, 20, 50, 100, 'ALL'],
+                onPageChange: setCurrentPage,
+                onPageSizeChange: val => {
+                  setPageSize(val);
+                  setCurrentPage(1);
+                },
+                itemLabel: 'riwayat laporan'
+              }
+            : undefined
+        }
+      />
     </div>
   );
 };

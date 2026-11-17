@@ -23,7 +23,6 @@ import {
   ArrowRight,
   Eye,
   Check,
-  X,
   Edit,
   Building2,
   UserCheck,
@@ -36,6 +35,8 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { StatusAgentBadge, StatusInstallerBadge } from '../common/Badge';
 import { downloadProductionBackup } from '../../services/backupDownloadService';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export type DatabaseSubmenu =
   | 'overview'
@@ -72,6 +73,8 @@ export const DatabaseManagementView: React.FC = () => {
   const [auditReport, setAuditReport] = useState<DuplicateAuditReport | null>(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
+  const [woPage, setWoPage] = useState(1);
+  const [woPageSize, setWoPageSize] = useState<number | 'ALL'>(25);
 
   const handleDownloadBackup = async () => {
     setIsDownloadingBackup(true);
@@ -539,100 +542,177 @@ export const DatabaseManagementView: React.FC = () => {
           </div>
 
           {/* Table */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="p-3">WO Number</th>
-                    <th className="p-3">Appointment Date</th>
-                    <th className="p-3">Customer ID & Nama</th>
-                    <th className="p-3">Area & Kontraktor</th>
-                    <th className="p-3">Teknisi (Installer)</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Aksi Database</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredWODatabase.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">
-                        Tidak ada record WO yang sesuai dengan filter pencarian.
-                      </td>
-                    </tr>
+          {(() => {
+            const effectivePageSize = woPageSize === 'ALL' ? Math.max(1, filteredWODatabase.length) : woPageSize;
+            const totalWoPages = Math.max(1, Math.ceil(filteredWODatabase.length / effectivePageSize));
+            const safeWoPage = Math.min(woPage, totalWoPages);
+            const pagedWOs =
+              woPageSize === 'ALL'
+                ? filteredWODatabase
+                : filteredWODatabase.slice((safeWoPage - 1) * effectivePageSize, safeWoPage * effectivePageSize);
+
+            const woColumns: ResponsiveColumn<Ticket>[] = [
+              {
+                key: 'woNumber',
+                label: 'WO Number',
+                priority: 'hidden_mobile',
+                render: ticket => (
+                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    {ticket.woNumber}
+                  </span>
+                )
+              },
+              {
+                key: 'appointmentDate',
+                label: 'Appointment Date',
+                priority: 'primary',
+                render: ticket => (
+                  <div>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {ticket.appointmentDate || <span className="text-rose-500 italic">Belum diset</span>}
+                    </span>
+                    <span className="block text-[10.5px] text-slate-400">{ticket.slotTime || '-'}</span>
+                  </div>
+                )
+              },
+              {
+                key: 'customer',
+                label: 'Customer ID & Nama',
+                priority: 'hidden_mobile',
+                render: ticket => (
+                  <div>
+                    <div className="font-bold text-slate-900 dark:text-white">{ticket.customerName}</div>
+                    <div className="font-mono text-[10.5px] text-slate-400">
+                      ID: {ticket.idCustomer || ticket.customerId || '-'}
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'areaContractor',
+                label: 'Area & Kontraktor',
+                priority: 'secondary',
+                render: ticket => (
+                  <div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">{ticket.area || '-'}</div>
+                    <div className="text-[10.5px] text-slate-400 truncate max-w-[160px]">
+                      {ticket.contactorName || ticket.contractorName || '-'}
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'installer',
+                label: 'Teknisi (Installer)',
+                priority: 'primary',
+                render: ticket =>
+                  ticket.installerName ? (
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{ticket.installerName}</span>
+                    </span>
                   ) : (
-                    filteredWODatabase.slice(0, 50).map(ticket => (
-                      <tr key={ticket.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                          {ticket.woNumber}
-                        </td>
-                        <td className="p-3">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
-                            {ticket.appointmentDate || <span className="text-rose-500 italic">Belum diset</span>}
-                          </span>
-                          <span className="block text-[10.5px] text-slate-400">{ticket.slotTime}</span>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900 dark:text-white">{ticket.customerName}</div>
-                          <div className="font-mono text-[10.5px] text-slate-400">ID: {ticket.idCustomer || ticket.customerId || '-'}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-semibold text-slate-800 dark:text-slate-200">{ticket.area}</div>
-                          <div className="text-[10.5px] text-slate-400 truncate max-w-[150px]">{ticket.contactorName || ticket.contractorName}</div>
-                        </td>
-                        <td className="p-3">
-                          {ticket.installerName ? (
-                            <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              <UserCheck className="w-3.5 h-3.5" />
-                              {ticket.installerName}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">Belum di-assign</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <StatusInstallerBadge status={ticket.statusWOInstaller} />
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleOpenEdit(ticket)}
-                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300"
-                              title="Koreksi Data Record"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            {ticket.isArchived ? (
-                              <button
-                                onClick={() => restoreTicket(ticket.id)}
-                                className="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]"
-                                title="Pulihkan dari Arsip"
-                              >
-                                Pulihkan
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => archiveTicket(ticket.id)}
-                                className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
-                                title="Arsipkan Record WO"
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {filteredWODatabase.length > 50 && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500">
-                Menampilkan 50 record pertama dari total {filteredWODatabase.length} record WO.
-              </div>
-            )}
-          </div>
+                    <span className="text-slate-400 italic">Belum di-assign</span>
+                  )
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                priority: 'hidden_mobile',
+                render: ticket => <StatusInstallerBadge status={ticket.statusWOInstaller} />
+              }
+            ];
+
+            return (
+              <ResponsiveDataTable<Ticket>
+                data={pagedWOs}
+                columns={woColumns}
+                getRowKey={t => t.id}
+                emptyState={{
+                  title: 'Tidak ada record WO ditemukan',
+                  description: 'Tidak ada record WO yang sesuai dengan filter pencarian.'
+                }}
+                mobileTitle={t => (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{t.woNumber}</span>
+                    <span className="text-slate-900 dark:text-white font-bold">· {t.customerName}</span>
+                  </div>
+                )}
+                mobileSubtitle={t => `Customer ID: ${t.idCustomer || t.customerId || '-'}`}
+                mobileStatus={t => <StatusInstallerBadge status={t.statusWOInstaller} />}
+                desktopActionHeader="Aksi Database"
+                getRowActions={t => [
+                  {
+                    id: 'edit',
+                    label: 'Koreksi Data Record',
+                    icon: <Edit className="w-3.5 h-3.5" />,
+                    onClick: () => handleOpenEdit(t)
+                  },
+                  t.isArchived
+                    ? {
+                        id: 'restore',
+                        label: 'Pulihkan dari Arsip',
+                        icon: <RefreshCw className="w-3.5 h-3.5" />,
+                        onClick: () => restoreTicket(t.id)
+                      }
+                    : {
+                        id: 'archive',
+                        label: 'Arsipkan Record WO',
+                        icon: <Archive className="w-3.5 h-3.5" />,
+                        onClick: () => archiveTicket(t.id),
+                        variant: 'danger' as const
+                      }
+                ]}
+                renderDesktopActions={ticket => (
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(ticket)}
+                      className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 cursor-pointer"
+                      title="Koreksi Data Record"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    {ticket.isArchived ? (
+                      <button
+                        type="button"
+                        onClick={() => restoreTicket(ticket.id)}
+                        className="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] cursor-pointer"
+                        title="Pulihkan dari Arsip"
+                      >
+                        Pulihkan
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => archiveTicket(ticket.id)}
+                        className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 hover:bg-amber-100 cursor-pointer"
+                        title="Arsipkan Record WO"
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                pagination={
+                  filteredWODatabase.length > 0
+                    ? {
+                        currentPage: safeWoPage,
+                        totalPages: totalWoPages,
+                        totalItems: filteredWODatabase.length,
+                        pageSize: woPageSize,
+                        onPageChange: setWoPage,
+                        onPageSizeChange: size => {
+                          setWoPageSize(size);
+                          setWoPage(1);
+                        },
+                        itemLabel: 'WO'
+                      }
+                    : undefined
+                }
+              />
+            );
+          })()}
         </div>
       )}
 
@@ -950,14 +1030,15 @@ export const DatabaseManagementView: React.FC = () => {
             ) : (
               <div className="space-y-2 text-xs">
                 {tickets.filter(t => t.isArchived).map(t => (
-                  <div key={t.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex items-center justify-between">
-                    <div>
+                  <div key={t.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="min-w-0">
                       <span className="font-mono font-bold text-slate-900 dark:text-white">{t.woNumber}</span>
-                      <span className="text-slate-500 ml-2">· {t.customerName} ({t.appointmentDate})</span>
+                      <span className="text-slate-500 ml-2">· {t.customerName} ({t.appointmentDate || '-'})</span>
                     </div>
                     <button
+                      type="button"
                       onClick={() => restoreTicket(t.id)}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs"
+                      className="px-3 py-1.5 min-h-[36px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs self-start sm:self-auto shrink-0 cursor-pointer"
                     >
                       Pulihkan dari Arsip
                     </button>
@@ -999,94 +1080,98 @@ export const DatabaseManagementView: React.FC = () => {
       )}
 
       {/* Modal Edit Record WO */}
-      {editingTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                Koreksi Data WO: <span className="font-mono text-indigo-600">{editingTicket.woNumber}</span>
-              </h3>
-              <button onClick={() => setEditingTicket(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
+      <ResponsiveModal
+        isOpen={Boolean(editingTicket)}
+        onClose={() => setEditingTicket(null)}
+        title={
+          editingTicket ? (
+            <span>
+              Koreksi Data WO: <span className="font-mono text-indigo-600 dark:text-indigo-300">{editingTicket.woNumber}</span>
+            </span>
+          ) : undefined
+        }
+        subtitle={editingTicket?.customerName}
+        icon={<Edit className="w-4 h-4" />}
+        size="md"
+        mobileVariant="sheet"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setEditingTicket(null)}
+              className="px-4 py-2 min-h-[40px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              className="px-4 py-2 min-h-[40px] rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer"
+            >
+              Simpan Perubahan
+            </button>
+          </>
+        }
+      >
+        {editingTicket && (
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Nama Pelanggan</label>
+              <input
+                type="text"
+                value={editForm.customerName || ''}
+                onChange={e => setEditForm({ ...editForm, customerName: e.target.value })}
+                className="w-full px-3 py-2 min-h-[40px] rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+              />
             </div>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Nama Pelanggan</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Appointment Date</label>
                 <input
-                  type="text"
-                  value={editForm.customerName || ''}
-                  onChange={e => setEditForm({ ...editForm, customerName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  type="date"
+                  value={editForm.appointmentDate || ''}
+                  onChange={e => setEditForm({ ...editForm, appointmentDate: e.target.value })}
+                  className="w-full px-3 py-2 min-h-[40px] rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Appointment Date</label>
-                  <input
-                    type="date"
-                    value={editForm.appointmentDate || ''}
-                    onChange={e => setEditForm({ ...editForm, appointmentDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Slot Waktu</label>
-                  <input
-                    type="text"
-                    value={editForm.slotTime || ''}
-                    onChange={e => setEditForm({ ...editForm, slotTime: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Kontraktor</label>
-                <select
-                  value={editForm.contactorName || ''}
-                  onChange={e => setEditForm({ ...editForm, contactorName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                >
-                  {contractors.map((c, cIdx) => (
-                    <option key={`edit-contractor-${c.id || c.name}-${cIdx}`} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Teknisi (Installer)</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Slot Waktu</label>
                 <input
                   type="text"
-                  value={editForm.installerName || ''}
-                  onChange={e => setEditForm({ ...editForm, installerName: e.target.value })}
-                  placeholder="Nama teknisi penugasan"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  value={editForm.slotTime || ''}
+                  onChange={e => setEditForm({ ...editForm, slotTime: e.target.value })}
+                  className="w-full px-3 py-2 min-h-[40px] rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingTicket(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold"
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Kontraktor</label>
+              <select
+                value={editForm.contactorName || ''}
+                onChange={e => setEditForm({ ...editForm, contactorName: e.target.value })}
+                className="w-full px-3 py-2 min-h-[40px] rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
               >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveEdit}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
-              >
-                Simpan Perubahan
-              </button>
+                {contractors.map((c, cIdx) => (
+                  <option key={`edit-contractor-${c.id || c.name}-${cIdx}`} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Teknisi (Installer)</label>
+              <input
+                type="text"
+                value={editForm.installerName || ''}
+                onChange={e => setEditForm({ ...editForm, installerName: e.target.value })}
+                placeholder="Nama teknisi penugasan"
+                className="w-full px-3 py-2 min-h-[40px] rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+              />
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

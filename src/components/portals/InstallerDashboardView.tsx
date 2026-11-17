@@ -7,6 +7,7 @@ import { classifyInstallerStatus } from './InstallerPortal';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
 import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
 import { StatusBadge } from '../common/Badge';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
   getTicketCanonicalApprovalStatus,
   getTicketCanonicalReportStatus,
@@ -1213,37 +1214,23 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* ================================================================= */}
       {/* MODAL: DARURAT & ESKALASI LAPANGAN                                */}
       {/* ================================================================= */}
-      {showEmergencyModal && featuredTicket && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white dark:bg-[#1E1135] w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-5 space-y-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF1F2] text-[#DC4C5A] flex items-center justify-center shrink-0">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
-                    Darurat & Eskalasi Lapangan
-                  </h3>
-                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] font-mono">
-                    {featuredTicket.woNumber}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowEmergencyModal(false)}
-                className="p-1.5 rounded-lg text-[#766B83] hover:bg-[#F7F6FA] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <ResponsiveModal
+        isOpen={Boolean(showEmergencyModal && featuredTicket)}
+        onClose={() => setShowEmergencyModal(false)}
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<ShieldAlert className="w-5 h-5 text-[#DC4C5A]" />}
+        title="Darurat & Eskalasi Lapangan"
+        subtitle={featuredTicket?.woNumber}
+      >
+        {featuredTicket && (
+          <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {derivedLeader.phone ? (
                 <a
                   href={`tel:${derivedLeader.phone}`}
-                  className="flex items-center gap-2 p-3 rounded-xl bg-[#F5F1FF] border border-[#D8CCF3] text-xs font-bold text-[#431599]"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-[#F5F1FF] dark:bg-[#261942] border border-[#D8CCF3] dark:border-[#4B386B] text-xs font-bold text-[#431599] dark:text-[#DAB9FF]"
                 >
                   <Phone className="w-4 h-4 shrink-0" />
                   <div className="min-w-0">
@@ -1252,8 +1239,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   </div>
                 </a>
               ) : (
-                <div className="p-3 rounded-xl bg-[#F7F6FA] border border-[#E9E5F0] text-xs text-[#766B83]">
-                  <div className="font-bold text-[#211A2E]">Korlap</div>
+                <div className="p-3 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                  <div className="font-bold text-[#211A2E] dark:text-white">Korlap</div>
                   <div className="truncate">{derivedLeader.name}</div>
                 </div>
               )}
@@ -1261,7 +1248,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               {featuredTicket.customerPhone && (
                 <a
                   href={`tel:${featuredTicket.customerPhone}`}
-                  className="flex items-center gap-2 p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-xs font-bold text-[#15803D]"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-[#ECFDF5] dark:bg-emerald-950/40 border border-[#A7F3D0] dark:border-emerald-800 text-xs font-bold text-[#15803D] dark:text-emerald-300"
                 >
                   <Phone className="w-4 h-4 shrink-0" />
                   <div className="min-w-0">
@@ -1275,7 +1262,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             <form onSubmit={handleSendEmergency} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-[#211A2E] dark:text-white mb-1">
-                  Kirim Sinyal Darurat ke Dispatch & Korlap (Tag: ISSUE)
+                  Kirim Sinyal Darurat ke Dispatch &amp; Korlap (Tag: ISSUE)
                 </label>
                 <textarea
                   rows={3}
@@ -1290,7 +1277,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowEmergencyModal(false)}
-                  className="flex-1 min-h-[44px] rounded-xl border border-[#E9E5F0] text-xs font-bold text-[#494453] dark:text-[#CEC0E8] cursor-pointer"
+                  className="flex-1 min-h-[44px] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] text-xs font-bold text-[#494453] dark:text-[#CEC0E8] cursor-pointer"
                 >
                   Batal
                 </button>
@@ -1305,38 +1292,29 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ================================================================= */}
       {/* MODAL: MINTA BANTUAN KORLAP / RESCHEDULE                          */}
       {/* ================================================================= */}
-      {showHelpModal && featuredTicket && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white dark:bg-[#1E1135] w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] p-5 space-y-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
-                  Bantuan Korlap & Reschedule
-                </h3>
-                <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] font-mono">
-                  {featuredTicket.woNumber} · {featuredTicket.customerName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHelpModal(false)}
-                className="p-1.5 rounded-lg text-[#766B83] hover:bg-[#F7F6FA] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <ResponsiveModal
+        isOpen={Boolean(showHelpModal && featuredTicket)}
+        onClose={() => setShowHelpModal(false)}
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<HelpCircle className="w-5 h-5" />}
+        title="Bantuan Korlap & Reschedule"
+        subtitle={featuredTicket ? `${featuredTicket.woNumber} · ${featuredTicket.customerName}` : undefined}
+      >
+        {featuredTicket && (
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29]">
               <button
                 type="button"
                 onClick={() => setHelpMode('korlap')}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`min-h-[40px] py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   helpMode === 'korlap'
                     ? 'bg-white dark:bg-[#2A1647] text-[#431599] dark:text-[#D8B4FE] shadow-2xs'
                     : 'text-[#766B83]'
@@ -1348,7 +1326,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => setHelpMode('reschedule')}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`min-h-[40px] py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   helpMode === 'reschedule'
                     ? 'bg-white dark:bg-[#2A1647] text-[#B45309] dark:text-amber-300 shadow-2xs'
                     : 'text-[#766B83]'
@@ -1384,7 +1362,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowHelpModal(false)}
-                  className="flex-1 min-h-[44px] rounded-xl border border-[#E9E5F0] text-xs font-bold text-[#494453] dark:text-[#CEC0E8] cursor-pointer"
+                  className="flex-1 min-h-[44px] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] text-xs font-bold text-[#494453] dark:text-[#CEC0E8] cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -1407,33 +1385,31 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ================================================================= */}
       {/* MODAL: IMAGE ZOOM LIGHTBOX                                        */}
       {/* ================================================================= */}
-      {zoomImageUrl && (
-        <div
-          onClick={() => setZoomImageUrl(null)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
-        >
-          <button
-            type="button"
-            onClick={() => setZoomImageUrl(null)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <img
-            src={zoomImageUrl}
-            alt="Preview Evidence Lapangan"
-            referrerPolicy="no-referrer"
-            onClick={e => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
-          />
-        </div>
-      )}
+      <ResponsiveModal
+        isOpen={Boolean(zoomImageUrl)}
+        onClose={() => setZoomImageUrl(null)}
+        size="xl"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        title="Preview Evidence Lapangan"
+      >
+        {zoomImageUrl && (
+          <div className="flex items-center justify-center bg-[#160D29] rounded-xl p-2">
+            <img
+              src={zoomImageUrl}
+              alt="Preview Evidence Lapangan"
+              referrerPolicy="no-referrer"
+              className="max-w-full max-h-[72vh] rounded-lg object-contain"
+            />
+          </div>
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

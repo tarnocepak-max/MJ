@@ -70,7 +70,7 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
   return (
     <nav
       aria-label="Navigasi Utama Leader"
-      className="fixed bottom-0 inset-x-0 z-40 pointer-events-none pb-[env(safe-area-inset-bottom,0px)] px-2 sm:px-4 pb-2"
+      className="fixed bottom-0 inset-x-0 z-40 pointer-events-none px-2 sm:px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
     >
       <div className="pointer-events-auto max-w-2xl mx-auto bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-xl border border-[#e8ddff] dark:border-[#35105E] rounded-2xl shadow-[0_10px_30px_rgba(31,22,56,0.12)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)] p-1.5 grid grid-cols-5 gap-1">
         {tabs.map((tab) => {

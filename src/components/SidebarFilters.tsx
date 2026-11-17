@@ -199,16 +199,24 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
   if (isMobileDrawer) {
     if (!isOpenMobile) return null;
     return (
-      <div className="fixed inset-0 z-[95] bg-slate-950/70 backdrop-blur-xs flex justify-end animate-in fade-in">
-        <div className="w-80 max-w-[calc(100vw-2rem)] h-full bg-white dark:bg-[#160D29] border-l border-[#D8CCF3] dark:border-[#35105E] shadow-2xl flex flex-col p-4 overflow-y-auto">
+      <div
+        className="fixed inset-0 z-[95] bg-slate-950/70 backdrop-blur-xs flex justify-end animate-in fade-in"
+        onClick={onCloseMobile}
+      >
+        <div
+          className="w-80 max-w-[calc(100vw-2rem)] h-full bg-white dark:bg-[#160D29] border-l border-[#D8CCF3] dark:border-[#35105E] shadow-2xl flex flex-col p-4 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
+          onClick={e => e.stopPropagation()}
+        >
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
               <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Filter Tiket WO</span>
             </div>
             <button
+              type="button"
               onClick={onCloseMobile}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Tutup filter"
+              className="btn-3d-icon min-w-[40px] min-h-[40px] cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

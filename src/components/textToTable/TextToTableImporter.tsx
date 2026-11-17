@@ -39,7 +39,9 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '../../context/ToastContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { ResponsiveModal } from '../common/ResponsiveModal';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface TextToTableImporterProps {
   onImportSuccess: () => void;
@@ -58,7 +60,7 @@ const SAMPLE_DATA_WO_OPERATIONAL = `|Date|File Name|Date Upload|Agent ID|ID Cust
 |2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-109|7399337|WO20267399337|Syamsul Bahri|081377889900|Titip Kunci di Pos Satpam|PT Mitra Jaringan Solusi|Jakarta Selatan|Andi Saputra|16:00 - 18:00 WIB|Grand Melati Residence|FDT-JS-022|FAT-JS-022-01|Maintenance LOS Red Light|Assigned|Bawa kabel dropcore cadangan|`;
 
 export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImportSuccess }) => {
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const {
     bulkImportTickets,
     headerMappings,
@@ -703,7 +705,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   return (
     <div className="space-y-6">
       {/* Top Tab Switcher: Import vs Export */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold pb-1">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold pb-1">
         <button
           onClick={() => setMainTab('import')}
           className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors ${
@@ -796,8 +798,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         </div>
 
         {/* Upload Zone & Text Input */}
-        <div className={`grid grid-cols-1 ${isMobileView ? '' : 'md:grid-cols-3'} gap-4 mb-3`}>
-          <div className={`${isMobileView ? '' : 'md:col-span-1'} p-4 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center space-y-2`}>
+        <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'md:grid-cols-3'} gap-4 mb-3`}>
+          <div className={`${isCompactUI ? '' : 'md:col-span-1'} p-4 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center space-y-2`}>
             <input
               type="file"
               ref={fileInputRef}
@@ -827,7 +829,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             )}
           </div>
 
-          <div className={`${isMobileView ? '' : 'md:col-span-2'} space-y-2`}>
+          <div className={`${isCompactUI ? '' : 'md:col-span-2'} space-y-2`}>
             <textarea
               rows={6}
               placeholder="|WO Number|Customer Name|ID Customer|Customer Phone|Area|Cluster Name|Contactor Name|Slot Time|Ticket Category|&#10;|WO20267399330|Haji Sulaiman|7399330|081299883344|Jakarta Selatan|Grand Melati Residence|PT Mitra Jaringan Solusi|09:00 - 11:00 WIB|New Installation FTTH|"
@@ -890,38 +892,80 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </button>
           </div>
 
-          <div className="overflow-x-auto max-h-72 border rounded-md">
-            <table className="w-full text-left text-[11px] border-collapse">
-              <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 uppercase font-semibold text-slate-600 dark:text-slate-300">
-                <tr>
-                  <th className="p-2">#</th>
-                  <th className="p-2">Canonical Field</th>
-                  <th className="p-2">Display Label</th>
-                  <th className="p-2">Kategori</th>
-                  <th className="p-2">Tipe Data</th>
-                  <th className="p-2">Wajib</th>
-                  <th className="p-2">Alias Terverifikasi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
-                {MASTER_CANONICAL_FIELDS.map((f, i) => (
-                  <tr key={f.canonicalField} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                    <td className="p-2 text-slate-400">{i + 1}</td>
-                    <td className="p-2 font-bold text-indigo-600 dark:text-indigo-400">{f.canonicalField}</td>
-                    <td className="p-2 font-sans text-slate-800 dark:text-slate-200">{f.displayLabel}</td>
-                    <td className="p-2 capitalize text-slate-500">{f.category}</td>
-                    <td className="p-2 text-slate-500">{f.dataType}</td>
-                    <td className="p-2">
-                      {f.required ? <span className="text-rose-500 font-bold">Wajib</span> : <span className="text-slate-400">Opsional</span>}
-                    </td>
-                    <td className="p-2 font-sans text-[10.5px] text-slate-600 dark:text-slate-400 max-w-xs truncate">
-                      {f.aliases.join(', ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveDataTable
+            data={MASTER_CANONICAL_FIELDS}
+            getRowKey={f => f.canonicalField}
+            maxTableHeightClass="max-h-72"
+            mobileTitle={f => <span className="font-mono text-indigo-600 dark:text-indigo-400">{f.canonicalField}</span>}
+            mobileSubtitle={f => f.displayLabel}
+            mobileStatus={f =>
+              f.required ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                  Wajib
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  Opsional
+                </span>
+              )
+            }
+            columns={[
+              {
+                key: 'index',
+                label: '#',
+                priority: 'hidden_mobile',
+                numeric: true,
+                render: (_f, i) => <span className="text-slate-400">{i + 1}</span>
+              },
+              {
+                key: 'canonicalField',
+                label: 'Canonical Field',
+                priority: 'primary',
+                numeric: true,
+                render: f => <span className="font-bold text-indigo-600 dark:text-indigo-400">{f.canonicalField}</span>
+              },
+              {
+                key: 'displayLabel',
+                label: 'Display Label',
+                priority: 'primary',
+                render: f => <span className="text-slate-800 dark:text-slate-200">{f.displayLabel}</span>
+              },
+              {
+                key: 'category',
+                label: 'Kategori',
+                priority: 'secondary',
+                render: f => <span className="capitalize text-slate-500">{f.category}</span>
+              },
+              {
+                key: 'dataType',
+                label: 'Tipe Data',
+                priority: 'secondary',
+                numeric: true,
+                render: f => <span className="text-slate-500">{f.dataType}</span>
+              },
+              {
+                key: 'required',
+                label: 'Wajib',
+                priority: 'hidden_mobile',
+                render: f =>
+                  f.required ? (
+                    <span className="text-rose-500 font-bold">Wajib</span>
+                  ) : (
+                    <span className="text-slate-400">Opsional</span>
+                  )
+              },
+              {
+                key: 'aliases',
+                label: 'Alias Terverifikasi',
+                priority: 'secondary',
+                render: f => (
+                  <span className="text-[10.5px] text-slate-600 dark:text-slate-400 max-w-xs block truncate">
+                    {f.aliases.join(', ')}
+                  </span>
+                )
+              }
+            ]}
+          />
         </div>
       )}
 
@@ -1085,7 +1129,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 </div>
               )}
 
-              <div className={`grid grid-cols-1 ${isMobileView ? '' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-3`}>
+              <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-3`}>
                 {parseResult.detectedContractors.map((c, cIdx) => {
                   return (
                     <div
@@ -1188,270 +1232,373 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </div>
           </div>
 
-          {/* Scrollable Preview Table with Mandated 5 Statuses and Problematic Columns (Bagian 1 D) */}
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-md max-h-96 overflow-y-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 z-10 text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Status Validasi</th>
-                  <th className="py-2.5 px-3">Kolom Bermasalah</th>
-                  <th className="py-2.5 px-3">WO Number</th>
-                  <th className="py-2.5 px-3">Customer ID</th>
-                  <th className="py-2.5 px-3">Appointment Date</th>
-                  <th className="py-2.5 px-3">Customer Phone</th>
-                  <th className="py-2.5 px-3">Contractor Name</th>
-                  <th className="py-2.5 px-3">Area & Cluster</th>
-                  <th className="py-2.5 px-3">FAT / FDT</th>
-                  <th className="py-2.5 px-3">Street Name</th>
-                  <th className="py-2.5 px-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedPreviewRows.map((row: ParsedRowData) => {
-                  const isEditingThis = editingRowIndex === row.rowIndex;
-                  const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
-
-                  return (
-                    <tr
-                      key={row.rowIndex}
-                      className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
-                        !row.isValid || row.isDuplicate ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
-                      }`}
-                    >
-                      {/* Nomor Baris */}
-                      <td className="py-2 px-3 font-mono text-slate-400 font-bold">{row.rowIndex + 1}</td>
-
-                      {/* Status Validasi (5 Tipe Wajib: VALID, DATA KOSONG, HEADER TIDAK DITEMUKAN, FORMAT TIDAK VALID, WO DUPLIKAT) */}
-                      <td className="py-2 px-3 whitespace-nowrap">
-                        {status === 'VALID' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3" />
-                            VALID
-                          </span>
-                        ) : status === 'WO DUPLIKAT' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
-                            <AlertTriangle className="w-3 h-3" />
-                            WO DUPLIKAT
-                          </span>
-                        ) : status === 'HEADER TIDAK DITEMUKAN' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                            <ShieldAlert className="w-3 h-3" />
-                            HEADER TIDAK DITEMUKAN
-                          </span>
-                        ) : status === 'DATA KOSONG' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                            <AlertCircle className="w-3 h-3" />
-                            DATA KOSONG
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                            <AlertCircle className="w-3 h-3" />
-                            FORMAT TIDAK VALID
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Kolom Bermasalah */}
-                      <td className="py-2 px-3 text-[11px]">
-                        {row.problematicColumns && row.problematicColumns.length > 0 ? (
-                          <div className="font-semibold text-rose-700 dark:text-rose-300 max-w-xs">
-                            {row.problematicColumns.join(', ')}
-                            {row.validationErrors.length > 0 && (
-                              <div className="text-[10px] text-slate-500 font-normal mt-0.5">
-                                {row.validationErrors[0]}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 font-mono">-</span>
-                        )}
-                      </td>
-
-                      {/* WO Number */}
-                      <td className="py-2 px-3 font-mono font-bold text-slate-900 dark:text-white">
-                        {isEditingThis ? (
-                          <input
-                            type="text"
-                            value={editingRowData.woNumber || ''}
-                            onChange={e => setEditingRowData({ ...editingRowData, woNumber: e.target.value })}
-                            className="p-1 border rounded w-32 text-xs bg-white dark:bg-slate-800"
-                          />
-                        ) : (
-                          row.mapped.woNumber || <span className="text-rose-500 font-bold">[Kosong]</span>
-                        )}
-                      </td>
-
-                      {/* Customer ID */}
-                      <td className="py-2 px-3 font-mono font-semibold">
-                        {isEditingThis ? (
-                          <input
-                            type="text"
-                            maxLength={7}
-                            value={editingRowData.idCustomer || ''}
-                            onChange={e => setEditingRowData({ ...editingRowData, idCustomer: e.target.value })}
-                            className="p-1 border rounded w-24 text-xs bg-white dark:bg-slate-800"
-                          />
-                        ) : (
-                          <span className={row.mapped.idCustomer?.length === 7 ? 'text-[#6D28D9] dark:text-purple-400' : 'text-rose-600 font-bold'}>
-                            {row.mapped.idCustomer || <span className="text-rose-500 font-bold">[Kosong]</span>}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Appointment Date */}
-                      <td className="py-2 px-3 whitespace-nowrap">
-                        {isEditingThis ? (
-                          <input
-                            type="date"
-                            value={editingRowData.appointmentDate || ''}
-                            onChange={e => setEditingRowData({ ...editingRowData, appointmentDate: e.target.value })}
-                            className="p-1 border rounded text-xs bg-white dark:bg-slate-800"
-                          />
-                        ) : (
-                          <div className="font-semibold text-slate-700 dark:text-slate-300">
-                            {row.mapped.appointmentDate || <span className="text-rose-500 font-bold">[Kosong / Tidak Valid]</span>}
+          {/* Responsive Preview Table with Mandated 5 Statuses and Problematic Columns (Bagian 1 D) */}
+          <ResponsiveDataTable<ParsedRowData>
+            data={displayedPreviewRows}
+            getRowKey={row => String(row.rowIndex)}
+            maxTableHeightClass="max-h-96"
+            getRowClassName={row =>
+              !row.isValid || row.isDuplicate ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
+            }
+            mobileTitle={row => (
+              <span className="font-mono">
+                Baris #{row.rowIndex + 1} · {row.mapped.woNumber || '[WO Kosong]'}
+              </span>
+            )}
+            mobileSubtitle={row => row.mapped.customerName || row.mapped.contactorName || row.mapped.contractorName || undefined}
+            mobileStatus={row => {
+              const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
+              if (status === 'VALID') {
+                return (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    <CheckCircle2 className="w-3 h-3" /> VALID
+                  </span>
+                );
+              }
+              if (status === 'WO DUPLIKAT') {
+                return (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
+                    <AlertTriangle className="w-3 h-3" /> WO DUPLIKAT
+                  </span>
+                );
+              }
+              if (status === 'HEADER TIDAK DITEMUKAN') {
+                return (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                    <ShieldAlert className="w-3 h-3" /> HEADER TIDAK DITEMUKAN
+                  </span>
+                );
+              }
+              if (status === 'DATA KOSONG') {
+                return (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                    <AlertCircle className="w-3 h-3" /> DATA KOSONG
+                  </span>
+                );
+              }
+              return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                  <AlertCircle className="w-3 h-3" /> FORMAT TIDAK VALID
+                </span>
+              );
+            }}
+            columns={
+              [
+                {
+                  key: 'rowIndex',
+                  label: '#',
+                  priority: 'hidden_mobile',
+                  numeric: true,
+                  render: row => <span className="font-mono text-slate-400 font-bold">{row.rowIndex + 1}</span>
+                },
+                {
+                  key: 'status',
+                  label: 'Status Validasi',
+                  priority: 'hidden_mobile',
+                  render: row => {
+                    const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
+                    return status === 'VALID' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3 h-3" />
+                        VALID
+                      </span>
+                    ) : status === 'WO DUPLIKAT' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
+                        <AlertTriangle className="w-3 h-3" />
+                        WO DUPLIKAT
+                      </span>
+                    ) : status === 'HEADER TIDAK DITEMUKAN' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                        <ShieldAlert className="w-3 h-3" />
+                        HEADER TIDAK DITEMUKAN
+                      </span>
+                    ) : status === 'DATA KOSONG' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                        <AlertCircle className="w-3 h-3" />
+                        DATA KOSONG
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                        <AlertCircle className="w-3 h-3" />
+                        FORMAT TIDAK VALID
+                      </span>
+                    );
+                  }
+                },
+                {
+                  key: 'problematicColumns',
+                  label: 'Kolom Bermasalah',
+                  priority: 'primary',
+                  render: row =>
+                    row.problematicColumns && row.problematicColumns.length > 0 ? (
+                      <div className="font-semibold text-rose-700 dark:text-rose-300 max-w-xs text-[11px]">
+                        {row.problematicColumns.join(', ')}
+                        {row.validationErrors.length > 0 && (
+                          <div className="text-[10px] text-slate-500 font-normal mt-0.5">
+                            {row.validationErrors[0]}
                           </div>
                         )}
-                      </td>
-
-                      {/* Customer Phone */}
-                      <td className="py-2 px-3 font-mono text-slate-600 dark:text-slate-300">
-                        {isEditingThis ? (
-                          <input
-                            type="text"
-                            value={editingRowData.customerPhone || ''}
-                            onChange={e => setEditingRowData({ ...editingRowData, customerPhone: e.target.value })}
-                            className="p-1 border rounded w-28 text-xs bg-white dark:bg-slate-800"
-                          />
-                        ) : (
-                          row.mapped.customerPhone || <span className="text-rose-500 font-bold">[Kosong]</span>
-                        )}
-                      </td>
-
-                      {/* Contractor Name */}
-                      <td className="py-2 px-3">
-                        {isEditingThis ? (
-                          <input
-                            type="text"
-                            value={editingRowData.contactorName || ''}
-                            onChange={e => setEditingRowData({ ...editingRowData, contactorName: e.target.value })}
-                            placeholder="Nama Kontraktor"
-                            className="p-1 border rounded w-32 text-xs bg-white dark:bg-slate-800"
-                          />
-                        ) : (
-                          <div className="flex items-center gap-1 font-medium text-slate-800 dark:text-slate-200">
-                            <Building2 className="w-3 h-3 text-[#6D28D9] shrink-0" />
-                            <span>{row.mapped.contactorName || row.mapped.contractorName || <span className="text-rose-500 font-bold">[Kosong]</span>}</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Area & Cluster */}
-                      <td className="py-2 px-3">
-                        {isEditingThis ? (
-                          <div className="space-y-1">
-                            <input
-                              type="text"
-                              value={editingRowData.area || ''}
-                              onChange={e => setEditingRowData({ ...editingRowData, area: e.target.value })}
-                              placeholder="Area"
-                              className="p-1 border rounded w-28 text-xs bg-white dark:bg-slate-800"
-                            />
-                            <input
-                              type="text"
-                              value={editingRowData.clusterName || ''}
-                              onChange={e => setEditingRowData({ ...editingRowData, clusterName: e.target.value })}
-                              placeholder="Cluster"
-                              className="p-1 border rounded w-28 text-xs bg-white dark:bg-slate-800"
-                            />
-                          </div>
-                        ) : (
-                          <>
-                            <div className="font-medium">{row.mapped.area || <span className="text-rose-500 font-bold">[Area Kosong]</span>}</div>
-                            <div className="text-[10px] text-slate-400">{row.mapped.clusterName || <span className="text-rose-500 font-bold">[Cluster Kosong]</span>}</div>
-                          </>
-                        )}
-                      </td>
-
-                      {/* FAT / FDT */}
-                      <td className="py-2 px-3 text-[11px] font-mono">
-                        <div>FAT: {row.mapped.fatCode || row.mapped.fat || <span className="text-rose-500 font-bold">[-]</span>}</div>
-                        <div>FDT: {row.mapped.fdtCode || row.mapped.fdt || <span className="text-rose-500 font-bold">[-]</span>}</div>
-                      </td>
-
-                      {/* Street Name */}
-                      <td className="py-2 px-3 max-w-xs truncate text-[11px]">
-                        {isEditingThis ? (
-                          <input
-                            type="text"
-                            value={editingRowData.streetName || ''}
-                            onChange={e => setEditingRowData({ ...editingRowData, streetName: e.target.value })}
-                            placeholder="Alamat / Street Name"
-                            className="p-1 border rounded w-44 text-xs bg-white dark:bg-slate-800"
-                          />
-                        ) : (
-                          row.mapped.streetName || <span className="text-rose-500 font-bold">[Street Name Kosong]</span>
-                        )}
-                      </td>
-
-                      {/* Aksi */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap">
-                        {isEditingThis ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleSaveEditRow(row.rowIndex)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
-                              title="Simpan perbaikan data"
-                            >
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                              <span>Simpan</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingRowIndex(null)}
-                              className="px-2 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded text-xs font-medium cursor-pointer"
-                              title="Batalkan edit"
-                            >
-                              Batal
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditRow(row)}
-                              className="p-1.5 text-slate-400 hover:text-[#6D28D9] hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded transition-colors cursor-pointer"
-                              title="Edit data baris ini"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(row.rowIndex)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded transition-colors cursor-pointer"
-                              title="Hapus baris data ini"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-mono">-</span>
+                    )
+                },
+                {
+                  key: 'woNumber',
+                  label: 'WO Number',
+                  priority: 'primary',
+                  numeric: true,
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <input
+                        type="text"
+                        value={editingRowData.woNumber || ''}
+                        onChange={e => setEditingRowData({ ...editingRowData, woNumber: e.target.value })}
+                        className="p-1 border rounded w-full sm:w-32 text-xs bg-white dark:bg-slate-800"
+                      />
+                    ) : (
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {row.mapped.woNumber || <span className="text-rose-500 font-bold">[Kosong]</span>}
+                      </span>
+                    )
+                },
+                {
+                  key: 'idCustomer',
+                  label: 'Customer ID',
+                  priority: 'secondary',
+                  numeric: true,
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <input
+                        type="text"
+                        maxLength={7}
+                        value={editingRowData.idCustomer || ''}
+                        onChange={e => setEditingRowData({ ...editingRowData, idCustomer: e.target.value })}
+                        className="p-1 border rounded w-full sm:w-24 text-xs bg-white dark:bg-slate-800"
+                      />
+                    ) : (
+                      <span
+                        className={
+                          row.mapped.idCustomer?.length === 7
+                            ? 'text-[#6D28D9] dark:text-purple-400 font-semibold'
+                            : 'text-rose-600 font-bold'
+                        }
+                      >
+                        {row.mapped.idCustomer || <span className="text-rose-500 font-bold">[Kosong]</span>}
+                      </span>
+                    )
+                },
+                {
+                  key: 'appointmentDate',
+                  label: 'Appointment Date',
+                  priority: 'secondary',
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <input
+                        type="date"
+                        value={editingRowData.appointmentDate || ''}
+                        onChange={e => setEditingRowData({ ...editingRowData, appointmentDate: e.target.value })}
+                        className="p-1 border rounded w-full sm:w-auto text-xs bg-white dark:bg-slate-800"
+                      />
+                    ) : (
+                      <div className="font-semibold text-slate-700 dark:text-slate-300">
+                        {row.mapped.appointmentDate || <span className="text-rose-500 font-bold">[Kosong / Tidak Valid]</span>}
+                      </div>
+                    )
+                },
+                {
+                  key: 'customerPhone',
+                  label: 'Customer Phone',
+                  priority: 'secondary',
+                  numeric: true,
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <input
+                        type="text"
+                        value={editingRowData.customerPhone || ''}
+                        onChange={e => setEditingRowData({ ...editingRowData, customerPhone: e.target.value })}
+                        className="p-1 border rounded w-full sm:w-28 text-xs bg-white dark:bg-slate-800"
+                      />
+                    ) : (
+                      <span className="text-slate-600 dark:text-slate-300">
+                        {row.mapped.customerPhone || <span className="text-rose-500 font-bold">[Kosong]</span>}
+                      </span>
+                    )
+                },
+                {
+                  key: 'contractor',
+                  label: 'Contractor Name',
+                  priority: 'secondary',
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <input
+                        type="text"
+                        value={editingRowData.contactorName || ''}
+                        onChange={e => setEditingRowData({ ...editingRowData, contactorName: e.target.value })}
+                        placeholder="Nama Kontraktor"
+                        className="p-1 border rounded w-full sm:w-32 text-xs bg-white dark:bg-slate-800"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1 font-medium text-slate-800 dark:text-slate-200">
+                        <Building2 className="w-3 h-3 text-[#6D28D9] shrink-0" />
+                        <span>
+                          {row.mapped.contactorName || row.mapped.contractorName || (
+                            <span className="text-rose-500 font-bold">[Kosong]</span>
+                          )}
+                        </span>
+                      </div>
+                    )
+                },
+                {
+                  key: 'areaCluster',
+                  label: 'Area & Cluster',
+                  priority: 'secondary',
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <div className="space-y-1">
+                        <input
+                          type="text"
+                          value={editingRowData.area || ''}
+                          onChange={e => setEditingRowData({ ...editingRowData, area: e.target.value })}
+                          placeholder="Area"
+                          className="p-1 border rounded w-full sm:w-28 text-xs bg-white dark:bg-slate-800"
+                        />
+                        <input
+                          type="text"
+                          value={editingRowData.clusterName || ''}
+                          onChange={e => setEditingRowData({ ...editingRowData, clusterName: e.target.value })}
+                          placeholder="Cluster"
+                          className="p-1 border rounded w-full sm:w-28 text-xs bg-white dark:bg-slate-800"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="font-medium">
+                          {row.mapped.area || <span className="text-rose-500 font-bold">[Area Kosong]</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {row.mapped.clusterName || <span className="text-rose-500 font-bold">[Cluster Kosong]</span>}
+                        </div>
+                      </>
+                    )
+                },
+                {
+                  key: 'fatFdt',
+                  label: 'FAT / FDT',
+                  priority: 'secondary',
+                  numeric: true,
+                  render: row => (
+                    <div className="text-[11px]">
+                      <div>FAT: {row.mapped.fatCode || row.mapped.fat || <span className="text-rose-500 font-bold">[-]</span>}</div>
+                      <div>FDT: {row.mapped.fdtCode || row.mapped.fdt || <span className="text-rose-500 font-bold">[-]</span>}</div>
+                    </div>
+                  )
+                },
+                {
+                  key: 'streetName',
+                  label: 'Street Name',
+                  priority: 'secondary',
+                  render: row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <input
+                        type="text"
+                        value={editingRowData.streetName || ''}
+                        onChange={e => setEditingRowData({ ...editingRowData, streetName: e.target.value })}
+                        placeholder="Alamat / Street Name"
+                        className="p-1 border rounded w-full sm:w-44 text-xs bg-white dark:bg-slate-800"
+                      />
+                    ) : (
+                      <span className="max-w-xs block truncate text-[11px]">
+                        {row.mapped.streetName || <span className="text-rose-500 font-bold">[Street Name Kosong]</span>}
+                      </span>
+                    )
+                }
+              ] as ResponsiveColumn<ParsedRowData>[]
+            }
+            getRowActions={row =>
+              editingRowIndex === row.rowIndex
+                ? [
+                    {
+                      id: 'save',
+                      label: 'Simpan Perbaikan',
+                      icon: <Check className="w-3.5 h-3.5" />,
+                      tone: 'success',
+                      onClick: () => handleSaveEditRow(row.rowIndex)
+                    },
+                    {
+                      id: 'cancel',
+                      label: 'Batal Edit',
+                      icon: <X className="w-3.5 h-3.5" />,
+                      onClick: () => setEditingRowIndex(null)
+                    }
+                  ]
+                : [
+                    {
+                      id: 'edit',
+                      label: 'Edit Baris',
+                      icon: <Edit className="w-3.5 h-3.5" />,
+                      onClick: () => handleStartEditRow(row)
+                    },
+                    {
+                      id: 'delete',
+                      label: 'Hapus Baris',
+                      icon: <Trash2 className="w-3.5 h-3.5" />,
+                      tone: 'danger',
+                      onClick: () => handleDeleteRow(row.rowIndex)
+                    }
+                  ]
+            }
+            renderDesktopActions={row =>
+              editingRowIndex === row.rowIndex ? (
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveEditRow(row.rowIndex)}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                    title="Simpan perbaikan data"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Simpan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingRowIndex(null)}
+                    className="px-2 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded text-xs font-medium cursor-pointer"
+                    title="Batalkan edit"
+                  >
+                    Batal
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleStartEditRow(row)}
+                    className="p-1.5 text-slate-400 hover:text-[#6D28D9] hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded transition-colors cursor-pointer"
+                    title="Edit data baris ini"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRow(row.rowIndex)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded transition-colors cursor-pointer"
+                    title="Hapus baris data ini"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            }
+          />
 
           {/* Action Row - Sediakan 3 Tombol Mandat (Bagian 1 D) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div className="text-[11px] text-slate-500">
               Kebijakan Keamanan: Baris tidak valid atau duplikat otomatis ditolak dan tidak akan disimpan ke Supabase PostgreSQL.
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Tombol 1: Periksa Data */}
               <button
                 type="button"
@@ -1495,215 +1642,26 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       )}
 
       {/* Confirmation Modal */}
-      {showConfirmModal && parseResult && (
-        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden text-xs animate-in zoom-in-95 duration-150">
-            {/* Sticky Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-slate-800/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Konfirmasi Import Work Order
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Periksa ringkasan validasi sebelum data disimpan permanen ke database
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800 cursor-pointer"
-                title="Tutup dialog"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Scrollable Body Content */}
-            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4">
-              {/* Validation Summary Matrix */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl">
-                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400">Total Baris Dibaca</div>
-                  <div className="text-base font-extrabold text-slate-900 dark:text-white">{parseResult.parsedRows.length}</div>
-                </div>
-                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                  <div className="text-[10.5px] text-emerald-700 dark:text-emerald-300">Baris Valid</div>
-                  <div className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">
-                    {parseResult.validCount > 0 ? parseResult.validCount : parseResult.parsedRows.length}
-                  </div>
-                </div>
-                <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
-                  <div className="text-[10.5px] text-amber-700 dark:text-amber-300">Gagal Validasi</div>
-                  <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">{parseResult.problematicCount}</div>
-                </div>
-                <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl">
-                  <div className="text-[10.5px] text-blue-700 dark:text-blue-300">Kontraktor Baru</div>
-                  <div className="text-base font-extrabold text-blue-700 dark:text-blue-300">
-                    {parseResult.detectedContractors?.filter(c => c.isNew).length || newContractorsFound.length}
-                  </div>
-                </div>
-                <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl">
-                  <div className="text-[10.5px] text-purple-700 dark:text-purple-300">Kontraktor Terdaftar</div>
-                  <div className="text-base font-extrabold text-purple-700 dark:text-purple-300">
-                    {parseResult.detectedContractors?.filter(c => !c.isNew).length || 0}
-                  </div>
-                </div>
-                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl">
-                  <div className="text-[10.5px] text-rose-700 dark:text-rose-300">Data Duplikat</div>
-                  <div className="text-base font-extrabold text-rose-700 dark:text-rose-300">{parseResult.duplicateCount}</div>
-                </div>
-              </div>
-
-              {/* Source & Operator metadata */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">File Sumber:</span>
-                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{sourceFileName}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Operator:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{currentUser.name} ({currentUser.role})</span>
-                </div>
-              </div>
-
-              {/* Unrecognized Headers Warning if any */}
-              {parseResult.unrecognizedHeaders && parseResult.unrecognizedHeaders.length > 0 && (
-                <div className="p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs space-y-1">
-                  <div className="font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>Header Tidak Terpetakan ({parseResult.unrecognizedHeaders.length}):</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {parseResult.unrecognizedHeaders.map(h => (
-                      <span key={h} className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 rounded text-[10.5px] font-mono">
-                        {h}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[10.5px] text-amber-700 dark:text-amber-300 pt-0.5">
-                    Header di atas tetap disimpan aman dalam kolom dinamis tambahan (additionalFields).
-                  </p>
-                </div>
-              )}
-
-              {/* Scrollable Contractor Preview Box */}
-              {((parseResult.detectedContractors && parseResult.detectedContractors.length > 0) || newContractorsFound.length > 0) && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span>Daftar Kontraktor Terdeteksi (Scrollable):</span>
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {parseResult.detectedContractors?.length || newContractorsFound.length} Mitra
-                    </span>
-                  </div>
-                  <div className="max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-1.5">
-                    {parseResult.detectedContractors && parseResult.detectedContractors.length > 0
-                      ? parseResult.detectedContractors.map((c, cIdx) => (
-                          <span
-                            key={`modal-detected-cont-${c.id || c.name}-${cIdx}`}
-                            className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 ${
-                              c.isNew
-                                ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <span>{c.name}</span>
-                            {c.isNew && <span className="font-bold text-[9.5px] text-emerald-600 dark:text-emerald-400 uppercase">(Baru)</span>}
-                            <span className="text-[10px] opacity-75">· {c.woCount || 1} WO</span>
-                          </span>
-                        ))
-                      : newContractorsFound.map((c: any, cIdx: number) => (
-                          <span
-                            key={`modal-new-cont-${c.name}-${cIdx}`}
-                            className="px-2 py-1 rounded-lg text-[11px] font-medium bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1"
-                          >
-                            <span>{c.name}</span>
-                            <span className="font-bold text-[9.5px] uppercase">(Baru)</span>
-                            <span className="text-[10px] opacity-75">· {c.woCount} WO</span>
-                          </span>
-                        ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Auto-register Toggle */}
-              <div className="p-3 bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span className="font-bold text-slate-900 dark:text-white text-xs">
-                      Pendaftaran Otomatis Kontraktor Baru
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoRegisterNewContractors}
-                      onChange={e => setAutoRegisterNewContractors(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                  {autoRegisterNewContractors
-                    ? 'Aktif — Kontraktor yang belum ada di master data akan langsung didaftarkan secara otomatis saat import disimpan.'
-                    : 'Nonaktif — Kontraktor baru tidak akan ditambahkan ke Master Database.'}
-                </p>
-              </div>
-
-              {/* Duplicate Handling Policy */}
-              <div className="p-3 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block">
-                  Kebijakan Duplikasi Nomor WO:
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
-                    duplicatePolicy === 'skip'
-                      ? 'bg-white dark:bg-slate-900 border-indigo-600 font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
-                      : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="dupPolicy"
-                      checked={duplicatePolicy === 'skip'}
-                      onChange={() => setDuplicatePolicy('skip')}
-                      className="text-indigo-600"
-                    />
-                    <span>Lewati Duplikat (Skip)</span>
-                  </label>
-                  <label className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
-                    duplicatePolicy === 'update_allowed'
-                      ? 'bg-white dark:bg-slate-900 border-indigo-600 font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
-                      : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="dupPolicy"
-                      checked={duplicatePolicy === 'update_allowed'}
-                      onChange={() => setDuplicatePolicy('update_allowed')}
-                      className="text-indigo-600"
-                    />
-                    <span>Perbarui WO (Update)</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Sticky Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0 bg-slate-50/90 dark:bg-slate-800/90 sticky bottom-0 z-10">
+      {parseResult && (
+        <ResponsiveModal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            if (!isExecutingImport) setShowConfirmModal(false);
+          }}
+          closeOnBackdropClick={!isExecutingImport}
+          size="md"
+          mobileVariant="sheet"
+          zIndexClass="z-70"
+          icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+          title="Konfirmasi Import Work Order"
+          subtitle="Periksa ringkasan validasi sebelum data disimpan permanen ke database"
+          footer={
+            <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
               <button
                 type="button"
                 disabled={isExecutingImport}
                 onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer font-semibold transition-colors disabled:opacity-50"
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer font-semibold transition-colors disabled:opacity-50 text-xs min-h-[38px]"
               >
                 Batal
               </button>
@@ -1718,7 +1676,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     setIsExecutingImport(false);
                   }
                 }}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl font-bold flex items-center gap-2 shadow-md cursor-pointer transition-all text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all text-xs disabled:opacity-60 disabled:cursor-not-allowed min-h-[38px]"
               >
                 {isExecutingImport ? (
                   <>
@@ -1733,8 +1691,181 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 )}
               </button>
             </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            {/* Validation Summary Matrix */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl">
+                <div className="text-[10.5px] text-slate-500 dark:text-slate-400">Total Baris Dibaca</div>
+                <div className="text-base font-extrabold text-slate-900 dark:text-white">{parseResult.parsedRows.length}</div>
+              </div>
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                <div className="text-[10.5px] text-emerald-700 dark:text-emerald-300">Baris Valid</div>
+                <div className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">
+                  {parseResult.validCount > 0 ? parseResult.validCount : parseResult.parsedRows.length}
+                </div>
+              </div>
+              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
+                <div className="text-[10.5px] text-amber-700 dark:text-amber-300">Gagal Validasi</div>
+                <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">{parseResult.problematicCount}</div>
+              </div>
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl">
+                <div className="text-[10.5px] text-blue-700 dark:text-blue-300">Kontraktor Baru</div>
+                <div className="text-base font-extrabold text-blue-700 dark:text-blue-300">
+                  {parseResult.detectedContractors?.filter(c => c.isNew).length || newContractorsFound.length}
+                </div>
+              </div>
+              <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl">
+                <div className="text-[10.5px] text-purple-700 dark:text-purple-300">Kontraktor Terdaftar</div>
+                <div className="text-base font-extrabold text-purple-700 dark:text-purple-300">
+                  {parseResult.detectedContractors?.filter(c => !c.isNew).length || 0}
+                </div>
+              </div>
+              <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl">
+                <div className="text-[10.5px] text-rose-700 dark:text-rose-300">Data Duplikat</div>
+                <div className="text-base font-extrabold text-rose-700 dark:text-rose-300">{parseResult.duplicateCount}</div>
+              </div>
+            </div>
+
+            {/* Source & Operator metadata */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-500">File Sumber:</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 truncate">{sourceFileName}</span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-500">Operator:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{currentUser.name} ({currentUser.role})</span>
+              </div>
+            </div>
+
+            {/* Unrecognized Headers Warning if any */}
+            {parseResult.unrecognizedHeaders && parseResult.unrecognizedHeaders.length > 0 && (
+              <div className="p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs space-y-1">
+                <div className="font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Header Tidak Terpetakan ({parseResult.unrecognizedHeaders.length}):</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {parseResult.unrecognizedHeaders.map(h => (
+                    <span key={h} className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 rounded text-[10.5px] font-mono">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10.5px] text-amber-700 dark:text-amber-300 pt-0.5">
+                  Header di atas tetap disimpan aman dalam kolom dinamis tambahan (additionalFields).
+                </p>
+              </div>
+            )}
+
+            {/* Scrollable Contractor Preview Box */}
+            {((parseResult.detectedContractors && parseResult.detectedContractors.length > 0) || newContractorsFound.length > 0) && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Daftar Kontraktor Terdeteksi (Scrollable):</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {parseResult.detectedContractors?.length || newContractorsFound.length} Mitra
+                  </span>
+                </div>
+                <div className="max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-1.5">
+                  {parseResult.detectedContractors && parseResult.detectedContractors.length > 0
+                    ? parseResult.detectedContractors.map((c, cIdx) => (
+                        <span
+                          key={`modal-detected-cont-${c.id || c.name}-${cIdx}`}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 ${
+                            c.isNew
+                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span>{c.name}</span>
+                          {c.isNew && <span className="font-bold text-[9.5px] text-emerald-600 dark:text-emerald-400 uppercase">(Baru)</span>}
+                          <span className="text-[10px] opacity-75">· {c.woCount || 1} WO</span>
+                        </span>
+                      ))
+                    : newContractorsFound.map((c: any, cIdx: number) => (
+                        <span
+                          key={`modal-new-cont-${c.name}-${cIdx}`}
+                          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1"
+                        >
+                          <span>{c.name}</span>
+                          <span className="font-bold text-[9.5px] uppercase">(Baru)</span>
+                          <span className="text-[10px] opacity-75">· {c.woCount} WO</span>
+                        </span>
+                      ))}
+                </div>
+              </div>
+            )}
+
+            {/* Auto-register Toggle */}
+            <div className="p-3 bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">
+                    Pendaftaran Otomatis Kontraktor Baru
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={autoRegisterNewContractors}
+                    onChange={e => setAutoRegisterNewContractors(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                {autoRegisterNewContractors
+                  ? 'Aktif — Kontraktor yang belum ada di master data akan langsung didaftarkan secara otomatis saat import disimpan.'
+                  : 'Nonaktif — Kontraktor baru tidak akan ditambahkan ke Master Database.'}
+              </p>
+            </div>
+
+            {/* Duplicate Handling Policy */}
+            <div className="p-3 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block">
+                Kebijakan Duplikasi Nomor WO:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
+                  duplicatePolicy === 'skip'
+                    ? 'bg-white dark:bg-slate-900 border-indigo-600 font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                }`}>
+                  <input
+                    type="radio"
+                    name="dupPolicy"
+                    checked={duplicatePolicy === 'skip'}
+                    onChange={() => setDuplicatePolicy('skip')}
+                    className="text-indigo-600"
+                  />
+                  <span>Lewati Duplikat (Skip)</span>
+                </label>
+                <label className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
+                  duplicatePolicy === 'update_allowed'
+                    ? 'bg-white dark:bg-slate-900 border-indigo-600 font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                }`}>
+                  <input
+                    type="radio"
+                    name="dupPolicy"
+                    checked={duplicatePolicy === 'update_allowed'}
+                    onChange={() => setDuplicatePolicy('update_allowed')}
+                    className="text-indigo-600"
+                  />
+                  <span>Perbarui WO (Update)</span>
+                </label>
+              </div>
+            </div>
           </div>
-        </div>
+        </ResponsiveModal>
       )}
 
       {/* End of Import Tab */}
@@ -1928,23 +2059,57 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       )}
 
       {/* Confirmation Modal for Deleting Imported Data by Date - Strictly Management Data */}
-      {showPurgeModal && dateToPurge && isManagementData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl max-w-md w-full border border-rose-200 dark:border-rose-900/80 shadow-2xl p-6 space-y-4 text-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Konfirmasi Hapus Data Import
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Tanggal Import: <span className="font-semibold text-rose-600 dark:text-rose-400">{dateToPurge}</span>
-                </p>
-              </div>
+      {dateToPurge && isManagementData && (
+        <ResponsiveModal
+          isOpen={showPurgeModal}
+          onClose={() => {
+            setShowPurgeModal(false);
+            setDateToPurge(null);
+          }}
+          size="sm"
+          mobileVariant="sheet"
+          zIndexClass="z-70"
+          icon={<Trash2 className="w-5 h-5 text-rose-600" />}
+          title="Konfirmasi Hapus Data Import"
+          subtitle={
+            <>
+              Tanggal Import: <span className="font-semibold text-rose-600 dark:text-rose-400">{dateToPurge}</span>
+            </>
+          }
+          footer={
+            <div className="w-full flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPurgeModal(false);
+                  setDateToPurge(null);
+                }}
+                className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={!purgeReason.trim() || purgeConfirmPhrase.trim() !== 'HAPUS IMPORT'}
+                onClick={() => {
+                  const res = deleteImportedTicketsByDate(dateToPurge, purgeReason.trim());
+                  if (res.success) {
+                    showToast(`Berhasil menghapus ${res.count} data tiket hasil import pada tanggal ${dateToPurge}.`, 'success');
+                    setShowPurgeModal(false);
+                    setDateToPurge(null);
+                  } else {
+                    showToast(res.error || 'Gagal menghapus data import.', 'error');
+                  }
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-bold rounded shadow-xs transition-colors flex items-center gap-1.5 text-xs cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Ya, Hapus Data Import ({purgeCount} WO)</span>
+              </button>
             </div>
-
+          }
+        >
+          <div className="space-y-4 text-xs">
             <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-900 dark:text-rose-200 leading-relaxed text-[11px]">
               Tindakan ini akan menghapus <strong>{purgeCount} Work Order</strong> yang diimpor pada tanggal {dateToPurge}. Penghapusan ini dicatat pada audit log resmi.
             </div>
@@ -1974,37 +2139,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-mono"
               />
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                onClick={() => {
-                  setShowPurgeModal(false);
-                  setDateToPurge(null);
-                }}
-                className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-              >
-                Batal
-              </button>
-              <button
-                disabled={!purgeReason.trim() || purgeConfirmPhrase.trim() !== 'HAPUS IMPORT'}
-                onClick={() => {
-                  const res = deleteImportedTicketsByDate(dateToPurge, purgeReason.trim());
-                  if (res.success) {
-                    showToast(`Berhasil menghapus ${res.count} data tiket hasil import pada tanggal ${dateToPurge}.`, 'success');
-                    setShowPurgeModal(false);
-                    setDateToPurge(null);
-                  } else {
-                    showToast(res.error || 'Gagal menghapus data import.', 'error');
-                  }
-                }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-bold rounded shadow-xs transition-colors flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Ya, Hapus Data Import ({purgeCount} WO)</span>
-              </button>
-            </div>
           </div>
-        </div>
+        </ResponsiveModal>
       )}
 
       {mainTab === 'export' && (
@@ -2042,7 +2178,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             )}
 
             {/* Export Settings Grid */}
-            <div className={`grid grid-cols-1 ${isMobileView ? '' : 'lg:grid-cols-3'} gap-6 pt-5 text-xs`}>
+            <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'lg:grid-cols-3'} gap-6 pt-5 text-xs`}>
               
               {/* Card 1: Format Template Ekspor */}
               <div className="space-y-3">

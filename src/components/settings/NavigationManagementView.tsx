@@ -7,6 +7,7 @@ import {
   NavigationStandaloneMenu,
   NavigationSubmenuItem
 } from '../../types/navigation';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
   Save,
   RotateCcw,
@@ -937,294 +938,288 @@ export const NavigationManagementView: React.FC = () => {
       {/* ======================================================== */}
       {/* MODAL 1: ADD CATEGORY */}
       {/* ======================================================== */}
-      {showAddCategoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-          <form
-            onSubmit={handleAddCategorySubmit}
-            className="bg-[#160D29] border border-[#35105E] rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-4 text-xs text-white"
-          >
-            <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-[#A855F7]" />
-              <span>Tambah Kategori Navigasi Baru</span>
-            </h4>
+      <ResponsiveModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        title="Tambah Kategori Navigasi Baru"
+        icon={<FolderPlus className="w-4 h-4 text-[#A855F7]" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+      >
+        <form onSubmit={handleAddCategorySubmit} className="space-y-4 text-xs text-white">
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">Nama Kategori</label>
+            <input
+              type="text"
+              placeholder="misal: Operasional Khusus"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
+              required
+            />
+          </div>
 
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">Nama Kategori</label>
-              <input
-                type="text"
-                placeholder="misal: Operasional Khusus"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">Ikon Kategori</label>
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-[#24133F] border border-[#35105E] flex items-center justify-center text-[#A855F7]">
-                  <NavigationIcon name={newCatIcon} className="w-4 h-4" />
-                </div>
-                <select
-                  value={newCatIcon}
-                  onChange={(e) => setNewCatIcon(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
-                >
-                  {AVAILABLE_ICON_NAMES.map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">Ikon Kategori</label>
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-[#24133F] border border-[#35105E] flex items-center justify-center text-[#A855F7] shrink-0">
+                <NavigationIcon name={newCatIcon} className="w-4 h-4" />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">Mode Kategori</label>
               <select
-                value={newCatMode}
-                onChange={(e) => setNewCatMode(e.target.value as any)}
-                className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+                value={newCatIcon}
+                onChange={(e) => setNewCatIcon(e.target.value)}
+                className="flex-1 min-w-0 px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
               >
-                <option value="accordion">Accordion (Dapat di-collapse)</option>
-                <option value="static">Static (Selalu terbuka)</option>
+                {AVAILABLE_ICON_NAMES.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
               </select>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setShowAddCategoryModal(false)}
-                className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-105 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
-              >
-                Tambah Kategori
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">Mode Kategori</label>
+            <select
+              value={newCatMode}
+              onChange={(e) => setNewCatMode(e.target.value as any)}
+              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+            >
+              <option value="accordion">Accordion (Dapat di-collapse)</option>
+              <option value="static">Static (Selalu terbuka)</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[#35105E]">
+            <button
+              type="button"
+              onClick={() => setShowAddCategoryModal(false)}
+              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-105 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
+            >
+              Tambah Kategori
+            </button>
+          </div>
+        </form>
+      </ResponsiveModal>
 
       {/* ======================================================== */}
       {/* MODAL 2: ADD SUBMENU */}
       {/* ======================================================== */}
-      {showAddSubmenuModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-          <form
-            onSubmit={handleAddSubmenuSubmit}
-            className="bg-[#160D29] border border-[#35105E] rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-4 text-xs text-white"
-          >
-            <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-[#A855F7]" />
-              <span>Tambah Submenu Baru</span>
-            </h4>
+      <ResponsiveModal
+        isOpen={showAddSubmenuModal}
+        onClose={() => setShowAddSubmenuModal(false)}
+        title="Tambah Submenu Baru"
+        icon={<Plus className="w-4 h-4 text-[#A855F7]" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+      >
+        <form onSubmit={handleAddSubmenuSubmit} className="space-y-4 text-xs text-white">
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">Nama Submenu</label>
+            <input
+              type="text"
+              placeholder="misal: Laporan Tambahan"
+              value={newSubName}
+              onChange={(e) => {
+                setNewSubName(e.target.value);
+                if (!newSubId) {
+                  setNewSubId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+                }
+              }}
+              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
+              required
+            />
+          </div>
 
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">Nama Submenu</label>
-              <input
-                type="text"
-                placeholder="misal: Laporan Tambahan"
-                value={newSubName}
-                onChange={(e) => {
-                  setNewSubName(e.target.value);
-                  if (!newSubId) {
-                    setNewSubId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
-                  }
-                }}
-                className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
-                required
-              />
-            </div>
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">ID Submenu (Route/Key)</label>
+            <input
+              type="text"
+              placeholder="misal: extra_reports"
+              value={newSubId}
+              onChange={(e) => setNewSubId(e.target.value)}
+              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-mono focus:border-[#A855F7]"
+              required
+            />
+            <p className="text-[10px] text-[#D8B4FE]/60 mt-0.5">
+              Gunakan ID yang unik, tidak boleh bertabrakan dengan ID menu lain.
+            </p>
+          </div>
 
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">ID Submenu (Route/Key)</label>
-              <input
-                type="text"
-                placeholder="misal: extra_reports"
-                value={newSubId}
-                onChange={(e) => setNewSubId(e.target.value)}
-                className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-mono focus:border-[#A855F7]"
-                required
-              />
-              <p className="text-[10px] text-[#D8B4FE]/60 mt-0.5">
-                Gunakan ID yang unik, tidak boleh bertabrakan dengan ID menu lain.
-              </p>
-            </div>
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">Parent Category</label>
+            <select
+              value={newSubCatId || draftConfig.categories[0]?.id}
+              onChange={(e) => setNewSubCatId(e.target.value)}
+              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+            >
+              {draftConfig.categories.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">Parent Category</label>
+          <div>
+            <label className="block text-[#D8B4FE] font-bold mb-1">Ikon</label>
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-[#24133F] border border-[#35105E] flex items-center justify-center text-[#A855F7] shrink-0">
+                <NavigationIcon name={newSubIcon} className="w-4 h-4" />
+              </div>
               <select
-                value={newSubCatId || draftConfig.categories[0]?.id}
-                onChange={(e) => setNewSubCatId(e.target.value)}
-                className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+                value={newSubIcon}
+                onChange={(e) => setNewSubIcon(e.target.value)}
+                className="flex-1 min-w-0 px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
               >
-                {draftConfig.categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {AVAILABLE_ICON_NAMES.map(name => (
+                  <option key={name} value={name}>{name}</option>
                 ))}
               </select>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-[#D8B4FE] font-bold mb-1">Ikon</label>
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-[#24133F] border border-[#35105E] flex items-center justify-center text-[#A855F7]">
-                  <NavigationIcon name={newSubIcon} className="w-4 h-4" />
-                </div>
-                <select
-                  value={newSubIcon}
-                  onChange={(e) => setNewSubIcon(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
-                >
-                  {AVAILABLE_ICON_NAMES.map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setShowAddSubmenuModal(false)}
-                className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-105 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
-              >
-                Simpan Submenu
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[#35105E]">
+            <button
+              type="button"
+              onClick={() => setShowAddSubmenuModal(false)}
+              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-105 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
+            >
+              Simpan Submenu
+            </button>
+          </div>
+        </form>
+      </ResponsiveModal>
 
       {/* ======================================================== */}
       {/* MODAL 3: DELETE CATEGORY CONFIRMATION */}
       {/* ======================================================== */}
-      {categoryToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-          <div className="bg-[#160D29] border border-rose-500/40 rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-4 text-xs text-white">
-            <h4 className="font-extrabold text-sm text-rose-400 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              <span>Konfirmasi Hapus Kategori "{categoryToDelete.name}"</span>
-            </h4>
+      <ResponsiveModal
+        isOpen={Boolean(categoryToDelete)}
+        onClose={() => setCategoryToDelete(null)}
+        title={categoryToDelete ? `Konfirmasi Hapus Kategori "${categoryToDelete.name}"` : 'Hapus Kategori'}
+        icon={<AlertCircle className="w-4 h-4 text-rose-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setCategoryToDelete(null)}
+              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={executeDeleteCategory}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md cursor-pointer text-xs"
+            >
+              Hapus Kategori
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-xs text-white">
+          <p className="text-[#D8B4FE]/80 leading-relaxed">
+            Kategori ini mungkin memiliki beberapa submenu. Apa yang ingin Anda lakukan terhadap submenu di dalam kategori ini?
+          </p>
 
-            <p className="text-xs text-[#D8B4FE]/80 leading-relaxed">
-              Kategori ini mungkin memiliki beberapa submenu. Apa yang ingin Anda lakukan terhadap submenu di dalam kategori ini?
-            </p>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2.5 p-2.5 bg-[#24133F] rounded-xl border border-[#35105E] cursor-pointer">
+              <input
+                type="radio"
+                name="del_action"
+                checked={submenusActionOnDelete === 'move_to_tambahan'}
+                onChange={() => setSubmenusActionOnDelete('move_to_tambahan')}
+                className="text-[#A855F7]"
+              />
+              <span className="font-semibold text-white">Pindahkan submenu ke "Menu Tambahan"</span>
+            </label>
 
-            <div className="space-y-2">
-              <label className="flex items-center gap-2.5 p-2.5 bg-[#24133F] rounded-xl border border-[#35105E] cursor-pointer">
-                <input
-                  type="radio"
-                  name="del_action"
-                  checked={submenusActionOnDelete === 'move_to_tambahan'}
-                  onChange={() => setSubmenusActionOnDelete('move_to_tambahan')}
-                  className="text-[#A855F7]"
-                />
-                <span className="font-semibold text-white">Pindahkan submenu ke "Menu Tambahan"</span>
-              </label>
-
-              <label className="flex items-center gap-2.5 p-2.5 bg-[#24133F] rounded-xl border border-[#35105E] cursor-pointer">
-                <input
-                  type="radio"
-                  name="del_action"
-                  checked={submenusActionOnDelete === 'disable'}
-                  onChange={() => setSubmenusActionOnDelete('disable')}
-                  className="text-[#A855F7]"
-                />
-                <span className="font-semibold text-white">Nonaktifkan (sembunyikan) semua submenu</span>
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setCategoryToDelete(null)}
-                className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={executeDeleteCategory}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
-              >
-                Hapus Kategori
-              </button>
-            </div>
+            <label className="flex items-center gap-2.5 p-2.5 bg-[#24133F] rounded-xl border border-[#35105E] cursor-pointer">
+              <input
+                type="radio"
+                name="del_action"
+                checked={submenusActionOnDelete === 'disable'}
+                onChange={() => setSubmenusActionOnDelete('disable')}
+                className="text-[#A855F7]"
+              />
+              <span className="font-semibold text-white">Nonaktifkan (sembunyikan) semua submenu</span>
+            </label>
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* ======================================================== */}
       {/* MODAL 4: ICON PICKER MODAL */}
       {/* ======================================================== */}
-      {iconPickerTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-          <div className="bg-[#160D29] border border-[#35105E] rounded-2xl shadow-2xl p-6 w-full max-w-lg space-y-4 text-xs text-white max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-2 border-b border-[#35105E]">
-              <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#A855F7]" />
-                <span>Pilih Ikon Lucide</span>
-              </h4>
+      <ResponsiveModal
+        isOpen={Boolean(iconPickerTarget)}
+        onClose={() => setIconPickerTarget(null)}
+        title="Pilih Ikon Lucide"
+        icon={<Sparkles className="w-4 h-4 text-[#A855F7]" />}
+        variant="dark_purple"
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <button
+            type="button"
+            onClick={() => setIconPickerTarget(null)}
+            className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
+          >
+            Tutup
+          </button>
+        }
+      >
+        <div className="space-y-4 text-xs text-white">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-[#D8B4FE]/60 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Cari nama ikon..."
+              value={iconSearchQuery}
+              onChange={(e) => setIconSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
+              autoFocus
+            />
+          </div>
+
+          {/* Icons Grid */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 p-0.5 max-h-[45vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[#35105E]">
+            {filteredIcons.map(iconName => (
               <button
-                onClick={() => setIconPickerTarget(null)}
-                className="p-1 text-[#D8B4FE]/60 hover:text-white rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-[#D8B4FE]/60 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Cari nama ikon..."
-                value={iconSearchQuery}
-                onChange={(e) => setIconSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
-                autoFocus
-              />
-            </div>
-
-            {/* Icons Grid */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-4 sm:grid-cols-6 gap-2.5 p-1 scrollbar-thin scrollbar-thumb-[#35105E]">
-              {filteredIcons.map(iconName => (
-                <button
-                  key={iconName}
-                  type="button"
-                  onClick={() => handleSelectIcon(iconName)}
-                  className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-[#24133F]/70 hover:bg-[#7135B5]/50 border border-[#35105E] hover:border-[#A855F7] transition-all cursor-pointer group"
-                >
-                  <NavigationIcon name={iconName} className="w-5 h-5 text-[#D8B4FE] group-hover:text-white group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] text-[#D8B4FE]/70 truncate max-w-full text-center group-hover:text-white font-mono">
-                    {iconName}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-[#35105E]">
-              <button
+                key={iconName}
                 type="button"
-                onClick={() => setIconPickerTarget(null)}
-                className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
+                onClick={() => handleSelectIcon(iconName)}
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-[#24133F]/70 hover:bg-[#7135B5]/50 border border-[#35105E] hover:border-[#A855F7] transition-all cursor-pointer group"
               >
-                Tutup
+                <NavigationIcon name={iconName} className="w-5 h-5 text-[#D8B4FE] group-hover:text-white group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] text-[#D8B4FE]/70 truncate max-w-full text-center group-hover:text-white font-mono">
+                  {iconName}
+                </span>
               </button>
-            </div>
+            ))}
           </div>
         </div>
-      )}
+      </ResponsiveModal>
     </div>
   );
 };

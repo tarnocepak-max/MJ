@@ -1,42 +1,36 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket } from '../../types';
 import {
   FileSpreadsheet,
   Download,
-  Filter,
   Search,
   BarChart3,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
   RotateCcw,
   Building2,
   Wrench,
   MapPin,
   Calendar,
-  Layers,
-  FileText,
+  Clock,
   Copy,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
   Archive,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '../../context/ToastContext';
-import { formatAppointmentDateDisplay, parseAppointmentDate, getJakartaDateString } from '../../services/appointmentDateParser';
+import { getJakartaDateString, parseAppointmentDate } from '../../services/appointmentDateParser';
 import { StatusAgentBadge, StatusInstallerBadge } from '../common/Badge';
 import { HistoryProgressReportView } from './HistoryProgressReportView';
 import { SortableColumnHeader } from '../common/SortableColumnHeader';
+import { PaginationBar } from '../common/PaginationBar';
 import {
   SortState,
   getNextSortDirection,
-  sortDataArray,
-  compareTableValues,
-  compareNaturalWoNumbers
+  sortDataArray
 } from '../../utils/tableSorting';
 
 interface ColumnFilters {
@@ -66,8 +60,8 @@ const initialFilters: ColumnFilters = {
 };
 
 export const ReportDataWOView: React.FC = () => {
-  const { tickets, contractors, users, auditLogs } = useApp();
-  const { isMobileView } = useUIConfig();
+  const { tickets, contractors } = useApp();
+  const { isCompactUI } = useResponsiveViewport();
   const { toast } = useToast();
 
   const [reportType, setReportType] = useState<
@@ -89,6 +83,7 @@ export const ReportDataWOView: React.FC = () => {
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   // Feature 2: Individual Column Filters
   const [colFilters, setColFilters] = useState<ColumnFilters>(initialFilters);
@@ -443,16 +438,16 @@ export const ReportDataWOView: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-3 ${isMobileView ? '' : 'sm:flex-row sm:items-center'}`}>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs">
+      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#E8DDFF] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-3 ${isCompactUI ? '' : 'lg:flex-row lg:items-center'}`}>
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[#58149C] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
             <BarChart3 className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-[#3B1D78] dark:text-purple-200 flex flex-wrap items-center gap-2">
               <span>Pusat Laporan & Rekapitulasi Data Work Order</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
-                Individual Column Search & Global Sorting
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-purple-900/60 dark:text-purple-200">
+                Column Search & Global Sort
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -466,7 +461,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleCopyData}
-            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200"
+            className="px-3 py-1.5 min-h-[38px] sm:min-h-[34px] bg-white dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200"
             title="Salin data tabel yang tampil ke clipboard (TSV format)"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -476,7 +471,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportCSV}
-            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 min-h-[38px] sm:min-h-[34px] bg-white dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 hover:bg-slate-100 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>CSV</span>
@@ -485,7 +480,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportExcel}
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 min-h-[38px] sm:min-h-[34px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Ekspor XLSX</span>
@@ -494,7 +489,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportAllWO}
-            className="px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 min-h-[38px] sm:min-h-[34px] bg-[#58149C] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             title="Download seluruh Work Order master tanpa terpengaruh filter"
           >
             <Archive className="w-3.5 h-3.5" />
@@ -504,7 +499,7 @@ export const ReportDataWOView: React.FC = () => {
       </div>
 
       {/* Report Types Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[#D8CCF3] dark:border-purple-900/60 text-xs font-semibold no-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[#E8DDFF] dark:border-purple-900/60 text-xs font-semibold no-scrollbar">
         {[
           { id: 'all_wo', label: 'Semua WO', count: activeTickets.length },
           { id: 'history_progress', label: 'History Progress Report', count: activeTickets.reduce((acc, t) => acc + (t.progressReports?.length || 0), 0) },
@@ -523,9 +518,9 @@ export const ReportDataWOView: React.FC = () => {
               setReportType(tab.id as any);
               setCurrentPage(1);
             }}
-            className={`px-3.5 py-2 rounded-t-xl border-b-2 flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 min-h-[40px] rounded-t-xl border-b-2 flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
               reportType === tab.id
-                ? 'border-[#5B35B1] bg-white dark:bg-[#1A0E2E] text-[#3B1D78] dark:text-purple-300 font-bold shadow-xs'
+                ? 'border-[#58149C] bg-white dark:bg-[#1A0E2E] text-[#3B1D78] dark:text-purple-300 font-bold shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -542,10 +537,10 @@ export const ReportDataWOView: React.FC = () => {
       ) : (
       <>
       {/* Global Filters Toolbar & Reset */}
-      <div className="p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className={`grid gap-3 flex-1 min-w-[240px] ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'}`}>
+      <div className="p-3.5 sm:p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#E8DDFF] dark:border-purple-900/60 shadow-xs flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 text-xs">
+        <div className={`grid gap-2.5 flex-1 min-w-0 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Cari Global (WO, Pelanggan, ID, Teknisi)..."
@@ -554,7 +549,7 @@ export const ReportDataWOView: React.FC = () => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-[#D8CCF3] dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#5B35B1]"
+              className="w-full pl-8 pr-3 py-1.5 min-h-[42px] sm:min-h-[36px] bg-slate-50 dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#58149C]/30"
             />
           </div>
           <select
@@ -563,15 +558,15 @@ export const ReportDataWOView: React.FC = () => {
               setContractorFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-[#D8CCF3] dark:border-slate-700 rounded-xl"
+            className="px-3 py-1.5 min-h-[42px] sm:min-h-[36px] bg-slate-50 dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 rounded-xl font-medium"
           >
             <option value="ALL">Semua Mitra Kontraktor</option>
             {contractors.map(c => (
               <option key={c.id} value={c.name}>{c.name}</option>
             ))}
           </select>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-slate-400">Dari:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 shrink-0 w-11 sm:w-auto">Dari:</span>
             <input
               type="date"
               value={dateStart}
@@ -579,11 +574,11 @@ export const ReportDataWOView: React.FC = () => {
                 setDateStart(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-[#D8CCF3] dark:border-slate-700 rounded-lg text-xs"
+              className="w-full px-2.5 py-1.5 min-h-[42px] sm:min-h-[36px] bg-slate-50 dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 rounded-xl text-xs"
             />
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-slate-400">Sampai:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 shrink-0 w-11 sm:w-auto">Sampai:</span>
             <input
               type="date"
               value={dateEnd}
@@ -591,7 +586,7 @@ export const ReportDataWOView: React.FC = () => {
                 setDateEnd(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-[#D8CCF3] dark:border-slate-700 rounded-lg text-xs"
+              className="w-full px-2.5 py-1.5 min-h-[42px] sm:min-h-[36px] bg-slate-50 dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 rounded-xl text-xs"
             />
           </div>
         </div>
@@ -601,7 +596,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleResetFilters}
-            className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+            className="px-3.5 py-2 min-h-[40px] sm:min-h-[36px] bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Semua Filter</span>
@@ -609,45 +604,78 @@ export const ReportDataWOView: React.FC = () => {
         )}
       </div>
 
-      {/* Interactive Data Table with Individual Column Search (Requirement 2 & 3) */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden">
-        <div className="px-5 py-3 border-b flex flex-wrap items-center justify-between text-xs gap-2">
-          <div className="flex items-center gap-2">
+      {/* Interactive Data Table / Responsive Priority Cards */}
+      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#E8DDFF] dark:border-purple-900/60 shadow-xs overflow-hidden">
+        <div className="px-4 sm:px-5 py-3 border-b border-[#E8DDFF] dark:border-purple-900/50 flex flex-wrap items-center justify-between text-xs gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-slate-800 dark:text-slate-200">
               Hasil Laporan: {sortedReportData.length} Work Order
             </span>
             {hasActiveFilters && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-[#5B35B1] dark:bg-purple-950 dark:text-purple-300">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-[#58149C] dark:bg-purple-950 dark:text-purple-300">
                 Filter Aktif
               </span>
             )}
             {sortState.column && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                Sorted by {sortState.column} ({sortState.direction})
+                Sort: {sortState.column} ({sortState.direction})
               </span>
             )}
           </div>
 
-          {/* Page size selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-[11px]">Tampilkan:</span>
-            <select
-              value={pageSize}
-              onChange={e => {
-                const val = e.target.value === 'ALL' ? 'ALL' : Number(e.target.value);
-                setPageSize(val);
-                setCurrentPage(1);
-              }}
-              className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value="ALL">Semua</option>
-            </select>
-            <span className="text-slate-400 text-[11px]">baris</span>
-          </div>
+          {isCompactUI ? (
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#7D7484] shrink-0" />
+              <select
+                aria-label="Urutkan Laporan"
+                value={sortState.column || 'woNumber'}
+                onChange={e => {
+                  setSortState({ column: e.target.value, direction: sortState.direction || 'asc' });
+                  setCurrentPage(1);
+                }}
+                className="flex-1 sm:flex-none px-2.5 py-1.5 min-h-[38px] bg-[#F8F1FF] dark:bg-slate-800 border border-[#CEC3D4] dark:border-slate-700 rounded-xl text-xs font-semibold"
+              >
+                <option value="woNumber">Urut: WO Number</option>
+                <option value="appointmentDate">Urut: Appointment</option>
+                <option value="customerName">Urut: Pelanggan</option>
+                <option value="area">Urut: Area</option>
+                <option value="contractor">Urut: Kontraktor</option>
+                <option value="statusInstaller">Urut: Status</option>
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  setSortState(prev => ({
+                    column: prev.column || 'woNumber',
+                    direction: prev.direction === 'asc' ? 'desc' : 'asc'
+                  }))
+                }
+                className="px-2.5 py-1.5 min-h-[38px] rounded-xl border border-[#CEC3D4] dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] cursor-pointer"
+              >
+                {sortState.direction === 'desc' ? 'DESC' : 'ASC'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 text-[11px]">Tampilkan:</span>
+              <select
+                value={pageSize}
+                onChange={e => {
+                  const val = e.target.value === 'ALL' ? 'ALL' : Number(e.target.value);
+                  setPageSize(val);
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value="ALL">Semua</option>
+              </select>
+              <span className="text-slate-400 text-[11px]">baris</span>
+            </div>
+          )}
         </div>
 
         {sortedReportData.length === 0 ? (
@@ -665,6 +693,105 @@ export const ReportDataWOView: React.FC = () => {
                 Kosongkan Filter
               </button>
             )}
+          </div>
+        ) : isCompactUI ? (
+          /* Mobile Priority Cards with Expandable Secondary Details */
+          <div className="p-3 space-y-2.5 bg-[#FDF7FF] dark:bg-[#140827]/60">
+            {paginatedData.map((t, idx) => {
+              const globalIdx = pageSize === 'ALL' ? idx + 1 : (currentPage - 1) * pageSize + idx + 1;
+              const isExpanded = Boolean(expandedCards[t.id]);
+              const contractorLabel = t.contactorName || t.contractorName || '-';
+              const remarksText = t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || '-';
+
+              return (
+                <article
+                  key={t.id}
+                  className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] p-3.5 space-y-2.5 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-mono text-slate-400">#{globalIdx}</span>
+                        <span className="font-mono font-bold text-xs text-[#58149C] dark:text-[#DAB9FF]">
+                          {t.woNumber}
+                        </span>
+                      </div>
+                      <div className="font-bold text-xs text-[#1F1638] dark:text-white mt-0.5 break-words">
+                        {t.customerName || '-'}
+                      </div>
+                      <div className="text-[11px] font-mono text-[#7D7484] dark:text-[#CEC0E8]">
+                        ID: {t.idCustomer || t.customerId || '-'}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <StatusInstallerBadge status={t.statusWOInstaller} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t border-[#E8DDFF]/70 dark:border-[#35105E] text-[11px]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MapPin className="w-3.5 h-3.5 text-[#7D7484] shrink-0" />
+                      <span className="truncate text-[#1F1638] dark:text-slate-200 font-medium">
+                        {t.area || '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Calendar className="w-3.5 h-3.5 text-[#7135B5] shrink-0" />
+                      <span className="truncate font-mono text-[#58149C] dark:text-[#DAB9FF]">
+                        {t.appointmentDate || '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Clock className="w-3.5 h-3.5 text-[#7D7484] shrink-0" />
+                      <span className="truncate text-slate-600 dark:text-slate-300">
+                        {t.slotTime || '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Wrench className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate font-medium text-emerald-700 dark:text-emerald-300">
+                        {t.installerName || 'Belum Di-assign'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setExpandedCards(prev => ({ ...prev, [t.id]: !prev[t.id] }))}
+                    aria-expanded={isExpanded}
+                    className="w-full min-h-[38px] px-3 py-1.5 rounded-lg bg-[#F8F1FF] dark:bg-[#160D29] hover:bg-[#F3EAFF] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] cursor-pointer"
+                  >
+                    <span>{isExpanded ? 'Tutup Detail Tambahan' : 'Lihat Detail Kontraktor & Catatan'}</span>
+                    {isExpanded ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="pt-2.5 border-t border-dashed border-[#E8DDFF] dark:border-[#35105E] space-y-2 text-[11px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[#7D7484] flex items-center gap-1">
+                          <Building2 className="w-3.5 h-3.5" /> Kontraktor:
+                        </span>
+                        <span className="font-semibold text-[#1F1638] dark:text-white text-right">
+                          {contractorLabel}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[#7D7484]">Status Agent:</span>
+                        <StatusAgentBadge status={t.statusWOAgent} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] mb-0.5">
+                          Catatan / Root Cause
+                        </div>
+                        <p className="text-[#1F1638] dark:text-slate-200 break-words bg-[#F8F1FF]/60 dark:bg-[#160D29] p-2 rounded-lg">
+                          {remarksText}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="overflow-x-auto max-h-[560px]">
@@ -935,41 +1062,21 @@ export const ReportDataWOView: React.FC = () => {
           </div>
         )}
 
-        {/* Pagination Toolbar */}
-        {sortedReportData.length > 0 && pageSize !== 'ALL' && (
-          <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-[#F5F1FF]/40 dark:bg-[#201138]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="text-slate-500">
-              Menampilkan {Math.min(sortedReportData.length, (currentPage - 1) * pageSize + 1)} -{' '}
-              {Math.min(sortedReportData.length, currentPage * pageSize)} dari{' '}
-              <strong className="text-slate-800 dark:text-slate-200">{sortedReportData.length}</strong> data Work Order
-            </div>
-
-            <div className="flex items-center gap-1.5 self-end sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-40 hover:bg-white dark:hover:bg-slate-800 flex items-center gap-1 cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Prev</span>
-              </button>
-
-              <span className="px-3 py-1 font-mono text-slate-700 dark:text-slate-300 font-semibold">
-                Halaman {currentPage} / {totalPages}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-40 hover:bg-white dark:hover:bg-slate-800 flex items-center gap-1 cursor-pointer"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+        {/* Shared Responsive Pagination Toolbar */}
+        {sortedReportData.length > 0 && (
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={sortedReportData.length}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 25, 50, 100, 'ALL']}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={val => {
+              setPageSize(val);
+              setCurrentPage(1);
+            }}
+            itemLabel="Work Order"
+          />
         )}
       </div>
       </>

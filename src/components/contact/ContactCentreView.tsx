@@ -43,13 +43,15 @@ import {
   Check
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
 import { getSafePreviewUrl, formatFileSize } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { ContactTicketDetailDrawer } from './ContactTicketDetailDrawer';
 import { MessageStatusReceipt } from '../chat/MessageStatusReceipt';
+import { ResponsiveModal } from '../common/ResponsiveModal';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface ContactCentreViewProps {
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
@@ -87,7 +89,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   onOpenWhatsApp,
   initialTicketId
 }) => {
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const {
     scopedTickets,
     tickets,
@@ -379,7 +381,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   useEffect(() => {
     const tryMarkRead = () => {
       if (!activeTicket) return;
-      if (isMobileView && mobilePane !== 'chat') return;
+      if (isCompactUI && mobilePane !== 'chat') return;
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       if (getTicketUnreadCount(activeTicket.id) > 0) {
         markTicketMessagesAsRead(activeTicket.id);
@@ -394,7 +396,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [activeTicket?.id, activeMessages.length, isMobileView, mobilePane, getTicketUnreadCount, markTicketMessagesAsRead]);
+  }, [activeTicket?.id, activeMessages.length, isCompactUI, mobilePane, getTicketUnreadCount, markTicketMessagesAsRead]);
 
   // Auto scroll to latest message
   useEffect(() => {
@@ -828,11 +830,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         {/* LEFT PANEL: Live Feeds Queue Strip */}
         <aside
           className={`${
-            isMobileView
+            isCompactUI
               ? mobilePane === 'queue'
                 ? 'flex w-full'
                 : 'hidden'
-              : 'hidden lg:flex lg:w-80 xl:w-96'
+              : 'flex w-72 lg:w-80 xl:w-96'
           } flex-shrink-0 flex-col bg-white dark:bg-[#1A0E2E] shadow-md z-10 min-h-0 overflow-hidden border-r border-[#E9E5F0] dark:border-[#35105E]`}
         >
           {/* Panel Header: Search, Live Counts & Filter Chips */}
@@ -1069,7 +1071,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         {/* CENTER/MAIN: 100% Fullscreen Chat Workspace */}
         <section
           className={`${
-            isMobileView && mobilePane === 'queue' ? 'hidden' : 'flex'
+            isCompactUI && mobilePane === 'queue' ? 'hidden' : 'flex'
           } flex-1 flex-col h-full bg-[#F8F1FF] dark:bg-[#140827] min-w-0 relative overflow-hidden`}
         >
           {activeTicket ? (
@@ -1078,7 +1080,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               <header className="min-h-[76px] bg-white dark:bg-[#1A0E2E] px-3.5 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between gap-3 shadow-sm z-20 flex-shrink-0 border-b border-[#E9E5F0] dark:border-[#35105E]">
                 {/* Left: Ticket Identity & Telemetry Tags */}
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  {isMobileView && (
+                  {isCompactUI && (
                     <button
                       type="button"
                       onClick={() => setMobilePane('queue')}
@@ -1856,7 +1858,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#766B83] dark:text-[#CEC0E8] space-y-3">
-              {isMobileView && (
+              {isCompactUI && (
                 <button
                   type="button"
                   onClick={() => setMobilePane('queue')}
@@ -1889,254 +1891,301 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
       </div>
 
       {/* Lightbox Zoom Modal */}
-      {zoomImage && (
-        <div
-          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setZoomImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setZoomImage(null)}
-              className="absolute top-3 right-3 p-2 bg-black/70 text-white rounded-full hover:bg-[#DC4C5A] transition-colors cursor-pointer"
-              aria-label="Tutup foto"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <ResponsiveModal
+        isOpen={Boolean(zoomImage)}
+        onClose={() => setZoomImage(null)}
+        size="xl"
+        mobileVariant="fullscreen"
+        zIndexClass="z-70"
+        icon={<ImageIcon className="w-4 h-4" />}
+        title="Bukti Foto Lapangan"
+      >
+        {zoomImage && (
+          <div className="flex items-center justify-center min-h-[260px] bg-slate-950/90 rounded-xl p-2 sm:p-4">
             <img
               src={zoomImage}
               alt="Bukti Foto Zoom"
               referrerPolicy="no-referrer"
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+              className="max-w-full max-h-[75dvh] object-contain rounded-xl shadow-2xl"
             />
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* Admin Chat Category Management Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#1A0E2E] border-2 border-[#D8CCF3] dark:border-[#35105E] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold">
-                  <Tag className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[#35105E] dark:text-purple-200">
-                    Pengaturan Kategori Chat (Contact Center)
-                  </h3>
-                  <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
-                    Kelola kategori percakapan untuk pengelompokan unread chat dan alur komunikasi operasional.
-                  </p>
-                </div>
+      <ResponsiveModal
+        isOpen={isSettingsOpen}
+        onClose={() => {
+          setIsSettingsOpen(false);
+          setEditingCategory(null);
+        }}
+        size="lg"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<Tag className="w-4 h-4" />}
+        title="Pengaturan Kategori Chat (Contact Center)"
+        subtitle="Kelola kategori percakapan untuk pengelompokan unread chat dan alur komunikasi operasional."
+        footer={
+          <button
+            type="button"
+            onClick={() => {
+              setIsSettingsOpen(false);
+              setEditingCategory(null);
+            }}
+            className="px-4 py-2 bg-[#5B35B1] text-white text-xs font-bold rounded-xl hover:bg-[#35105E] cursor-pointer min-h-[38px]"
+          >
+            Selesai
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          {/* Create / Edit Category Form */}
+          <div className="p-4 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="text-[10.5px] font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">
+                  Nama Kategori (Wajib)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Mis. PROGRESS, KENDALA_REDAMAN..."
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white dark:bg-[#1E1236] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white"
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSettingsOpen(false);
-                  setEditingCategory(null);
-                }}
-                className="p-1.5 rounded-lg text-[#766B83] hover:bg-[#F7F6FA] dark:hover:bg-[#35105E] cursor-pointer"
-                aria-label="Tutup pengaturan"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-              {/* Create / Edit Category Form */}
-              <div className="p-4 rounded-xl bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="text-[10.5px] font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">
-                      Nama Kategori (Wajib)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Mis. PROGRESS, KENDALA_REDAMAN..."
-                      value={newCatName}
-                      onChange={e => setNewCatName(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white dark:bg-[#1E1236] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10.5px] font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">
-                      Warna Tag
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={newCatColor}
-                        onChange={e => setNewCatColor(e.target.value)}
-                        className="w-8 h-8 rounded border border-[#E9E5F0] cursor-pointer"
-                      />
-                      <span className="text-xs font-mono text-[#211A2E] dark:text-white">{newCatColor}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10.5px] font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">
-                    Deskripsi Operasional (Opsional)
-                  </label>
+              <div>
+                <label className="text-[10.5px] font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">
+                  Warna Tag
+                </label>
+                <div className="flex items-center gap-2">
                   <input
-                    type="text"
-                    placeholder="Keterangan alur penanganan tiket..."
-                    value={newCatDesc}
-                    onChange={e => setNewCatDesc(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-[#1E1236] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white"
+                    type="color"
+                    value={newCatColor}
+                    onChange={e => setNewCatColor(e.target.value)}
+                    className="w-8 h-8 rounded border border-[#E9E5F0] cursor-pointer"
                   />
+                  <span className="text-xs font-mono text-[#211A2E] dark:text-white">{newCatColor}</span>
                 </div>
-
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  {editingCategory && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingCategory(null);
-                        setNewCatName('');
-                        setNewCatDesc('');
-                        setNewCatColor('#5B35B1');
-                      }}
-                      className="px-3 py-1.5 text-xs text-[#494453] dark:text-[#CEC0E8] hover:bg-[#E9E5F0] dark:hover:bg-[#35105E] rounded-lg cursor-pointer"
-                    >
-                      Batal Edit
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!newCatName.trim()) {
-                        toast.error('Nama kategori tidak boleh kosong', 'Validasi Gagal');
-                        return;
-                      }
-                      const res = editingCategory
-                        ? await updateChatCategory(editingCategory.id, {
-                            name: newCatName.trim().toUpperCase(),
-                            color: newCatColor,
-                            description: newCatDesc.trim()
-                          })
-                        : await addChatCategory({
-                            name: newCatName.trim().toUpperCase(),
-                            color: newCatColor,
-                            description: newCatDesc.trim(),
-                            order: (chatCategories?.length || 0) + 1,
-                            active: true,
-                            isActive: true
-                          });
-                      if (!res.success) return;
-                      setEditingCategory(null);
-                      setNewCatName('');
-                      setNewCatDesc('');
-                      setNewCatColor('#5B35B1');
-                    }}
-                    className="px-4 py-1.5 bg-[#5B35B1] hover:bg-[#35105E] text-white text-xs font-bold rounded-lg shadow-2xs cursor-pointer"
-                  >
-                    {editingCategory ? 'Simpan Perubahan' : 'Tambahkan Kategori'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Category List Table */}
-              <div className="border border-[#E9E5F0] dark:border-[#35105E] rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#F7F6FA] dark:bg-[#22123F] text-[#494453] dark:text-[#CEC0E8]">
-                    <tr>
-                      <th className="p-3 w-12">Warna</th>
-                      <th className="p-3">Nama Kategori</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
-                    {(chatCategories || []).map(cat => {
-                      const usageCount = tickets.filter(
-                        t => (t.chatCategory || '').toUpperCase() === cat.name.toUpperCase()
-                      ).length;
-
-                      return (
-                        <tr key={cat.id} className="hover:bg-[#F7F6FA] dark:hover:bg-[#22123F]/50">
-                          <td className="p-3">
-                            <span
-                              className="inline-block w-4 h-4 rounded-full shadow-2xs"
-                              style={{ backgroundColor: cat.color }}
-                            />
-                          </td>
-                          <td className="p-3">
-                            <div className="font-bold text-[#211A2E] dark:text-white">{cat.name}</div>
-                            {cat.description && (
-                              <div className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8]">{cat.description}</div>
-                            )}
-                            <div className="text-[10px] text-[#8B8495] font-mono mt-0.5 tabular-nums">
-                              Digunakan pada {usageCount} tiket
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <button
-                              type="button"
-                              onClick={() => toggleChatCategoryActive(cat.id)}
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer ${
-                                cat.isActive
-                                  ? 'bg-[#ECFDF5] text-[#16A36A] dark:bg-emerald-950 dark:text-emerald-300'
-                                  : 'bg-[#F7F6FA] text-[#766B83] dark:bg-slate-800 dark:text-slate-400'
-                              }`}
-                            >
-                              {cat.isActive ? 'Aktif' : 'Nonaktif'}
-                            </button>
-                          </td>
-                          <td className="p-3 text-right space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCategory(cat);
-                                setNewCatName(cat.name);
-                                setNewCatColor(cat.color);
-                                setNewCatDesc(cat.description || '');
-                              }}
-                              className="p-1 text-[#5B35B1] dark:text-[#D8B4FE] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] rounded cursor-pointer"
-                              title="Edit Kategori"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                deleteChatCategory(cat.id);
-                                toast.info(
-                                  `Kategori ${cat.name} dihapus. Tiket terkait dipindahkan ke UNCLASSIFIED.`,
-                                  'Dihapus'
-                                );
-                              }}
-                              className="p-1 text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950 rounded cursor-pointer"
-                              title="Hapus Kategori"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
               </div>
             </div>
 
-            <div className="p-4 border-t border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] flex justify-end">
+            <div>
+              <label className="text-[10.5px] font-semibold text-[#494453] dark:text-[#CEC0E8] block mb-1">
+                Deskripsi Operasional (Opsional)
+              </label>
+              <input
+                type="text"
+                placeholder="Keterangan alur penanganan tiket..."
+                value={newCatDesc}
+                onChange={e => setNewCatDesc(e.target.value)}
+                className="w-full px-3 py-1.5 bg-white dark:bg-[#1E1236] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              {editingCategory && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCategory(null);
+                    setNewCatName('');
+                    setNewCatDesc('');
+                    setNewCatColor('#5B35B1');
+                  }}
+                  className="px-3 py-1.5 text-xs text-[#494453] dark:text-[#CEC0E8] hover:bg-[#E9E5F0] dark:hover:bg-[#35105E] rounded-lg cursor-pointer"
+                >
+                  Batal Edit
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setIsSettingsOpen(false);
+                onClick={async () => {
+                  if (!newCatName.trim()) {
+                    toast.error('Nama kategori tidak boleh kosong', 'Validasi Gagal');
+                    return;
+                  }
+                  const res = editingCategory
+                    ? await updateChatCategory(editingCategory.id, {
+                        name: newCatName.trim().toUpperCase(),
+                        color: newCatColor,
+                        description: newCatDesc.trim()
+                      })
+                    : await addChatCategory({
+                        name: newCatName.trim().toUpperCase(),
+                        color: newCatColor,
+                        description: newCatDesc.trim(),
+                        order: (chatCategories?.length || 0) + 1,
+                        active: true,
+                        isActive: true
+                      });
+                  if (!res.success) return;
                   setEditingCategory(null);
+                  setNewCatName('');
+                  setNewCatDesc('');
+                  setNewCatColor('#5B35B1');
                 }}
-                className="px-4 py-2 bg-[#5B35B1] text-white text-xs font-bold rounded-xl hover:bg-[#35105E] cursor-pointer"
+                className="px-4 py-1.5 bg-[#5B35B1] hover:bg-[#35105E] text-white text-xs font-bold rounded-lg shadow-2xs cursor-pointer"
               >
-                Selesai
+                {editingCategory ? 'Simpan Perubahan' : 'Tambahkan Kategori'}
               </button>
             </div>
           </div>
+
+          {/* Responsive Category List Table */}
+          <ResponsiveDataTable<ChatCategoryConfig>
+            data={chatCategories || []}
+            getRowKey={cat => cat.id}
+            maxTableHeightClass="max-h-72"
+            mobileTitle={cat => (
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                <span>{cat.name}</span>
+              </div>
+            )}
+            mobileSubtitle={cat => cat.description || undefined}
+            mobileStatus={cat => {
+              const usageCount = tickets.filter(
+                t => (t.chatCategory || '').toUpperCase() === cat.name.toUpperCase()
+              ).length;
+              return (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      cat.isActive
+                        ? 'bg-[#ECFDF5] text-[#16A36A] dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-[#F7F6FA] text-[#766B83] dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    {cat.isActive ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                  <span className="text-[10px] text-[#8B8495] font-mono tabular-nums">
+                    {usageCount} tiket
+                  </span>
+                </div>
+              );
+            }}
+            columns={
+              [
+                {
+                  key: 'color',
+                  label: 'Warna',
+                  widthClass: 'w-12',
+                  priority: 'hidden_mobile',
+                  render: cat => (
+                    <span
+                      className="inline-block w-4 h-4 rounded-full shadow-2xs"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                  )
+                },
+                {
+                  key: 'name',
+                  label: 'Nama Kategori',
+                  priority: 'primary',
+                  render: cat => {
+                    const usageCount = tickets.filter(
+                      t => (t.chatCategory || '').toUpperCase() === cat.name.toUpperCase()
+                    ).length;
+                    return (
+                      <div>
+                        <div className="font-bold text-[#211A2E] dark:text-white">{cat.name}</div>
+                        {cat.description && (
+                          <div className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8]">{cat.description}</div>
+                        )}
+                        <div className="text-[10px] text-[#8B8495] font-mono mt-0.5 tabular-nums">
+                          Digunakan pada {usageCount} tiket
+                        </div>
+                      </div>
+                    );
+                  }
+                },
+                {
+                  key: 'status',
+                  label: 'Status',
+                  priority: 'primary',
+                  render: cat => (
+                    <button
+                      type="button"
+                      onClick={() => toggleChatCategoryActive(cat.id)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer ${
+                        cat.isActive
+                          ? 'bg-[#ECFDF5] text-[#16A36A] dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-[#F7F6FA] text-[#766B83] dark:bg-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      {cat.isActive ? 'Aktif' : 'Nonaktif'}
+                    </button>
+                  )
+                }
+              ] as ResponsiveColumn<ChatCategoryConfig>[]
+            }
+            getRowActions={cat => [
+              {
+                id: 'toggle_active',
+                label: cat.isActive ? 'Nonaktifkan' : 'Aktifkan',
+                icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+                onClick: () => toggleChatCategoryActive(cat.id)
+              },
+              {
+                id: 'edit',
+                label: 'Edit Kategori',
+                icon: <Edit2 className="w-3.5 h-3.5" />,
+                onClick: () => {
+                  setEditingCategory(cat);
+                  setNewCatName(cat.name);
+                  setNewCatColor(cat.color);
+                  setNewCatDesc(cat.description || '');
+                }
+              },
+              {
+                id: 'delete',
+                label: 'Hapus Kategori',
+                icon: <Trash2 className="w-3.5 h-3.5" />,
+                tone: 'danger',
+                onClick: () => {
+                  deleteChatCategory(cat.id);
+                  toast.info(
+                    `Kategori ${cat.name} dihapus. Tiket terkait dipindahkan ke UNCLASSIFIED.`,
+                    'Dihapus'
+                  );
+                }
+              }
+            ]}
+            renderDesktopActions={cat => (
+              <div className="flex items-center justify-end gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCategory(cat);
+                    setNewCatName(cat.name);
+                    setNewCatColor(cat.color);
+                    setNewCatDesc(cat.description || '');
+                  }}
+                  className="p-1 text-[#5B35B1] dark:text-[#D8B4FE] hover:bg-[#F4EAFF] dark:hover:bg-[#35105E] rounded cursor-pointer"
+                  title="Edit Kategori"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteChatCategory(cat.id);
+                    toast.info(
+                      `Kategori ${cat.name} dihapus. Tiket terkait dipindahkan ke UNCLASSIFIED.`,
+                      'Dihapus'
+                    );
+                  }}
+                  className="p-1 text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950 rounded cursor-pointer"
+                  title="Hapus Kategori"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          />
         </div>
-      )}
+      </ResponsiveModal>
     </div>
   );
 };

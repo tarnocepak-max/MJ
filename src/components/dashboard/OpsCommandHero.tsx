@@ -29,6 +29,8 @@ import { useApp } from '../../context/AppContext';
 import { Ticket, WOKpiSummary } from '../../types/index.ts';
 import { computeClientKpiSummary } from '../../services/woLifecycleService';
 import { StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { DropdownActionItem } from '../common/ActionDropdownMenu';
 
 export type OpsCommandViewTab = 'overview' | 'queue' | 'matrix';
 
@@ -238,7 +240,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
         <div
           role="tablist"
           aria-label="Ops Command View Switcher"
-          className="mj-tactile-tab-bar p-1.5 flex items-center gap-1.5 overflow-x-auto shrink-0"
+          className="mj-tactile-tab-bar p-1.5 flex flex-wrap sm:flex-nowrap items-center gap-1.5 max-w-full overflow-x-auto shrink-0"
         >
           <button
             type="button"
@@ -412,10 +414,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
             </div>
           </div>
 
-          {/* Live Work Order Queue Table */}
-          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-            <div className="px-5 py-3.5 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-3">
-              <div>
+          {/* Live Work Order Queue Table / Mobile Priority Cards */}
+          <div className="space-y-3">
+            <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] px-4 sm:px-5 py-3.5 bg-[#f8f1ff] dark:bg-[#1a0f30] flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
                   Antrean Prioritas Work Order Aktif ({priorityQueueTickets.length} Teratas)
                 </h3>
@@ -426,96 +428,144 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate(roleActionTarget)}
-                className="mj-tactile-btn-secondary px-3.5 py-2 rounded-lg text-xs inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="mj-tactile-btn-secondary px-3.5 py-2 min-h-[38px] rounded-lg text-xs inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <span>Lihat Semua WO</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {priorityQueueTickets.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#7d7484] dark:text-[#cabde8]">
-                Belum ada Work Order aktif dalam scope Anda saat ini.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[10.5px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
-                      <th className="py-2.5 px-4">WO Number</th>
-                      <th className="py-2.5 px-3">Pelanggan</th>
-                      <th className="py-2.5 px-3">Vendor &amp; Area</th>
-                      <th className="py-2.5 px-3">Teknisi</th>
-                      <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-4 text-right">Aksi Cepat</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#f3eaff] dark:divide-[#35105e] tabular-nums">
-                    {priorityQueueTickets.map(ticket => (
-                      <tr
-                        key={ticket.id}
-                        className="hover:bg-[#f8f1ff]/80 dark:hover:bg-[#251247]/60 transition-colors"
-                      >
-                        <td className="py-2.5 px-4 font-mono font-bold text-[#58149c] dark:text-[#dab9ff] whitespace-nowrap">
-                          {ticket.woNumber}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <div className="font-semibold text-[#1f1638] dark:text-white truncate max-w-[180px]">
-                            {ticket.customerName}
-                          </div>
-                          <div className="text-[10.5px] font-mono text-[#7d7484] dark:text-[#cabde8]">
-                            {ticket.slotTime || ticket.appointmentDate || todayWIB}
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 text-[#4b4452] dark:text-[#cabde8]">
-                          <div className="font-medium truncate max-w-[170px]">{ticket.contactorName || '-'}</div>
-                          <div className="text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80">{ticket.area || '-'}</div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          {ticket.installerName ? (
-                            <span className="font-semibold text-[#1f1638] dark:text-white">{ticket.installerName}</span>
-                          ) : (
-                            <span className="italic text-[#d97706] dark:text-amber-300 font-semibold">Belum Assign</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex flex-wrap items-center gap-1">
-                            <StatusApprovalBadge status={ticket.approvalStatus} />
-                            <StatusInstallerBadge status={ticket.statusWOInstaller} />
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-1.5">
-                            {onSelectTicket && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => onSelectTicket(ticket, 'chat')}
-                                  className="mj-tactile-btn-secondary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                                  title="Buka LiveChat WO"
-                                >
-                                  <MessageSquare className="w-3 h-3 text-[#7135b5] dark:text-[#dab9ff]" />
-                                  <span>LiveChat</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onSelectTicket(ticket, 'overview')}
-                                  className="mj-tactile-btn-primary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                                  title="Buka 17-Section Ticket Fullview"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  <span>Detail WO</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveDataTable<Ticket>
+              data={priorityQueueTickets}
+              getRowKey={t => t.id}
+              stickyHeader={false}
+              mobileTitle={t => <span className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{t.woNumber}</span>}
+              mobileSubtitle={t => `${t.customerName} • ${t.slotTime || t.appointmentDate || todayWIB}`}
+              mobileStatus={t => (
+                <>
+                  <StatusApprovalBadge status={t.approvalStatus} />
+                  <StatusInstallerBadge status={t.statusWOInstaller} />
+                </>
+              )}
+              onRowClick={onSelectTicket ? t => onSelectTicket(t, 'overview') : undefined}
+              getRowActions={t => {
+                if (!onSelectTicket) return [];
+                const items: DropdownActionItem[] = [
+                  {
+                    id: 'detail',
+                    label: 'Buka Detail WO (17 Section)',
+                    icon: <Eye className="w-3.5 h-3.5" />,
+                    tone: 'primary',
+                    onClick: () => onSelectTicket(t, 'overview')
+                  },
+                  {
+                    id: 'chat',
+                    label: 'Buka LiveChat WO',
+                    icon: <MessageSquare className="w-3.5 h-3.5" />,
+                    onClick: () => onSelectTicket(t, 'chat')
+                  }
+                ];
+                return items;
+              }}
+              renderDesktopActions={
+                onSelectTicket
+                  ? ticket => (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onSelectTicket(ticket, 'chat')}
+                          className="mj-tactile-btn-secondary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                          title="Buka LiveChat WO"
+                        >
+                          <MessageSquare className="w-3 h-3 text-[#7135b5] dark:text-[#dab9ff]" />
+                          <span>LiveChat</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTicket(ticket, 'overview')}
+                          className="mj-tactile-btn-primary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                          title="Buka 17-Section Ticket Fullview"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>Detail WO</span>
+                        </button>
+                      </div>
+                    )
+                  : undefined
+              }
+              desktopActionHeader="Aksi Cepat"
+              emptyState={{
+                title: 'Belum ada Work Order aktif',
+                description: 'Belum ada Work Order aktif dalam scope Anda saat ini.'
+              }}
+              columns={
+                [
+                  {
+                    key: 'woNumber',
+                    label: 'WO Number',
+                    priority: 'hidden_mobile',
+                    tdClassName: 'font-mono font-bold text-[#58149c] dark:text-[#dab9ff] whitespace-nowrap',
+                    render: t => t.woNumber
+                  },
+                  {
+                    key: 'customerName',
+                    label: 'Pelanggan',
+                    priority: 'hidden_mobile',
+                    render: t => (
+                      <div>
+                        <div className="font-semibold text-[#1f1638] dark:text-white truncate max-w-[180px]">
+                          {t.customerName}
+                        </div>
+                        <div className="text-[10.5px] font-mono text-[#7d7484] dark:text-[#cabde8]">
+                          {t.slotTime || t.appointmentDate || todayWIB}
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'vendorArea',
+                    label: 'Vendor & Area',
+                    priority: 'primary',
+                    render: t => (
+                      <div className="text-[#4b4452] dark:text-[#cabde8]">
+                        <div className="font-medium truncate max-w-[170px]">{t.contactorName || '-'}</div>
+                        <div className="text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80">{t.area || '-'}</div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'installerName',
+                    label: 'Teknisi',
+                    priority: 'primary',
+                    render: t =>
+                      t.installerName ? (
+                        <span className="font-semibold text-[#1f1638] dark:text-white">{t.installerName}</span>
+                      ) : (
+                        <span className="italic text-[#d97706] dark:text-amber-300 font-semibold">Belum Assign</span>
+                      )
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    priority: 'hidden_mobile',
+                    render: t => (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <StatusApprovalBadge status={t.approvalStatus} />
+                        <StatusInstallerBadge status={t.statusWOInstaller} />
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'address',
+                    label: 'Alamat',
+                    priority: 'secondary',
+                    tdClassName: 'hidden',
+                    thClassName: 'hidden',
+                    render: t => t.address || '-'
+                  }
+                ] as ResponsiveColumn<Ticket>[]
+              }
+            />
           </div>
         </div>
       )}

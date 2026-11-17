@@ -27,7 +27,7 @@ import {
   getTicketAppointmentDate
 } from '../../services/appointmentDateParser';
 import { StatusInstallerBadge, StatusAgentBadge } from '../common/Badge';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 
 interface ScheduleCalendarViewProps {
   onSelectTicket: (ticket: Ticket) => void;
@@ -38,7 +38,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
   onSelectTicket,
   onOpenWhatsApp
 }) => {
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const { tickets, contractors, users, currentUser } = useApp();
 
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'list'>('day');
@@ -155,12 +155,12 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
   return (
     <div className="space-y-5">
       {/* Top Banner */}
-      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col ${isMobileView ? '' : 'sm:flex-row sm:items-center'} justify-between gap-3`}>
-        <div className="flex items-center gap-3">
+      <div className={`bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col ${isCompactUI ? '' : 'sm:flex-row sm:items-center'} justify-between gap-3`}>
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
             <CalendarIcon className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex flex-wrap items-center gap-2">
               <span>Jadwal Appointment & Manajemen Kalender Work Order</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
@@ -173,11 +173,11 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           </div>
         </div>
         {/* View Switcher: Day, Week, Month, List */}
-        <div className="flex items-center flex-wrap p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold shrink-0">
+        <div className="grid grid-cols-4 sm:flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold shrink-0 gap-1">
           <button
             type="button"
             onClick={() => setViewMode('day')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'day' ? 'bg-[#5B35B1] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
             }`}
           >
@@ -186,7 +186,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('week')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'week' ? 'bg-[#5B35B1] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
             }`}
           >
@@ -195,7 +195,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('month')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'month' ? 'bg-[#5B35B1] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
             }`}
           >
@@ -204,96 +204,100 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'list' ? 'bg-[#5B35B1] text-white shadow-xs' : 'text-slate-600 dark:text-slate-400'
             }`}
           >
-            Daftar Agenda
+            Agenda
           </button>
         </div>
       </div>
 
       {/* Date Navigation & Filters Toolbar */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 shadow-xs space-y-3 text-xs">
+      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-3.5 sm:p-4 shadow-xs space-y-3 text-xs">
         {/* Navigation Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E9E1FF] dark:border-purple-900/40">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePrevDay}
-              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
-              title="Hari Sebelumnya"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <div className="px-3 py-1 bg-[#F5F1FF] dark:bg-[#251545] border border-[#D8CCF3] dark:border-purple-800 rounded-xl font-bold font-mono text-sm text-[#3B1D78] dark:text-purple-200">
-              {formatAppointmentDateDisplay(selectedDate)}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                className="min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+                title="Hari Sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="px-3 py-1.5 bg-[#F5F1FF] dark:bg-[#251545] border border-[#D8CCF3] dark:border-purple-800 rounded-xl font-bold font-mono text-xs sm:text-sm text-[#3B1D78] dark:text-purple-200 whitespace-nowrap">
+                {formatAppointmentDateDisplay(selectedDate)}
+              </div>
+              <button
+                type="button"
+                onClick={handleNextDay}
+                className="min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+                title="Hari Berikutnya"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleNextDay}
-              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
-              title="Hari Berikutnya"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedDate(getJakartaDateString(0))}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg cursor-pointer transition-colors ${
-                selectedDate === getJakartaDateString(0)
-                  ? 'bg-[#5B35B1] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              Hari Ini ({getJakartaDateParts(0).labelShort})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedDate(getJakartaDateString(1))}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg cursor-pointer transition-colors ${
-                selectedDate === getJakartaDateString(1)
-                  ? 'bg-[#5B35B1] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              Besok ({getJakartaDateParts(1).labelShort})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedDate(getJakartaDateString(2))}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg cursor-pointer transition-colors ${
-                selectedDate === getJakartaDateString(2)
-                  ? 'bg-[#5B35B1] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              Lusa ({getJakartaDateParts(2).labelShort})
-            </button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedDate(getJakartaDateString(0))}
+                className={`px-2.5 py-1.5 min-h-[36px] sm:min-h-0 text-xs font-semibold rounded-lg cursor-pointer transition-colors whitespace-nowrap ${
+                  selectedDate === getJakartaDateString(0)
+                    ? 'bg-[#5B35B1] text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                Hari Ini ({getJakartaDateParts(0).labelShort})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(getJakartaDateString(1))}
+                className={`px-2.5 py-1.5 min-h-[36px] sm:min-h-0 text-xs font-semibold rounded-lg cursor-pointer transition-colors whitespace-nowrap ${
+                  selectedDate === getJakartaDateString(1)
+                    ? 'bg-[#5B35B1] text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                Besok ({getJakartaDateParts(1).labelShort})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(getJakartaDateString(2))}
+                className={`px-2.5 py-1.5 min-h-[36px] sm:min-h-0 text-xs font-semibold rounded-lg cursor-pointer transition-colors whitespace-nowrap ${
+                  selectedDate === getJakartaDateString(2)
+                    ? 'bg-[#5B35B1] text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                Lusa ({getJakartaDateParts(2).labelShort})
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-mono">
+            <span className="text-slate-500 font-mono tabular-nums">
               Total Tiket Jadwal Ini: <strong className="text-[#5B35B1] font-bold">{dayTickets.length}</strong> WO
             </span>
           </div>
         </div>
 
         {/* Filters Row */}
-        <div className={`grid ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6'} gap-2`}>
-          <div className={`relative ${isMobileView ? 'col-span-1 sm:col-span-2' : 'col-span-1 sm:col-span-2'}`}>
+        <div className={`grid ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6'} gap-2`}>
+          <div className={`relative ${isCompactUI ? 'col-span-1 sm:col-span-2' : 'col-span-1 sm:col-span-2'}`}>
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Cari WO, ID, Nama, Teknisi..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[34px] pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
             />
           </div>
           <select
             value={slotFilter}
             onChange={e => setSlotFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+            className="min-h-[42px] sm:min-h-[34px] px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
           >
             <option value="ALL">Semua Slot Waktu</option>
             {STANDARD_SLOTS.map(slot => (
@@ -303,7 +307,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           <select
             value={areaFilter}
             onChange={e => setAreaFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+            className="min-h-[42px] sm:min-h-[34px] px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
           >
             <option value="ALL">Semua Area</option>
             {areas.map(a => (
@@ -313,7 +317,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           <select
             value={contractorFilter}
             onChange={e => setContractorFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+            className="min-h-[42px] sm:min-h-[34px] px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
           >
             <option value="ALL">Semua Kontraktor</option>
             {contractors.map(c => (
@@ -323,7 +327,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+            className="min-h-[42px] sm:min-h-[34px] px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
           >
             <option value="ALL">Semua Status</option>
             <option value="Assigned">Assigned</option>
@@ -336,9 +340,9 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
       </div>
 
       {/* Date Difference Clarification Pill (Strict TAHAP 7 requirement) */}
-      <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800/80 text-[11px] text-purple-900 dark:text-purple-200 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-[#5B35B1] shrink-0" />
+      <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800/80 text-[11px] text-purple-900 dark:text-purple-200 flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-start sm:items-center gap-2">
+          <CalendarIcon className="w-4 h-4 text-[#5B35B1] shrink-0 mt-0.5 sm:mt-0" />
           <span>
             <strong>Pembedaan Tanggal:</strong> Kalender ini murni merefleksikan <strong>Appointment Date</strong> resmi pelanggan.
             Field Date Upload, Date Assign Agent, dan Tanggal Laporan dipertahankan sebagai atribut histori audit terpisah.
@@ -354,7 +358,7 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
       {/* Main Schedule View Body */}
       {viewMode === 'day' && (
         <div className="space-y-4">
-          <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'} gap-4`}>
+          <div className={`grid ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'} gap-4`}>
             {STANDARD_SLOTS.map(slot => {
               const slotKey = slot.slice(0, 5);
               const slotTickets = dayTickets.filter(t => String(t.slotTime || '').includes(slotKey));
@@ -473,12 +477,12 @@ export const ScheduleCalendarView: React.FC<ScheduleCalendarViewProps> = ({
                       <span>Teknisi: <strong className="text-emerald-600">{t.installerName || 'Belum Di-assign'}</strong></span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                  <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end shrink-0 pt-1 sm:pt-0">
                     <StatusInstallerBadge status={t.statusWOInstaller} />
                     <button
                       type="button"
                       onClick={() => onSelectTicket(t)}
-                      className="px-3 py-1 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-lg font-bold text-xs shadow-xs"
+                      className="px-3.5 py-1.5 min-h-[38px] sm:min-h-0 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-lg font-bold text-xs shadow-xs cursor-pointer"
                     >
                       Buka WO
                     </button>

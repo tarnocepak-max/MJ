@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User } from '../../types';
 import {
   formatAppointmentDateDisplay,
@@ -49,6 +49,8 @@ import * as XLSX from 'xlsx';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
 import { StatusBadge } from '../common/Badge';
+import { ResponsiveModal } from '../common/ResponsiveModal';
+import { PaginationBar } from '../common/PaginationBar';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 
 interface LeaderProgressDashboardViewProps {
@@ -84,11 +86,12 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
     setActiveKpiDrilldown,
     refreshDatabaseData
   } = useApp();
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StatCategoryFilter>('all');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const effectiveViewMode = isCompactUI ? 'cards' : viewMode;
   const [showLifecycleKpi, setShowLifecycleKpi] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sortField, setSortField] = useState<string>('woNumber');
@@ -530,32 +533,34 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             <span className="hidden sm:inline">KPI Lifecycle</span>
           </button>
 
-          <div className="inline-flex items-center p-1 rounded-xl bg-[#f3eaff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/60">
-            <button
-              type="button"
-              onClick={() => setViewMode('cards')}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'cards'
-                  ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
-                  : 'text-[#4b4452] dark:text-slate-300'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Kartu Live</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
-                  : 'text-[#4b4452] dark:text-slate-300'
-              }`}
-            >
-              <Table2 className="w-3.5 h-3.5" />
-              <span>Tabel</span>
-            </button>
-          </div>
+          {!isCompactUI && (
+            <div className="inline-flex items-center p-1 rounded-xl bg-[#f3eaff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/60">
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'cards'
+                    ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
+                    : 'text-[#4b4452] dark:text-slate-300'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Kartu Live</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
+                    : 'text-[#4b4452] dark:text-slate-300'
+                }`}
+              >
+                <Table2 className="w-3.5 h-3.5" />
+                <span>Tabel</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -757,7 +762,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       </div>
 
       {/* VIEW MODE 1: STITCH LIVE PROGRESS CARDS */}
-      {viewMode === 'cards' ? (
+      {effectiveViewMode === 'cards' ? (
         <div className="space-y-4">
           {paginatedTickets.length === 0 ? (
             <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 p-10 text-center space-y-3">
@@ -785,7 +790,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               )}
             </div>
           ) : (
-            <div className={isMobileView ? 'grid grid-cols-1 gap-3.5' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
+            <div className={isCompactUI ? 'grid grid-cols-1 gap-3.5' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
               {paginatedTickets.map(t => {
                 const cat = getTicketCategory(t);
                 const meta = getCardProgressMeta(t, cat);
@@ -1082,34 +1087,21 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
           {/* Cards Pagination */}
           {displayTickets.length > 0 && (
-            <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-              <div className="text-[#4b4452] dark:text-slate-300">
-                Menampilkan <strong className="text-[#1f1638] dark:text-white">{paginatedTickets.length}</strong> dari{' '}
-                <strong className="text-[#1f1638] dark:text-white">{displayTickets.length}</strong> Work Order hari ini
-              </div>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] rounded-lg font-semibold disabled:opacity-40 cursor-pointer"
-                  >
-                    Sebelumnya
-                  </button>
-                  <span className="px-3 py-1 font-mono font-bold text-[#58149c] dark:text-[#d0bcff]">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] rounded-lg font-semibold disabled:opacity-40 cursor-pointer"
-                  >
-                    Selanjutnya
-                  </button>
-                </div>
-              )}
+            <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 overflow-hidden">
+              <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={displayTickets.length}
+                pageSize={rowsPerPage === -1 ? 'ALL' : rowsPerPage}
+                pageSizeOptions={[10, 25, 50, 100, 'ALL']}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={size => {
+                  setRowsPerPage(size === 'ALL' ? -1 : size);
+                  setCurrentPage(1);
+                }}
+                itemLabel="Work Order"
+                className="border-t-0"
+              />
             </div>
           )}
         </div>
@@ -1484,36 +1476,19 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             </table>
           </div>
 
-          <div className="p-4 border-t border-[#e8ddff] dark:border-purple-900/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="text-slate-500">
-              Menampilkan <strong className="font-bold text-slate-800 dark:text-slate-200">{paginatedTickets.length}</strong> dari{' '}
-              <strong className="font-bold text-slate-800 dark:text-slate-200">{displayTickets.length}</strong> Work Order
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border rounded-lg font-semibold disabled:opacity-40 cursor-pointer"
-                >
-                  Sebelumnya
-                </button>
-                <span className="px-3 py-1 font-mono font-bold text-[#58149c]">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border rounded-lg font-semibold disabled:opacity-40 cursor-pointer"
-                >
-                  Selanjutnya
-                </button>
-              </div>
-            )}
-          </div>
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={displayTickets.length}
+            pageSize={rowsPerPage === -1 ? 'ALL' : rowsPerPage}
+            pageSizeOptions={[10, 25, 50, 100, 'ALL']}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={size => {
+              setRowsPerPage(size === 'ALL' ? -1 : size);
+              setCurrentPage(1);
+            }}
+            itemLabel="Work Order"
+          />
         </div>
       )}
 
@@ -1542,41 +1517,31 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       </div>
 
       {/* Evidence Lightbox Modal */}
-      {lightboxData && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setLightboxData(null)}
-        >
-          <div
-            className="bg-white dark:bg-[#1A0E2E] rounded-2xl max-w-2xl w-full overflow-hidden border border-[#e8ddff] dark:border-purple-800 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="px-4 py-3 border-b border-[#e8ddff] dark:border-purple-900/50 flex items-center justify-between">
-              <div>
-                <div className="text-xs font-bold text-[#1f1638] dark:text-white">
-                  Bukti Lapangan • #{lightboxData.woNumber}
-                </div>
-                <div className="text-[11px] text-[#4b4452] dark:text-slate-300">
-                  {lightboxData.installerName} — {lightboxData.photos[lightboxData.activeIndex]?.label}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLightboxData(null)}
-                className="p-1.5 rounded-lg hover:bg-[#f3eaff] text-[#4b4452] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="bg-[#1f1638] flex items-center justify-center max-h-[65vh] overflow-hidden p-2">
+      <ResponsiveModal
+        isOpen={Boolean(lightboxData)}
+        onClose={() => setLightboxData(null)}
+        size="lg"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<ImageIcon className="w-4 h-4" />}
+        title={lightboxData ? `Bukti Lapangan • #${lightboxData.woNumber}` : 'Bukti Lapangan'}
+        subtitle={
+          lightboxData
+            ? `${lightboxData.installerName} — ${lightboxData.photos[lightboxData.activeIndex]?.label || ''}`
+            : undefined
+        }
+      >
+        {lightboxData && (
+          <div className="space-y-3">
+            <div className="bg-[#1f1638] rounded-xl flex items-center justify-center max-h-[60vh] overflow-hidden p-2">
               <img
                 src={lightboxData.photos[lightboxData.activeIndex]?.url}
                 alt={lightboxData.photos[lightboxData.activeIndex]?.label}
-                className="max-h-[60vh] w-auto object-contain rounded-lg"
+                className="max-h-[55vh] w-auto object-contain rounded-lg"
               />
             </div>
             {lightboxData.photos.length > 1 && (
-              <div className="p-3 flex items-center gap-2 overflow-x-auto bg-[#f8f1ff] dark:bg-[#251545]">
+              <div className="p-2.5 rounded-xl flex items-center gap-2 overflow-x-auto bg-[#f8f1ff] dark:bg-[#251545]">
                 {lightboxData.photos.map((photo, idx) => (
                   <button
                     key={photo.url}
@@ -1594,107 +1559,97 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* Broadcast Panduan Lapangan Modal */}
-      {isBroadcastModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setIsBroadcastModalOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-[#1A0E2E] rounded-2xl max-w-lg w-full border border-[#e8ddff] dark:border-purple-800 shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
+      <ResponsiveModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<Send className="w-4 h-4" />}
+        title="Broadcast Panduan Lapangan"
+        subtitle={`Koordinasi cepat untuk teknisi ${leaderContractor}`}
+        footer={
+          <button
+            type="button"
+            onClick={() => setIsBroadcastModalOpen(false)}
+            className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
           >
-            <div className="px-5 py-4 border-b border-[#e8ddff] dark:border-purple-900/50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-[#1f1638] dark:text-white">
-                  Broadcast Panduan Lapangan
-                </h3>
-                <p className="text-[11px] text-[#4b4452] dark:text-slate-300">
-                  Koordinasi cepat untuk teknisi {leaderContractor}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsBroadcastModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-[#f3eaff] text-[#4b4452] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            Tutup
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[#1f1638] dark:text-slate-200 mb-1.5">
+              Pesan Instruksi Lapangan
+            </label>
+            <textarea
+              rows={3}
+              value={broadcastMessage}
+              onChange={e => setBroadcastMessage(e.target.value)}
+              className="w-full rounded-xl border border-[#e8ddff] dark:border-purple-800 bg-[#f8f1ff] dark:bg-[#251545] p-3 text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+            />
+          </div>
 
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#1f1638] dark:text-slate-200 mb-1.5">
-                  Pesan Instruksi Lapangan
-                </label>
-                <textarea
-                  rows={3}
-                  value={broadcastMessage}
-                  onChange={e => setBroadcastMessage(e.target.value)}
-                  className="w-full rounded-xl border border-[#e8ddff] dark:border-purple-800 bg-[#f8f1ff] dark:bg-[#251545] p-3 text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
-                />
-              </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#1f1638] dark:text-slate-200">
+              Kirim ke Teknisi ({scopedInstallers.length})
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyBroadcast}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f3eaff] hover:bg-[#e8ddff] text-[11px] font-bold text-[#58149c] cursor-pointer"
+            >
+              <Copy className="w-3 h-3" />
+              <span>{broadcastCopied ? 'Tersalin!' : 'Salin Teks'}</span>
+            </button>
+          </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#1f1638] dark:text-slate-200">
-                  Kirim ke Teknisi ({scopedInstallers.length})
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyBroadcast}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f3eaff] hover:bg-[#e8ddff] text-[11px] font-bold text-[#58149c] cursor-pointer"
-                >
-                  <Copy className="w-3 h-3" />
-                  <span>{broadcastCopied ? 'Tersalin!' : 'Salin Teks'}</span>
-                </button>
+          <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
+            {scopedInstallers.length === 0 ? (
+              <div className="text-xs text-slate-500 py-4 text-center">
+                Belum ada teknisi aktif terdaftar pada scope mitra ini.
               </div>
-
-              <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
-                {scopedInstallers.length === 0 ? (
-                  <div className="text-xs text-slate-500 py-4 text-center">
-                    Belum ada teknisi aktif terdaftar pada scope mitra ini.
-                  </div>
-                ) : (
-                  scopedInstallers.map(inst => {
-                    const validPhone = inst.phone && isValidPhoneNumber(inst.phone);
-                    return (
-                      <div
-                        key={inst.id}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/50"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
-                            {inst.name}
-                          </div>
-                          <div className="text-[10.5px] font-mono text-[#4b4452] dark:text-slate-300">
-                            {inst.phone || 'Nomor WA belum diisi'}
-                          </div>
-                        </div>
-                        {validPhone ? (
-                          <a
-                            href={buildWhatsAppClickToChatUrl(inst.phone!, broadcastMessage).url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold inline-flex items-center gap-1"
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>Kirim WA</span>
-                          </a>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">No WA N/A</span>
-                        )}
+            ) : (
+              scopedInstallers.map(inst => {
+                const validPhone = inst.phone && isValidPhoneNumber(inst.phone);
+                return (
+                  <div
+                    key={inst.id}
+                    className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/50"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                        {inst.name}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                      <div className="text-[10.5px] font-mono text-[#4b4452] dark:text-slate-300">
+                        {inst.phone || 'Nomor WA belum diisi'}
+                      </div>
+                    </div>
+                    {validPhone ? (
+                      <a
+                        href={buildWhatsAppClickToChatUrl(inst.phone!, broadcastMessage).url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 min-h-[36px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold inline-flex items-center gap-1"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>Kirim WA</span>
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">No WA N/A</span>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-      )}
+      </ResponsiveModal>
     </div>
   );
 };

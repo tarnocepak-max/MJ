@@ -27,7 +27,7 @@ import {
   WifiOff
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { useToast } from '../../context/ToastContext';
 import { supabaseDb } from '../../services/supabaseDb';
 import type { Ticket } from '../../types/index';
@@ -51,6 +51,8 @@ import {
   VendorWoDrilldownModal,
   type SlaActionModalContext
 } from './SlaActionModals';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { DropdownActionItem } from '../common/ActionDropdownMenu';
 
 export type SlaDashboardContext = 'dashboard_monitoring' | 'sla_monitoring';
 
@@ -163,7 +165,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
   const [drilldownVendor, setDrilldownVendor] = useState<SlaVendorRow | null>(null);
   const [actionModalCtx, setActionModalCtx] = useState<SlaActionModalContext | null>(null);
   const [showLogsDrawer, setShowLogsDrawer] = useState<boolean>(false);
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
 
   const loadTelemetry = useCallback(
     async (silent = false) => {
@@ -466,7 +468,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         {/* Top Operational Sub-bar */}
         <div
           className={`px-4 sm:px-5 py-3.5 bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-3 ${
-            isMobileView ? '' : 'xl:flex-row xl:items-center xl:justify-between'
+            isCompactUI ? '' : 'xl:flex-row xl:items-center xl:justify-between'
           }`}
         >
           <div className="flex flex-col gap-1">
@@ -584,9 +586,9 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         {/* Operational Filter Toolbar (Integrated Canvas Ribbon) */}
         <div className="px-4 sm:px-5 py-2.5 bg-[#F5F1FF] dark:bg-[#160D29] flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {/* Time Slot Selector Pill */}
-              <div className="flex items-center bg-white dark:bg-[#1E1238] p-0.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] shadow-xs">
+              <div className="flex flex-wrap items-center bg-white dark:bg-[#1E1238] p-0.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] shadow-xs w-full sm:w-auto">
                 {(
                   [
                     { id: 'today', label: 'Hari Ini (todayWIB)' },
@@ -598,7 +600,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                     key={tab.id}
                     type="button"
                     onClick={() => setPeriod(tab.id)}
-                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                    className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 min-h-[34px] rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                       period === tab.id
                         ? 'bg-[#7135B5] text-white shadow-xs'
                         : 'text-[#766B83] dark:text-slate-300 hover:text-[#211A2E] dark:hover:text-white'
@@ -610,12 +612,12 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               </div>
 
               {/* Area Region Dropdown */}
-              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] px-2.5 py-1 text-[#211A2E] dark:text-white shadow-xs">
+              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] px-2.5 py-1.5 min-h-[38px] text-[#211A2E] dark:text-white shadow-xs w-full sm:w-auto">
                 <MapPin className="w-3.5 h-3.5 text-[#8B8495] mr-1.5 shrink-0" />
                 <select
                   value={areaFilter}
                   onChange={e => setAreaFilter(e.target.value)}
-                  className="bg-transparent text-xs font-medium text-[#211A2E] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none"
+                  className="w-full sm:w-auto bg-transparent text-xs font-medium text-[#211A2E] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none"
                 >
                   <option value="ALL" className="dark:bg-[#1E1238]">
                     Semua Wilayah Operasional ({telemetry.filterOptions.areas.length} Area)
@@ -630,7 +632,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               </div>
 
               {/* Contractor Partner Filter */}
-              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] px-2.5 py-1 text-[#211A2E] dark:text-white shadow-xs">
+              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] px-2.5 py-1.5 min-h-[38px] text-[#211A2E] dark:text-white shadow-xs w-full sm:w-auto">
                 <Building2 className="w-3.5 h-3.5 text-[#8B8495] mr-1.5 shrink-0" />
                 <select
                   value={
@@ -640,7 +642,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                   }
                   disabled={isLeader}
                   onChange={e => setContractorFilter(e.target.value)}
-                  className="bg-transparent text-xs font-medium text-[#211A2E] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none disabled:opacity-75"
+                  className="w-full sm:w-auto bg-transparent text-xs font-medium text-[#211A2E] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none disabled:opacity-75"
                 >
                   {!isLeader && (
                     <option value="ALL" className="dark:bg-[#1E1238]">
@@ -731,7 +733,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       )}
 
       {/* 2. KPI METRIC SUMMARY ROW (5 MODERN EXECUTIVE CARDS) */}
-      <section className={`grid gap-3 ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
+      <section className={`grid gap-3 ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
         {/* Card 1: Kepatuhan SLA Global */}
         <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div
@@ -956,194 +958,318 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
           </div>
         </div>
 
-        {/* High Density Vendor Data Table */}
-        {vendorLeaderboard.length === 0 ? (
-          <div className="p-10 text-center text-xs text-[#766B83]">
-            Belum ada data Kontraktor/Vendor atau Work Order pada filter yang dipilih.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[980px]">
-              <thead>
-                <tr className="bg-[#F4EAFF]/60 dark:bg-[#160D29] border-b border-[#E9E5F0] dark:border-[#35105E] text-[11px] font-bold text-[#766B83] dark:text-[#A78BFA] uppercase">
-                  <th className="py-2.5 px-3 text-center w-14"># Rank</th>
-                  <th className="py-2.5 px-3">Mitra Kontraktor &amp; Area Kerja</th>
-                  <th className="py-2.5 px-3 text-center">Status SLA</th>
-                  <th className="py-2.5 px-3 w-60">SLA Achievement Rate</th>
-                  <th className="py-2.5 px-3 text-center">Volume WO</th>
-                  <th className="py-2.5 px-3 text-center">On-Time</th>
-                  <th className="py-2.5 px-3 text-center">FTR Pass</th>
-                  <th className="py-2.5 px-3 text-center">Avg Response</th>
-                  <th className="py-2.5 px-3 text-center">Utilisasi Kuota</th>
-                  <th className="py-2.5 px-3 text-right">Aksi Manajemen</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E] text-xs">
-                {vendorLeaderboard.map(vendor => {
+        {/* High Density Vendor Data Table (Desktop) & Priority Cards (Mobile) */}
+        <ResponsiveDataTable<SlaVendorRow>
+          data={vendorLeaderboard}
+          getRowKey={v => v.contractorId}
+          stickyHeader
+          mobileTitle={v => (
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold font-mono text-[11px] shrink-0 ${getTierStyles(v.slaStatus).rank}`}
+              >
+                #{v.rank}
+              </span>
+              <span className="truncate">{v.contractorName}</span>
+            </div>
+          )}
+          mobileSubtitle={v => `Area: ${v.primaryArea} • ${v.activeTechniciansCount} Teknisi Aktif`}
+          mobileStatus={v => {
+            const styles = getTierStyles(v.slaStatus);
+            return (
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider ${styles.badge}`}>
+                {v.slaStatus === 'NO_DATA' ? 'NO DATA' : v.slaStatus}
+              </span>
+            );
+          }}
+          getRowActions={vendor => {
+            const items: DropdownActionItem[] = [
+              {
+                id: 'detail',
+                label: 'Detail WO Vendor',
+                icon: <BarChart3 className="w-3.5 h-3.5" />,
+                tone: 'primary',
+                onClick: () => setDrilldownVendor(vendor)
+              },
+              {
+                id: 'chat',
+                label: 'Kontak Korlap (Chat)',
+                icon: <MessageSquare className="w-3.5 h-3.5" />,
+                onClick: () => openVendorChat(vendor)
+              }
+            ];
+            if (canRunGovernanceActions && vendor.slaStatus === 'WARNING') {
+              items.push({
+                id: 'tegur',
+                label: 'Tegur Korlap',
+                icon: <MailWarning className="w-3.5 h-3.5" />,
+                tone: 'warning',
+                dividerBefore: true,
+                onClick: () =>
+                  setActionModalCtx({
+                    actionType: 'TEGUR_KORLAP',
+                    title: `Tegur Korlap — ${vendor.contractorName}`,
+                    subtitle: `Korlap: ${vendor.leaderName} • SLA saat ini ${vendor.slaRate ?? 0}%`,
+                    contractorId: vendor.contractorId,
+                    contractorName: vendor.contractorName,
+                    leaderName: vendor.leaderName,
+                    leaderPhone: vendor.leaderPhone,
+                    defaultMessage: `[TEGURAN SLA] Kepada Yth. Korlap ${vendor.leaderName} (${vendor.contractorName}), pencapaian SLA saat ini berada di ${vendor.slaRate ?? 0}% (Target ${telemetry.config.globalSlaTarget}%). Mohon percepatan penyelesaian ${vendor.breachWoCount} WO kritis & optimasi respon teknisi.`
+                  })
+              });
+            }
+            if (canRunGovernanceActions && vendor.slaStatus === 'CRITICAL') {
+              items.push({
+                id: 'sp1',
+                label: 'Terbitkan Surat SP-1',
+                icon: <AlertOctagon className="w-3.5 h-3.5" />,
+                tone: 'danger',
+                dividerBefore: true,
+                onClick: () =>
+                  setActionModalCtx({
+                    actionType: 'ISSUE_SP1',
+                    title: `Penerbitan Surat Peringatan (SP-1) — ${vendor.contractorName}`,
+                    subtitle: `Korlap: ${vendor.leaderName} • SLA Critical ${vendor.slaRate ?? 0}%`,
+                    contractorId: vendor.contractorId,
+                    contractorName: vendor.contractorName,
+                    leaderName: vendor.leaderName,
+                    leaderPhone: vendor.leaderPhone,
+                    defaultMessage: `[SURAT PERINGATAN 1 / SP-1] Kepada Mitra ${vendor.contractorName} (Korlap: ${vendor.leaderName}), tingkat kepatuhan SLA tercatat ${vendor.slaRate ?? 0}% di bawah ambang minimum ${telemetry.config.goodMin}% dengan ${vendor.lateCount} WO terlambat. Harap lakukan corrective action plan hari ini.`
+                  })
+              });
+            }
+            return items;
+          }}
+          desktopActionHeader="Aksi Manajemen"
+          renderDesktopActions={vendor => (
+            <div className="flex items-center justify-end gap-1">
+              <button
+                type="button"
+                onClick={() => setDrilldownVendor(vendor)}
+                className="px-2 py-1 rounded bg-[#F4EAFF] hover:bg-[#F0E3FF] dark:bg-[#35105E] dark:hover:bg-[#5B35B1]/60 text-[#431599] dark:text-[#D8B4FE] text-[11px] font-bold transition-colors cursor-pointer"
+              >
+                Detail WO
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openVendorChat(vendor)}
+                className="p-1.5 rounded text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white hover:bg-[#F7F6FA] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
+                title="Kontak Koordinator Lapangan"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+              </button>
+
+              {canRunGovernanceActions && vendor.slaStatus === 'WARNING' && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActionModalCtx({
+                      actionType: 'TEGUR_KORLAP',
+                      title: `Tegur Korlap — ${vendor.contractorName}`,
+                      subtitle: `Korlap: ${vendor.leaderName} • SLA saat ini ${vendor.slaRate ?? 0}%`,
+                      contractorId: vendor.contractorId,
+                      contractorName: vendor.contractorName,
+                      leaderName: vendor.leaderName,
+                      leaderPhone: vendor.leaderPhone,
+                      defaultMessage: `[TEGURAN SLA] Kepada Yth. Korlap ${vendor.leaderName} (${vendor.contractorName}), pencapaian SLA saat ini berada di ${vendor.slaRate ?? 0}% (Target ${telemetry.config.globalSlaTarget}%). Mohon percepatan penyelesaian ${vendor.breachWoCount} WO kritis & optimasi respon teknisi.`
+                    })
+                  }
+                  className="px-2 py-1 rounded bg-[#E59A27]/15 hover:bg-[#E59A27]/25 text-[#E59A27] text-[11px] font-bold transition-colors cursor-pointer"
+                >
+                  Tegur Korlap
+                </button>
+              )}
+
+              {canRunGovernanceActions && vendor.slaStatus === 'CRITICAL' && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActionModalCtx({
+                      actionType: 'ISSUE_SP1',
+                      title: `Penerbitan Surat Peringatan (SP-1) — ${vendor.contractorName}`,
+                      subtitle: `Korlap: ${vendor.leaderName} • SLA Critical ${vendor.slaRate ?? 0}%`,
+                      contractorId: vendor.contractorId,
+                      contractorName: vendor.contractorName,
+                      leaderName: vendor.leaderName,
+                      leaderPhone: vendor.leaderPhone,
+                      defaultMessage: `[SURAT PERINGATAN 1 / SP-1] Kepada Mitra ${vendor.contractorName} (Korlap: ${vendor.leaderName}), tingkat kepatuhan SLA tercatat ${vendor.slaRate ?? 0}% di bawah ambang minimum ${telemetry.config.goodMin}% dengan ${vendor.lateCount} WO terlambat. Harap lakukan corrective action plan hari ini.`
+                    })
+                  }
+                  className="px-2 py-1 rounded bg-[#DC4C5A] hover:bg-rose-700 text-white text-[11px] font-bold transition-colors shadow-xs cursor-pointer"
+                >
+                  Surat SP-1
+                </button>
+              )}
+            </div>
+          )}
+          getRowClassName={v => getTierStyles(v.slaStatus).rowBg}
+          emptyState={{
+            title: 'Belum ada data Kontraktor/Vendor',
+            description: 'Belum ada data Kontraktor/Vendor atau Work Order pada filter yang dipilih.'
+          }}
+          columns={
+            [
+              {
+                key: 'rank',
+                label: '# Rank',
+                align: 'center',
+                priority: 'hidden_mobile',
+                widthClass: 'w-14',
+                render: vendor => (
+                  <span
+                    className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold font-mono ${getTierStyles(vendor.slaStatus).rank}`}
+                  >
+                    {vendor.rank}
+                  </span>
+                )
+              },
+              {
+                key: 'contractorName',
+                label: 'Mitra Kontraktor & Area Kerja',
+                priority: 'hidden_mobile',
+                render: vendor => {
+                  const styles = getTierStyles(vendor.slaStatus);
+                  return (
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${styles.iconBox}`}
+                      >
+                        {vendor.contractorCode.slice(0, 3)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-[#160D29] dark:text-white truncate">{vendor.contractorName}</div>
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#8B8495] mt-0.5">
+                          <span>Area: {vendor.primaryArea}</span>
+                          <span>•</span>
+                          <span className="text-[#7135B5] dark:text-[#D8B4FE] font-semibold">
+                            {vendor.activeTechniciansCount} Teknisi Aktif
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              },
+              {
+                key: 'slaStatus',
+                label: 'Status SLA',
+                align: 'center',
+                priority: 'hidden_mobile',
+                render: vendor => (
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider inline-block ${getTierStyles(vendor.slaStatus).badge}`}
+                  >
+                    {vendor.slaStatus === 'NO_DATA' ? 'NO DATA' : vendor.slaStatus}
+                  </span>
+                )
+              },
+              {
+                key: 'slaRate',
+                label: 'SLA Achievement',
+                priority: 'primary',
+                widthClass: 'w-56',
+                render: vendor => {
                   const styles = getTierStyles(vendor.slaStatus);
                   const slaWidth = vendor.slaRate !== null ? Math.min(100, Math.max(0, vendor.slaRate)) : 0;
-
                   return (
-                    <tr key={vendor.contractorId} className={`transition-colors ${styles.rowBg}`}>
-                      <td className="py-3 px-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold font-mono ${styles.rank}`}
-                        >
-                          {vendor.rank}
+                    <div>
+                      <div className="flex items-center justify-between font-mono text-[11px] mb-1 gap-2">
+                        <span className={`font-bold ${styles.text}`}>
+                          {vendor.slaRate !== null ? `${vendor.slaRate.toFixed(1)}%` : 'Belum ada data'}
                         </span>
-                      </td>
-
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${styles.iconBox}`}>
-                            {vendor.contractorCode.slice(0, 3)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-bold text-[#160D29] dark:text-white truncate">{vendor.contractorName}</div>
-                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#8B8495] mt-0.5">
-                              <span>Area: {vendor.primaryArea}</span>
-                              <span>•</span>
-                              <span className="text-[#7135B5] dark:text-[#D8B4FE] font-semibold">
-                                {vendor.activeTechniciansCount} Teknisi Aktif
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider inline-block ${styles.badge}`}>
-                          {vendor.slaStatus === 'NO_DATA' ? 'NO DATA' : vendor.slaStatus}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3">
-                        <div className="flex items-center justify-between font-mono text-[11px] mb-1">
-                          <span className={`font-bold ${styles.text}`}>
-                            {vendor.slaRate !== null ? `${vendor.slaRate.toFixed(1)}%` : 'Belum ada data'}
-                          </span>
-                          {vendor.targetGap !== null && vendor.targetGap < 0 ? (
-                            <span className="text-[#DC4C5A] font-semibold">{vendor.targetGap.toFixed(1)}%</span>
-                          ) : (
-                            <span className="text-[#8B8495]">Target: {telemetry.config.globalSlaTarget.toFixed(1)}%</span>
-                          )}
-                        </div>
-                        <div className="w-full bg-[#F7F6FA] dark:bg-[#140827] rounded-full h-2 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${styles.bar}`}
-                            style={{ width: `${slaWidth}%` }}
-                          />
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3 text-center font-mono font-semibold text-[#211A2E] dark:text-white">
-                        {vendor.volumeWo} WO
-                      </td>
-
-                      <td className={`py-3 px-3 text-center font-mono font-bold ${styles.text}`}>
-                        {vendor.onTimeRate !== null ? `${vendor.onTimeRate.toFixed(1)}%` : '-'}
-                      </td>
-
-                      <td className="py-3 px-3 text-center font-mono font-semibold text-[#211A2E] dark:text-white">
-                        {vendor.ftrRate !== null ? `${vendor.ftrRate.toFixed(1)}%` : '-'}
-                      </td>
-
-                      <td className="py-3 px-3 text-center font-mono">
-                        <span
-                          className={
-                            vendor.avgResponseMinutes !== null && vendor.avgResponseMinutes > telemetry.config.maxDispatchResponseMinutes
-                              ? 'text-[#DC4C5A] font-bold'
-                              : 'text-[#766B83] dark:text-slate-300'
-                          }
-                        >
-                          {vendor.avgResponseMinutes !== null ? `<${vendor.avgResponseMinutes} mnt` : '-'}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3 text-center">
-                        {vendor.quotaTotal > 0 ? (
-                          <div>
-                            <div className="font-mono text-[#211A2E] dark:text-white font-semibold">
-                              {vendor.quotaUtilizationRate?.toFixed(1)}%
-                            </div>
-                            <div className="text-[10px] text-[#8B8495] font-mono">
-                              {vendor.quotaUsed}/{vendor.quotaTotal} Slot
-                            </div>
-                          </div>
+                        {vendor.targetGap !== null && vendor.targetGap < 0 ? (
+                          <span className="text-[#DC4C5A] font-semibold">{vendor.targetGap.toFixed(1)}%</span>
                         ) : (
-                          <span className="text-[11px] text-[#8B8495]">0 Teknisi</span>
+                          <span className="text-[#8B8495]">Target: {telemetry.config.globalSlaTarget.toFixed(1)}%</span>
                         )}
-                      </td>
-
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setDrilldownVendor(vendor)}
-                            className="px-2 py-1 rounded bg-[#F4EAFF] hover:bg-[#F0E3FF] dark:bg-[#35105E] dark:hover:bg-[#5B35B1]/60 text-[#431599] dark:text-[#D8B4FE] text-[11px] font-bold transition-colors cursor-pointer"
-                          >
-                            Detail WO
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openVendorChat(vendor)}
-                            className="p-1 rounded text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white hover:bg-[#F7F6FA] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
-                            title="Kontak Koordinator Lapangan"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
-
-                          {canRunGovernanceActions && vendor.slaStatus === 'WARNING' && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setActionModalCtx({
-                                  actionType: 'TEGUR_KORLAP',
-                                  title: `Tegur Korlap — ${vendor.contractorName}`,
-                                  subtitle: `Korlap: ${vendor.leaderName} • SLA saat ini ${vendor.slaRate ?? 0}%`,
-                                  contractorId: vendor.contractorId,
-                                  contractorName: vendor.contractorName,
-                                  leaderName: vendor.leaderName,
-                                  leaderPhone: vendor.leaderPhone,
-                                  defaultMessage: `[TEGURAN SLA] Kepada Yth. Korlap ${vendor.leaderName} (${vendor.contractorName}), pencapaian SLA saat ini berada di ${vendor.slaRate ?? 0}% (Target ${telemetry.config.globalSlaTarget}%). Mohon percepatan penyelesaian ${vendor.breachWoCount} WO kritis & optimasi respon teknisi.`
-                                })
-                              }
-                              className="px-2 py-1 rounded bg-[#E59A27]/15 hover:bg-[#E59A27]/25 text-[#E59A27] text-[11px] font-bold transition-colors cursor-pointer"
-                            >
-                              Tegur Korlap
-                            </button>
-                          )}
-
-                          {canRunGovernanceActions && vendor.slaStatus === 'CRITICAL' && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setActionModalCtx({
-                                  actionType: 'ISSUE_SP1',
-                                  title: `Penerbitan Surat Peringatan (SP-1) — ${vendor.contractorName}`,
-                                  subtitle: `Korlap: ${vendor.leaderName} • SLA Critical ${vendor.slaRate ?? 0}%`,
-                                  contractorId: vendor.contractorId,
-                                  contractorName: vendor.contractorName,
-                                  leaderName: vendor.leaderName,
-                                  leaderPhone: vendor.leaderPhone,
-                                  defaultMessage: `[SURAT PERINGATAN 1 / SP-1] Kepada Mitra ${vendor.contractorName} (Korlap: ${vendor.leaderName}), tingkat kepatuhan SLA tercatat ${vendor.slaRate ?? 0}% di bawah ambang minimum ${telemetry.config.goodMin}% dengan ${vendor.lateCount} WO terlambat. Harap lakukan corrective action plan hari ini.`
-                                })
-                              }
-                              className="px-2 py-1 rounded bg-[#DC4C5A] hover:bg-rose-700 text-white text-[11px] font-bold transition-colors shadow-xs cursor-pointer"
-                            >
-                              Surat SP-1
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+                      <div className="w-full bg-[#F7F6FA] dark:bg-[#140827] rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${styles.bar}`}
+                          style={{ width: `${slaWidth}%` }}
+                        />
+                      </div>
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                }
+              },
+              {
+                key: 'volumeWo',
+                label: 'Volume WO',
+                align: 'center',
+                numeric: true,
+                priority: 'primary',
+                render: vendor => (
+                  <span className="font-mono font-semibold text-[#211A2E] dark:text-white">{vendor.volumeWo} WO</span>
+                )
+              },
+              {
+                key: 'onTimeRate',
+                label: 'On-Time',
+                align: 'center',
+                numeric: true,
+                priority: 'secondary',
+                render: vendor => (
+                  <span className={`font-mono font-bold ${getTierStyles(vendor.slaStatus).text}`}>
+                    {vendor.onTimeRate !== null ? `${vendor.onTimeRate.toFixed(1)}%` : '-'}
+                  </span>
+                )
+              },
+              {
+                key: 'ftrRate',
+                label: 'FTR Pass',
+                align: 'center',
+                numeric: true,
+                priority: 'secondary',
+                render: vendor => (
+                  <span className="font-mono font-semibold text-[#211A2E] dark:text-white">
+                    {vendor.ftrRate !== null ? `${vendor.ftrRate.toFixed(1)}%` : '-'}
+                  </span>
+                )
+              },
+              {
+                key: 'avgResponseMinutes',
+                label: 'Avg Response',
+                align: 'center',
+                numeric: true,
+                priority: 'secondary',
+                render: vendor => (
+                  <span
+                    className={
+                      vendor.avgResponseMinutes !== null &&
+                      vendor.avgResponseMinutes > telemetry.config.maxDispatchResponseMinutes
+                        ? 'text-[#DC4C5A] font-bold'
+                        : 'text-[#766B83] dark:text-slate-300'
+                    }
+                  >
+                    {vendor.avgResponseMinutes !== null ? `<${vendor.avgResponseMinutes} mnt` : '-'}
+                  </span>
+                )
+              },
+              {
+                key: 'quota',
+                label: 'Utilisasi Kuota',
+                align: 'center',
+                numeric: true,
+                priority: 'secondary',
+                render: vendor =>
+                  vendor.quotaTotal > 0 ? (
+                    <div>
+                      <div className="font-mono text-[#211A2E] dark:text-white font-semibold">
+                        {vendor.quotaUtilizationRate?.toFixed(1)}%
+                      </div>
+                      <div className="text-[10px] text-[#8B8495] font-mono">
+                        {vendor.quotaUsed}/{vendor.quotaTotal} Slot
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-[#8B8495]">0 Teknisi</span>
+                  )
+              }
+            ] as ResponsiveColumn<SlaVendorRow>[]
+          }
+        />
 
         <div className="px-4 py-2.5 bg-white dark:bg-[#1E1238] border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-col sm:flex-row items-center justify-between text-[#766B83] dark:text-[#A78BFA] text-xs gap-2">
           <span>
@@ -1154,9 +1280,9 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       </section>
 
       {/* 4. TWO-COLUMN DEEP OPERATIONAL ANALYTICS & ESCALATIONS */}
-      <section className={`grid gap-4 items-start ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
+      <section className={`grid gap-4 items-start ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
         {/* Left Column (7 cols): Time Hourly Breakdown & Parameter Matrix */}
-        <div className={isMobileView ? 'space-y-4' : 'lg:col-span-7 space-y-4'}>
+        <div className={isCompactUI ? 'space-y-4' : 'lg:col-span-7 space-y-4'}>
           {/* Hourly SLA Performance Trend Chart Card */}
           <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-sm p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
@@ -1177,10 +1303,10 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
             </div>
 
             {/* Inline Bar Visualization (Responsive SVG inside Tinted Card) */}
-            <div className="w-full bg-[#F5F1FF] dark:bg-[#140827] p-3 sm:p-4 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] overflow-x-auto">
+            <div className="w-full bg-[#F5F1FF] dark:bg-[#140827] p-2.5 sm:p-4 rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
               <svg
                 viewBox="0 0 540 165"
-                className="w-full min-w-[440px] h-48 select-none"
+                className="w-full h-auto max-h-52 select-none"
                 fill="none"
                 role="img"
                 aria-label="Grafik Tren SLA per Slot Jam Kerja"
@@ -1298,7 +1424,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               </svg>
             </div>
 
-            <div className={`mt-3 grid gap-2.5 pt-1 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+            <div className={`mt-3 grid gap-2.5 pt-1 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
               {slotInsights.map(insight => {
                 const ToneIcon =
                   insight.tone === 'warning' ? AlertTriangle : insight.tone === 'success' ? CheckCircle2 : Info;
@@ -1391,7 +1517,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         </div>
 
         {/* Right Column (5 cols): Critical SLA Breach Alerts & Penalty/Incentive Ledger */}
-        <div className={isMobileView ? 'space-y-4' : 'lg:col-span-5 space-y-4'}>
+        <div className={isCompactUI ? 'space-y-4' : 'lg:col-span-5 space-y-4'}>
           {/* Critical SLA Breach Warning Feed (<15 Mins) */}
           <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#DC4C5A]/30 shadow-md p-4 sm:p-5 relative overflow-hidden">
             <div className="flex items-center justify-between pb-3 border-b border-[#E9E5F0] dark:border-[#35105E] gap-2">
@@ -1632,7 +1758,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       {/* 5. LIVE TELEMETRY LOG FOOTER BAR */}
       <footer
         className={`bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-2 shadow-sm text-[#766B83] dark:text-[#A78BFA] text-xs ${
-          isMobileView ? 'items-start' : 'md:flex-row items-center justify-between'
+          isCompactUI ? 'items-start' : 'md:flex-row items-center justify-between'
         }`}
       >
         <div className="flex items-center gap-2">

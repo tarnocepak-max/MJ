@@ -25,6 +25,7 @@ import { useApp } from '../../context/AppContext';
 import { WOKpiFilterKey, WOKpiSummary } from '../../types';
 import { computeClientKpiSummary } from '../../services/woLifecycleService';
 import { StatusBadge } from '../common/Badge';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface DashboardKpiSummaryCardsProps {
   onDrillDown: (
@@ -288,13 +289,13 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             {/* Vendor & Area Filters */}
             {isGlobalRole ? (
               <>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <Building2 className="w-3.5 h-3.5 text-[#dab9ff] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     aria-label="Filter Vendor Kontraktor"
                     value={kpiContractorFilter}
                     onChange={(e) => setKpiContractorFilter(e.target.value)}
-                    className="pl-8 pr-7 py-2 rounded-xl bg-[#1f1638]/75 border border-white/15 shadow-inner text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#a380fe]"
+                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[38px] rounded-xl bg-[#1f1638]/75 border border-white/15 shadow-inner text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#a380fe]"
                   >
                     <option value="ALL">Semua Vendor / Kontraktor</option>
                     {contractorsList.map(vendor => (
@@ -305,13 +306,13 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   </select>
                 </div>
 
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <MapPin className="w-3.5 h-3.5 text-[#dab9ff] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     aria-label="Filter Area"
                     value={kpiAreaFilter}
                     onChange={(e) => setKpiAreaFilter(e.target.value)}
-                    className="pl-8 pr-7 py-2 rounded-xl bg-[#1f1638]/75 border border-white/15 shadow-inner text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#a380fe]"
+                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[38px] rounded-xl bg-[#1f1638]/75 border border-white/15 shadow-inner text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#a380fe]"
                   >
                     <option value="ALL">Semua Area</option>
                     {areasList.map(area => (
@@ -483,309 +484,407 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
       {/* Perspective: Vendor / Kontraktor Breakdown */}
       {perspective === 'vendor' && (
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e] flex items-center justify-between">
+        <div className="space-y-2.5">
+          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] flex items-center justify-between">
             <div>
               <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
                 Ringkasan Operasional Per Vendor / Kontraktor
               </h3>
               <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
-                Klik baris Vendor atau angka untuk filter &amp; drill-down daftar WO Vendor tersebut.
+                Klik nama Vendor atau angka untuk filter &amp; drill-down daftar WO Vendor tersebut.
               </p>
             </div>
           </div>
-          {effectiveSummary.byVendor.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">
-              Belum ada data Work Order untuk tanggal operasional {todayWIB}.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
-                    <th className="py-2.5 px-3 font-bold">Vendor / Kontraktor</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Total</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Belum Assign</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Progress</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Pending</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Complete</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Reschedule</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Cancel</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Butuh Approval</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Approved</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Revisi</th>
-                    <th className="py-2.5 px-2.5 text-right font-bold">Closed</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800 tabular-nums">
-                  {effectiveSummary.byVendor.map(row => (
-                    <tr
-                      key={row.contractorName}
-                      className="hover:bg-[#F5F1FF]/60 dark:hover:bg-slate-800/50 transition-colors"
+
+          <ResponsiveDataTable
+            data={effectiveSummary.byVendor}
+            getRowKey={row => row.contractorName}
+            mobileTitle={row => row.contractorName}
+            mobileSubtitle={row => `${row.total} Total WO • ${row.closed} Closed`}
+            mobileStatus={row =>
+              row.unmapped > 0 ? (
+                <span className="px-2 py-0.5 rounded bg-[#FFF7ED] text-[#C2410C] text-[10px] font-bold">
+                  {row.unmapped} Unmapped
+                </span>
+              ) : null
+            }
+            getRowActions={row => [
+              {
+                id: 'all',
+                label: `Lihat Semua (${row.total} WO)`,
+                tone: 'primary',
+                onClick: () => onDrillDown('total_today', { contractor: row.contractorName })
+              },
+              {
+                id: 'unassigned',
+                label: `Belum Assign (${row.unassigned})`,
+                onClick: () => onDrillDown('unassigned', { contractor: row.contractorName })
+              },
+              {
+                id: 'approval',
+                label: `Butuh Approval (${row.butuhApproval})`,
+                tone: 'warning',
+                onClick: () => onDrillDown('butuh_approval', { contractor: row.contractorName })
+              },
+              {
+                id: 'closed',
+                label: `Sudah Closed (${row.closed})`,
+                tone: 'success',
+                onClick: () => onDrillDown('closed', { contractor: row.contractorName })
+              }
+            ]}
+            emptyState={{
+              title: 'Belum ada data Work Order',
+              description: `Belum ada data Work Order untuk tanggal operasional ${todayWIB}.`
+            }}
+            columns={
+              [
+                {
+                  key: 'contractorName',
+                  label: 'Vendor / Kontraktor',
+                  priority: 'hidden_mobile',
+                  tdClassName: 'font-semibold text-[#160D29] dark:text-white',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('total_today', { contractor: row.contractorName })}
+                      className="text-left hover:text-[#7135B5] hover:underline flex items-center gap-2 cursor-pointer"
                     >
-                      <td className="py-2.5 px-3 font-semibold text-[#160D29] dark:text-white">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onDrillDown('total_today', {
-                              contractor: row.contractorName
-                            })
-                          }
-                          className="text-left hover:text-[#7135B5] hover:underline flex items-center gap-2"
-                        >
-                          <span>{row.contractorName}</span>
-                          {row.unmapped > 0 && (
-                            <span className="px-1.5 py-0.5 rounded bg-[#FFF7ED] text-[#C2410C] text-[10px] font-bold">
-                              {row.unmapped} Unmapped
-                            </span>
-                          )}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right font-bold text-[#160D29] dark:text-white">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('total_today', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.total}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#475569] dark:text-slate-300">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('unassigned', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.unassigned}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#1D4ED8] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('checked_in_progress', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.checkedInProgress}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#B45309] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('report_pending', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.reportPending}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#15803D] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('report_complete', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.reportComplete}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#6D28D9] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('report_reschedule', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.reportReschedule}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#B91C1C] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('report_cancel', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.reportCancel}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#C2410C] font-bold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('butuh_approval', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.butuhApproval}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#15803D] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('approved', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.approved}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right text-[#B91C1C] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('revision_rejected', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.revisionRejected}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right font-bold text-[#334155] dark:text-slate-200">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('closed', { contractor: row.contractorName })}
-                          className="hover:underline"
-                        >
-                          {row.closed}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                      <span>{row.contractorName}</span>
+                      {row.unmapped > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-[#FFF7ED] text-[#C2410C] text-[10px] font-bold">
+                          {row.unmapped} Unmapped
+                        </span>
+                      )}
+                    </button>
+                  )
+                },
+                {
+                  key: 'total',
+                  label: 'Total',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('total_today', { contractor: row.contractorName })}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {row.total}
+                    </button>
+                  )
+                },
+                {
+                  key: 'unassigned',
+                  label: 'Belum Assign',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('unassigned', { contractor: row.contractorName })}
+                      className="hover:underline cursor-pointer"
+                    >
+                      {row.unassigned}
+                    </button>
+                  )
+                },
+                {
+                  key: 'checkedInProgress',
+                  label: 'Progress',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('checked_in_progress', { contractor: row.contractorName })}
+                      className="text-[#1D4ED8] dark:text-blue-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.checkedInProgress}
+                    </button>
+                  )
+                },
+                {
+                  key: 'reportPending',
+                  label: 'Pending',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('report_pending', { contractor: row.contractorName })}
+                      className="text-[#B45309] dark:text-amber-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.reportPending}
+                    </button>
+                  )
+                },
+                {
+                  key: 'reportComplete',
+                  label: 'Complete',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('report_complete', { contractor: row.contractorName })}
+                      className="text-[#15803D] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.reportComplete}
+                    </button>
+                  )
+                },
+                {
+                  key: 'reportReschedule',
+                  label: 'Reschedule',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('report_reschedule', { contractor: row.contractorName })}
+                      className="text-[#6D28D9] dark:text-purple-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.reportReschedule}
+                    </button>
+                  )
+                },
+                {
+                  key: 'reportCancel',
+                  label: 'Cancel',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('report_cancel', { contractor: row.contractorName })}
+                      className="text-[#B91C1C] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.reportCancel}
+                    </button>
+                  )
+                },
+                {
+                  key: 'butuhApproval',
+                  label: 'Butuh Approval',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('butuh_approval', { contractor: row.contractorName })}
+                      className="text-[#C2410C] dark:text-orange-300 font-bold hover:underline cursor-pointer"
+                    >
+                      {row.butuhApproval}
+                    </button>
+                  )
+                },
+                {
+                  key: 'approved',
+                  label: 'Approved',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('approved', { contractor: row.contractorName })}
+                      className="text-[#15803D] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.approved}
+                    </button>
+                  )
+                },
+                {
+                  key: 'revisionRejected',
+                  label: 'Revisi',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('revision_rejected', { contractor: row.contractorName })}
+                      className="text-[#B91C1C] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {row.revisionRejected}
+                    </button>
+                  )
+                },
+                {
+                  key: 'closed',
+                  label: 'Closed',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: row => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('closed', { contractor: row.contractorName })}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {row.closed}
+                    </button>
+                  )
+                }
+              ] as ResponsiveColumn<(typeof effectiveSummary.byVendor)[number]>[]
+            }
+          />
         </div>
       )}
 
       {/* Perspective: Area Breakdown */}
       {perspective === 'area' && (
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e]">
-            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">Ringkasan Per Area / Wilayah</h3>
+        <div className="space-y-2.5">
+          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30]">
+            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
+              Ringkasan Per Area / Wilayah
+            </h3>
           </div>
-          {effectiveSummary.byArea.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">Belum ada data area untuk {todayWIB}.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
-                    <th className="py-2.5 px-3 font-bold">Area</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Total</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Belum Assign</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Progress</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Butuh Approval</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Approved</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Closed</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800 tabular-nums">
-                  {effectiveSummary.byArea.map(a => (
-                    <tr key={a.area} className="hover:bg-[#F5F1FF]/50">
-                      <td className="py-2.5 px-3 font-semibold text-[#160D29] dark:text-white">
-                        <button
-                          type="button"
-                          onClick={() => onDrillDown('total_today', { area: a.area })}
-                          className="hover:text-[#7135B5] hover:underline"
-                        >
-                          {a.area}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-bold">{a.total}</td>
-                      <td className="py-2.5 px-3 text-right text-[#475569]">{a.unassigned}</td>
-                      <td className="py-2.5 px-3 text-right text-[#1D4ED8] font-semibold">{a.checkedInProgress}</td>
-                      <td className="py-2.5 px-3 text-right text-[#C2410C] font-bold">{a.butuhApproval}</td>
-                      <td className="py-2.5 px-3 text-right text-[#15803D] font-semibold">{a.approved}</td>
-                      <td className="py-2.5 px-3 text-right font-bold">{a.closed}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveDataTable
+            data={effectiveSummary.byArea}
+            getRowKey={a => a.area}
+            mobileTitle={a => a.area}
+            mobileSubtitle={a => `${a.total} Total WO • ${a.closed} Closed`}
+            onRowClick={a => onDrillDown('total_today', { area: a.area })}
+            emptyState={{
+              title: 'Belum ada data area',
+              description: `Belum ada data area untuk ${todayWIB}.`
+            }}
+            columns={
+              [
+                {
+                  key: 'area',
+                  label: 'Area',
+                  priority: 'hidden_mobile',
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={() => onDrillDown('total_today', { area: a.area })}
+                      className="font-semibold text-[#160D29] dark:text-white hover:text-[#7135B5] hover:underline cursor-pointer"
+                    >
+                      {a.area}
+                    </button>
+                  )
+                },
+                { key: 'total', label: 'Total', align: 'right', numeric: true, priority: 'primary', render: a => <strong>{a.total}</strong> },
+                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, priority: 'secondary', render: a => a.unassigned },
+                {
+                  key: 'progress',
+                  label: 'Progress',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: a => <span className="text-[#1D4ED8] dark:text-blue-300 font-semibold">{a.checkedInProgress}</span>
+                },
+                {
+                  key: 'butuhApproval',
+                  label: 'Butuh Approval',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: a => <span className="text-[#C2410C] dark:text-orange-300 font-bold">{a.butuhApproval}</span>
+                },
+                {
+                  key: 'approved',
+                  label: 'Approved',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'secondary',
+                  render: a => <span className="text-[#15803D] dark:text-emerald-300 font-semibold">{a.approved}</span>
+                },
+                { key: 'closed', label: 'Closed', align: 'right', numeric: true, priority: 'primary', render: a => <strong>{a.closed}</strong> }
+              ] as ResponsiveColumn<(typeof effectiveSummary.byArea)[number]>[]
+            }
+          />
         </div>
       )}
 
       {/* Perspective: Leader Breakdown */}
       {perspective === 'leader' && (
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e]">
-            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">Distribusi &amp; Beban Kerja Leader</h3>
+        <div className="space-y-2.5">
+          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30]">
+            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
+              Distribusi &amp; Beban Kerja Leader
+            </h3>
           </div>
-          {effectiveSummary.byLeader.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">Belum ada data Leader untuk {todayWIB}.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
-                    <th className="py-2.5 px-3 font-bold">Leader</th>
-                    <th className="py-2.5 px-3 font-bold">Vendor</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Total</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Belum Assign</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Assigned</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Progress</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Butuh Approval</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Closed</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800 tabular-nums">
-                  {effectiveSummary.byLeader.map((l, idx) => (
-                    <tr key={`${l.leaderName}_${idx}`} className="hover:bg-[#F5F1FF]/50">
-                      <td className="py-2.5 px-3 font-semibold text-[#160D29] dark:text-white">{l.leaderName}</td>
-                      <td className="py-2.5 px-3 text-[#475569] dark:text-slate-300">{l.contractorName}</td>
-                      <td className="py-2.5 px-3 text-right font-bold">{l.total}</td>
-                      <td className="py-2.5 px-3 text-right">{l.unassigned}</td>
-                      <td className="py-2.5 px-3 text-right text-[#1D4ED8]">{l.assigned}</td>
-                      <td className="py-2.5 px-3 text-right text-[#1D4ED8] font-semibold">{l.checkedInProgress}</td>
-                      <td className="py-2.5 px-3 text-right text-[#C2410C] font-bold">{l.butuhApproval}</td>
-                      <td className="py-2.5 px-3 text-right font-bold">{l.closed}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveDataTable
+            data={effectiveSummary.byLeader}
+            getRowKey={(l, idx) => `${l.leaderName}_${idx}`}
+            mobileTitle={l => l.leaderName}
+            mobileSubtitle={l => l.contractorName}
+            emptyState={{
+              title: 'Belum ada data Leader',
+              description: `Belum ada data Leader untuk ${todayWIB}.`
+            }}
+            columns={
+              [
+                { key: 'leaderName', label: 'Leader', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#160D29] dark:text-white', render: l => l.leaderName },
+                { key: 'contractorName', label: 'Vendor', priority: 'hidden_mobile', tdClassName: 'text-[#475569] dark:text-slate-300', render: l => l.contractorName },
+                { key: 'total', label: 'Total', align: 'right', numeric: true, priority: 'primary', render: l => <strong>{l.total}</strong> },
+                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, priority: 'secondary', render: l => l.unassigned },
+                { key: 'assigned', label: 'Assigned', align: 'right', numeric: true, priority: 'secondary', render: l => <span className="text-[#1D4ED8] dark:text-blue-300">{l.assigned}</span> },
+                { key: 'checkedInProgress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#1D4ED8] dark:text-blue-300 font-semibold">{l.checkedInProgress}</span> },
+                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#C2410C] dark:text-orange-300 font-bold">{l.butuhApproval}</span> },
+                { key: 'closed', label: 'Closed', align: 'right', numeric: true, priority: 'primary', render: l => <strong>{l.closed}</strong> }
+              ] as ResponsiveColumn<(typeof effectiveSummary.byLeader)[number]>[]
+            }
+          />
         </div>
       )}
 
       {/* Perspective: Installer Breakdown */}
       {perspective === 'installer' && (
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] overflow-hidden">
-          <div className="px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30] border-b border-[#e8ddff] dark:border-[#35105e]">
-            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">Produktivitas &amp; Status Pekerjaan Teknisi</h3>
+        <div className="space-y-2.5">
+          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] px-4 py-3 bg-[#f8f1ff] dark:bg-[#1a0f30]">
+            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
+              Produktivitas &amp; Status Pekerjaan Teknisi
+            </h3>
           </div>
-          {effectiveSummary.byInstaller.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">Belum ada teknisi yang di-assign untuk {todayWIB}.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#f3eaff] dark:bg-[#251545] text-[11px] uppercase text-[#58149c] dark:text-[#dab9ff] border-b border-[#e8ddff] dark:border-[#35105e]">
-                    <th className="py-2.5 px-3 font-bold">Teknisi / Installer</th>
-                    <th className="py-2.5 px-3 font-bold">Vendor</th>
-                    <th className="py-2.5 px-3 font-bold">Area</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Total WO</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Progress</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Butuh Approval</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Approved</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Revisi</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Closed</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800 tabular-nums">
-                  {effectiveSummary.byInstaller.map((inst, idx) => (
-                    <tr key={`${inst.installerName}_${idx}`} className="hover:bg-[#F5F1FF]/50">
-                      <td className="py-2.5 px-3 font-semibold text-[#160D29] dark:text-white">{inst.installerName}</td>
-                      <td className="py-2.5 px-3 text-[#475569] dark:text-slate-300">{inst.contractorName}</td>
-                      <td className="py-2.5 px-3 text-[#475569] dark:text-slate-300">{inst.area}</td>
-                      <td className="py-2.5 px-3 text-right font-bold">{inst.total}</td>
-                      <td className="py-2.5 px-3 text-right text-[#1D4ED8] font-semibold">{inst.checkedInProgress}</td>
-                      <td className="py-2.5 px-3 text-right text-[#C2410C] font-bold">{inst.butuhApproval}</td>
-                      <td className="py-2.5 px-3 text-right text-[#15803D] font-semibold">{inst.approved}</td>
-                      <td className="py-2.5 px-3 text-right text-[#B91C1C] font-semibold">{inst.revisionRejected}</td>
-                      <td className="py-2.5 px-3 text-right font-bold">
-                        <StatusBadge status={inst.closed > 0 ? 'CLOSED' : 'PROGRESS'} size="xs" />
-                        <span className="ml-1.5">{inst.closed}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveDataTable
+            data={effectiveSummary.byInstaller}
+            getRowKey={(inst, idx) => `${inst.installerName}_${idx}`}
+            mobileTitle={inst => inst.installerName}
+            mobileSubtitle={inst => `${inst.contractorName} • ${inst.area}`}
+            mobileStatus={inst => <StatusBadge status={inst.closed > 0 ? 'CLOSED' : 'PROGRESS'} size="xs" />}
+            emptyState={{
+              title: 'Belum ada teknisi yang di-assign',
+              description: `Belum ada teknisi yang di-assign untuk ${todayWIB}.`
+            }}
+            columns={
+              [
+                { key: 'installerName', label: 'Teknisi / Installer', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#160D29] dark:text-white', render: inst => inst.installerName },
+                { key: 'contractorName', label: 'Vendor', priority: 'secondary', tdClassName: 'text-[#475569] dark:text-slate-300', render: inst => inst.contractorName },
+                { key: 'area', label: 'Area', priority: 'secondary', tdClassName: 'text-[#475569] dark:text-slate-300', render: inst => inst.area },
+                { key: 'total', label: 'Total WO', align: 'right', numeric: true, priority: 'primary', render: inst => <strong>{inst.total}</strong> },
+                { key: 'progress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#1D4ED8] dark:text-blue-300 font-semibold">{inst.checkedInProgress}</span> },
+                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#C2410C] dark:text-orange-300 font-bold">{inst.butuhApproval}</span> },
+                { key: 'approved', label: 'Approved', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#15803D] dark:text-emerald-300 font-semibold">{inst.approved}</span> },
+                { key: 'revisionRejected', label: 'Revisi', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#B91C1C] dark:text-rose-300 font-semibold">{inst.revisionRejected}</span> },
+                {
+                  key: 'closed',
+                  label: 'Closed',
+                  align: 'right',
+                  numeric: true,
+                  priority: 'primary',
+                  render: inst => (
+                    <div className="inline-flex items-center gap-1.5">
+                      <StatusBadge status={inst.closed > 0 ? 'CLOSED' : 'PROGRESS'} size="xs" />
+                      <strong>{inst.closed}</strong>
+                    </div>
+                  )
+                }
+              ] as ResponsiveColumn<(typeof effectiveSummary.byInstaller)[number]>[]
+            }
+          />
         </div>
       )}
     </section>

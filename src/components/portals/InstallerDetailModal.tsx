@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { User, Ticket, TechnicalReport, AuditLog } from '../../types/index.ts';
-import { StatusInstallerBadge, StatusAgentBadge } from '../common/Badge';
+import { User, Ticket } from '../../types/index.ts';
+import { StatusInstallerBadge } from '../common/Badge';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
-  X,
   UserCheck,
   Phone,
   Mail,
@@ -14,8 +14,6 @@ import {
   XCircle,
   FileText,
   Activity,
-  Layers,
-  Calendar,
   Wrench,
   Gauge,
   ArrowRight
@@ -80,54 +78,47 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
   const completionRate = totalAssigned > 0 ? Math.round((completedWOs.length / totalAssigned) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden text-xs">
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
-              <Wrench className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  {installer.name}
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  Teknisi Lapangan
-                </span>
-                <span className={`w-2 h-2 rounded-full ${installer.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-              </div>
-              <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                @{installer.username} · {installer.contractor || 'Mitra Kontraktor'} · ID: {installer.id}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {onQuickAssign && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onQuickAssign(installer.name);
-                }}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-xs"
-              >
-                + Assign WO
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    <ResponsiveModal
+      isOpen={isOpen && Boolean(installer)}
+      onClose={onClose}
+      title={installer.name}
+      subtitle={`Teknisi Lapangan · @${installer.username} · ${installer.contractor || 'Mitra Kontraktor'}`}
+      icon={<Wrench className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+      size="xl"
+      mobileVariant="fullscreen"
+      zIndexClass="z-60"
+      headerExtra={
+        onQuickAssign ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onQuickAssign(installer.name);
+            }}
+            className="min-h-[36px] px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-xs text-xs whitespace-nowrap cursor-pointer"
+          >
+            + Assign WO
+          </button>
+        ) : undefined
+      }
+      footer={
+        <div className="flex items-center justify-between gap-2 w-full text-xs">
+          <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate">
+            Portal Monitoring Teknisi MoraJaws
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[42px] sm:min-h-[38px] px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-semibold text-slate-800 dark:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+          >
+            Tutup
+          </button>
         </div>
-
+      }
+    >
+      <div className="flex flex-col space-y-4 text-xs">
         {/* 7 Tab Navigation */}
-        <div className="flex items-center gap-1 px-5 pt-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-semibold text-xs overflow-x-auto">
+        <div className="flex items-center gap-1 -mx-4 sm:-mx-6 px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('summary')}
             className={`pb-2.5 px-3 border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
@@ -214,7 +205,7 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
         </div>
 
         {/* Tab Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="space-y-4">
           {/* TAB 1: SUMMARY */}
           {activeTab === 'summary' && (
             <div className="space-y-4">
@@ -519,21 +510,7 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 flex items-center justify-between text-xs">
-          <span className="text-slate-500 font-mono text-[11px]">
-            Portal Monitoring Teknisi MoraJaws
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-semibold text-slate-800 dark:text-slate-200 rounded-lg transition-colors"
-          >
-            Tutup
-          </button>
-        </div>
       </div>
-    </div>
+    </ResponsiveModal>
   );
 };

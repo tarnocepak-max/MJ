@@ -29,6 +29,7 @@ import {
 import { getJakartaDateString } from '../../services/appointmentDateParser';
 import { DroplistManagementView } from './DroplistManagementView';
 import { SoundSettingsView } from './SoundSettingsView';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface SystemSettingsProps {
   defaultTab?: 'core_config' | 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
@@ -1019,53 +1020,90 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </form>
           )}
 
-          <div className="overflow-x-auto border border-[#E9E5F0] dark:border-[#35105E] rounded-xl">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#F7F6FA] dark:bg-[#160D29] text-[11px] font-bold text-[#494453] dark:text-[#CEC0E8] uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">Nama Vendor</th>
-                  <th className="py-2.5 px-3">Kode</th>
-                  <th className="py-2.5 px-3">Leader / Korlap</th>
-                  <th className="py-2.5 px-3">Coverage Area</th>
-                  <th className="py-2.5 px-3">Kontak</th>
-                  <th className="py-2.5 px-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
-                {contractors.map((c, cIdx) => (
-                  <tr key={`settings-contractor-row-${c.id || c.name}-${cIdx}`} className="hover:bg-[#F5F1FF]/50 dark:hover:bg-[#35105E]/30">
-                    <td className="py-2.5 px-3 font-semibold text-[#211A2E] dark:text-white">
-                      {c.name}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[#7135B5] dark:text-[#D8B4FE] font-bold">
-                      {c.code}
-                    </td>
-                    <td className="py-2.5 px-3 font-medium text-[#494453] dark:text-[#CEC0E8]">
-                      {c.leaderName || <span className="text-[#8B8495] italic">Belum ada leader</span>}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <div className="flex flex-wrap gap-1">
-                        {c.coverageAreas.map(a => (
-                          <span key={a} className="px-2 py-0.5 rounded-full bg-[#F5F1FF] dark:bg-[#35105E] text-[10px] font-semibold text-[#431599] dark:text-[#D8B4FE]">
-                            {a}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-[#766B83] dark:text-[#CEC0E8]">
-                      <div>{c.phone || '-'}</div>
-                      <div className="text-[11px] text-[#8B8495]">{c.email || ''}</div>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
-                        {c.active ? 'Aktif' : 'Nonaktif'}
+          <ResponsiveDataTable<Contractor>
+            data={contractors}
+            getRowKey={(c, cIdx) => `settings-contractor-row-${c.id || c.name}-${cIdx}`}
+            emptyState={{
+              title: 'Belum ada vendor kontraktor',
+              description: 'Tambahkan vendor kontraktor baru untuk mengaktifkan alokasi penugasan.'
+            }}
+            mobileTitle={c => <span className="font-bold text-[#211A2E] dark:text-white">{c.name}</span>}
+            mobileSubtitle={c => (
+              <span className="font-mono text-[#7135B5] dark:text-[#D8B4FE]">
+                Kode: {c.code} · Leader: {c.leaderName || 'Belum ada leader'}
+              </span>
+            )}
+            mobileStatus={c => (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
+                {c.active ? 'Aktif' : 'Nonaktif'}
+              </span>
+            )}
+            columns={[
+              {
+                key: 'name',
+                label: 'Nama Vendor',
+                priority: 'hidden_mobile',
+                render: c => <span className="font-semibold text-[#211A2E] dark:text-white">{c.name}</span>
+              },
+              {
+                key: 'code',
+                label: 'Kode',
+                priority: 'hidden_mobile',
+                render: c => (
+                  <span className="font-mono text-[#7135B5] dark:text-[#D8B4FE] font-bold">{c.code}</span>
+                )
+              },
+              {
+                key: 'leaderName',
+                label: 'Leader / Korlap',
+                priority: 'primary',
+                render: c =>
+                  c.leaderName ? (
+                    <span className="font-medium text-[#494453] dark:text-[#CEC0E8]">{c.leaderName}</span>
+                  ) : (
+                    <span className="text-[#8B8495] italic">Belum ada leader</span>
+                  )
+              },
+              {
+                key: 'coverageAreas',
+                label: 'Coverage Area',
+                priority: 'primary',
+                render: c => (
+                  <div className="flex flex-wrap gap-1">
+                    {c.coverageAreas.map(a => (
+                      <span
+                        key={a}
+                        className="px-2 py-0.5 rounded-full bg-[#F5F1FF] dark:bg-[#35105E] text-[10px] font-semibold text-[#431599] dark:text-[#D8B4FE]"
+                      >
+                        {a}
                       </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    ))}
+                  </div>
+                )
+              },
+              {
+                key: 'contact',
+                label: 'Kontak',
+                priority: 'secondary',
+                render: c => (
+                  <div className="text-[#766B83] dark:text-[#CEC0E8]">
+                    <div>{c.phone || '-'}</div>
+                    <div className="text-[11px] text-[#8B8495]">{c.email || ''}</div>
+                  </div>
+                )
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                priority: 'hidden_mobile',
+                render: c => (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
+                    {c.active ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                )
+              }
+            ] satisfies ResponsiveColumn<Contractor>[]}
+          />
         </div>
       )}
 
@@ -1273,83 +1311,164 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             Kamus Alias Header Terdaftar ({headerMappings.length} Fields)
           </h4>
 
-          <div className="overflow-x-auto border border-[#E9E5F0] dark:border-[#35105E] rounded-xl">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#F7F6FA] dark:bg-[#160D29] text-[11px] font-bold text-[#494453] dark:text-[#CEC0E8] uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">Standard Field</th>
-                  <th className="py-2.5 px-3">Label</th>
-                  <th className="py-2.5 px-3">Kategori</th>
-                  <th className="py-2.5 px-3">Wajib</th>
-                  <th className="py-2.5 px-3">Daftar Alias (Dipisahkan Koma)</th>
-                  <th className="py-2.5 px-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
-                {headerMappings.map(mapping => {
+          <ResponsiveDataTable
+            data={headerMappings}
+            getRowKey={m => m.standardField}
+            mobileTitle={m => (
+              <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">{m.standardField}</span>
+            )}
+            mobileSubtitle={m => `${m.label} · ${m.category}`}
+            mobileStatus={m =>
+              m.required ? (
+                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-[#DC4C5A] text-[10px] font-bold">
+                  Wajib
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[#8B8495] text-[10px] font-semibold">
+                  Opsional
+                </span>
+              )
+            }
+            columns={[
+              {
+                key: 'standardField',
+                label: 'Standard Field',
+                priority: 'hidden_mobile',
+                render: mapping => (
+                  <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE] whitespace-nowrap">
+                    {mapping.standardField}
+                  </span>
+                )
+              },
+              {
+                key: 'label',
+                label: 'Label',
+                priority: 'hidden_mobile',
+                render: mapping => (
+                  <span className="font-medium whitespace-nowrap text-[#211A2E] dark:text-white">
+                    {mapping.label}
+                  </span>
+                )
+              },
+              {
+                key: 'category',
+                label: 'Kategori',
+                priority: 'secondary',
+                render: mapping => (
+                  <span className="font-mono text-[11px] text-[#766B83] uppercase whitespace-nowrap">
+                    {mapping.category}
+                  </span>
+                )
+              },
+              {
+                key: 'required',
+                label: 'Wajib',
+                priority: 'hidden_mobile',
+                render: mapping =>
+                  mapping.required ? (
+                    <span className="text-[#DC4C5A] font-bold">Yes</span>
+                  ) : (
+                    <span className="text-[#8B8495]">Optional</span>
+                  )
+              },
+              {
+                key: 'aliases',
+                label: 'Daftar Alias (Dipisahkan Koma)',
+                priority: 'primary',
+                render: mapping => {
                   const isEditing = editingField === mapping.standardField;
-                  return (
-                    <tr key={mapping.standardField} className="hover:bg-[#F5F1FF]/50 dark:hover:bg-[#35105E]/30">
-                      <td className="py-2.5 px-3 font-mono font-bold text-[#431599] dark:text-[#D8B4FE] whitespace-nowrap">
-                        {mapping.standardField}
-                      </td>
-                      <td className="py-2.5 px-3 font-medium whitespace-nowrap text-[#211A2E] dark:text-white">
-                        {mapping.label}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-[#766B83] uppercase whitespace-nowrap">
-                        {mapping.category}
-                      </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        {mapping.required ? (
-                          <span className="text-[#DC4C5A] font-bold">Yes</span>
-                        ) : (
-                          <span className="text-[#8B8495]">Optional</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={aliasInput}
-                            onChange={e => setAliasInput(e.target.value)}
-                            className="w-full p-1.5 border border-[#D8CCF3] dark:border-[#35105E] rounded-lg bg-white dark:bg-[#160D29] text-xs"
-                          />
-                        ) : (
-                          <span className="text-[#494453] dark:text-[#CEC0E8]">
-                            {mapping.aliases.join(', ')}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        {isEditing && isSuperAdmin ? (
+                  return isEditing ? (
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        value={aliasInput}
+                        onChange={e => setAliasInput(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        className="w-full p-1.5 min-h-[36px] border border-[#D8CCF3] dark:border-[#35105E] rounded-lg bg-white dark:bg-[#160D29] text-xs"
+                      />
+                      {isSuperAdmin && (
+                        <div className="flex items-center gap-1.5 sm:hidden">
                           <button
                             type="button"
                             disabled={isSaving}
                             onClick={() => handleSaveAliases(mapping.standardField)}
-                            className="px-2.5 py-1 bg-[#16A36A] disabled:opacity-50 text-white rounded-lg text-xs font-bold cursor-pointer"
+                            className="px-3 py-1.5 bg-[#16A36A] text-white rounded-lg text-xs font-bold cursor-pointer"
                           >
                             {isSaving ? '...' : 'Simpan'}
                           </button>
-                        ) : (
                           <button
                             type="button"
-                            disabled={!isSuperAdmin || isSaving}
-                            onClick={() => {
-                              setEditingField(mapping.standardField);
-                              setAliasInput(mapping.aliases.join(', '));
-                            }}
-                            className="px-2.5 py-1 bg-[#F7F6FA] dark:bg-[#160D29] hover:bg-[#F0E3FF] disabled:opacity-40 disabled:cursor-not-allowed text-[#431599] dark:text-[#D8B4FE] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold cursor-pointer"
+                            onClick={() => setEditingField(null)}
+                            className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
                           >
-                            Edit
+                            Batal
                           </button>
-                        )}
-                      </td>
-                    </tr>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[#494453] dark:text-[#CEC0E8] break-words">
+                      {mapping.aliases.join(', ')}
+                    </span>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                }
+              }
+            ]}
+            desktopActionHeader="Action"
+            getRowActions={mapping => {
+              if (!isSuperAdmin) return [];
+              const isEditing = editingField === mapping.standardField;
+              return isEditing
+                ? [
+                    {
+                      id: 'save',
+                      label: isSaving ? 'Menyimpan...' : 'Simpan Alias',
+                      icon: <Check className="w-3.5 h-3.5" />,
+                      onClick: () => handleSaveAliases(mapping.standardField)
+                    },
+                    {
+                      id: 'cancel',
+                      label: 'Batal Edit',
+                      onClick: () => setEditingField(null)
+                    }
+                  ]
+                : [
+                    {
+                      id: 'edit',
+                      label: 'Edit Alias',
+                      onClick: () => {
+                        setEditingField(mapping.standardField);
+                        setAliasInput(mapping.aliases.join(', '));
+                      }
+                    }
+                  ];
+            }}
+            renderDesktopActions={mapping => {
+              const isEditing = editingField === mapping.standardField;
+              return isEditing && isSuperAdmin ? (
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSaveAliases(mapping.standardField)}
+                  className="px-2.5 py-1 bg-[#16A36A] disabled:opacity-50 text-white rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  {isSaving ? '...' : 'Simpan'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!isSuperAdmin || isSaving}
+                  onClick={() => {
+                    setEditingField(mapping.standardField);
+                    setAliasInput(mapping.aliases.join(', '));
+                  }}
+                  className="px-2.5 py-1 bg-[#F7F6FA] dark:bg-[#160D29] hover:bg-[#F0E3FF] disabled:opacity-40 disabled:cursor-not-allowed text-[#431599] dark:text-[#D8B4FE] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold cursor-pointer"
+                >
+                  Edit
+                </button>
+              );
+            }}
+          />
         </div>
       )}
 
@@ -1446,7 +1565,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"
                   disabled={!isSuperAdmin || isSaving}

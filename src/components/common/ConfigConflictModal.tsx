@@ -31,7 +31,7 @@ export const ConfigConflictModal: React.FC<ConfigConflictModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflict-modal-title"
-        className="w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-6 shadow-xl dark:border-amber-900/60 dark:bg-slate-900"
+        className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-2xl border border-amber-200 bg-white p-4 sm:p-6 shadow-xl dark:border-amber-900/60 dark:bg-slate-900"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">

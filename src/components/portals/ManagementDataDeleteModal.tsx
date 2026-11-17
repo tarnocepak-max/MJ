@@ -94,7 +94,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/75 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-y-auto">
         {/* Header with Security Badge */}
         <div className="px-5 py-4 bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-900/60 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">

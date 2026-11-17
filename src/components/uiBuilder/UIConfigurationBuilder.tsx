@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TableColumnsStudio } from './TableColumnsStudio';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 interface UIConfigurationBuilderProps {
   onNavigateToTickets?: () => void;
@@ -1976,101 +1977,104 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       )}
 
       {/* Save Preset Dialog */}
-      {showPresetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 p-6 w-full max-w-md space-y-4 text-xs">
-            <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-              Simpan Preset Tampilan Kolom
-            </h4>
-            <div>
-              <label className="block text-slate-700 dark:text-slate-300 mb-1 font-medium">Nama Preset</label>
-              <input
-                type="text"
-                placeholder="misal: Tampilan Fokus SLA & WA"
-                value={newPresetName}
-                onChange={e => setNewPresetName(e.target.value)}
-                className="w-full px-3 py-1.5 border rounded bg-slate-50 dark:bg-slate-800"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-700 dark:text-slate-300 mb-1 font-medium">Deskripsi Singkat</label>
-              <input
-                type="text"
-                placeholder="Penjelasan layout ini"
-                value={newPresetDesc}
-                onChange={e => setNewPresetDesc(e.target.value)}
-                className="w-full px-3 py-1.5 border rounded bg-slate-50 dark:bg-slate-800"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowPresetModal(false)}
-                disabled={isCloudSyncing}
-                className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleSavePreset}
-                disabled={!isSuperAdmin || isCloudSyncing}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded shadow-sm disabled:opacity-50"
-              >
-                {isCloudSyncing ? 'Menyimpan...' : 'Simpan Preset'}
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={showPresetModal}
+        onClose={() => setShowPresetModal(false)}
+        title="Simpan Preset Tampilan Kolom"
+        icon={<Save className="w-4 h-4" />}
+        size="sm"
+        mobileVariant="sheet"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowPresetModal(false)}
+              disabled={isCloudSyncing}
+              className="px-3.5 py-2 min-h-[38px] text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSavePreset}
+              disabled={!isSuperAdmin || isCloudSyncing}
+              className="px-4 py-2 min-h-[38px] text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              {isCloudSyncing ? 'Menyimpan...' : 'Simpan Preset'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 mb-1 font-medium">Nama Preset</label>
+            <input
+              type="text"
+              placeholder="misal: Tampilan Fokus SLA & WA"
+              value={newPresetName}
+              onChange={e => setNewPresetName(e.target.value)}
+              className="w-full px-3 py-2 min-h-[38px] border rounded-lg bg-slate-50 dark:bg-slate-800"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-700 dark:text-slate-300 mb-1 font-medium">Deskripsi Singkat</label>
+            <input
+              type="text"
+              placeholder="Penjelasan layout ini"
+              value={newPresetDesc}
+              onChange={e => setNewPresetDesc(e.target.value)}
+              className="w-full px-3 py-2 min-h-[38px] border rounded-lg bg-slate-50 dark:bg-slate-800"
+            />
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* Confirmation Modal (Replaces native window.confirm) */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 w-full max-w-md space-y-4 text-xs">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                  {confirmModal === 'pull'
-                    ? 'Tarik Konfigurasi Master dari Supabase?'
-                    : confirmModal === 'reset_ui'
-                    ? 'Reset Seluruh Layout UI ke Standar Sistem?'
-                    : 'Reset Susunan Menu & Kategori ke Bawaan?'}
-                </h4>
-                <p className="text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                  {confirmModal === 'pull'
-                    ? 'Tindakan ini akan memuat konfigurasi terbaru dari tabel app_settings Supabase PostgreSQL dan membuang draft lokal yang belum disimpan.'
-                    : confirmModal === 'reset_ui'
-                    ? 'Seluruh pengaturan layout, tema, dan kolom tabel akan dikembalikan ke standar default sistem dan langsung disimpan ke database global.'
-                    : 'Seluruh susunan kategori dan menu navigasi akan dikembalikan ke konfigurasi bawaan dan disimpan ke database global.'}
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setConfirmModal(null)}
-                className="px-3.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={executeConfirmAction}
-                disabled={isCloudSyncing}
-                className={`px-4 py-1.5 text-white font-semibold rounded-lg shadow-sm disabled:opacity-50 ${
-                  confirmModal === 'pull'
-                    ? 'bg-indigo-600 hover:bg-indigo-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                Ya, Lanjutkan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResponsiveModal
+        isOpen={Boolean(confirmModal)}
+        onClose={() => setConfirmModal(null)}
+        title={
+          confirmModal === 'pull'
+            ? 'Tarik Konfigurasi Master dari Supabase?'
+            : confirmModal === 'reset_ui'
+            ? 'Reset Seluruh Layout UI ke Standar Sistem?'
+            : 'Reset Susunan Menu & Kategori ke Bawaan?'
+        }
+        icon={<AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
+        size="sm"
+        mobileVariant="sheet"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmModal(null)}
+              className="px-3.5 py-2 min-h-[38px] text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={executeConfirmAction}
+              disabled={isCloudSyncing}
+              className={`px-4 py-2 min-h-[38px] text-xs text-white font-semibold rounded-lg shadow-sm disabled:opacity-50 cursor-pointer ${
+                confirmModal === 'pull'
+                  ? 'bg-indigo-600 hover:bg-indigo-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
+              }`}
+            >
+              Ya, Lanjutkan
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          {confirmModal === 'pull'
+            ? 'Tindakan ini akan memuat konfigurasi terbaru dari tabel app_settings Supabase PostgreSQL dan membuang draft lokal yang belum disimpan.'
+            : confirmModal === 'reset_ui'
+            ? 'Seluruh pengaturan layout, tema, dan kolom tabel akan dikembalikan ke standar default sistem dan langsung disimpan ke database global.'
+            : 'Seluruh susunan kategori dan menu navigasi akan dikembalikan ke konfigurasi bawaan dan disimpan ke database global.'}
+        </p>
+      </ResponsiveModal>
     </div>
   );
 };

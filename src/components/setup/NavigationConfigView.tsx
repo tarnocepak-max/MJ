@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { useToast } from '../../context/ToastContext';
 import { NavCategoryConfig, StandaloneMenuItem, NavSubmenuItem } from '../../types';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
   FolderTree,
   Save,
@@ -1212,637 +1213,602 @@ export const NavigationConfigView: React.FC = () => {
       {/* ================================================================ */}
       {/* MODAL: TAMBAH KATEGORI BARU                                      */}
       {/* ================================================================ */}
-      {showAddCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#35105E] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#35105E]">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-[#D8B4FE]" />
-                Tambah Kategori Navigasi
-              </h3>
+      <ResponsiveModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        title="Tambah Kategori Navigasi"
+        icon={<Plus className="w-4 h-4 text-[#D8B4FE]" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAddCategoryModal(false)}
+              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white rounded-xl cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!newCategoryName.trim()) {
+                  toast.warning('Nama kategori tidak boleh kosong.');
+                  return;
+                }
+                addCategory({
+                  name: newCategoryName.trim(),
+                  icon: newCategoryIcon,
+                  mode: newCategoryMode,
+                  allowMultipleOpen: true
+                });
+                toast.success(`Kategori "${newCategoryName.trim()}" ditambahkan.`);
+                setNewCategoryName('');
+                setShowAddCategoryModal(false);
+              }}
+              className="px-4 py-2 text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
+            >
+              Tambah Kategori
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Nama Kategori
+            </label>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={e => setNewCategoryName(e.target.value)}
+              placeholder="Contoh: Operasional Khusus"
+              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Ikon Kategori
+            </label>
+            <select
+              value={newCategoryIcon}
+              onChange={e => setNewCategoryIcon(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+            >
+              {AVAILABLE_ICONS.map(i => (
+                <option key={i.name} value={i.name}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Mode Tampilan
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setShowAddCategoryModal(false)}
-                className="text-purple-400 hover:text-white"
+                onClick={() => setNewCategoryMode('accordion')}
+                className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                  newCategoryMode === 'accordion'
+                    ? 'bg-[#7135B5]/40 border-[#D8B4FE] text-white'
+                    : 'bg-[#100921] border-[#35105E] text-purple-300'
+                }`}
               >
-                <X className="w-5 h-5" />
+                Accordion (Collapsible)
               </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Nama Kategori
-                </label>
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={e => setNewCategoryName(e.target.value)}
-                  placeholder="Contoh: Operasional Khusus"
-                  className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Ikon Kategori
-                </label>
-                <select
-                  value={newCategoryIcon}
-                  onChange={e => setNewCategoryIcon(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
-                >
-                  {AVAILABLE_ICONS.map(i => (
-                    <option key={i.name} value={i.name}>
-                      {i.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Mode Tampilan
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewCategoryMode('accordion')}
-                    className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
-                      newCategoryMode === 'accordion'
-                        ? 'bg-[#7135B5]/40 border-[#D8B4FE] text-white'
-                        : 'bg-[#100921] border-[#35105E] text-purple-300'
-                    }`}
-                  >
-                    Accordion (Collapsible)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewCategoryMode('static')}
-                    className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
-                      newCategoryMode === 'static'
-                        ? 'bg-[#7135B5]/40 border-[#D8B4FE] text-white'
-                        : 'bg-[#100921] border-[#35105E] text-purple-300'
-                    }`}
-                  >
-                    Static (Selalu Terbuka)
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#35105E]">
               <button
                 type="button"
-                onClick={() => setShowAddCategoryModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white rounded-xl"
+                onClick={() => setNewCategoryMode('static')}
+                className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                  newCategoryMode === 'static'
+                    ? 'bg-[#7135B5]/40 border-[#D8B4FE] text-white'
+                    : 'bg-[#100921] border-[#35105E] text-purple-300'
+                }`}
               >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!newCategoryName.trim()) {
-                    toast.warning('Nama kategori tidak boleh kosong.');
-                    return;
-                  }
-                  addCategory({
-                    name: newCategoryName.trim(),
-                    icon: newCategoryIcon,
-                    mode: newCategoryMode,
-                    allowMultipleOpen: true
-                  });
-                  toast.success(`Kategori "${newCategoryName.trim()}" ditambahkan.`);
-                  setNewCategoryName('');
-                  setShowAddCategoryModal(false);
-                }}
-                className="px-4 py-2 text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
-              >
-                Tambah Kategori
+                Static (Selalu Terbuka)
               </button>
             </div>
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* ================================================================ */}
       {/* MODAL: HAPUS KATEGORI & OPSI SUBMENU                             */}
       {/* ================================================================ */}
-      {deletingCategory && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-rose-500/40 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <div>
-                <h3 className="text-base font-bold text-white">
-                  Hapus Kategori "{deletingCategory.name}"?
-                </h3>
-                <p className="text-xs text-purple-300">
-                  Pilih penanganan untuk submenu yang berada di dalam kategori ini:
-                </p>
+      <ResponsiveModal
+        isOpen={Boolean(deletingCategory)}
+        onClose={() => setDeletingCategory(null)}
+        title={deletingCategory ? `Hapus Kategori "${deletingCategory.name}"?` : 'Hapus Kategori'}
+        subtitle="Pilih penanganan untuk submenu yang berada di dalam kategori ini"
+        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeletingCategory(null)}
+              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!deletingCategory) return;
+                deleteCategory(deletingCategory.id, deleteSubmenuAction, deleteTargetCategoryId);
+                toast.success(`Kategori "${deletingCategory.name}" telah dihapus.`);
+                setDeletingCategory(null);
+              }}
+              className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer"
+            >
+              Hapus Kategori
+            </button>
+          </>
+        }
+      >
+        {deletingCategory && (
+          <div className="space-y-3">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#100921] border border-[#35105E] cursor-pointer">
+              <input
+                type="radio"
+                name="delAction"
+                checked={deleteSubmenuAction === 'move'}
+                onChange={() => setDeleteSubmenuAction('move')}
+                className="mt-0.5 text-purple-500 focus:ring-0"
+              />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-bold text-white block">
+                  Pindahkan Submenu ke Kategori Lain
+                </span>
+                <select
+                  value={deleteTargetCategoryId}
+                  onChange={e => setDeleteTargetCategoryId(e.target.value)}
+                  disabled={deleteSubmenuAction !== 'move'}
+                  className="mt-2 w-full px-2.5 py-1.5 text-xs bg-[#160D29] border border-[#35105E] text-white rounded-lg focus:outline-hidden"
+                >
+                  {sortedCategories
+                    .filter(c => c.id !== deletingCategory.id)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.id})
+                      </option>
+                    ))}
+                </select>
               </div>
-            </div>
+            </label>
 
-            <div className="space-y-3 pt-2">
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#100921] border border-[#35105E] cursor-pointer">
-                <input
-                  type="radio"
-                  name="delAction"
-                  checked={deleteSubmenuAction === 'move'}
-                  onChange={() => setDeleteSubmenuAction('move')}
-                  className="mt-0.5 text-purple-500 focus:ring-0"
-                />
-                <div className="flex-1">
-                  <span className="text-xs font-bold text-white block">
-                    Pindahkan Submenu ke Kategori Lain
-                  </span>
-                  <select
-                    value={deleteTargetCategoryId}
-                    onChange={e => setDeleteTargetCategoryId(e.target.value)}
-                    disabled={deleteSubmenuAction !== 'move'}
-                    className="mt-2 w-full px-2.5 py-1.5 text-xs bg-[#160D29] border border-[#35105E] text-white rounded-lg focus:outline-hidden"
-                  >
-                    {sortedCategories
-                      .filter(c => c.id !== deletingCategory.id)
-                      .map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.id})
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#100921] border border-[#35105E] cursor-pointer">
-                <input
-                  type="radio"
-                  name="delAction"
-                  checked={deleteSubmenuAction === 'disable'}
-                  onChange={() => setDeleteSubmenuAction('disable')}
-                  className="mt-0.5 text-purple-500 focus:ring-0"
-                />
-                <div>
-                  <span className="text-xs font-bold text-white block">
-                    Nonaktifkan Seluruh Submenu
-                  </span>
-                  <span className="text-[11px] text-purple-300">
-                    Submenu akan disembunyikan dari navigasi tanpa menghapus fungsi atau halaman aslinya.
-                  </span>
-                </div>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setDeletingCategory(null)}
-                className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  deleteCategory(deletingCategory.id, deleteSubmenuAction, deleteTargetCategoryId);
-                  toast.success(`Kategori "${deletingCategory.name}" telah dihapus.`);
-                  setDeletingCategory(null);
-                }}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer"
-              >
-                Hapus Kategori
-              </button>
-            </div>
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#100921] border border-[#35105E] cursor-pointer">
+              <input
+                type="radio"
+                name="delAction"
+                checked={deleteSubmenuAction === 'disable'}
+                onChange={() => setDeleteSubmenuAction('disable')}
+                className="mt-0.5 text-purple-500 focus:ring-0"
+              />
+              <div>
+                <span className="text-xs font-bold text-white block">
+                  Nonaktifkan Seluruh Submenu
+                </span>
+                <span className="text-[11px] text-purple-300">
+                  Submenu akan disembunyikan dari navigasi tanpa menghapus fungsi atau halaman aslinya.
+                </span>
+              </div>
+            </label>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ================================================================ */}
       {/* MODAL: HAPUS SUBMENU CONFIRMATION                                */}
       {/* ================================================================ */}
-      {deletingSubmenu && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-rose-500/40 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <div>
-                <h3 className="text-base font-bold text-white">
-                  Hapus Submenu &ldquo;{deletingSubmenu.label}&rdquo;?
-                </h3>
-                <p className="text-xs text-purple-300 mt-0.5">
-                  Perubahan akan berlaku secara global setelah Anda menekan tombol Simpan Konfigurasi.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setDeletingSubmenu(null)}
-                className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  deleteSubmenu(deletingSubmenu.id);
-                  toast.info(`Submenu "${deletingSubmenu.label}" dihapus dari draft.`);
-                  setDeletingSubmenu(null);
-                }}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer"
-              >
-                Ya, Hapus Submenu
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResponsiveModal
+        isOpen={Boolean(deletingSubmenu)}
+        onClose={() => setDeletingSubmenu(null)}
+        title={deletingSubmenu ? `Hapus Submenu "${deletingSubmenu.label}"?` : 'Hapus Submenu'}
+        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeletingSubmenu(null)}
+              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!deletingSubmenu) return;
+                deleteSubmenu(deletingSubmenu.id);
+                toast.info(`Submenu "${deletingSubmenu.label}" dihapus dari draft.`);
+                setDeletingSubmenu(null);
+              }}
+              className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer"
+            >
+              Ya, Hapus Submenu
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-purple-300 leading-relaxed">
+          Perubahan akan berlaku secara global setelah Anda menekan tombol Simpan Konfigurasi.
+        </p>
+      </ResponsiveModal>
 
       {/* ================================================================ */}
       {/* MODAL: TAMBAH SUBMENU BARU                                       */}
       {/* ================================================================ */}
-      {showAddSubmenuModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#35105E] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#35105E]">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-[#D8B4FE]" />
-                Tambah Submenu Baru
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddSubmenuModal(false)}
-                className="text-purple-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={showAddSubmenuModal}
+        onClose={() => setShowAddSubmenuModal(false)}
+        title="Tambah Submenu Baru"
+        icon={<Plus className="w-4 h-4 text-[#D8B4FE]" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAddSubmenuModal(false)}
+              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white rounded-xl cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!newSubmenuLabel.trim()) {
+                  toast.warning('Label submenu tidak boleh kosong.');
+                  return;
+                }
+                addSubmenu({
+                  label: newSubmenuLabel.trim(),
+                  icon: newSubmenuIcon,
+                  categoryId: newSubmenuCategoryId,
+                  roles: newSubmenuRoles
+                });
+                toast.success(`Submenu "${newSubmenuLabel.trim()}" ditambahkan.`);
+                setNewSubmenuLabel('');
+                setShowAddSubmenuModal(false);
+              }}
+              className="px-4 py-2 text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
+            >
+              Tambah Submenu
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Label Submenu
+            </label>
+            <input
+              type="text"
+              value={newSubmenuLabel}
+              onChange={e => setNewSubmenuLabel(e.target.value)}
+              placeholder="Contoh: Laporan Mingguan"
+              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+            />
+          </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Label Submenu
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Kategori Induk (Parent Category)
+            </label>
+            <select
+              value={newSubmenuCategoryId}
+              onChange={e => setNewSubmenuCategoryId(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+            >
+              {sortedCategories.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Ikon Submenu
+            </label>
+            <select
+              value={newSubmenuIcon}
+              onChange={e => setNewSubmenuIcon(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+            >
+              {AVAILABLE_ICONS.map(i => (
+                <option key={i.name} value={i.name}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-purple-200 block mb-1">
+              Hak Akses Role
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'].map(r => (
+                <label key={r} className="flex items-center gap-1.5 text-xs text-purple-300">
+                  <input
+                    type="checkbox"
+                    checked={newSubmenuRoles.includes(r)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setNewSubmenuRoles(prev => [...prev, r]);
+                      } else {
+                        setNewSubmenuRoles(prev => prev.filter(x => x !== r));
+                      }
+                    }}
+                    className="rounded border-[#35105E] text-purple-600 focus:ring-0"
+                  />
+                  <span className="capitalize">{r.replace('_', ' ')}</span>
                 </label>
-                <input
-                  type="text"
-                  value={newSubmenuLabel}
-                  onChange={e => setNewSubmenuLabel(e.target.value)}
-                  placeholder="Contoh: Laporan Mingguan"
-                  className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Kategori Induk (Parent Category)
-                </label>
-                <select
-                  value={newSubmenuCategoryId}
-                  onChange={e => setNewSubmenuCategoryId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
-                >
-                  {sortedCategories.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Ikon Submenu
-                </label>
-                <select
-                  value={newSubmenuIcon}
-                  onChange={e => setNewSubmenuIcon(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
-                >
-                  {AVAILABLE_ICONS.map(i => (
-                    <option key={i.name} value={i.name}>
-                      {i.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-purple-200 block mb-1">
-                  Hak Akses Role
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'].map(r => (
-                    <label key={r} className="flex items-center gap-1.5 text-xs text-purple-300">
-                      <input
-                        type="checkbox"
-                        checked={newSubmenuRoles.includes(r)}
-                        onChange={e => {
-                          if (e.target.checked) {
-                            setNewSubmenuRoles(prev => [...prev, r]);
-                          } else {
-                            setNewSubmenuRoles(prev => prev.filter(x => x !== r));
-                          }
-                        }}
-                        className="rounded border-[#35105E] text-purple-600 focus:ring-0"
-                      />
-                      <span className="capitalize">{r.replace('_', ' ')}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setShowAddSubmenuModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white rounded-xl"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!newSubmenuLabel.trim()) {
-                    toast.warning('Label submenu tidak boleh kosong.');
-                    return;
-                  }
-                  addSubmenu({
-                    label: newSubmenuLabel.trim(),
-                    icon: newSubmenuIcon,
-                    categoryId: newSubmenuCategoryId,
-                    roles: newSubmenuRoles
-                  });
-                  toast.success(`Submenu "${newSubmenuLabel.trim()}" ditambahkan.`);
-                  setNewSubmenuLabel('');
-                  setShowAddSubmenuModal(false);
-                }}
-                className="px-4 py-2 text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
-              >
-                Tambah Submenu
-              </button>
+              ))}
             </div>
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* ================================================================ */}
       {/* MODAL: RESET DEFAULT CONFIRMATION                                */}
       {/* ================================================================ */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-rose-500/40 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <div>
-                <h3 className="text-base font-bold text-white">
-                  Reset ke Default Navigasi?
-                </h3>
-                <p className="text-xs text-purple-300">
-                  Tindakan ini akan mengembalikan susunan 7 Menu Mandiri dan 3 Kategori Accordion (Contractor & Area, Installer, Menu Tambahan) ke konfigurasi standar.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#35105E]">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmReset}
-                disabled={isSaving}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer"
-              >
-                Reset Default
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResponsiveModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        title="Reset ke Default Navigasi?"
+        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(false)}
+              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmReset}
+              disabled={isSaving}
+              className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer"
+            >
+              Reset Default
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-purple-300 leading-relaxed">
+          Tindakan ini akan mengembalikan susunan 7 Menu Mandiri dan 3 Kategori Accordion (Contractor &amp; Area, Installer, Menu Tambahan) ke konfigurasi standar.
+        </p>
+      </ResponsiveModal>
 
       {/* ================================================================ */}
       {/* MODAL: LIVE PREVIEW SIDEBAR & WHITE THEME BOTTOM NAV              */}
       {/* ================================================================ */}
-      {showPreviewModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#100A21] border border-[#35105E] rounded-2xl max-w-4xl w-full p-5 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-[#35105E] shrink-0">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-[#D8B4FE]" />
-                  Pratinjau Navigasi MoraJaws
-                </h3>
-                <p className="text-xs text-purple-300">
-                  Pratinjau tampilan navigasi Sidebar dan Bottom Navigation Bright Theme dengan berbagai peran user.
-                </p>
-              </div>
-
-              {/* Role selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-purple-300 font-semibold">Simulasikan Role:</span>
-                <select
-                  value={previewRole}
-                  onChange={e => setPreviewRole(e.target.value as any)}
-                  className="px-2.5 py-1.5 text-xs bg-[#160D29] border border-[#7135B5] text-white rounded-lg focus:outline-hidden"
-                >
-                  <option value="super_admin">Super Admin</option>
-                  <option value="dispatch">Dispatch</option>
-                  <option value="leader">Leader / Korlap</option>
-                  <option value="installer">Teknisi / Installer</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowPreviewModal(false)}
-                  className="text-purple-400 hover:text-white ml-2"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      <ResponsiveModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        title="Pratinjau Navigasi MoraJaws"
+        subtitle="Pratinjau tampilan navigasi Sidebar dan Bottom Navigation Bright Theme dengan berbagai peran user."
+        icon={<Eye className="w-4 h-4 text-[#D8B4FE]" />}
+        variant="dark_purple"
+        size="xl"
+        mobileVariant="fullscreen"
+        zIndexClass="z-60"
+        headerExtra={
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-xs text-purple-300 font-semibold whitespace-nowrap">Simulasikan Role:</span>
+            <select
+              value={previewRole}
+              onChange={e => setPreviewRole(e.target.value as any)}
+              className="px-2.5 py-1.5 text-xs bg-[#160D29] border border-[#7135B5] text-white rounded-lg focus:outline-hidden"
+            >
+              <option value="super_admin">Super Admin</option>
+              <option value="dispatch">Dispatch</option>
+              <option value="leader">Leader / Korlap</option>
+              <option value="installer">Teknisi / Installer</option>
+            </select>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Preview 1: Sidebar Mockup */}
+          <div className="bg-[#100A21] border border-[#35105E] rounded-xl p-3 flex flex-col">
+            <div className="pb-2 border-b border-[#35105E] text-[11px] font-bold text-[#D8B4FE] uppercase">
+              Sidebar Navigation (Dark Purple Gloss)
             </div>
 
-            {/* Preview Grid: Sidebar vs Bottom Nav */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto p-1">
-              {/* Preview 1: Sidebar Mockup */}
-              <div className="bg-[#160D29] border border-[#35105E] rounded-xl p-3 flex flex-col">
-                <div className="pb-2 border-b border-[#35105E] text-[11px] font-bold text-[#D8B4FE] uppercase">
-                  Sidebar Navigation (Dark Purple Gloss)
-                </div>
-
-                <div className="flex-1 py-2 space-y-2 overflow-y-auto">
-                  {/* Standalone items */}
-                  <div className="space-y-1">
-                    {previewRole === 'installer' ? (
-                      <>
-                        <div className="px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white border-l-4 border-l-[#D8B4FE] flex items-center gap-2">
-                          <LayoutDashboard className="w-4 h-4 text-[#D8B4FE]" />
-                          <span>Dashboard Installer</span>
-                        </div>
-                        <div className="px-3 py-2 rounded-xl text-xs font-semibold text-purple-200 hover:bg-[#35105E]/50 flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-purple-300" />
-                          <span>Tugas Saya</span>
-                        </div>
-                      </>
-                    ) : (
-                      sortedStandaloneMenus
-                        .filter(m => m.visible !== false && (!m.roles || (Array.isArray(m.roles) && m.roles.includes(previewRole))))
-                        .map((m, idx) => {
-                          const IconComp = getIconComp(m.icon);
-                          return (
-                            <div
-                              key={m.id}
-                              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 ${
-                                idx === 0
-                                  ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white border-l-4 border-l-[#D8B4FE]'
-                                  : 'text-purple-200 hover:bg-[#35105E]/40'
-                              }`}
-                            >
-                              <IconComp className="w-4 h-4 text-[#D8B4FE]" />
-                              <span>{m.label}</span>
-                            </div>
-                          );
-                        })
-                    )}
-                  </div>
-
-                  {/* Accordion Categories for non-installer */}
-                  {previewRole !== 'installer' && (
-                    <div className="space-y-2 pt-2 border-t border-[#35105E]/60">
-                      {sortedCategories
-                        .filter(c => c.isActive !== false)
-                        .map(c => {
-                          const subs = (submenusByCategory.get(c.id) || []).filter(
-                            s => s.visible !== false && (!s.roles || (Array.isArray(s.roles) && s.roles.includes(previewRole)))
-                          );
-                          if (subs.length === 0) return null;
-
-                          const isOpen = !!previewOpenGroups[c.id];
-                          const CatIcon = getIconComp(c.icon);
-
-                          return (
-                            <div key={c.id} className="rounded-xl bg-[#1C1133]/60 border border-[#35105E]/40">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPreviewOpenGroups(prev => ({
-                                    ...prev,
-                                    [c.id]: !prev[c.id]
-                                  }))
-                                }
-                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-purple-200"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <CatIcon className="w-3.5 h-3.5 text-[#D8B4FE]" />
-                                  <span className="uppercase text-[11px]">{c.name}</span>
-                                </div>
-                                <ChevronDown
-                                  className={`w-3.5 h-3.5 transition-transform ${
-                                    isOpen ? 'rotate-180 text-[#D8B4FE]' : ''
-                                  }`}
-                                />
-                              </button>
-
-                              {isOpen && (
-                                <div className="space-y-1 p-1.5 pt-0 border-t border-[#35105E]/30">
-                                  {subs.map(s => {
-                                    const SubIcon = getIconComp(s.icon);
-                                    return (
-                                      <div
-                                        key={s.id}
-                                        className="px-2.5 py-1.5 rounded-lg text-xs text-purple-200 flex items-center gap-2 hover:bg-[#35105E]/40"
-                                      >
-                                        <SubIcon className="w-3.5 h-3.5 text-purple-400" />
-                                        <span>{s.label}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+            <div className="flex-1 py-2 space-y-2 overflow-y-auto">
+              {/* Standalone items */}
+              <div className="space-y-1">
+                {previewRole === 'installer' ? (
+                  <>
+                    <div className="px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white border-l-4 border-l-[#D8B4FE] flex items-center gap-2">
+                      <LayoutDashboard className="w-4 h-4 text-[#D8B4FE]" />
+                      <span>Dashboard Installer</span>
                     </div>
-                  )}
-                </div>
+                    <div className="px-3 py-2 rounded-xl text-xs font-semibold text-purple-200 hover:bg-[#35105E]/50 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-300" />
+                      <span>Tugas Saya</span>
+                    </div>
+                  </>
+                ) : (
+                  sortedStandaloneMenus
+                    .filter(m => m.visible !== false && (!m.roles || (Array.isArray(m.roles) && m.roles.includes(previewRole))))
+                    .map((m, idx) => {
+                      const IconComp = getIconComp(m.icon);
+                      return (
+                        <div
+                          key={m.id}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 ${
+                            idx === 0
+                              ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white border-l-4 border-l-[#D8B4FE]'
+                              : 'text-purple-200 hover:bg-[#35105E]/40'
+                          }`}
+                        >
+                          <IconComp className="w-4 h-4 text-[#D8B4FE]" />
+                          <span>{m.label}</span>
+                        </div>
+                      );
+                    })
+                )}
               </div>
 
-              {/* Preview 2: Mobile Bottom Navigation White Theme */}
-              <div className="bg-slate-100 rounded-xl p-3 flex flex-col justify-between border border-slate-300">
-                <div>
-                  <div className="pb-2 border-b border-slate-300 text-[11px] font-bold text-purple-900 uppercase">
-                    Bottom Navigation (Bright White Theme)
+              {/* Accordion Categories for non-installer */}
+              {previewRole !== 'installer' && (
+                <div className="space-y-2 pt-2 border-t border-[#35105E]/60">
+                  {sortedCategories
+                    .filter(c => c.isActive !== false)
+                    .map(c => {
+                      const subs = (submenusByCategory.get(c.id) || []).filter(
+                        s => s.visible !== false && (!s.roles || (Array.isArray(s.roles) && s.roles.includes(previewRole)))
+                      );
+                      if (subs.length === 0) return null;
+
+                      const isOpen = !!previewOpenGroups[c.id];
+                      const CatIcon = getIconComp(c.icon);
+
+                      return (
+                        <div key={c.id} className="rounded-xl bg-[#1C1133]/60 border border-[#35105E]/40">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewOpenGroups(prev => ({
+                                ...prev,
+                                [c.id]: !prev[c.id]
+                              }))
+                            }
+                            className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-purple-200 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <CatIcon className="w-3.5 h-3.5 text-[#D8B4FE]" />
+                              <span className="uppercase text-[11px]">{c.name}</span>
+                            </div>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform ${
+                                isOpen ? 'rotate-180 text-[#D8B4FE]' : ''
+                              }`}
+                            />
+                          </button>
+
+                          {isOpen && (
+                            <div className="space-y-1 p-1.5 pt-0 border-t border-[#35105E]/30">
+                              {subs.map(s => {
+                                const SubIcon = getIconComp(s.icon);
+                                return (
+                                  <div
+                                    key={s.id}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs text-purple-200 flex items-center gap-2 hover:bg-[#35105E]/40"
+                                  >
+                                    <SubIcon className="w-3.5 h-3.5 text-purple-400" />
+                                    <span>{s.label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Preview 2: Mobile Bottom Navigation White Theme */}
+          <div className="bg-slate-100 rounded-xl p-3 flex flex-col justify-between border border-slate-300">
+            <div>
+              <div className="pb-2 border-b border-slate-300 text-[11px] font-bold text-purple-900 uppercase">
+                Bottom Navigation (Bright White Theme)
+              </div>
+              <p className="text-xs text-slate-600 mt-2">
+                Menggunakan background putih bersih (#FFFFFF), highlight aktif (#F3EDFA), teks/ikon aktif (#6F35A5), serta indicator (#8B4BC1).
+              </p>
+            </div>
+
+            {/* Mockup of White Theme Bottom Bar */}
+            <div className="mt-8 bg-[#FFFFFF] border-t border-[#E9E1F0] rounded-xl shadow-lg p-2 flex items-center justify-around">
+              {previewRole === 'installer' ? (
+                <>
+                  <div className="flex flex-col items-center py-1 px-3 rounded-xl bg-[#F3EDFA] text-[#6F35A5]">
+                    <LayoutDashboard className="w-5 h-5 text-[#6F35A5]" />
+                    <span className="text-[10px] font-bold mt-0.5">Beranda</span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-2">
-                    Menggunakan background putih bersih (#FFFFFF), highlight aktif (#F3EDFA), teks/ikon aktif (#6F35A5), serta indicator (#8B4BC1).
-                  </p>
-                </div>
-
-                {/* Mockup of White Theme Bottom Bar */}
-                <div className="mt-8 bg-[#FFFFFF] border-t border-[#E9E1F0] rounded-xl shadow-lg p-2 flex items-center justify-around">
-                  {previewRole === 'installer' ? (
-                    <>
-                      <div className="flex flex-col items-center py-1 px-3 rounded-xl bg-[#F3EDFA] text-[#6F35A5]">
-                        <LayoutDashboard className="w-5 h-5 text-[#6F35A5]" />
-                        <span className="text-[10px] font-bold mt-0.5">Beranda</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <CheckCircle2 className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Tugas</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <FolderTree className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Menu</span>
-                      </div>
-                    </>
-                  ) : previewRole === 'leader' ? (
-                    <>
-                      <div className="flex flex-col items-center py-1 px-3 rounded-xl bg-[#F3EDFA] text-[#6F35A5]">
-                        <BarChart3 className="w-5 h-5 text-[#6F35A5]" />
-                        <span className="text-[10px] font-bold mt-0.5">Progress</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <UserCheck className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Assign</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <UserPlus className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Teknisi</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <FolderTree className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Menu</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex flex-col items-center py-1 px-3 rounded-xl bg-[#F3EDFA] text-[#6F35A5]">
-                        <LayoutDashboard className="w-5 h-5 text-[#6F35A5]" />
-                        <span className="text-[10px] font-bold mt-0.5">Monitoring</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <TicketIcon className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Tiket</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <FileSpreadsheet className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Laporan</span>
-                      </div>
-                      <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
-                        <FolderTree className="w-5 h-5" />
-                        <span className="text-[10px] font-medium mt-0.5">Menu</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Tugas</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <FolderTree className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Menu</span>
+                  </div>
+                </>
+              ) : previewRole === 'leader' ? (
+                <>
+                  <div className="flex flex-col items-center py-1 px-3 rounded-xl bg-[#F3EDFA] text-[#6F35A5]">
+                    <BarChart3 className="w-5 h-5 text-[#6F35A5]" />
+                    <span className="text-[10px] font-bold mt-0.5">Progress</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <UserCheck className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Assign</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <UserPlus className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Teknisi</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <FolderTree className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Menu</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center py-1 px-3 rounded-xl bg-[#F3EDFA] text-[#6F35A5]">
+                    <LayoutDashboard className="w-5 h-5 text-[#6F35A5]" />
+                    <span className="text-[10px] font-bold mt-0.5">Monitoring</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <TicketIcon className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Tiket</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <FileSpreadsheet className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Laporan</span>
+                  </div>
+                  <div className="flex flex-col items-center py-1 px-3 text-[#8B8495]">
+                    <FolderTree className="w-5 h-5" />
+                    <span className="text-[10px] font-medium mt-0.5">Menu</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </ResponsiveModal>
     </div>
   );
 };

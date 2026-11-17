@@ -63,12 +63,12 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       } ${densityPadding}`}
     >
       {/* Top Bar: Checkbox + WO Number + Slot Time Badge */}
-      <div className="flex items-center justify-between gap-2 border-b border-[#E9E5F0] dark:border-[#35105E] pb-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E9E5F0] dark:border-[#35105E] pb-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
             onClick={() => onToggleSelect(ticket.id)}
-            className="p-1 -m-1 text-[#8B8495] hover:text-[#431599] focus:outline-none min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0 cursor-pointer"
+            className="p-1 -m-1 text-[#8B8495] hover:text-[#431599] focus:outline-none min-w-[40px] min-h-[40px] flex items-center justify-center shrink-0 cursor-pointer"
             aria-label="Select ticket"
           >
             {isSelected ? (
@@ -89,7 +89,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         </div>
 
         {/* Slot Time & Category */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           {ticket.slotTime && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] text-[11px] font-mono font-semibold tabular-nums">
               <Clock className="w-3 h-3" />
@@ -97,7 +97,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
             </span>
           )}
           {ticket.ticketCategory && (
-            <span className="px-1.5 py-0.5 rounded bg-[#F7F6FA] dark:bg-[#160D29] text-[#766B83] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-bold uppercase">
+            <span className="px-1.5 py-0.5 rounded bg-[#F7F6FA] dark:bg-[#160D29] text-[#766B83] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-bold uppercase max-w-[140px] truncate">
               {ticket.ticketCategory}
             </span>
           )}
@@ -131,10 +131,10 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           </div>
 
           {/* Nomor Telepon [Tombol WhatsApp] Right Beside */}
-          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#E9E5F0] dark:border-[#35105E]">
-            <div className="flex items-center gap-1.5 font-mono text-[#211A2E] dark:text-[#F5F1FF] tabular-nums">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-[#E9E5F0] dark:border-[#35105E]">
+            <div className="flex items-center gap-1.5 font-mono text-[#211A2E] dark:text-[#F5F1FF] tabular-nums min-w-0">
               <Phone className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
-              <span className="font-semibold">{ticket.customerPhone || 'Tidak ada nomor'}</span>
+              <span className="font-semibold truncate">{ticket.customerPhone || 'Tidak ada nomor'}</span>
             </div>
 
             {ticket.customerPhone && (
@@ -144,7 +144,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
                   e.stopPropagation();
                   onOpenWhatsApp(ticket);
                 }}
-                className="mj-tactile-btn-success px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap"
+                className="mj-tactile-btn-success px-3 py-1.5 min-h-[38px] rounded-lg text-xs flex items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap"
                 title="Buka WhatsApp Pelanggan"
               >
                 <MessageSquare className="w-3.5 h-3.5" />

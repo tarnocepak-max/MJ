@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { isOnline } = useOfflineSync();
 
   const [isCompactViewport, setIsCompactViewport] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Ticket[]>([]);
@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     const handleResize = () => {
-      setIsCompactViewport(window.innerWidth < 768);
+      setIsCompactViewport(window.innerWidth < 1024);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -539,7 +539,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('closed')}
-              className="p-1.5 text-[#CEC0E8] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
+              className="min-w-[38px] min-h-[38px] flex items-center justify-center text-[#CEC0E8] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
               title="Tutup Menu"
               aria-label="Tutup Menu"
             >

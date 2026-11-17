@@ -7,7 +7,6 @@ import {
   Trash2,
   Edit2,
   Check,
-  X,
   ChevronDown,
   ChevronRight,
   Search,
@@ -35,6 +34,7 @@ import {
   saveGlobalConfig,
   subscribeToGlobalConfigUpdates
 } from '../../services/globalConfigService';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const DroplistManagementView: React.FC = () => {
   const {
@@ -1014,7 +1014,7 @@ export const DroplistManagementView: React.FC = () => {
                                         return (
                                           <div
                                             key={rem.id}
-                                            className={`p-2 rounded-lg border flex items-center justify-between gap-2 transition-colors ${
+                                            className={`p-2 rounded-lg border flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 transition-colors ${
                                               isRemActive
                                                 ? 'bg-[#1E1138]/60 border-[#D8B4FE]/20 hover:border-[#A855F7]/40'
                                                 : 'bg-[#120822] border-white/5 opacity-60'
@@ -1190,7 +1190,7 @@ export const DroplistManagementView: React.FC = () => {
             </div>
 
             {/* Add item form */}
-            <form onSubmit={handleAddGeneralItem} className="flex gap-2 text-xs">
+            <form onSubmit={handleAddGeneralItem} className="flex flex-col sm:flex-row gap-2 text-xs">
               <input
                 type="text"
                 required
@@ -1198,7 +1198,7 @@ export const DroplistManagementView: React.FC = () => {
                 placeholder="Label opsi baru..."
                 value={newGeneralLabel}
                 onChange={e => setNewGeneralLabel(e.target.value)}
-                className="flex-1 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none disabled:opacity-50"
+                className="flex-1 min-w-0 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none disabled:opacity-50"
               />
               <input
                 type="text"
@@ -1206,12 +1206,12 @@ export const DroplistManagementView: React.FC = () => {
                 placeholder="Nilai kode (opsional)..."
                 value={newGeneralValue}
                 onChange={e => setNewGeneralValue(e.target.value)}
-                className="w-48 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono disabled:opacity-50"
+                className="w-full sm:w-48 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={!isSuperAdmin || isSaving}
-                className="px-4 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md border border-[#E9D5FF]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md border border-[#E9D5FF]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSaving ? 'Menyimpan...' : 'Tambah'}</span>
@@ -1228,7 +1228,7 @@ export const DroplistManagementView: React.FC = () => {
                 currentGeneralItems.map((item, idx) => (
                   <div
                     key={item.id}
-                    className="p-3 bg-[#1A0E2E]/60 flex items-center justify-between hover:bg-[#1E1138]/80 transition-colors"
+                    className="p-3 bg-[#1A0E2E]/60 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 hover:bg-[#1E1138]/80 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-[#D8B4FE]/50 text-[11px] w-6">{idx + 1}.</span>
@@ -1271,252 +1271,300 @@ export const DroplistManagementView: React.FC = () => {
       {/* ============================================================ */}
       {/* MODAL: ADD LEVEL 1 STATUS WO                                 */}
       {/* ============================================================ */}
-      {isAddStatusOpen && (
-        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#D8B4FE]/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden animate-in zoom-in-95">
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE] to-transparent" />
-            <h4 className="font-black text-sm text-white">
-              Tambah Status Work Order Baru (Level 1)
-            </h4>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Nama Status <span className="text-rose-400">*</span></label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Installed, Pending Technical..."
-                  value={newStatusName}
-                  onChange={e => setNewStatusName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Status (Identifier)</label>
-                <input
-                  type="text"
-                  placeholder="Contoh: INSTALLED, PENDING_TECH..."
-                  value={newStatusCode}
-                  onChange={e => setNewStatusCode(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono uppercase"
-                />
-              </div>
-              <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Warna Label</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={newStatusColor}
-                    onChange={e => setNewStatusColor(e.target.value)}
-                    className="w-8 h-8 rounded border border-[#D8B4FE]/30 cursor-pointer"
-                  />
-                  <span className="font-mono text-xs text-white">{newStatusColor}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
-              <button
-                type="button"
-                onClick={() => setIsAddStatusOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!isSuperAdmin || isSaving}
-                onClick={async () => {
-                  if (!isSuperAdmin || isSaving) return;
-                  if (!newStatusName.trim()) {
-                    toast.error('Nama status tidak boleh kosong');
-                    return;
+      <ResponsiveModal
+        isOpen={isAddStatusOpen}
+        onClose={() => setIsAddStatusOpen(false)}
+        title="Tambah Status Work Order Baru (Level 1)"
+        icon={<Layers className="w-4 h-4" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsAddStatusOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving}
+              onClick={async () => {
+                if (!isSuperAdmin || isSaving) return;
+                if (!newStatusName.trim()) {
+                  toast.error('Nama status tidak boleh kosong');
+                  return;
+                }
+                setIsSaving(true);
+                try {
+                  const res = await addHierarchicalStatus({
+                    name: newStatusName.trim(),
+                    code: newStatusCode.trim() || newStatusName.trim().toUpperCase().replace(/\s+/g, '_'),
+                    color: newStatusColor,
+                    order: hierarchicalStatuses.length + 1,
+                    active: true,
+                    isActive: true
+                  });
+                  if (res.success) {
+                    setIsAddStatusOpen(false);
                   }
-                  setIsSaving(true);
-                  try {
-                    const res = await addHierarchicalStatus({
-                      name: newStatusName.trim(),
-                      code: newStatusCode.trim() || newStatusName.trim().toUpperCase().replace(/\s+/g, '_'),
-                      color: newStatusColor,
-                      order: hierarchicalStatuses.length + 1,
-                      active: true,
-                      isActive: true
-                    });
-                    if (res.success) {
-                      setIsAddStatusOpen(false);
-                    }
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Status'}
-              </button>
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? 'Menyimpan...' : 'Simpan Status'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="font-semibold block text-[#E9D5FF] mb-1">Nama Status <span className="text-rose-400">*</span></label>
+            <input
+              type="text"
+              placeholder="Contoh: Installed, Pending Technical..."
+              value={newStatusName}
+              onChange={e => setNewStatusName(e.target.value)}
+              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Status (Identifier)</label>
+            <input
+              type="text"
+              placeholder="Contoh: INSTALLED, PENDING_TECH..."
+              value={newStatusCode}
+              onChange={e => setNewStatusCode(e.target.value)}
+              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+            />
+          </div>
+          <div>
+            <label className="font-semibold block text-[#E9D5FF] mb-1">Warna Label</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={newStatusColor}
+                onChange={e => setNewStatusColor(e.target.value)}
+                className="w-8 h-8 rounded border border-[#D8B4FE]/30 cursor-pointer"
+              />
+              <span className="font-mono text-xs text-white">{newStatusColor}</span>
             </div>
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL: ADD LEVEL 2 REASON WO                                 */}
       {/* ============================================================ */}
-      {targetStatusIdForReason && (
-        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#D8B4FE]/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden animate-in zoom-in-95">
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE] to-transparent" />
-            <h4 className="font-black text-sm text-white">
-              Tambah Reason WO Baru (Level 2)
-            </h4>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Nama Reason / Alasan <span className="text-rose-400">*</span></label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Redaman OPM Normal (-18dBm)..."
-                  value={newReasonName}
-                  onChange={e => setNewReasonName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Reason (Opsional)</label>
-                <input
-                  type="text"
-                  placeholder="Contoh: RSN_COMP_NORMAL..."
-                  value={newReasonCode}
-                  onChange={e => setNewReasonCode(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono uppercase"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
-              <button
-                type="button"
-                onClick={() => setTargetStatusIdForReason(null)}
-                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!isSuperAdmin || isSaving}
-                onClick={async () => {
-                  if (!isSuperAdmin || isSaving) return;
-                  if (!newReasonName.trim()) {
-                    toast.error('Nama reason tidak boleh kosong');
-                    return;
+      <ResponsiveModal
+        isOpen={Boolean(targetStatusIdForReason)}
+        onClose={() => setTargetStatusIdForReason(null)}
+        title="Tambah Reason WO Baru (Level 2)"
+        icon={<Plus className="w-4 h-4" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setTargetStatusIdForReason(null)}
+              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving || !targetStatusIdForReason}
+              onClick={async () => {
+                if (!isSuperAdmin || isSaving || !targetStatusIdForReason) return;
+                if (!newReasonName.trim()) {
+                  toast.error('Nama reason tidak boleh kosong');
+                  return;
+                }
+                const parentStatus = hierarchicalStatuses.find(s => s.id === targetStatusIdForReason);
+                const reasonCount = parentStatus?.reasons?.length || 0;
+                setIsSaving(true);
+                try {
+                  const res = await addHierarchicalReason(targetStatusIdForReason, {
+                    name: newReasonName.trim(),
+                    code: newReasonCode.trim() || newReasonName.trim().toUpperCase().replace(/\s+/g, '_'),
+                    order: reasonCount + 1,
+                    active: true,
+                    isActive: true
+                  });
+                  if (res.success) {
+                    setTargetStatusIdForReason(null);
                   }
-                  const parentStatus = hierarchicalStatuses.find(s => s.id === targetStatusIdForReason);
-                  const reasonCount = parentStatus?.reasons?.length || 0;
-                  setIsSaving(true);
-                  try {
-                    const res = await addHierarchicalReason(targetStatusIdForReason, {
-                      name: newReasonName.trim(),
-                      code: newReasonCode.trim() || newReasonName.trim().toUpperCase().replace(/\s+/g, '_'),
-                      order: reasonCount + 1,
-                      active: true,
-                      isActive: true
-                    });
-                    if (res.success) {
-                      setTargetStatusIdForReason(null);
-                    }
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Reason'}
-              </button>
-            </div>
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? 'Menyimpan...' : 'Simpan Reason'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="font-semibold block text-[#E9D5FF] mb-1">Nama Reason / Alasan <span className="text-rose-400">*</span></label>
+            <input
+              type="text"
+              placeholder="Contoh: Redaman OPM Normal (-18dBm)..."
+              value={newReasonName}
+              onChange={e => setNewReasonName(e.target.value)}
+              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Reason (Opsional)</label>
+            <input
+              type="text"
+              placeholder="Contoh: RSN_COMP_NORMAL..."
+              value={newReasonCode}
+              onChange={e => setNewReasonCode(e.target.value)}
+              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+            />
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL: ADD LEVEL 3 REMARK                                    */}
       {/* ============================================================ */}
-      {targetReasonIdForRemark && (
-        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#D8B4FE]/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden animate-in zoom-in-95">
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE] to-transparent" />
-            <h4 className="font-black text-sm text-white">
-              Tambah Remarks / Rootcause Baru (Level 3)
-            </h4>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Teks Catatan / Rootcause <span className="text-rose-400">*</span></label>
-                <textarea
-                  rows={3}
-                  placeholder="Contoh: Instalasi selesai sesuai standar SOP MoraJaws. Redaman terukur -18.2 dBm..."
-                  value={newRemarkText}
-                  onChange={e => setNewRemarkText(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none text-xs"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
-              <button
-                type="button"
-                onClick={() => setTargetReasonIdForRemark(null)}
-                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!isSuperAdmin || isSaving}
-                onClick={async () => {
-                  if (!isSuperAdmin || isSaving) return;
-                  if (!newRemarkText.trim()) {
-                    toast.error('Teks remark tidak boleh kosong');
-                    return;
-                  }
-                  const pStatus = hierarchicalStatuses.find(s => s.id === targetReasonIdForRemark.statusId);
-                  const pReason = pStatus?.reasons?.find(r => r.id === targetReasonIdForRemark.reasonId);
-                  const remCount = pReason?.remarks?.length || 0;
-                  setIsSaving(true);
-                  try {
-                    const res = await addHierarchicalRemark(
-                      targetReasonIdForRemark.statusId,
-                      targetReasonIdForRemark.reasonId,
-                      {
-                        name: newRemarkText.trim(),
-                        text: newRemarkText.trim(),
-                        order: remCount + 1,
-                        active: true,
-                        isActive: true
-                      }
-                    );
-                    if (res.success) {
-                      setTargetReasonIdForRemark(null);
+      <ResponsiveModal
+        isOpen={Boolean(targetReasonIdForRemark)}
+        onClose={() => setTargetReasonIdForRemark(null)}
+        title="Tambah Remarks / Rootcause Baru (Level 3)"
+        icon={<Tag className="w-4 h-4" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setTargetReasonIdForRemark(null)}
+              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving || !targetReasonIdForRemark}
+              onClick={async () => {
+                if (!isSuperAdmin || isSaving || !targetReasonIdForRemark) return;
+                if (!newRemarkText.trim()) {
+                  toast.error('Teks remark tidak boleh kosong');
+                  return;
+                }
+                const pStatus = hierarchicalStatuses.find(s => s.id === targetReasonIdForRemark.statusId);
+                const pReason = pStatus?.reasons?.find(r => r.id === targetReasonIdForRemark.reasonId);
+                const remCount = pReason?.remarks?.length || 0;
+                setIsSaving(true);
+                try {
+                  const res = await addHierarchicalRemark(
+                    targetReasonIdForRemark.statusId,
+                    targetReasonIdForRemark.reasonId,
+                    {
+                      name: newRemarkText.trim(),
+                      text: newRemarkText.trim(),
+                      order: remCount + 1,
+                      active: true,
+                      isActive: true
                     }
-                  } finally {
-                    setIsSaving(false);
+                  );
+                  if (res.success) {
+                    setTargetReasonIdForRemark(null);
                   }
-                }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Remark'}
-              </button>
-            </div>
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? 'Menyimpan...' : 'Simpan Remark'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="font-semibold block text-[#E9D5FF] mb-1">Teks Catatan / Rootcause <span className="text-rose-400">*</span></label>
+            <textarea
+              rows={3}
+              placeholder="Contoh: Instalasi selesai sesuai standar SOP MoraJaws. Redaman terukur -18.2 dBm..."
+              value={newRemarkText}
+              onChange={e => setNewRemarkText(e.target.value)}
+              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none text-xs"
+            />
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL: MOVE REASON TO ANOTHER STATUS WO                      */}
       {/* ============================================================ */}
-      {movingReason && (
-        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#D8B4FE]/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden animate-in zoom-in-95">
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE] to-transparent" />
-            <h4 className="font-black text-sm text-white flex items-center gap-2">
-              <MoveRight className="w-4 h-4 text-amber-400" />
-              <span>Pindahkan Reason ke Status Lain</span>
-            </h4>
-            <p className="text-xs text-[#D8B4FE]/80">
+      <ResponsiveModal
+        isOpen={Boolean(movingReason)}
+        onClose={() => setMovingReason(null)}
+        title="Pindahkan Reason ke Status Lain"
+        icon={<MoveRight className="w-4 h-4 text-amber-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setMovingReason(null)}
+              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving || !movingReason}
+              onClick={async () => {
+                if (!isSuperAdmin || isSaving || !movingReason) return;
+                if (targetMoveStatusId === movingReason.fromStatusId) {
+                  toast.info('Status tujuan sama dengan status saat ini.');
+                  setMovingReason(null);
+                  return;
+                }
+                setIsSaving(true);
+                try {
+                  const res = await moveHierarchicalReason(movingReason.fromStatusId, targetMoveStatusId, movingReason.reason.id);
+                  if (res.success) {
+                    setMovingReason(null);
+                  }
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? 'Memindahkan...' : 'Pindahkan'}
+            </button>
+          </>
+        }
+      >
+        {movingReason && (
+          <div className="space-y-4 text-xs">
+            <p className="text-[#D8B4FE]/80">
               Pindahkan reason <strong className="text-white">"{movingReason.reason.name}"</strong> beserta seluruh ({movingReason.reason.remarks?.length || 0}) remarks-nya ke Status WO tujuan.
             </p>
-            <div className="space-y-2 text-xs">
+            <div className="space-y-2">
               <label className="font-semibold block text-[#E9D5FF]">Pilih Status Tujuan (Level 1):</label>
               <select
                 value={targetMoveStatusId}
@@ -1530,197 +1578,171 @@ export const DroplistManagementView: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
-              <button
-                type="button"
-                onClick={() => setMovingReason(null)}
-                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!isSuperAdmin || isSaving}
-                onClick={async () => {
-                  if (!isSuperAdmin || isSaving) return;
-                  if (targetMoveStatusId === movingReason.fromStatusId) {
-                    toast.info('Status tujuan sama dengan status saat ini.');
-                    setMovingReason(null);
-                    return;
-                  }
-                  setIsSaving(true);
-                  try {
-                    const res = await moveHierarchicalReason(movingReason.fromStatusId, targetMoveStatusId, movingReason.reason.id);
-                    if (res.success) {
-                      setMovingReason(null);
-                    }
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
-              >
-                {isSaving ? 'Memindahkan...' : 'Pindahkan'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL: EDIT ITEM (STATUS, REASON, OR REMARK)                 */}
       {/* ============================================================ */}
-      {editingItem && (
-        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-[#D8B4FE]/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden animate-in zoom-in-95">
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE] to-transparent" />
-            <h4 className="font-black text-sm text-white">
-              Edit {editingItem.type === 'status' ? 'Status WO (Level 1)' : editingItem.type === 'reason' ? 'Reason WO (Level 2)' : 'Remark (Level 3)'}
-            </h4>
-            <div className="space-y-3 text-xs">
+      <ResponsiveModal
+        isOpen={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        title={
+          editingItem
+            ? `Edit ${editingItem.type === 'status' ? 'Status WO (Level 1)' : editingItem.type === 'reason' ? 'Reason WO (Level 2)' : 'Remark (Level 3)'}`
+            : 'Edit Item'
+        }
+        icon={<Edit2 className="w-4 h-4" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setEditingItem(null)}
+              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={!isSuperAdmin || isSaving || !editingItem}
+              onClick={async () => {
+                if (!isSuperAdmin || isSaving || !editingItem) return;
+                if (!editingItem.name.trim()) {
+                  toast.error('Nama tidak boleh kosong');
+                  return;
+                }
+                setIsSaving(true);
+                try {
+                  let res: { success: boolean; error?: string } = { success: false };
+                  if (editingItem.type === 'status') {
+                    res = await updateHierarchicalStatus(editingItem.id, {
+                      name: editingItem.name.trim(),
+                      code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_'),
+                      color: editingItem.color
+                    });
+                  } else if (editingItem.type === 'reason' && editingItem.parentStatusId) {
+                    res = await updateHierarchicalReason(editingItem.parentStatusId, editingItem.id, {
+                      name: editingItem.name.trim(),
+                      code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_')
+                    });
+                  } else if (editingItem.type === 'remark' && editingItem.parentStatusId && editingItem.parentReasonId) {
+                    res = await updateHierarchicalRemark(editingItem.parentStatusId, editingItem.parentReasonId, editingItem.id, {
+                      name: editingItem.name.trim(),
+                      text: editingItem.name.trim()
+                    });
+                  }
+                  if (res.success) {
+                    setEditingItem(null);
+                  }
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+          </>
+        }
+      >
+        {editingItem && (
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="font-semibold block text-[#E9D5FF] mb-1">Nama / Teks <span className="text-rose-400">*</span></label>
+              <input
+                type="text"
+                value={editingItem.name}
+                onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none"
+              />
+            </div>
+
+            {editingItem.type !== 'remark' && (
               <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Nama / Teks <span className="text-rose-400">*</span></label>
+                <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Identifier</label>
                 <input
                   type="text"
-                  value={editingItem.name}
-                  onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none"
+                  value={editingItem.code || ''}
+                  onChange={e => setEditingItem({ ...editingItem, code: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none font-mono uppercase"
                 />
               </div>
+            )}
 
-              {editingItem.type !== 'remark' && (
-                <div>
-                  <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Identifier</label>
+            {editingItem.type === 'status' && (
+              <div>
+                <label className="font-semibold block text-[#E9D5FF] mb-1">Warna Label</label>
+                <div className="flex items-center gap-2">
                   <input
-                    type="text"
-                    value={editingItem.code || ''}
-                    onChange={e => setEditingItem({ ...editingItem, code: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+                    type="color"
+                    value={editingItem.color || '#7135B5'}
+                    onChange={e => setEditingItem({ ...editingItem, color: e.target.value })}
+                    className="w-8 h-8 rounded border border-[#D8B4FE]/30 cursor-pointer"
                   />
+                  <span className="font-mono text-xs text-white">{editingItem.color || '#7135B5'}</span>
                 </div>
-              )}
-
-              {editingItem.type === 'status' && (
-                <div>
-                  <label className="font-semibold block text-[#E9D5FF] mb-1">Warna Label</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={editingItem.color || '#7135B5'}
-                      onChange={e => setEditingItem({ ...editingItem, color: e.target.value })}
-                      className="w-8 h-8 rounded border border-[#D8B4FE]/30 cursor-pointer"
-                    />
-                    <span className="font-mono text-xs text-white">{editingItem.color || '#7135B5'}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
-              <button
-                type="button"
-                onClick={() => setEditingItem(null)}
-                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!isSuperAdmin || isSaving}
-                onClick={async () => {
-                  if (!isSuperAdmin || isSaving) return;
-                  if (!editingItem.name.trim()) {
-                    toast.error('Nama tidak boleh kosong');
-                    return;
-                  }
-                  setIsSaving(true);
-                  try {
-                    let res: { success: boolean; error?: string } = { success: false };
-                    if (editingItem.type === 'status') {
-                      res = await updateHierarchicalStatus(editingItem.id, {
-                        name: editingItem.name.trim(),
-                        code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_'),
-                        color: editingItem.color
-                      });
-                    } else if (editingItem.type === 'reason' && editingItem.parentStatusId) {
-                      res = await updateHierarchicalReason(editingItem.parentStatusId, editingItem.id, {
-                        name: editingItem.name.trim(),
-                        code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_')
-                      });
-                    } else if (editingItem.type === 'remark' && editingItem.parentStatusId && editingItem.parentReasonId) {
-                      res = await updateHierarchicalRemark(editingItem.parentStatusId, editingItem.parentReasonId, editingItem.id, {
-                        name: editingItem.name.trim(),
-                        text: editingItem.name.trim()
-                      });
-                    }
-                    if (res.success) {
-                      setEditingItem(null);
-                    }
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* ============================================================ */}
       {/* MODAL: CONFIRM DELETE LEVEL 1 STATUS WITH CHILDREN           */}
       {/* ============================================================ */}
-      {confirmDeleteStatus && (
-        <div className="fixed inset-0 z-70 bg-[#160D29]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#160D29] border border-rose-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative overflow-hidden">
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-rose-400 to-transparent" />
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-rose-400" />
-              </div>
-              <div>
-                <h4 className="font-black text-sm text-white">
-                  Hapus Status WO "{confirmDeleteStatus.status.name}"?
-                </h4>
-                <p className="text-xs text-[#D8B4FE]/80 mt-1 leading-relaxed">
-                  Status WO ini memiliki <strong className="text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons dan <strong className="text-white">{confirmDeleteStatus.totalRemarks}</strong> remarks. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#D8B4FE]/15">
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => setConfirmDeleteStatus(null)}
-                className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={async () => {
-                  if (!isSuperAdmin || isSaving) return;
-                  const targetId = confirmDeleteStatus.status.id;
-                  setIsSaving(true);
-                  try {
-                    const res = await deleteHierarchicalStatus(targetId);
-                    if (res.success) {
-                      setConfirmDeleteStatus(null);
-                    }
-                  } finally {
-                    setIsSaving(false);
+      <ResponsiveModal
+        isOpen={Boolean(confirmDeleteStatus)}
+        onClose={() => { if (!isSaving) setConfirmDeleteStatus(null); }}
+        title={confirmDeleteStatus ? `Hapus Status WO "${confirmDeleteStatus.status.name}"?` : 'Konfirmasi Hapus'}
+        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => setConfirmDeleteStatus(null)}
+              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={isSaving || !confirmDeleteStatus}
+              onClick={async () => {
+                if (!isSuperAdmin || isSaving || !confirmDeleteStatus) return;
+                const targetId = confirmDeleteStatus.status.id;
+                setIsSaving(true);
+                try {
+                  const res = await deleteHierarchicalStatus(targetId);
+                  if (res.success) {
+                    setConfirmDeleteStatus(null);
                   }
-                }}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold border border-rose-300/30 disabled:opacity-50"
-              >
-                {isSaving ? 'Menghapus...' : 'Ya, Hapus Permanen'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold border border-rose-300/30 disabled:opacity-50 cursor-pointer"
+            >
+              {isSaving ? 'Menghapus...' : 'Ya, Hapus Permanen'}
+            </button>
+          </>
+        }
+      >
+        {confirmDeleteStatus && (
+          <p className="text-xs text-[#D8B4FE]/80 leading-relaxed">
+            Status WO ini memiliki <strong className="text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons dan <strong className="text-white">{confirmDeleteStatus.totalRemarks}</strong> remarks. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
+          </p>
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

@@ -29,6 +29,7 @@ import {
   DEFAULT_UI_CONFIG
 } from '../../constants/defaultConfig';
 import { ColumnConfig, Ticket } from '../../types/index';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 interface TableColumnsStudioProps {
   isSuperAdmin: boolean;
@@ -1033,7 +1034,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 <label className="block font-bold text-[#211A2E] dark:text-[#F5F1FF]">
                   Kepadatan Baris Tabel (Row Density)
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { id: 'compact', label: 'Compact (32px)' },
                     { id: 'comfortable', label: 'Comfortable (42px)' },
@@ -1072,7 +1073,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 <label className="block font-bold text-[#211A2E] dark:text-[#F5F1FF]">
                   Ukuran Tipografi Sel Data
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { id: 'small', label: '12px Small' },
                     { id: 'medium', label: '13px Default' },
@@ -1207,7 +1208,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
               </div>
 
               {/* Ergonomics Footer Buttons */}
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -1235,94 +1236,82 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
 
       {/* Interactive Table Preview Modal */}
       {showPreviewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E9E5F0] dark:border-[#35105E] shadow-2xl w-full max-w-6xl max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-3">
-              <div>
-                <h4 className="font-display font-bold text-base text-[#211A2E] dark:text-white flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-[#431599]" />
-                  <span>Pratinjau Penuh Tabel Work Order ({activeColumns.length} Kolom Aktif)</span>
-                </h4>
-                <p className="text-xs text-[#766B83] dark:text-[#CEC0E8]">
-                  Densitas: <strong>{config.ticketsTable.density}</strong> • Font: <strong>{cellFontSize}</strong> • Sticky Left: <strong>{freezeCount} Kolom</strong>
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {onNavigateToTickets && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPreviewModal(false);
-                      onNavigateToTickets();
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#431599] text-white hover:bg-[#35105E] cursor-pointer"
-                  >
-                    Buka Halaman Ticket MyRepublic
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowPreviewModal(false)}
-                  className="p-1.5 rounded-lg text-[#766B83] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 overflow-auto flex-1">
-              <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-x-auto">
-                <table className={`w-full border-collapse text-left ${simFontSizeClass}`}>
-                  <thead>
-                    <tr className="bg-[#2D115B] text-white text-[11px] font-bold uppercase tracking-wider">
-                      {activeColumns.map((col, idx) => {
-                        const isFrozen = idx < freezeCount;
-                        return (
-                          <th
-                            key={col.key}
-                            style={{ minWidth: `${col.width || 120}px` }}
-                            className={`px-3 py-2.5 whitespace-nowrap border-r border-white/10 ${
-                              isFrozen ? 'bg-[#35105E]' : ''
-                            }`}
-                          >
-                            {col.label}
-                          </th>
-                        );
-                      })}
+        <ResponsiveModal
+          isOpen={showPreviewModal}
+          onClose={() => setShowPreviewModal(false)}
+          title={`Pratinjau Penuh Tabel Work Order (${activeColumns.length} Kolom Aktif)`}
+          subtitle={`Densitas: ${config.ticketsTable.density} • Font: ${cellFontSize} • Sticky Left: ${freezeCount} Kolom`}
+          icon={<Eye className="w-4 h-4 text-[#431599]" />}
+          size="2xl"
+          mobileVariant="fullscreen"
+          zIndexClass="z-60"
+          headerExtra={
+            onNavigateToTickets ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPreviewModal(false);
+                  onNavigateToTickets();
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#431599] text-white hover:bg-[#35105E] cursor-pointer whitespace-nowrap"
+              >
+                Buka Halaman Ticket MyRepublic
+              </button>
+            ) : undefined
+          }
+        >
+          <div className="p-4 sm:p-5">
+            <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-x-auto">
+              <table className={`w-full border-collapse text-left ${simFontSizeClass}`}>
+                <thead>
+                  <tr className="bg-[#2D115B] text-white text-[11px] font-bold uppercase tracking-wider">
+                    {activeColumns.map((col, idx) => {
+                      const isFrozen = idx < freezeCount;
+                      return (
+                        <th
+                          key={col.key}
+                          style={{ minWidth: `${col.width || 120}px` }}
+                          className={`px-3 py-2.5 whitespace-nowrap border-r border-white/10 ${
+                            isFrozen ? 'bg-[#35105E]' : ''
+                          }`}
+                        >
+                          {col.label}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                  {simulatorRows.map((row, rIdx) => (
+                    <tr key={row.id || rIdx} className="hover:bg-[#F5F1FF]/40 dark:hover:bg-[#251545]/60">
+                      {activeColumns.map(col => (
+                        <td
+                          key={col.key}
+                          style={{ minWidth: `${col.width || 120}px` }}
+                          className={`px-3 whitespace-nowrap truncate max-w-xs border-r border-[#E9E5F0]/50 dark:border-[#35105E]/50 ${simDensityRowHeight}`}
+                        >
+                          {col.key === 'selection' ? '☐' : getTicketCellValue(row, col.key)}
+                        </td>
+                      ))}
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
-                    {simulatorRows.map((row, rIdx) => (
-                      <tr key={row.id || rIdx} className="hover:bg-[#F5F1FF]/40 dark:hover:bg-[#251545]/60">
-                        {activeColumns.map(col => (
-                          <td
-                            key={col.key}
-                            style={{ minWidth: `${col.width || 120}px` }}
-                            className={`px-3 whitespace-nowrap truncate max-w-xs border-r border-[#E9E5F0]/50 dark:border-[#35105E]/50 ${simDensityRowHeight}`}
-                          >
-                            {col.key === 'selection' ? '☐' : getTicketCellValue(row, col.key)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!isShowingLiveTickets && (
-                <div className="mt-3 flex items-center gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
-                  <Info className="w-3.5 h-3.5 text-[#431599]" />
-                  <span>Menampilkan contoh baris pratinjau karena belum ada WO aktif yang termuat.</span>
-                </div>
-              )}
-              {isShowingLiveTickets && (
-                <div className="mt-3 flex items-center gap-2 text-[11px] text-[#16A36A] font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Pratinjau menggunakan data Work Order aktual dari database aplikasi.</span>
-                </div>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
+            {!isShowingLiveTickets && (
+              <div className="mt-3 flex items-center gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                <Info className="w-3.5 h-3.5 text-[#431599]" />
+                <span>Menampilkan contoh baris pratinjau karena belum ada WO aktif yang termuat.</span>
+              </div>
+            )}
+            {isShowingLiveTickets && (
+              <div className="mt-3 flex items-center gap-2 text-[11px] text-[#16A36A] font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Pratinjau menggunakan data Work Order aktual dari database aplikasi.</span>
+              </div>
+            )}
           </div>
-        </div>
+        </ResponsiveModal>
       )}
     </div>
   );

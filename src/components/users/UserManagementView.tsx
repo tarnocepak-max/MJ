@@ -36,6 +36,10 @@ import { useToast } from '../../context/ToastContext';
 import { SuperAdminDeleteModal } from '../common/SuperAdminDeleteModal';
 import { SortableColumnHeader } from '../common/SortableColumnHeader';
 import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { ResponsiveModal } from '../common/ResponsiveModal';
+import { DropdownActionItem } from '../common/ActionDropdownMenu';
 import {
   adminCreateUser,
   adminResetPassword,
@@ -190,10 +194,13 @@ export const UserManagementView: React.FC = () => {
     refreshDatabaseData
   } = useApp();
   const { toast } = useToast();
+  const { isCompactUI } = useResponsiveViewport();
 
   const [activeTab, setActiveTab] = useState<'users_list' | 'create_user'>('users_list');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserType | null>(null);
@@ -517,6 +524,19 @@ export const UserManagementView: React.FC = () => {
     });
   }, [filteredUsers, sortState]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, searchQuery]);
+
+  const effectivePageSize = pageSize === -1 ? Math.max(1, sortedUsers.length) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / effectivePageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedUsers = useMemo(() => {
+    if (pageSize === -1) return sortedUsers;
+    const start = (safeCurrentPage - 1) * pageSize;
+    return sortedUsers.slice(start, start + pageSize);
+  }, [sortedUsers, safeCurrentPage, pageSize]);
+
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'super_admin':
@@ -634,25 +654,25 @@ export const UserManagementView: React.FC = () => {
 
       {/* TAB 1: USERS LIST */}
       {activeTab === 'users_list' && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-4">
+          <div className={`flex flex-col ${isCompactUI ? '' : 'sm:flex-row sm:items-center'} justify-between gap-3`}>
+            <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-slate-900 dark:text-white text-xs">
                 Direktori Pengguna &amp; Hak Akses Role
               </h4>
               <span className="text-[11px] text-slate-400">({filteredUsers.length} akun ditampilkan)</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
               {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Cari nama, user, email..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-purple-500"
+                  className="w-full min-h-[42px] sm:min-h-[36px] pl-8.5 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-purple-500"
                 />
               </div>
 
@@ -660,7 +680,7 @@ export const UserManagementView: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={e => setRoleFilter(e.target.value)}
-                className="px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-medium"
+                className="min-h-[42px] sm:min-h-[36px] px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-medium"
               >
                 <option value="ALL">Semua Role ({users.length})</option>
                 <option value="super_admin">1. Superadmin</option>
@@ -673,208 +693,289 @@ export const UserManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-300 uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">
-                    <SortableColumnHeader
-                      label="Nama & Email"
-                      columnKey="name"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3">
-                    <SortableColumnHeader
-                      label="Username"
-                      columnKey="username"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3">
-                    <SortableColumnHeader
-                      label="Role"
-                      columnKey="role"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3">
-                    <SortableColumnHeader
-                      label="Kontraktor & Area"
-                      columnKey="contractor"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3">
-                    <SortableColumnHeader
-                      label="Status"
-                      columnKey="active"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3">Aktivitas Login</th>
-                  <th className="py-2.5 px-3 text-center">Aksi Manajemen</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {sortedUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      Tidak ada pengguna yang sesuai dengan filter.
-                    </td>
-                  </tr>
-                ) : (
-                  sortedUsers.map(u => {
-                    const isLocked = u.accountStatus === 'locked' || (u.lockedUntil && new Date(u.lockedUntil) > new Date());
-                    return (
-                      <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="py-2.5 px-3">
-                          <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                            <span>{u.name}</span>
-                            {u.id === currentUser.id && (
-                              <span className="text-[10px] px-1.5 py-0.2 bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 rounded font-normal">
-                                Anda
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-slate-400">{u.email || '-'}</div>
-                          {u.passwordChangedAt && (
-                            <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <KeyRound className="w-2.5 h-2.5 text-amber-500" />
-                              <span>Reset: {new Date(u.passwordChangedAt).toLocaleDateString('id-ID')}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-medium text-slate-700 dark:text-slate-300">
-                          @{u.username}
-                        </td>
-                        <td className="py-2.5 px-3">{getRoleBadge(u.role)}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="font-medium text-slate-800 dark:text-slate-200">{u.contractor || '-'}</div>
-                          <div className="text-[11px] text-slate-400">{u.area || '-'}</div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex flex-col gap-1 items-start">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                isLocked
-                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                  : u.active
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                              }`}
-                            >
-                              {isLocked ? 'Terkunci' : u.active ? 'Aktif' : 'Nonaktif'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 text-[11px]">
-                          {u.lastLoginAt ? (
-                            <div>
-                              <div className="text-slate-700 dark:text-slate-300 font-mono">
-                                {new Date(u.lastLoginAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
-                              </div>
-                              {u.lastLoginIp && (
-                                <div className="text-[10px] text-slate-400 font-mono">IP: {u.lastLoginIp}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">Belum login</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                            {/* Edit Button */}
-                            <button
-                              onClick={() => handleOpenEdit(u)}
-                              className="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-md border border-indigo-200 dark:border-indigo-800 text-[11px] flex items-center gap-1 cursor-pointer font-medium"
-                              title="Edit Profil Pengguna"
-                            >
-                              <Edit2 className="w-3 h-3 text-indigo-600" />
-                              <span>Edit</span>
-                            </button>
-
-                            {/* Reset Password Button */}
-                            <button
-                              onClick={() => handleOpenResetModal(u)}
-                              className="px-2 py-1 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-700 dark:text-amber-300 rounded-md border border-amber-200 dark:border-amber-800 text-[11px] flex items-center gap-1 cursor-pointer font-medium"
-                              title="Reset Password Akun (Superadmin Exclusive)"
-                            >
-                              <KeyRound className="w-3 h-3 text-amber-500" />
-                              <span>Reset Password</span>
-                            </button>
-
-                            {/* Status Toggle / Unlock Button */}
-                            {u.id !== currentUser.id && (
-                              <>
-                                {isLocked ? (
-                                  <button
-                                    onClick={() => handleToggleStatus(u, 'unlocked')}
-                                    className="px-2 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-100 rounded-md border border-amber-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
-                                    title="Buka Kunci Akun"
-                                  >
-                                    <Unlock className="w-3 h-3" />
-                                    <span>Buka Kunci</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleToggleStatus(u)}
-                                    className={`px-2 py-1 rounded-md text-[11px] font-medium border cursor-pointer ${
-                                      u.active
-                                        ? 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
-                                        : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50'
-                                    }`}
-                                    title={u.active ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
-                                  >
-                                    {u.active ? 'Nonaktifkan' : 'Aktifkan'}
-                                  </button>
-                                )}
-
-                                {/* Revoke Sessions Button */}
-                                <button
-                                  onClick={() => handleRevokeSessions(u)}
-                                  className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] flex items-center gap-1 cursor-pointer"
-                                  title="Akhiri Seluruh Sesi Aktif Pengguna"
-                                >
-                                  <LogOut className="w-3 h-3 text-rose-500" />
-                                  <span>Akhiri Sesi</span>
-                                </button>
-
-                                {/* Delete User Button */}
-                                <button
-                                  onClick={() => setUserToDelete(u)}
-                                  className="px-2 py-1 rounded-md text-[11px] font-medium border border-rose-300 dark:border-rose-900 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 flex items-center gap-1 cursor-pointer"
-                                  title="Hapus Akun Pengguna"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>Hapus</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+          <ResponsiveDataTable<UserType>
+            data={paginatedUsers}
+            getRowKey={u => u.id}
+            sortKey={sortState.column}
+            sortDirection={sortState.direction}
+            onSort={handleSort}
+            mobileTitle={u => (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span>{u.name}</span>
+                {u.id === currentUser.id && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 rounded font-semibold">
+                    Anda
+                  </span>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            )}
+            mobileSubtitle={u => `@${u.username} · ${u.email || '-'}`}
+            mobileStatus={u => {
+              const isLocked = u.accountStatus === 'locked' || (u.lockedUntil && new Date(u.lockedUntil) > new Date());
+              return (
+                <>
+                  {getRoleBadge(u.role)}
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      isLocked
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : u.active
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                    }`}
+                  >
+                    {isLocked ? 'Terkunci' : u.active ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </>
+              );
+            }}
+            columns={[
+              {
+                key: 'name',
+                label: 'Nama & Email',
+                priority: 'hidden_mobile',
+                sortable: true,
+                render: u => (
+                  <div>
+                    <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>{u.name}</span>
+                      {u.id === currentUser.id && (
+                        <span className="text-[10px] px-1.5 py-0.2 bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 rounded font-normal">
+                          Anda
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-400">{u.email || '-'}</div>
+                    {u.passwordChangedAt && (
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <KeyRound className="w-2.5 h-2.5 text-amber-500" />
+                        <span>Reset: {new Date(u.passwordChangedAt).toLocaleDateString('id-ID')}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'username',
+                label: 'Username',
+                priority: 'hidden_mobile',
+                sortable: true,
+                render: u => (
+                  <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                    @{u.username}
+                  </span>
+                )
+              },
+              {
+                key: 'role',
+                label: 'Role',
+                priority: 'hidden_mobile',
+                sortable: true,
+                render: u => getRoleBadge(u.role)
+              },
+              {
+                key: 'contractor',
+                label: 'Kontraktor & Area',
+                priority: 'primary',
+                sortable: true,
+                render: u => (
+                  <div>
+                    <div className="font-medium text-slate-800 dark:text-slate-200">{u.contractor || '-'}</div>
+                    <div className="text-[11px] text-slate-400">{u.area || '-'}</div>
+                  </div>
+                )
+              },
+              {
+                key: 'active',
+                label: 'Status',
+                priority: 'hidden_mobile',
+                sortable: true,
+                render: u => {
+                  const isLocked = u.accountStatus === 'locked' || (u.lockedUntil && new Date(u.lockedUntil) > new Date());
+                  return (
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        isLocked
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          : u.active
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                      }`}
+                    >
+                      {isLocked ? 'Terkunci' : u.active ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  );
+                }
+              },
+              {
+                key: 'lastLogin',
+                label: 'Aktivitas Login',
+                priority: 'secondary',
+                sortable: true,
+                render: u =>
+                  u.lastLoginAt ? (
+                    <div>
+                      <div className="text-slate-700 dark:text-slate-300 font-mono text-[11px]">
+                        {new Date(u.lastLoginAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                      </div>
+                      {u.lastLoginIp && (
+                        <div className="text-[10px] text-slate-400 font-mono">IP: {u.lastLoginIp}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">Belum login</span>
+                  )
+              },
+              {
+                key: 'phone',
+                label: 'Telepon / Reset',
+                priority: 'secondary',
+                render: u => (
+                  <div className="space-y-0.5 text-[11px]">
+                    <div className="font-mono text-slate-700 dark:text-slate-300">{u.phone || '-'}</div>
+                    {u.passwordChangedAt && (
+                      <div className="text-[10px] text-slate-400">
+                        Reset: {new Date(u.passwordChangedAt).toLocaleDateString('id-ID')}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+            ] as ResponsiveColumn<UserType>[]}
+            getRowActions={u => {
+              const isLocked = u.accountStatus === 'locked' || (u.lockedUntil && new Date(u.lockedUntil) > new Date());
+              const actions: DropdownActionItem[] = [
+                {
+                  id: 'edit',
+                  label: 'Edit Profil Pengguna',
+                  icon: <Edit2 className="w-3.5 h-3.5" />,
+                  onClick: () => handleOpenEdit(u)
+                },
+                {
+                  id: 'reset',
+                  label: 'Reset Password',
+                  icon: <KeyRound className="w-3.5 h-3.5" />,
+                  onClick: () => handleOpenResetModal(u)
+                }
+              ];
+
+              if (u.id !== currentUser.id) {
+                actions.push({
+                  id: 'status',
+                  label: isLocked ? 'Buka Kunci Akun' : u.active ? 'Nonaktifkan Akun' : 'Aktifkan Akun',
+                  icon: isLocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />,
+                  onClick: () => handleToggleStatus(u, isLocked ? 'unlocked' : undefined)
+                });
+                actions.push({
+                  id: 'revoke',
+                  label: 'Akhiri Seluruh Sesi',
+                  icon: <LogOut className="w-3.5 h-3.5" />,
+                  onClick: () => handleRevokeSessions(u)
+                });
+                actions.push({
+                  id: 'delete',
+                  label: 'Hapus Akun',
+                  icon: <Trash2 className="w-3.5 h-3.5" />,
+                  tone: 'danger',
+                  onClick: () => setUserToDelete(u)
+                });
+              }
+
+              return actions;
+            }}
+            desktopActionHeader="Aksi Manajemen"
+            renderDesktopActions={u => {
+              const isLocked = u.accountStatus === 'locked' || (u.lockedUntil && new Date(u.lockedUntil) > new Date());
+              return (
+                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(u)}
+                    className="px-2 py-1 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-md border border-indigo-200 dark:border-indigo-800 text-[11px] flex items-center gap-1 cursor-pointer font-medium"
+                    title="Edit Profil Pengguna"
+                  >
+                    <Edit2 className="w-3 h-3 text-indigo-600" />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenResetModal(u)}
+                    className="px-2 py-1 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-700 dark:text-amber-300 rounded-md border border-amber-200 dark:border-amber-800 text-[11px] flex items-center gap-1 cursor-pointer font-medium"
+                    title="Reset Password Akun (Superadmin Exclusive)"
+                  >
+                    <KeyRound className="w-3 h-3 text-amber-500" />
+                    <span>Reset</span>
+                  </button>
+
+                  {u.id !== currentUser.id && (
+                    <>
+                      {isLocked ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(u, 'unlocked')}
+                          className="px-2 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-100 rounded-md border border-amber-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                          title="Buka Kunci Akun"
+                        >
+                          <Unlock className="w-3 h-3" />
+                          <span>Buka</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(u)}
+                          className={`px-2 py-1 rounded-md text-[11px] font-medium border cursor-pointer ${
+                            u.active
+                              ? 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
+                              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50'
+                          }`}
+                          title={u.active ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+                        >
+                          {u.active ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeSessions(u)}
+                        className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700 text-[11px] flex items-center gap-1 cursor-pointer"
+                        title="Akhiri Seluruh Sesi Aktif Pengguna"
+                      >
+                        <LogOut className="w-3 h-3 text-rose-500" />
+                        <span>Sesi</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setUserToDelete(u)}
+                        className="px-2 py-1 rounded-md text-[11px] font-medium border border-rose-300 dark:border-rose-900 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 flex items-center gap-1 cursor-pointer"
+                        title="Hapus Akun Pengguna"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            }}
+            emptyState={{
+              title: 'Tidak ada pengguna sesuai filter',
+              description: 'Ubah kata kunci pencarian atau pilih role lain.'
+            }}
+            pagination={{
+              currentPage: safeCurrentPage,
+              totalPages,
+              totalItems: sortedUsers.length,
+              pageSize: pageSize === -1 ? 'ALL' : pageSize,
+              onPageChange: setCurrentPage,
+              onPageSizeChange: nextSize => {
+                setPageSize(nextSize === 'ALL' ? -1 : nextSize);
+                setCurrentPage(1);
+              },
+              pageSizeOptions: [10, 20, 50, 'ALL'],
+              itemLabel: 'akun'
+            }}
+          />
         </div>
       )}
 
@@ -1113,44 +1214,31 @@ export const UserManagementView: React.FC = () => {
       )}
 
       {/* RESET PASSWORD MODAL (Superadmin Exclusive) */}
-      {resetModalUser && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                  <KeyRound className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Reset Password Pengguna
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    {resetModalUser.name} (@{resetModalUser.username})
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setResetModalUser(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <ResponsiveModal
+        isOpen={Boolean(resetModalUser)}
+        onClose={() => setResetModalUser(null)}
+        title="Reset Password Pengguna"
+        subtitle={resetModalUser ? `${resetModalUser.name} (@${resetModalUser.username})` : ''}
+        icon={<KeyRound className="w-5 h-5" />}
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-50"
+      >
+        {resetModalUser && (
+          <div className="space-y-4">
             {/* User Meta Information */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-slate-500">Peran Akun:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{resetModalUser.role}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-slate-500">Email Akun:</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">{resetModalUser.email || '-'}</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300 truncate">{resetModalUser.email || '-'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Terakhir Password Direset:</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-500">Terakhir Direset:</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300 text-right">
                   {resetModalUser.passwordChangedAt ? new Date(resetModalUser.passwordChangedAt).toLocaleString('id-ID') : 'Belum pernah diubah'}
                 </span>
               </div>
@@ -1183,7 +1271,7 @@ export const UserManagementView: React.FC = () => {
                     placeholder="Minimal 8 karakter kombinasi huruf & angka"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    className="w-full pl-3 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[42px] sm:min-h-[38px] pl-3 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                   />
                   <button
                     type="button"
@@ -1207,7 +1295,7 @@ export const UserManagementView: React.FC = () => {
                     placeholder="Ketik ulang kata sandi baru"
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    className="w-full pl-3 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    className="w-full min-h-[42px] sm:min-h-[38px] pl-3 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                   />
                   <button
                     type="button"
@@ -1220,7 +1308,6 @@ export const UserManagementView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Password Strength Checklist */}
               {newPassword && (
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-1 text-[11px]">
                   <div className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}>
@@ -1242,14 +1329,14 @@ export const UserManagementView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setResetModalUser(null)}
-                  className="px-4 py-2 border rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 cursor-pointer"
+                  className="min-h-[40px] sm:min-h-[36px] px-4 py-2 border rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isResetting}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95"
+                  className="min-h-[40px] sm:min-h-[36px] px-5 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95"
                 >
                   <KeyRound className="w-4 h-4" />
                   <span>{isResetting ? 'Mereset...' : 'Simpan Kata Sandi Baru'}</span>
@@ -1257,169 +1344,159 @@ export const UserManagementView: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
 
       {/* EDIT USER MODAL */}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between">
+      <ResponsiveModal
+        isOpen={Boolean(editingUser)}
+        onClose={() => setEditingUser(null)}
+        title="Edit Profil Pengguna"
+        subtitle="Ubah data staf dan peran hak akses di Supabase PostgreSQL."
+        icon={<Edit2 className="w-5 h-5" />}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-50"
+      >
+        {editingUser && (
+          <form onSubmit={handleSaveEditUser} className="space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                  Edit Profil Pengguna
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Ubah data staf dan peran hak akses di Supabase PostgreSQL.
-                </p>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Nama Lengkap <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                />
               </div>
-              <button
-                onClick={() => setEditingUser(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Username Unik <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editUsername}
+                  onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Peran / Role Pengguna
+                </label>
+                <select
+                  value={editRole}
+                  onChange={e => setEditRole(e.target.value as UserRole)}
+                  disabled={editingUser.id === currentUser.id}
+                  className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-semibold"
+                >
+                  <option value="super_admin">1. Superadmin</option>
+                  <option value="dispatch">2. Dispatch</option>
+                  <option value="leader">3. Leader</option>
+                  <option value="installer">4. Installer</option>
+                  <option value="management_data">5. Management Data</option>
+                  <option value="it_support">6. IT Support Application</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Mitra Kontraktor
+                </label>
+                <input
+                  type="text"
+                  value={editContractor}
+                  onChange={e => setEditContractor(e.target.value)}
+                  placeholder="Nama vendor kontraktor"
+                  className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Coverage Area
+                </label>
+                <SearchableAreaDropdown
+                  value={editArea}
+                  onChange={setEditArea}
+                  areas={coverageAreas}
+                  placeholder="Pilih atau cari area..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Nomor WhatsApp / Kontak
+                </label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={e => setEditPhone(e.target.value)}
+                  placeholder="0812xxxxxxxx"
+                  className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-mono"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Email Pengguna
+                </label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={e => setEditEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                />
+              </div>
+
+              <div className="sm:col-span-2 flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="pr-3">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Status Akun Aktif</span>
+                  <p className="text-[10.5px] text-slate-500">
+                    Jika dinonaktifkan, seluruh sesi login akan dibatalkan dan pengguna tidak dapat login kembali.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={editActive}
+                    onChange={e => setEditActive(e.target.checked)}
+                    disabled={editingUser.id === currentUser.id}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveEditUser} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Nama Lengkap <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Username Unik <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editUsername}
-                    onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Peran / Role Pengguna
-                  </label>
-                  <select
-                    value={editRole}
-                    onChange={e => setEditRole(e.target.value as UserRole)}
-                    disabled={editingUser.id === currentUser.id}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-semibold"
-                  >
-                    <option value="super_admin">1. Superadmin</option>
-                    <option value="dispatch">2. Dispatch</option>
-                    <option value="leader">3. Leader</option>
-                    <option value="installer">4. Installer</option>
-                    <option value="management_data">5. Management Data</option>
-                    <option value="it_support">6. IT Support Application</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Mitra Kontraktor
-                  </label>
-                  <input
-                    type="text"
-                    value={editContractor}
-                    onChange={e => setEditContractor(e.target.value)}
-                    placeholder="Nama vendor kontraktor"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Coverage Area
-                  </label>
-                  <SearchableAreaDropdown
-                    value={editArea}
-                    onChange={setEditArea}
-                    areas={coverageAreas}
-                    placeholder="Pilih atau cari area..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Nomor WhatsApp / Kontak
-                  </label>
-                  <input
-                    type="text"
-                    value={editPhone}
-                    onChange={e => setEditPhone(e.target.value)}
-                    placeholder="0812xxxxxxxx"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-mono"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                    Email Pengguna
-                  </label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={e => setEditEmail(e.target.value)}
-                    placeholder="user@example.com"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">Status Akun Aktif</span>
-                    <p className="text-[10.5px] text-slate-500">
-                      Jika dinonaktifkan, seluruh sesi login akan dibatalkan dan pengguna tidak dapat login kembali.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editActive}
-                      onChange={e => setEditActive(e.target.checked)}
-                      disabled={editingUser.id === currentUser.id}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="px-4 py-2 border rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdating}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="min-h-[40px] sm:min-h-[36px] px-4 py-2 border rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdating}
+                className="min-h-[40px] sm:min-h-[36px] px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95"
+              >
+                <Check className="w-4 h-4" />
+                <span>{isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
+              </button>
+            </div>
+          </form>
+        )}
+      </ResponsiveModal>
 
       {/* DELETE CONFIRMATION MODAL */}
       {userToDelete && (

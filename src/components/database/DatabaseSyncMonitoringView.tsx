@@ -14,15 +14,17 @@ import {
   History,
   Info,
   Check,
-  X,
   Play,
   RotateCw,
   ShieldCheck,
   Radio,
-  FileDown
+  FileDown,
+  Eye
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { getAuthHeaders } from '../../services/authService';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const DatabaseSyncMonitoringView: React.FC = () => {
   const { currentUser, googleSheetsConfig } = useApp();
@@ -364,21 +366,21 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
           </div>
 
           {/* Filters & Search */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-56">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Cari Job ID / Operator..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-[#5B35B1]"
+                className="w-full pl-8 pr-3 py-1.5 min-h-[38px] text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-[#5B35B1]"
               />
             </div>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="py-1.5 px-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium focus:outline-hidden"
+              className="py-1.5 px-3 min-h-[38px] text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium focus:outline-hidden"
             >
               <option value="ALL">Semua Status</option>
               <option value="Success">Success</option>
@@ -389,154 +391,195 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
           </div>
         </div>
 
-        {filteredHistory.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-400 space-y-2">
-            <Database className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
-            <div className="font-semibold text-slate-600 dark:text-slate-400">Belum ada riwayat proses sinkronisasi tercatat.</div>
-            <div className="text-[11px]">Tekan tombol "Sinkronkan Sekarang" di atas untuk menjalankan sinkronisasi pertama.</div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase tracking-wider bg-slate-50/50 dark:bg-slate-900/30">
-                  <th className="py-2.5 px-3">Job ID</th>
-                  <th className="py-2.5 px-3">Jenis Proses</th>
-                  <th className="py-2.5 px-3">Waktu Mulai</th>
-                  <th className="py-2.5 px-3">Durasi</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-center">Diproses</th>
-                  <th className="py-2.5 px-3 text-center">Gagal</th>
-                  <th className="py-2.5 px-3">Inisiator</th>
-                  <th className="py-2.5 px-3 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-xs">
-                {filteredHistory.map(item => (
-                  <tr key={item.jobId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors font-sans">
-                    <td className="py-3 px-3 font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">
-                      {item.jobId}
-                    </td>
-                    <td className="py-3 px-3 capitalize font-medium text-slate-800 dark:text-slate-200">
-                      {item.syncType.replace('_', ' ')}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-400 text-[11px]">
-                      {new Date(item.startedAt).toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-400 text-[11px]">
-                      {item.durationMs ? `${item.durationMs} ms` : '-'}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${getStatusBadge(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">
-                      {item.processedCount}
-                    </td>
-                    <td className="py-3 px-3 text-center font-semibold text-rose-600">
-                      {item.failedCount}
-                    </td>
-                    <td className="py-3 px-3 text-slate-700 dark:text-slate-300 text-xs">
-                      {item.initiatedBy} {item.initiatedByRole ? `(${item.initiatedByRole})` : ''}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedHistoryItem(item)}
-                        className="px-2.5 py-1 text-[11px] font-semibold text-[#5B35B1] hover:text-[#3B1D78] bg-[#E9E1FF] dark:bg-[#3B1D78]/60 hover:bg-[#D8CCF3] rounded-lg transition-colors cursor-pointer"
-                      >
-                        Detail
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ResponsiveDataTable<SyncHistoryEntry>
+          data={filteredHistory}
+          getRowKey={item => item.jobId}
+          emptyState={{
+            icon: <Database className="w-7 h-7" />,
+            title: 'Belum ada riwayat proses sinkronisasi tercatat',
+            description: 'Tekan tombol "Sinkronkan Sekarang" di atas untuk menjalankan sinkronisasi pertama.'
+          }}
+          mobileTitle={item => (
+            <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">{item.jobId}</span>
+          )}
+          mobileSubtitle={item => (
+            <span className="capitalize">
+              {item.syncType.replace('_', ' ')} · {new Date(item.startedAt).toLocaleString('id-ID')}
+            </span>
+          )}
+          mobileStatus={item => (
+            <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${getStatusBadge(item.status)}`}>
+              {item.status}
+            </span>
+          )}
+          columns={[
+            {
+              key: 'jobId',
+              label: 'Job ID',
+              priority: 'hidden_mobile',
+              render: item => (
+                <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">{item.jobId}</span>
+              )
+            },
+            {
+              key: 'syncType',
+              label: 'Jenis Proses',
+              priority: 'hidden_mobile',
+              render: item => (
+                <span className="capitalize font-medium text-slate-800 dark:text-slate-200">
+                  {item.syncType.replace('_', ' ')}
+                </span>
+              )
+            },
+            {
+              key: 'startedAt',
+              label: 'Waktu Mulai',
+              priority: 'hidden_mobile',
+              render: item => (
+                <span className="text-slate-600 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                  {new Date(item.startedAt).toLocaleString('id-ID')}
+                </span>
+              )
+            },
+            {
+              key: 'durationMs',
+              label: 'Durasi',
+              priority: 'secondary',
+              numeric: true,
+              render: item => (
+                <span className="text-slate-600 dark:text-slate-400 text-[11px]">
+                  {item.durationMs ? `${item.durationMs} ms` : '-'}
+                </span>
+              )
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              priority: 'hidden_mobile',
+              render: item => (
+                <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${getStatusBadge(item.status)}`}>
+                  {item.status}
+                </span>
+              )
+            },
+            {
+              key: 'processedCount',
+              label: 'Diproses',
+              priority: 'primary',
+              align: 'center',
+              numeric: true,
+              render: item => (
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{item.processedCount}</span>
+              )
+            },
+            {
+              key: 'failedCount',
+              label: 'Gagal',
+              priority: 'primary',
+              align: 'center',
+              numeric: true,
+              render: item => <span className="font-semibold text-rose-600">{item.failedCount}</span>
+            },
+            {
+              key: 'initiatedBy',
+              label: 'Inisiator',
+              priority: 'secondary',
+              render: item => (
+                <span className="text-slate-700 dark:text-slate-300 text-xs">
+                  {item.initiatedBy} {item.initiatedByRole ? `(${item.initiatedByRole})` : ''}
+                </span>
+              )
+            }
+          ] satisfies ResponsiveColumn<SyncHistoryEntry>[]}
+          getRowActions={item => [
+            {
+              id: 'detail',
+              label: 'Lihat Detail Transaksi',
+              icon: <Eye className="w-3.5 h-3.5" />,
+              onClick: () => setSelectedHistoryItem(item)
+            }
+          ]}
+          renderDesktopActions={item => (
+            <button
+              type="button"
+              onClick={() => setSelectedHistoryItem(item)}
+              className="px-2.5 py-1 text-[11px] font-semibold text-[#5B35B1] hover:text-[#3B1D78] bg-[#E9E1FF] dark:bg-[#3B1D78]/60 hover:bg-[#D8CCF3] rounded-lg transition-colors cursor-pointer"
+            >
+              Detail
+            </button>
+          )}
+        />
       </div>
 
       {/* Process Details Modal */}
-      {selectedHistoryItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-2xl max-w-lg w-full p-6 text-xs space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-[#5B35B1]" />
-                <h4 className="font-bold text-[#21183A] dark:text-white text-sm">
-                  Detail Transaksi Sinkronisasi ({selectedHistoryItem.jobId})
-                </h4>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedHistoryItem(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <ResponsiveModal
+        isOpen={Boolean(selectedHistoryItem)}
+        onClose={() => setSelectedHistoryItem(null)}
+        title={selectedHistoryItem ? `Detail Transaksi Sinkronisasi (${selectedHistoryItem.jobId})` : undefined}
+        subtitle={selectedHistoryItem?.dataSource}
+        icon={<Database className="w-4 h-4" />}
+        size="md"
+        mobileVariant="sheet"
+        footer={
+          <button
+            type="button"
+            onClick={() => setSelectedHistoryItem(null)}
+            className="px-4 py-2 min-h-[40px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
+          >
+            Tutup
+          </button>
+        }
+      >
+        {selectedHistoryItem && (
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 font-mono text-xs">
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Job ID:</span>
+              <span className="font-bold text-[#5B35B1] dark:text-[#DAB9FF] text-right">{selectedHistoryItem.jobId}</span>
             </div>
-
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Job ID:</span>
-                <span className="font-bold text-[#5B35B1]">{selectedHistoryItem.jobId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Sumber Data:</span>
-                <span className="text-slate-700 dark:text-slate-300">{selectedHistoryItem.dataSource}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Status:</span>
-                <span className={`px-2 py-0.5 rounded text-[10.5px] font-bold ${getStatusBadge(selectedHistoryItem.status)}`}>
-                  {selectedHistoryItem.status}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Waktu Mulai:</span>
-                <span className="text-slate-700 dark:text-slate-300">{new Date(selectedHistoryItem.startedAt).toLocaleString('id-ID')}</span>
-              </div>
-              {selectedHistoryItem.completedAt && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Waktu Selesai:</span>
-                  <span className="text-slate-700 dark:text-slate-300">{new Date(selectedHistoryItem.completedAt).toLocaleString('id-ID')}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Total Diproses:</span>
-                <span className="font-bold text-emerald-600">{selectedHistoryItem.processedCount} baris</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Berhasil:</span>
-                <span className="font-bold text-emerald-600">{selectedHistoryItem.successCount} baris</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Gagal:</span>
-                <span className="font-bold text-rose-600">{selectedHistoryItem.failedCount} baris</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-sans">Inisiator:</span>
-                <span className="text-slate-800 dark:text-slate-200 font-semibold">{selectedHistoryItem.initiatedBy}</span>
-              </div>
-              {selectedHistoryItem.errorSummary && (
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-rose-600 text-[11px]">
-                  <strong>Catatan Error:</strong> {selectedHistoryItem.errorSummary}
-                </div>
-              )}
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Sumber Data:</span>
+              <span className="text-slate-700 dark:text-slate-300 text-right">{selectedHistoryItem.dataSource}</span>
             </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedHistoryItem(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl"
-              >
-                Tutup
-              </button>
+            <div className="flex justify-between gap-3 items-center">
+              <span className="text-slate-500 font-sans">Status:</span>
+              <span className={`px-2 py-0.5 rounded text-[10.5px] font-bold ${getStatusBadge(selectedHistoryItem.status)}`}>
+                {selectedHistoryItem.status}
+              </span>
             </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Waktu Mulai:</span>
+              <span className="text-slate-700 dark:text-slate-300 text-right">{new Date(selectedHistoryItem.startedAt).toLocaleString('id-ID')}</span>
+            </div>
+            {selectedHistoryItem.completedAt && (
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500 font-sans">Waktu Selesai:</span>
+                <span className="text-slate-700 dark:text-slate-300 text-right">{new Date(selectedHistoryItem.completedAt).toLocaleString('id-ID')}</span>
+              </div>
+            )}
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Total Diproses:</span>
+              <span className="font-bold text-emerald-600">{selectedHistoryItem.processedCount} baris</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Berhasil:</span>
+              <span className="font-bold text-emerald-600">{selectedHistoryItem.successCount} baris</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Gagal:</span>
+              <span className="font-bold text-rose-600">{selectedHistoryItem.failedCount} baris</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 font-sans">Inisiator:</span>
+              <span className="text-slate-800 dark:text-slate-200 font-semibold text-right">{selectedHistoryItem.initiatedBy}</span>
+            </div>
+            {selectedHistoryItem.errorSummary && (
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-rose-600 text-[11px] font-sans">
+                <strong>Catatan Error:</strong> {selectedHistoryItem.errorSummary}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

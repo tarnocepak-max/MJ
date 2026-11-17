@@ -15,6 +15,7 @@ import {
   Loader2,
   AlertTriangle
 } from 'lucide-react';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 
 const CORE_SUPER_ADMIN_PERMISSIONS: Permission[] = [
   'login',
@@ -34,6 +35,8 @@ export const ManagementRoleView: React.FC = () => {
   } = useApp();
 
   const isSuperAdmin = currentUser.role === 'super_admin';
+  const { isCompactUI } = useResponsiveViewport();
+  const [selectedMobileRole, setSelectedMobileRole] = useState<UserRole>('super_admin');
   const [savingCell, setSavingCell] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
 
@@ -219,84 +222,181 @@ export const ManagementRoleView: React.FC = () => {
         })}
       </div>
 
-      {/* Full Permission Matrix Table */}
+      {/* Full Permission Matrix (Desktop) or Role-Tabbed Toggle Cards (Mobile / Compact) */}
       <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 dark:border-purple-900/50 text-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 dark:border-purple-900/50 text-xs flex flex-wrap items-center justify-between gap-2">
           <span className="font-bold text-slate-800 dark:text-slate-200">
-            Matriks Hak Akses & Permission Granular
+            Matriks Hak Akses &amp; Permission Granular
           </span>
           <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-            {isSuperAdmin ? 'Klik badge izin untuk menyimpan langsung ke Database' : 'Read-Only Backend Enforced'}
+            {isSuperAdmin ? 'Ketuk izin untuk menyimpan langsung ke Database' : 'Read-Only Backend Enforced'}
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
-              <tr>
-                <th className="py-2.5 px-3 min-w-[230px]">Kemampuan / Permission</th>
-                <th className="py-2.5 px-3 text-center">Super Admin</th>
-                <th className="py-2.5 px-3 text-center">Dispatch</th>
-                <th className="py-2.5 px-3 text-center">Leader</th>
-                <th className="py-2.5 px-3 text-center">Installer</th>
-                <th className="py-2.5 px-3 text-center">Management Data</th>
-                <th className="py-2.5 px-3 text-center">IT Support</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {permissionsList.map(perm => (
-                <tr key={perm.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="py-2.5 px-3">
-                    <div className="font-bold text-slate-800 dark:text-slate-200">{perm.label}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">{perm.key} ({perm.category})</div>
-                  </td>
-                  {roles.map(r => {
-                    const perms = rolePermissions[r.role];
-                    const has = Array.isArray(perms) ? perms.includes(perm.key) : false;
-                    const isCoreLocked = r.role === 'super_admin' && CORE_SUPER_ADMIN_PERMISSIONS.includes(perm.key);
-                    const cellId = `${r.role}:${perm.key}`;
-                    const isSaving = savingCell === cellId;
-                    const canClick = isSuperAdmin && !isCoreLocked && !savingCell;
+        {isCompactUI ? (
+          <div className="p-3.5 space-y-3 bg-[#FDF7FF] dark:bg-[#140827]/60">
+            {/* Role Selector Strip */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {roles.map(r => {
+                const active = selectedMobileRole === r.role;
+                const count = Array.isArray(rolePermissions[r.role]) ? rolePermissions[r.role].length : 0;
+                return (
+                  <button
+                    key={r.role}
+                    type="button"
+                    onClick={() => setSelectedMobileRole(r.role)}
+                    className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all cursor-pointer border ${
+                      active
+                        ? 'bg-[#58149C] text-white border-[#58149C] shadow-xs'
+                        : 'bg-white dark:bg-[#1E1238] text-slate-700 dark:text-slate-200 border-[#E8DDFF] dark:border-[#35105E]'
+                    }`}
+                  >
+                    <span className="capitalize">{r.role.replace('_', ' ')}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
+                        active ? 'bg-white/20 text-white' : 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-                    return (
-                      <td key={r.role} className="py-2.5 px-3 text-center">
-                        <button
-                          type="button"
-                          disabled={!canClick}
-                          onClick={() => handleTogglePermission(r.role, perm.key)}
-                          title={
-                            isCoreLocked
-                              ? 'Izin inti Super Admin terkunci untuk keamanan sistem'
-                              : !isSuperAdmin
-                              ? 'Hanya Super Admin yang dapat mengubah hak akses'
-                              : has
-                              ? `Cabut izin ${perm.key} dari ${r.role}`
-                              : `Berikan izin ${perm.key} ke ${r.role}`
-                          }
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full border transition-all ${
-                            isSaving
-                              ? 'bg-purple-100 border-purple-300 text-purple-700 cursor-wait'
-                              : has
-                              ? 'bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300'
-                              : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
-                          } ${canClick ? 'hover:scale-110 cursor-pointer' : 'opacity-80 cursor-not-allowed'}`}
-                        >
-                          {isSaving ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : has ? (
-                            isCoreLocked ? <Lock className="w-3 h-3" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          ) : (
-                            <X className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </td>
-                    );
-                  })}
+            {/* Granular Permission Cards for Selected Role */}
+            <div className="space-y-2">
+              {permissionsList.map(perm => {
+                const perms = rolePermissions[selectedMobileRole];
+                const has = Array.isArray(perms) ? perms.includes(perm.key) : false;
+                const isCoreLocked =
+                  selectedMobileRole === 'super_admin' && CORE_SUPER_ADMIN_PERMISSIONS.includes(perm.key);
+                const cellId = `${selectedMobileRole}:${perm.key}`;
+                const isSaving = savingCell === cellId;
+                const canClick = isSuperAdmin && !isCoreLocked && !savingCell;
+
+                return (
+                  <div
+                    key={perm.key}
+                    className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                        {perm.label}
+                      </div>
+                      <div className="text-[10.5px] text-slate-400 font-mono truncate mt-0.5">
+                        {perm.key} · {perm.category}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!canClick}
+                      onClick={() => handleTogglePermission(selectedMobileRole, perm.key)}
+                      aria-label={`Toggle ${perm.key} untuk ${selectedMobileRole}`}
+                      className={`min-w-[44px] min-h-[38px] px-2.5 rounded-xl border flex items-center justify-center gap-1 text-[11px] font-bold transition-all shrink-0 ${
+                        isSaving
+                          ? 'bg-purple-100 border-purple-300 text-purple-700 cursor-wait'
+                          : has
+                          ? 'bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300'
+                          : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                      } ${canClick ? 'cursor-pointer active:scale-95' : 'opacity-80 cursor-not-allowed'}`}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : has ? (
+                        isCoreLocked ? (
+                          <>
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Kunci</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Aktif</span>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <X className="w-3.5 h-3.5" />
+                          <span>Off</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                <tr>
+                  <th className="py-2.5 px-3 min-w-[230px]">Kemampuan / Permission</th>
+                  <th className="py-2.5 px-3 text-center">Super Admin</th>
+                  <th className="py-2.5 px-3 text-center">Dispatch</th>
+                  <th className="py-2.5 px-3 text-center">Leader</th>
+                  <th className="py-2.5 px-3 text-center">Installer</th>
+                  <th className="py-2.5 px-3 text-center">Management Data</th>
+                  <th className="py-2.5 px-3 text-center">IT Support</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {permissionsList.map(perm => (
+                  <tr key={perm.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="py-2.5 px-3">
+                      <div className="font-bold text-slate-800 dark:text-slate-200">{perm.label}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{perm.key} ({perm.category})</div>
+                    </td>
+                    {roles.map(r => {
+                      const perms = rolePermissions[r.role];
+                      const has = Array.isArray(perms) ? perms.includes(perm.key) : false;
+                      const isCoreLocked = r.role === 'super_admin' && CORE_SUPER_ADMIN_PERMISSIONS.includes(perm.key);
+                      const cellId = `${r.role}:${perm.key}`;
+                      const isSaving = savingCell === cellId;
+                      const canClick = isSuperAdmin && !isCoreLocked && !savingCell;
+
+                      return (
+                        <td key={r.role} className="py-2.5 px-3 text-center">
+                          <button
+                            type="button"
+                            disabled={!canClick}
+                            onClick={() => handleTogglePermission(r.role, perm.key)}
+                            title={
+                              isCoreLocked
+                                ? 'Izin inti Super Admin terkunci untuk keamanan sistem'
+                                : !isSuperAdmin
+                                ? 'Hanya Super Admin yang dapat mengubah hak akses'
+                                : has
+                                ? `Cabut izin ${perm.key} dari ${r.role}`
+                                : `Berikan izin ${perm.key} ke ${r.role}`
+                            }
+                            className={`inline-flex items-center justify-center w-7 h-7 rounded-full border transition-all ${
+                              isSaving
+                                ? 'bg-purple-100 border-purple-300 text-purple-700 cursor-wait'
+                                : has
+                                ? 'bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300'
+                                : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                            } ${canClick ? 'hover:scale-110 cursor-pointer' : 'opacity-80 cursor-not-allowed'}`}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : has ? (
+                              isCoreLocked ? <Lock className="w-3 h-3" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            ) : (
+                              <X className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

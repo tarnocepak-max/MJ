@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket } from '../../types';
 import {
   Building2,
@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  UserCheck,
   FileSpreadsheet,
   Filter,
   Radio,
@@ -55,7 +54,7 @@ type PeriodPreset = 'today' | 'week' | 'month' | 'custom';
 
 export const ContractorAreaRecapView: React.FC = () => {
   const { tickets, contractorsList, areasList, currentUser, databaseStatus, todayWIB: contextTodayWIB } = useApp();
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const { toast } = useToast();
 
   const isLeader = currentUser?.role === 'leader';
@@ -548,7 +547,7 @@ export const ContractorAreaRecapView: React.FC = () => {
               <select
                 value={selectedArea}
                 onChange={e => setSelectedArea(e.target.value)}
-                className="w-full px-2.5 py-2 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-semibold"
+                className="w-full px-2.5 py-2 min-h-[42px] sm:min-h-[38px] bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-semibold"
               >
                 <option value="ALL">Semua Area ({availableAreas.length})</option>
                 {availableAreas.map(area => (
@@ -566,7 +565,7 @@ export const ContractorAreaRecapView: React.FC = () => {
               <select
                 value={selectedContractor}
                 onChange={e => setSelectedContractor(e.target.value)}
-                className="w-full px-2.5 py-2 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-semibold"
+                className="w-full px-2.5 py-2 min-h-[42px] sm:min-h-[38px] bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-semibold"
               >
                 <option value="ALL">Semua Kontraktor ({availableContractors.length})</option>
                 {availableContractors.map(c => (
@@ -588,7 +587,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                   setStartDate(e.target.value);
                   setPeriodPreset('custom');
                 }}
-                className="w-full px-2.5 py-2 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-mono"
+                className="w-full px-2.5 py-2 min-h-[42px] sm:min-h-[38px] bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-mono"
               />
             </div>
 
@@ -603,7 +602,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                   setEndDate(e.target.value);
                   setPeriodPreset('custom');
                 }}
-                className="w-full px-2.5 py-2 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-mono"
+                className="w-full px-2.5 py-2 min-h-[42px] sm:min-h-[38px] bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white font-mono"
               />
             </div>
 
@@ -618,7 +617,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                   placeholder="Area, mitra, #WO..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-2.5 py-2 bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white"
+                  className="w-full pl-8 pr-2.5 py-2 min-h-[42px] sm:min-h-[38px] bg-[#f8f1ff] dark:bg-slate-800 border border-[#e8ddff] dark:border-slate-700 rounded-xl text-[#1f1638] dark:text-white"
                 />
               </div>
             </div>
@@ -627,9 +626,9 @@ export const ContractorAreaRecapView: React.FC = () => {
       )}
 
       {/* Top Grid: RINGKASAN EKSEKUSI WO + KUALITAS REDAMAN */}
-      <div className={isMobileView ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch'}>
+      <div className={isCompactUI ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch'}>
         {/* Hero Card: RINGKASAN EKSEKUSI WO */}
-        <div className={`${isMobileView ? '' : 'lg:col-span-7'} bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-4`}>
+        <div className={`${isCompactUI ? '' : 'lg:col-span-7'} bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-4`}>
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#4b4452] dark:text-slate-300">
@@ -746,7 +745,7 @@ export const ContractorAreaRecapView: React.FC = () => {
         </div>
 
         {/* Right Column Card: KUALITAS REDAMAN & EKSEKUSI */}
-        <div className={`${isMobileView ? '' : 'lg:col-span-5'} bg-[#f3eaff] dark:bg-[#251545] rounded-2xl border border-[#e8ddff] dark:border-purple-800/60 p-4 sm:p-5 flex flex-col justify-between gap-4`}>
+        <div className={`${isCompactUI ? '' : 'lg:col-span-5'} bg-[#f3eaff] dark:bg-[#251545] rounded-2xl border border-[#e8ddff] dark:border-purple-800/60 p-4 sm:p-5 flex flex-col justify-between gap-4`}>
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#58149c] dark:text-[#d0bcff]">
@@ -792,7 +791,7 @@ export const ContractorAreaRecapView: React.FC = () => {
       </div>
 
       {/* Middle 2-Column Grid: Distribusi Jenis Pekerjaan & WO Selesai Terakhir */}
-      <div className={isMobileView ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
+      <div className={isCompactUI ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
         {/* Distribusi Jenis Pekerjaan */}
         <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs space-y-3.5">
           <div className="flex items-center justify-between gap-2">
@@ -986,6 +985,117 @@ export const ContractorAreaRecapView: React.FC = () => {
             >
               Kembalikan ke Hari Ini
             </button>
+          </div>
+        ) : isCompactUI ? (
+          /* Mobile Grouped Cards Representation for Hierarchical Area -> Contractor Matrix */
+          <div className="p-3 space-y-4 bg-[#FDF7FF] dark:bg-[#140827]/60">
+            {groupedData.map(group => (
+              <div
+                key={group.areaName}
+                className="rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 bg-white dark:bg-[#1E1238] overflow-hidden shadow-2xs"
+              >
+                <div className="px-3.5 py-2.5 bg-[#f3eaff] dark:bg-[#2C184D] border-b border-[#e8ddff] dark:border-purple-800/70 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <MapPin className="w-4 h-4 text-[#7C3AED] shrink-0" />
+                    <span className="font-bold text-xs uppercase tracking-wide text-[#58149c] dark:text-[#E9D5FF] truncate">
+                      {group.areaName}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-[#58149c] dark:text-[#D8B4FE] shrink-0">
+                    {group.contractors.length} Mitra · {group.subtotal.totalWO} WO
+                  </span>
+                </div>
+
+                <div className="divide-y divide-[#e8ddff]/60 dark:divide-purple-900/50">
+                  {group.contractors.map((c, cIdx) => (
+                    <div key={`${group.areaName}-${c.contractorName}`} className="p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-mono text-slate-400">#{cIdx + 1}</span>
+                          <Building2 className="w-3.5 h-3.5 text-[#7d7484] shrink-0" />
+                          <span className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                            {c.contractorName}
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-[#f3eaff] dark:bg-[#35105E] font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF] shrink-0">
+                          {c.totalWO} WO
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
+                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 py-1 px-1">
+                          <div className="text-emerald-700 dark:text-emerald-400 font-semibold">Assign</div>
+                          <div className="font-mono font-bold text-xs text-emerald-700 dark:text-emerald-300 tabular-nums">
+                            {c.assign}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 py-1 px-1">
+                          <div className="text-amber-700 dark:text-amber-400 font-semibold">Unasgn</div>
+                          <div className="font-mono font-bold text-xs text-amber-700 dark:text-amber-300 tabular-nums">
+                            {c.unassign}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-teal-50 dark:bg-teal-950/40 py-1 px-1">
+                          <div className="text-teal-700 dark:text-teal-400 font-semibold">Comp</div>
+                          <div className="font-mono font-bold text-xs text-teal-700 dark:text-teal-300 tabular-nums">
+                            {c.complete}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/40 py-1 px-1">
+                          <div className="text-blue-700 dark:text-blue-400 font-semibold">Pend</div>
+                          <div className="font-mono font-bold text-xs text-blue-700 dark:text-blue-300 tabular-nums">
+                            {c.uncomplete}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-rose-50 dark:bg-rose-950/40 py-1 px-1">
+                          <div className="text-rose-700 dark:text-rose-400 font-semibold">Cancel</div>
+                          <div className="font-mono font-bold text-xs text-rose-700 dark:text-rose-300 tabular-nums">
+                            {c.cancel}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-3.5 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border-t border-[#e8ddff] dark:border-purple-900/60 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
+                  <span className="text-[#58149c] dark:text-[#D8B4FE] uppercase">
+                    Subtotal {group.areaName}
+                  </span>
+                  <span className="font-mono tabular-nums text-[#1f1638] dark:text-white">
+                    {group.subtotal.totalWO} WO · Comp {group.subtotal.complete} · Pend {group.subtotal.uncomplete}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            <div className="rounded-2xl bg-gradient-to-r from-[#1f1638] to-[#342b4e] text-white p-4 border border-[#7C3AED]/60 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider">GRAND TOTAL</span>
+                <span className="font-mono text-lg font-extrabold tabular-nums">{grandTotal.totalWO} WO</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
+                <div className="rounded-lg bg-white/10 py-1.5">
+                  <div className="text-emerald-300">Assign</div>
+                  <div className="font-mono font-bold text-xs">{grandTotal.assign}</div>
+                </div>
+                <div className="rounded-lg bg-white/10 py-1.5">
+                  <div className="text-amber-300">Unasgn</div>
+                  <div className="font-mono font-bold text-xs">{grandTotal.unassign}</div>
+                </div>
+                <div className="rounded-lg bg-white/10 py-1.5">
+                  <div className="text-teal-300">Comp</div>
+                  <div className="font-mono font-bold text-xs">{grandTotal.complete}</div>
+                </div>
+                <div className="rounded-lg bg-white/10 py-1.5">
+                  <div className="text-blue-300">Pend</div>
+                  <div className="font-mono font-bold text-xs">{grandTotal.uncomplete}</div>
+                </div>
+                <div className="rounded-lg bg-white/10 py-1.5">
+                  <div className="text-rose-300">Cancel</div>
+                  <div className="font-mono font-bold text-xs">{grandTotal.cancel}</div>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -21,7 +21,8 @@ import { Ticket, User } from '../../types/index.ts';
 import { TechnicianCapacitySummary } from '../../services/leaderQuotaService';
 import { buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import { useToast } from '../../context/ToastContext';
 import gisMapStripImg from '../../assets/images/leader_gis_map_strip_1794890484931.jpg';
 
@@ -77,7 +78,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
   onSelectTicket,
   onRegisterInstaller
 }) => {
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -312,7 +313,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             </button>
           </div>
 
-          <div className={`grid gap-3 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
+          <div className={`grid gap-3 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
             <div>
               <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
                 Nama Lengkap Teknisi *
@@ -566,7 +567,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
           </p>
         </div>
       ) : (
-        <div className={`grid gap-3.5 ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+        <div className={`grid gap-3.5 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {filteredTechs.map(({ summary, idx, completedToday, activeTicket, issueTicket, isStandby, latestActiveOverallCount }) => {
             const inst = summary.installer;
             const hasValidPhone = isValidPhoneNumber(inst.phone || '');
@@ -807,137 +808,118 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
       </div>
 
       {/* BROADCAST COORDINATION MODAL */}
-      {isBroadcastOpen && (
-        <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#1E1238] w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border border-[#e8ddff] dark:border-[#35105E] shadow-2xl overflow-hidden text-xs">
-            <div className="px-5 py-4 bg-[#f8f1ff] dark:bg-[#261942] border-b border-[#e8ddff] dark:border-[#35105E] flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#58149c] text-white flex items-center justify-center">
-                  <Radio className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-[#1f1638] dark:text-white">
-                    Broadcast Koordinasi Tim
-                  </h3>
-                  <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
-                    {displayContractor} · {displayArea}
-                  </p>
-                </div>
-              </div>
+      <ResponsiveModal
+        isOpen={isBroadcastOpen}
+        onClose={() => setIsBroadcastOpen(false)}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        icon={<Radio className="w-4 h-4" />}
+        title="Broadcast Koordinasi Tim"
+        subtitle={`${displayContractor} · ${displayArea}`}
+        footer={
+          <button
+            type="button"
+            onClick={() => setIsBroadcastOpen(false)}
+            className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+          >
+            Tutup
+          </button>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block font-bold text-[#1f1638] dark:text-white mb-1.5">
+              Target Penerima:
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'all' as const, label: `Semua (${metrics.total})` },
+                { id: 'field' as const, label: `Di Lapangan (${metrics.onField})` },
+                { id: 'standby' as const, label: `Standby (${metrics.standby})` }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setBroadcastAudience(opt.id)}
+                  className={`min-h-[38px] py-2 px-2 rounded-xl font-bold text-[11px] border cursor-pointer transition-colors ${
+                    broadcastAudience === opt.id
+                      ? 'bg-[#eedbff] dark:bg-[#35105E] border-[#58149c] text-[#58149c] dark:text-[#dab9ff]'
+                      : 'bg-[#f8f1ff] dark:bg-[#160D29] border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-bold text-[#1f1638] dark:text-white">
+                Isi Pesan Instruksi:
+              </label>
               <button
                 type="button"
-                onClick={() => setIsBroadcastOpen(false)}
-                className="p-1.5 rounded-lg text-[#7d7484] hover:bg-white dark:hover:bg-[#35105E] cursor-pointer"
+                onClick={handleCopyBroadcast}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] hover:underline cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                {copiedBroadcast ? <Check className="w-3.5 h-3.5 text-[#16A36A]" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedBroadcast ? 'Disalin' : 'Salin Teks'}</span>
               </button>
             </div>
+            <textarea
+              rows={4}
+              value={broadcastMessage}
+              onChange={e => setBroadcastMessage(e.target.value)}
+              className="w-full p-3 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+            />
+          </div>
 
-            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              <div>
-                <label className="block font-bold text-[#1f1638] dark:text-white mb-1.5">
-                  Target Penerima:
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'all' as const, label: `Semua (${metrics.total})` },
-                    { id: 'field' as const, label: `Di Lapangan (${metrics.onField})` },
-                    { id: 'standby' as const, label: `Standby (${metrics.standby})` }
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setBroadcastAudience(opt.id)}
-                      className={`py-2 px-2 rounded-xl font-bold text-[11px] border cursor-pointer transition-colors ${
-                        broadcastAudience === opt.id
-                          ? 'bg-[#eedbff] dark:bg-[#35105E] border-[#58149c] text-[#58149c] dark:text-[#dab9ff]'
-                          : 'bg-[#f8f1ff] dark:bg-[#160D29] border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8]'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+          <div className="space-y-2">
+            <div className="font-bold text-[#1f1638] dark:text-white">
+              Kirim Langsung via WhatsApp ({broadcastRecipients.length} Teknisi):
+            </div>
+            <div className="max-h-52 overflow-y-auto divide-y divide-[#e8ddff] dark:divide-[#35105E] rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
+              {broadcastRecipients.length === 0 ? (
+                <div className="p-4 text-center text-[#7d7484]">
+                  Tidak ada teknisi pada kelompok penerima ini.
                 </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-[#1f1638] dark:text-white">
-                    Isi Pesan Instruksi:
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleCopyBroadcast}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] hover:underline cursor-pointer"
-                  >
-                    {copiedBroadcast ? <Check className="w-3.5 h-3.5 text-[#16A36A]" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedBroadcast ? 'Disalin' : 'Salin Teks'}</span>
-                  </button>
-                </div>
-                <textarea
-                  rows={4}
-                  value={broadcastMessage}
-                  onChange={e => setBroadcastMessage(e.target.value)}
-                  className="w-full p-3 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="font-bold text-[#1f1638] dark:text-white">
-                  Kirim Langsung via WhatsApp ({broadcastRecipients.length} Teknisi):
-                </div>
-                <div className="max-h-48 overflow-y-auto divide-y divide-[#e8ddff] dark:divide-[#35105E] rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
-                  {broadcastRecipients.length === 0 ? (
-                    <div className="p-4 text-center text-[#7d7484]">
-                      Tidak ada teknisi pada kelompok penerima ini.
-                    </div>
-                  ) : (
-                    broadcastRecipients.map(({ summary }) => {
-                      const phone = summary.installer.phone || '';
-                      const valid = isValidPhoneNumber(phone);
-                      return (
-                        <div key={summary.installer.id} className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white dark:bg-[#1E1238]">
-                          <div className="min-w-0">
-                            <div className="font-bold text-[#1f1638] dark:text-white truncate">
-                              {summary.installer.name}
-                            </div>
-                            <div className="text-[10.5px] font-mono text-[#7d7484]">
-                              {phone || 'No. WA belum terdaftar'}
-                            </div>
-                          </div>
-                          {valid ? (
-                            <a
-                              href={buildWhatsAppClickToChatUrl(phone, broadcastMessage).url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn-3d-success px-3 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 shrink-0"
-                            >
-                              <Send className="w-3 h-3" />
-                              <span>Kirim WA</span>
-                            </a>
-                          ) : (
-                            <span className="text-[10.5px] text-[#7d7484] italic shrink-0">No WA N/A</span>
-                          )}
+              ) : (
+                broadcastRecipients.map(({ summary }) => {
+                  const phone = summary.installer.phone || '';
+                  const valid = isValidPhoneNumber(phone);
+                  return (
+                    <div key={summary.installer.id} className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white dark:bg-[#1E1238]">
+                      <div className="min-w-0">
+                        <div className="font-bold text-[#1f1638] dark:text-white truncate">
+                          {summary.installer.name}
                         </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 bg-[#f8f1ff] dark:bg-[#261942] border-t border-[#e8ddff] dark:border-[#35105E] flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsBroadcastOpen(false)}
-                className="btn-3d-secondary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Tutup
-              </button>
+                        <div className="text-[10.5px] font-mono text-[#7d7484]">
+                          {phone || 'No. WA belum terdaftar'}
+                        </div>
+                      </div>
+                      {valid ? (
+                        <a
+                          href={buildWhatsAppClickToChatUrl(phone, broadcastMessage).url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-3d-success min-h-[36px] px-3 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 shrink-0"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>Kirim WA</span>
+                        </a>
+                      ) : (
+                        <span className="text-[10.5px] text-[#7d7484] italic shrink-0">No WA N/A</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
-      )}
+      </ResponsiveModal>
     </div>
   );
 };

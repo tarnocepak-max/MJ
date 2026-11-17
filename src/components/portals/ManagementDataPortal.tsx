@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
 import { Ticket } from '../../types/index.ts';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { DropdownActionItem } from '../common/ActionDropdownMenu';
 import {
   Database,
   FileSpreadsheet,
@@ -50,7 +52,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     canonicalFields,
     updateTicket
   } = useApp();
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'wo_data' | 'import_validation' | 'quality_monitoring'>('dashboard');
@@ -64,6 +66,8 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   const [dateFilterMode, setDateFilterMode] = useState<ScheduleDateFilterMode>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [woPage, setWoPage] = useState(1);
+  const [woPageSize, setWoPageSize] = useState(20);
 
   // Selected ticket for quality review
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -207,10 +211,23 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     return Array.from(set);
   }, [tickets]);
 
+  useEffect(() => {
+    setWoPage(1);
+  }, [searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, dateFilterMode, customStartDate, customEndDate]);
+
+  const effectiveWoPageSize = woPageSize === -1 ? Math.max(1, filteredTickets.length) : woPageSize;
+  const totalWoPages = Math.max(1, Math.ceil(filteredTickets.length / effectiveWoPageSize));
+  const safeWoPage = Math.min(woPage, totalWoPages);
+  const paginatedWoTickets = useMemo(() => {
+    if (woPageSize === -1) return filteredTickets;
+    const start = (safeWoPage - 1) * woPageSize;
+    return filteredTickets.slice(start, start + woPageSize);
+  }, [filteredTickets, safeWoPage, woPageSize]);
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className={`bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-4 ${isMobileView ? '' : 'md:flex-row md:items-center'}`}>
+      <div className={`bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-4 ${isCompactUI ? '' : 'md:flex-row md:items-center'}`}>
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E9E1FF] dark:bg-[#3B1D78]/60 border border-[#D8CCF3] dark:border-[#5B35B1]/50 rounded-full text-[#3B1D78] dark:text-[#E9E1FF] text-xs font-semibold mb-2">
             <ShieldCheck className="w-3.5 h-3.5 text-[#5B35B1]" />
@@ -302,7 +319,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* Metrics Grid */}
-          <div className={`grid gap-3.5 ${isMobileView ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
+          <div className={`grid gap-3.5 ${isCompactUI ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
             <div className="p-4 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs">
               <div className="text-[11px] font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase">Total WO</div>
               <div className="text-2xl font-extrabold text-[#21183A] dark:text-white mt-1">{metrics.total}</div>
@@ -347,7 +364,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
               <span>Standar Kebijakan Integritas Data MoraJaws</span>
             </h3>
 
-            <div className={`grid gap-4 text-xs ${isMobileView ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
+            <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
               <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
                 <div className="font-bold text-indigo-600 dark:text-indigo-400">1. Customer ID 7 Digit Murni</div>
                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -375,9 +392,9 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
       {/* 2. TAB: DATA WO */}
       {activeTab === 'wo_data' && (
-        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-xs space-y-4">
           {/* Search Filters Row */}
-          <div className={`grid gap-3 text-xs ${isMobileView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
+          <div className={`grid gap-3 text-xs ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -385,7 +402,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 placeholder="Cari WO Number..."
                 value={searchWo}
                 onChange={e => setSearchWo(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[42px] sm:min-h-[36px] pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
               />
             </div>
 
@@ -395,7 +412,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 placeholder="Cari Customer ID (7 digit)..."
                 value={searchCustomerId}
                 onChange={e => setSearchCustomerId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
               />
             </div>
 
@@ -405,14 +422,14 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 placeholder="Cari Nama Pelanggan..."
                 value={searchCustomerName}
                 onChange={e => setSearchCustomerName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
               />
             </div>
 
             <select
               value={selectedContractor}
               onChange={e => setSelectedContractor(e.target.value)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
             >
               <option value="ALL">Semua Mitra Kontraktor</option>
               {contractors.map((c, cIdx) => (
@@ -423,7 +440,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             <select
               value={dateFilterMode}
               onChange={e => setDateFilterMode(e.target.value as ScheduleDateFilterMode)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+              className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
             >
               <option value="all">Semua Tanggal Appointment</option>
               <option value="today">Hari Ini ({operationalDate})</option>
@@ -435,24 +452,24 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
           {/* Custom Date Range if mode is custom */}
           {dateFilterMode === 'custom' && (
-            <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-              <Calendar className="w-4 h-4 text-[#5B35B1]" />
-              <div className="flex items-center gap-2">
-                <span>Mulai:</span>
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <Calendar className="w-4 h-4 text-[#5B35B1] shrink-0" />
+              <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                <span className="shrink-0">Mulai:</span>
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={e => setCustomStartDate(e.target.value)}
-                  className="px-2 py-1 bg-white dark:bg-slate-800 border rounded-lg"
+                  className="w-full min-h-[38px] px-2.5 py-1 bg-white dark:bg-slate-800 border rounded-lg"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span>Sampai:</span>
+              <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                <span className="shrink-0">Sampai:</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={e => setCustomEndDate(e.target.value)}
-                  className="px-2 py-1 bg-white dark:bg-slate-800 border rounded-lg"
+                  className="w-full min-h-[38px] px-2.5 py-1 bg-white dark:bg-slate-800 border rounded-lg"
                 />
               </div>
             </div>
@@ -468,7 +485,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsBulkDeleteModalOpen(true)}
-                  className="px-3.5 py-1.5 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  className="min-h-[38px] px-3.5 py-1.5 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Hapus {selectedIds.size} WO Terpilih</span>
@@ -476,7 +493,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="px-2.5 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-lg cursor-pointer"
+                  className="min-h-[38px] px-2.5 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-lg cursor-pointer"
                 >
                   Batal
                 </button>
@@ -484,182 +501,297 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             </div>
           )}
 
-          {/* Table */}
-          {filteredTickets.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400 space-y-1">
-              <Database className="w-7 h-7 mx-auto text-slate-300 dark:text-slate-700" />
-              <div className="font-semibold text-slate-600 dark:text-slate-400">Tidak ada data WO yang cocok dengan kriteria filter.</div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase tracking-wider bg-slate-50/50 dark:bg-slate-900/30">
-                    <th className="py-2.5 px-3 w-8 text-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredTickets.length > 0 && selectedIds.size === filteredTickets.length}
-                        onChange={e => {
-                          if (e.target.checked) setSelectedIds(new Set(filteredTickets.map(t => t.id)));
-                          else setSelectedIds(new Set());
-                        }}
-                        className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
-                      />
-                    </th>
-                    <th className="py-2.5 px-3">WO Number</th>
-                    <th className="py-2.5 px-3">Customer ID</th>
-                    <th className="py-2.5 px-3">Nama Pelanggan</th>
-                    <th className="py-2.5 px-3">Appointment Date</th>
-                    <th className="py-2.5 px-3">Slot Time</th>
-                    <th className="py-2.5 px-3">Kontraktor</th>
-                    <th className="py-2.5 px-3">Area</th>
-                    <th className="py-2.5 px-3">Status Agent</th>
-                    <th className="py-2.5 px-3">Status Lapangan</th>
-                    <th className="py-2.5 px-3 text-center">Integritas</th>
-                    <th className="py-2.5 px-3 text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans text-xs">
-                  {filteredTickets.map(t => {
-                    const cid = (t.idCustomer || t.customerId || '').trim();
-                    const isCid7 = /^[0-9]{7}$/.test(cid);
-                    const appDateParsed = parseAppointmentDate(t.appointmentDate);
-
-                    return (
-                      <tr key={t.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(t.id)}
-                            onChange={() => {
-                              setSelectedIds(prev => {
-                                const next = new Set(prev);
-                                if (next.has(t.id)) next.delete(t.id);
-                                else next.add(t.id);
-                                return next;
-                              });
-                            }}
-                            className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">
-                          {t.woNumber}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono">
-                          <span className={isCid7 ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600 font-bold'}>
-                            {cid || '-'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
-                          {t.customerName}
-                        </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          {appDateParsed.date ? (
-                            <span className="text-slate-800 dark:text-slate-200 font-medium">
-                              {formatAppointmentDateDisplay(appDateParsed.date)}
-                            </span>
-                          ) : (
-                            <span className="text-amber-600 dark:text-amber-400 text-[11px] italic">
-                              Tanggal belum tersedia
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                          {t.slotTime || '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                          {t.contactorName || t.contractorName || '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-500">
-                          {t.area || '-'}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <StatusAgentBadge status={t.statusWOAgent} />
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <StatusInstallerBadge status={t.statusWOInstaller} />
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          {isCid7 && appDateParsed.isValid ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Valid</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
-                              <AlertTriangle className="w-3 h-3" />
-                              <span>Review</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setTicketToDelete(t)}
-                            className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white dark:bg-rose-950/50 dark:hover:bg-rose-600 dark:text-rose-300 dark:hover:text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 font-semibold text-[11px]"
-                            title="Hapus Work Order (Khusus Role Management Data)"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Hapus</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveDataTable<Ticket>
+            data={paginatedWoTickets}
+            getRowKey={t => t.id}
+            selectable
+            selectedKeys={selectedIds}
+            onToggleSelect={key => {
+              setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              });
+            }}
+            onToggleSelectAll={() => {
+              const allVisibleSelected =
+                paginatedWoTickets.length > 0 && paginatedWoTickets.every(t => selectedIds.has(t.id));
+              setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (allVisibleSelected) {
+                  paginatedWoTickets.forEach(t => next.delete(t.id));
+                } else {
+                  paginatedWoTickets.forEach(t => next.add(t.id));
+                }
+                return next;
+              });
+            }}
+            mobileTitle={t => (
+              <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">
+                {t.woNumber} — <span className="font-sans text-slate-900 dark:text-white">{t.customerName}</span>
+              </span>
+            )}
+            mobileSubtitle={t => {
+              const cid = (t.idCustomer || t.customerId || '').trim();
+              const isCid7 = /^[0-9]{7}$/.test(cid);
+              return (
+                <span className="font-mono">
+                  ID:{' '}
+                  <strong className={isCid7 ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600'}>
+                    {cid || '-'}
+                  </strong>{' '}
+                  · {t.area || '-'}
+                </span>
+              );
+            }}
+            mobileStatus={t => {
+              const cid = (t.idCustomer || t.customerId || '').trim();
+              const isCid7 = /^[0-9]{7}$/.test(cid);
+              const appDateParsed = parseAppointmentDate(t.appointmentDate);
+              return (
+                <>
+                  <StatusAgentBadge status={t.statusWOAgent} />
+                  <StatusInstallerBadge status={t.statusWOInstaller} />
+                  {isCid7 && appDateParsed.isValid ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Valid</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Review</span>
+                    </span>
+                  )}
+                </>
+              );
+            }}
+            columns={[
+              {
+                key: 'woNumber',
+                label: 'WO Number',
+                priority: 'hidden_mobile',
+                render: t => <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">{t.woNumber}</span>
+              },
+              {
+                key: 'customerId',
+                label: 'Customer ID',
+                priority: 'hidden_mobile',
+                render: t => {
+                  const cid = (t.idCustomer || t.customerId || '').trim();
+                  const isCid7 = /^[0-9]{7}$/.test(cid);
+                  return <span className={`font-mono ${isCid7 ? 'text-slate-800 dark:text-slate-200' : 'text-rose-600 font-bold'}`}>{cid || '-'}</span>;
+                }
+              },
+              {
+                key: 'customerName',
+                label: 'Nama Pelanggan',
+                priority: 'hidden_mobile',
+                render: t => <span className="font-semibold text-slate-800 dark:text-slate-200">{t.customerName}</span>
+              },
+              {
+                key: 'appointmentDate',
+                label: 'Appointment Date',
+                priority: 'primary',
+                render: t => {
+                  const appDateParsed = parseAppointmentDate(t.appointmentDate);
+                  return appDateParsed.date ? (
+                    <span className="text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap">
+                      {formatAppointmentDateDisplay(appDateParsed.date)}
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 text-[11px] italic">Tanggal belum tersedia</span>
+                  );
+                }
+              },
+              {
+                key: 'slotTime',
+                label: 'Slot Time',
+                priority: 'primary',
+                render: t => <span className="text-slate-500 whitespace-nowrap">{t.slotTime || '-'}</span>
+              },
+              {
+                key: 'contractor',
+                label: 'Kontraktor',
+                priority: 'secondary',
+                render: t => <span className="text-slate-700 dark:text-slate-300">{t.contactorName || t.contractorName || '-'}</span>
+              },
+              {
+                key: 'area',
+                label: 'Area',
+                priority: 'secondary',
+                render: t => <span className="text-slate-500">{t.area || '-'}</span>
+              },
+              {
+                key: 'statusAgent',
+                label: 'Status Agent',
+                priority: 'hidden_mobile',
+                render: t => <StatusAgentBadge status={t.statusWOAgent} />
+              },
+              {
+                key: 'statusInstaller',
+                label: 'Status Lapangan',
+                priority: 'hidden_mobile',
+                render: t => <StatusInstallerBadge status={t.statusWOInstaller} />
+              },
+              {
+                key: 'integrity',
+                label: 'Integritas',
+                align: 'center',
+                priority: 'hidden_mobile',
+                render: t => {
+                  const cid = (t.idCustomer || t.customerId || '').trim();
+                  const isCid7 = /^[0-9]{7}$/.test(cid);
+                  const appDateParsed = parseAppointmentDate(t.appointmentDate);
+                  return isCid7 && appDateParsed.isValid ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Valid</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Review</span>
+                    </span>
+                  );
+                }
+              }
+            ] as ResponsiveColumn<Ticket>[]}
+            getRowActions={t => {
+              const actions: DropdownActionItem[] = [];
+              if (onSelectTicket) {
+                actions.push({
+                  id: 'detail',
+                  label: 'Lihat Detail Tiket',
+                  icon: <Eye className="w-3.5 h-3.5" />,
+                  onClick: () => onSelectTicket(t)
+                });
+              }
+              actions.push({
+                id: 'delete',
+                label: 'Hapus Work Order',
+                icon: <Trash2 className="w-3.5 h-3.5" />,
+                tone: 'danger',
+                onClick: () => setTicketToDelete(t)
+              });
+              return actions;
+            }}
+            renderDesktopActions={t => (
+              <button
+                type="button"
+                onClick={() => setTicketToDelete(t)}
+                className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white dark:bg-rose-950/50 dark:hover:bg-rose-600 dark:text-rose-300 dark:hover:text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 font-semibold text-[11px]"
+                title="Hapus Work Order (Khusus Role Management Data)"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Hapus</span>
+              </button>
+            )}
+            emptyState={{
+              title: 'Tidak ada data WO cocok',
+              description: 'Tidak ada data WO yang cocok dengan kriteria filter aktif.'
+            }}
+            pagination={{
+              currentPage: safeWoPage,
+              totalPages: totalWoPages,
+              totalItems: filteredTickets.length,
+              pageSize: woPageSize === -1 ? 'ALL' : woPageSize,
+              onPageChange: setWoPage,
+              onPageSizeChange: nextSize => {
+                setWoPageSize(nextSize === 'ALL' ? -1 : nextSize);
+                setWoPage(1);
+              },
+              pageSizeOptions: [10, 20, 50, 100, 'ALL'],
+              itemLabel: 'WO'
+            }}
+          />
         </div>
       )}
 
       {/* 3. TAB: IMPORT & VALIDASI */}
       {activeTab === 'import_validation' && (
-        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-xs space-y-4">
           <div className="border-b border-[#E9E1FF] dark:border-[#3B1D78]/60 pb-3">
             <h3 className="text-sm font-bold text-[#21183A] dark:text-white flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4 text-[#5B35B1]" />
-              <span>Pemeriksaan Mapping Header & Kolom Terdaftar</span>
+              <span>Pemeriksaan Mapping Header &amp; Kolom Terdaftar</span>
             </h3>
             <p className="text-xs text-[#756B8D] dark:text-[#D8CCF3] mt-0.5">
               Daftar canonical field standard MoraJaws ({canonicalFields.length} field) yang digunakan untuk memvalidasi setiap baris impor.
             </p>
           </div>
 
-          <div className="overflow-x-auto max-h-96">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 uppercase font-bold text-slate-500 text-[10.5px]">
-                <tr>
-                  <th className="py-2 px-3">Field Canonical</th>
-                  <th className="py-2 px-3">Display Label</th>
-                  <th className="py-2 px-3">Kategori</th>
-                  <th className="py-2 px-3">Tipe Data</th>
-                  <th className="py-2 px-3">Status</th>
-                  <th className="py-2 px-3">Alias Dikenali</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {canonicalFields.map(f => (
-                  <tr key={f.canonicalField} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <td className="py-2 px-3 font-mono font-bold text-[#5B35B1]">{f.canonicalField}</td>
-                    <td className="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">{f.displayLabel}</td>
-                    <td className="py-2 px-3 capitalize text-slate-500">{f.category}</td>
-                    <td className="py-2 px-3 font-mono text-slate-500">{f.dataType}</td>
-                    <td className="py-2 px-3">
-                      {f.required ? (
-                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 rounded text-[10px] font-bold">Wajib</span>
-                      ) : (
-                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded text-[10px]">Opsional</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-[11px] text-slate-500 max-w-xs truncate">
-                      {f.aliases.join(', ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveDataTable
+            data={canonicalFields}
+            getRowKey={f => f.canonicalField}
+            maxTableHeightClass="max-h-96"
+            mobileTitle={f => <span className="font-mono font-bold text-[#5B35B1] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
+            mobileSubtitle={f => f.displayLabel}
+            mobileStatus={f =>
+              f.required ? (
+                <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 rounded text-[10px] font-bold">
+                  Wajib
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded text-[10px]">
+                  Opsional
+                </span>
+              )
+            }
+            columns={[
+              {
+                key: 'canonicalField',
+                label: 'Field Canonical',
+                priority: 'hidden_mobile',
+                render: f => <span className="font-mono font-bold text-[#5B35B1] dark:text-[#DAB9FF]">{f.canonicalField}</span>
+              },
+              {
+                key: 'displayLabel',
+                label: 'Display Label',
+                priority: 'hidden_mobile',
+                render: f => <span className="font-medium text-slate-800 dark:text-slate-200">{f.displayLabel}</span>
+              },
+              {
+                key: 'category',
+                label: 'Kategori',
+                priority: 'primary',
+                render: f => <span className="capitalize text-slate-500">{f.category}</span>
+              },
+              {
+                key: 'dataType',
+                label: 'Tipe Data',
+                priority: 'primary',
+                render: f => <span className="font-mono text-slate-500">{f.dataType}</span>
+              },
+              {
+                key: 'required',
+                label: 'Status',
+                priority: 'hidden_mobile',
+                render: f =>
+                  f.required ? (
+                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 rounded text-[10px] font-bold">
+                      Wajib
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded text-[10px]">
+                      Opsional
+                    </span>
+                  )
+              },
+              {
+                key: 'aliases',
+                label: 'Alias Dikenali',
+                priority: 'secondary',
+                render: f => (
+                  <span className="text-[11px] text-slate-500 max-w-xs block truncate" title={f.aliases.join(', ')}>
+                    {f.aliases.join(', ') || '-'}
+                  </span>
+                ),
+                renderMobile: f => <span className="text-[11px] text-slate-500 break-words">{f.aliases.join(', ') || '-'}</span>
+              }
+            ]}
+          />
         </div>
       )}
 

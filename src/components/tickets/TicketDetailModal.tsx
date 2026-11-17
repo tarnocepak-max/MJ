@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import {
   StatusAgentBadge,
   StatusInstallerBadge,
@@ -101,7 +101,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     ticketActivities,
     toast
   } = useApp();
-  const { isMobileView } = useUIConfig();
+  const { isCompactUI } = useResponsiveViewport();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Ticket>>({});
@@ -482,7 +482,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   return (
     <div
       className={`fixed inset-0 z-60 flex items-start sm:items-center justify-center bg-[#160D29]/65 backdrop-blur-sm transition-opacity ${
-        isMobileView ? 'p-0' : 'p-2 sm:p-4 lg:p-6'
+        isCompactUI ? 'p-0' : 'p-2 sm:p-4 lg:p-6'
       }`}
       onClick={onClose}
     >
@@ -492,7 +492,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         aria-labelledby="modal-ticket-title"
         onClick={e => e.stopPropagation()}
         className={`relative w-full bg-white dark:bg-[#1E1238] shadow-2xl border border-[#E8DDFF] dark:border-[#35105E] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
-          isMobileView ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl max-h-[94vh] rounded-2xl'
+          isCompactUI ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl max-h-[94vh] rounded-2xl'
         }`}
       >
         {/* TOP SYSTEM & SYNC STRIP */}
@@ -532,7 +532,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         {/* MODAL HEADER */}
         <div
           className={`bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 ${
-            isMobileView ? 'px-3.5 py-3' : 'px-5 py-3.5'
+            isCompactUI ? 'px-3.5 py-3' : 'px-5 py-3.5'
           }`}
         >
           {/* Left: Title + Category + Cust ID + 4 Operational Status Dimensions */}
@@ -1620,7 +1620,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   <TicketLiveChat
                     ticket={ticket}
                     initialCategory={chatInitialCategory}
-                    heightClass="h-[640px] lg:h-[740px]"
+                    heightClass={isCompactUI ? 'h-[480px]' : 'h-[640px] lg:h-[740px]'}
                     onCollapse={() => setIsChatOpen(false)}
                   />
                 </div>
@@ -1666,7 +1666,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0">
+        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0">
           <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -1686,14 +1686,14 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="btn-3d-ceramic px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+              className="btn-3d-ceramic flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold cursor-pointer"
             >
               Tutup Modal
             </button>
             <button
               type="button"
               onClick={() => window.print()}
-              className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="btn-3d-primary flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Cetak Berita Acara (BA)</span>
