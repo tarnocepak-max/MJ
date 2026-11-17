@@ -512,6 +512,40 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
   const playErrorSound = useCallback(() => playErrorSoundInternal(false), [playErrorSoundInternal]);
   const playSyncSound = useCallback(() => playSyncSoundInternal(false), [playSyncSoundInternal]);
 
+  // Listen to explicit toast sound events from ToastProvider (avoids circular context dependency)
+  useEffect(() => {
+    const handleToastSound = (e: Event) => {
+      const detail = (e as CustomEvent<{ type?: string }>).detail;
+      const toastType = detail?.type || 'info';
+      switch (toastType) {
+        case 'error':
+        case 'warning':
+          playErrorSoundInternal(false);
+          break;
+        case 'success':
+          playReportSavedSoundInternal(false);
+          break;
+        case 'sync':
+          playSyncSoundInternal(false);
+          break;
+        case 'loading':
+          playLoadingSoundInternal(false);
+          break;
+        default:
+          playReadySoundInternal(false);
+          break;
+      }
+    };
+    window.addEventListener('morajaws:toast-sound', handleToastSound);
+    return () => window.removeEventListener('morajaws:toast-sound', handleToastSound);
+  }, [
+    playErrorSoundInternal,
+    playReportSavedSoundInternal,
+    playSyncSoundInternal,
+    playLoadingSoundInternal,
+    playReadySoundInternal
+  ]);
+
   // Sound Preview function (always plays regardless of toggle to allow user testing)
   const previewSound = useCallback((type: 'loading' | 'ready' | 'report_saved' | 'error' | 'sync') => {
     switch (type) {

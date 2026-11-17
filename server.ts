@@ -345,9 +345,9 @@ export const PROTECTED_PRODUCTION_WO_IDS = new Set<string>([
 ]);
 
 export function isLocalJsonModeAllowed(): boolean {
-  if (process.env.NODE_ENV === 'production') return false;
   if (isSupabaseMode()) return false;
-  return process.env.ALLOW_LOCAL_JSON_MODE === 'true';
+  if (process.env.ALLOW_LOCAL_JSON_MODE === 'false') return false;
+  return true;
 }
 
 export function isSupabaseMode(): boolean {

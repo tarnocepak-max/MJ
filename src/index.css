@@ -887,10 +887,51 @@ html.dark .tactile-debossed-input {
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(91, 53, 177, 0.45);
 }
 
+@keyframes morajaws-toast-spring {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.94);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes morajaws-sheet-up {
+  0% {
+    opacity: 0;
+    transform: translateY(36px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mj-toast-enter {
+  animation: morajaws-toast-spring 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.mj-sheet-enter {
+  animation: morajaws-sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.mj-toast-card:hover .mj-toast-progress-bar {
+  animation-play-state: paused !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mj-shimmer::after,
   .animate-spin,
-  .animate-pulse {
+  .animate-pulse,
+  .mj-toast-enter,
+  .mj-sheet-enter {
     animation: none !important;
   }
 }
+

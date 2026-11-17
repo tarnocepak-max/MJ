@@ -221,6 +221,7 @@ interface AppContextType {
         ontSerialNumber?: string;
         dropcoreLength?: string;
         fatPort?: string;
+        usedMaterials?: string;
         photos?: string[];
         photoSlots?: import('../types/index.ts').TechnicalPhotoSlot[];
         customerSignatureUrl?: string;
@@ -3222,6 +3223,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ontSerialNumber?: string;
         dropcoreLength?: string;
         fatPort?: string;
+        usedMaterials?: string;
         photos?: string[];
         photoSlots?: import('../types/index.ts').TechnicalPhotoSlot[];
         customerSignatureUrl?: string;
@@ -3412,6 +3414,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deviceSerialNumber: tel?.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber,
       dropcoreLength: tel?.dropcoreLength || ticket.technicalReport?.dropcoreLength,
       fatPort: tel?.fatPort || ticket.technicalReport?.fatPort,
+      usedMaterials: tel?.usedMaterials || ticket.technicalReport?.usedMaterials,
       photos: telPhotos,
       photoSlots: tel?.photoSlots || ticket.technicalReport?.photoSlots,
       photoAfterUrl: telPhotos && telPhotos.length > 0 ? telPhotos[0] : ticket.technicalReport?.photoAfterUrl,

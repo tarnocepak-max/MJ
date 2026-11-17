@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { useApp } from '../../context/AppContext';
+import { useToast } from '../../context/ToastContext';
 import {
   Volume2,
   VolumeX,
@@ -10,11 +11,16 @@ import {
   Smartphone,
   Lock,
   AlertTriangle,
-  Loader2
+  Loader2,
+  BellRing,
+  CheckCircle2,
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
 
 export const SoundSettingsView: React.FC = () => {
   const { currentUser } = useApp();
+  const { toast } = useToast();
   const isSuperAdmin = currentUser.role === 'super_admin';
 
   const {
@@ -58,10 +64,52 @@ export const SoundSettingsView: React.FC = () => {
     {
       id: 'soundSync' as const,
       name: '5. Sync Data Sound',
-      desc: 'Efek akustik saat sinkronisasi database Supabase PostgreSQL atau refresh ditekan.',
+      desc: 'Efek akustik saat sinkronisasi database PostgreSQL atau refresh ditekan.',
       action: playSyncSound
     }
   ];
+
+  const handleTriggerInteractiveToast = (preset: 'success' | 'warning' | 'error' | 'sync') => {
+    if (preset === 'success') {
+      toast.success(
+        'Check-in lapangan #PROGRESS & sinkronisasi telemetry OPM berhasil tercatat.',
+        'Check-in GPS Berhasil',
+        { withSound: true, badge: 'VERIFIED OPS' }
+      );
+    } else if (preset === 'warning') {
+      toast.warning(
+        'Antrean sinkronisasi lokal mendekati kapasitas. Pastikan koneksi 4G/Wi-Fi stabil.',
+        'Kapasitas Antrean Lokal',
+        {
+          withSound: true,
+          badge: 'PERINGATAN SISTEM',
+          actionLabel: 'Periksa Sync',
+          onAction: () => {
+            toast.info('Panel Pusat Sinkron siap digunakan.', 'Navigasi');
+          }
+        }
+      );
+    } else if (preset === 'error') {
+      toast.error(
+        'Redaman melebihi batas toleransi FTTH (-24 dBm). Cek tekukan dropcore & kebersihan ferrule!',
+        'Peringatan Redaman Tinggi',
+        {
+          withSound: true,
+          badge: 'CRITICAL OPM',
+          actionLabel: 'Perbaiki Jalur',
+          onAction: () => {
+            toast.info('Checklist perbaikan jalur dibuka.', 'Panduan SOP');
+          }
+        }
+      );
+    } else {
+      toast.sync(
+        'Data telemetry Work Order & foto bukti lapangan telah disinkronkan ke server.',
+        'Sinkronisasi Telemetry Selesai',
+        { withSound: true, badge: 'LIVE SYNC' }
+      );
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -225,6 +273,83 @@ export const SoundSettingsView: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Interactive Tactile Toast + Audio Sandbox (in Settings only, away from technician operational views) */}
+      <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center border border-[#E8DDFF] dark:border-[#7135B5]/50">
+              <BellRing className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <h4 className="font-display font-bold text-sm text-[#1F1638] dark:text-white">
+                Test Interaktif Tactile Toast &amp; Audio
+              </h4>
+              <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
+                Uji notifikasi 3D melayang (hover untuk menahan timer) sekaligus memutar chime operasional.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <button
+            type="button"
+            onClick={() => handleTriggerInteractiveToast('success')}
+            className="tactile-btn-secondary p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-emerald-200 dark:border-emerald-500/40 text-left flex items-center gap-2.5 cursor-pointer"
+          >
+            <span className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Toast Sukses</div>
+              <div className="text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] truncate">Check-in &amp; Chime</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTriggerInteractiveToast('warning')}
+            className="tactile-btn-secondary p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-amber-200 dark:border-amber-500/40 text-left flex items-center gap-2.5 cursor-pointer"
+          >
+            <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Toast Peringatan</div>
+              <div className="text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] truncate">Antrean &amp; CTA Sync</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTriggerInteractiveToast('error')}
+            className="tactile-btn-secondary p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-rose-200 dark:border-rose-500/40 text-left flex items-center gap-2.5 cursor-pointer"
+          >
+            <span className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950 text-[#BA1A1A] dark:text-rose-300 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Alert Kritis OPM</div>
+              <div className="text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] truncate">Error Tone + CTA</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTriggerInteractiveToast('sync')}
+            className="tactile-btn-secondary p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#7135B5]/50 text-left flex items-center gap-2.5 cursor-pointer"
+          >
+            <span className="w-8 h-8 rounded-lg bg-[#E9D5FF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              <RefreshCw className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Toast Telemetry Sync</div>
+              <div className="text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] truncate">Sync Chime Feedback</div>
+            </div>
+          </button>
         </div>
       </div>
 

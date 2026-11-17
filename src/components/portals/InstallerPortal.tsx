@@ -1,11 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
-import { Ticket, TicketStatusWOInstaller, TechnicalReport } from '../../types/index.ts';
+import { useOfflineSync } from '../../context/OfflineSyncContext';
+import { Ticket, TicketStatusWOInstaller } from '../../types/index.ts';
 import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from '../tickets/TechnicalReportForm';
 import { InstallerTicketFullview } from './InstallerTicketFullview';
+import { TactileAlertBanner } from '../common/TactileAlertBanner';
+import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
 import {
   matchesKpiFilter,
   KPI_FILTER_LABELS,
@@ -15,6 +18,7 @@ import {
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
+import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import {
   Wrench,
   Phone,
@@ -25,11 +29,6 @@ import {
   FileText,
   AlertTriangle,
   Clock,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Building2,
-  UserCheck,
   Radio,
   Wifi,
   Camera,
@@ -38,11 +37,14 @@ import {
   Eye,
   Check,
   X,
-  ArrowRight,
-  ShieldAlert,
-  Sparkles,
   Play,
-  AlertCircle
+  AlertCircle,
+  Router,
+  RefreshCw,
+  WifiOff,
+  Package,
+  ShieldAlert,
+  SlidersHorizontal
 } from 'lucide-react';
 
 export type StatusFilterCategory = 'all' | 'pending' | 'butuh_approval' | 'revision' | 'done' | 'reschedule' | 'cancel';
@@ -53,6 +55,41 @@ interface InstallerPortalProps {
   initialFilter?: StatusFilterCategory;
 }
 
+const KENDALA_ESCALATION_OPTIONS: EscalationReasonOption[] = [
+  {
+    id: 'port_odp_full',
+    label: 'Port FAT / ODP Penuh atau Tidak Ada Signal',
+    description: 'Memerlukan relokasi FAT atau penambahan splitter oleh tim jaringan.',
+    targetInstallerStatus: 'Pending Technical'
+  },
+  {
+    id: 'customer_reschedule',
+    label: 'Pelanggan Tidak di Tempat / Minta Reschedule',
+    description: 'Pelanggan menunda jadwal pemasangan ke sesi atau hari berikutnya.',
+    targetInstallerStatus: 'Pending Technical',
+    isReschedule: true
+  },
+  {
+    id: 'route_permit',
+    label: 'Hambatan Izin Jalur / Penarikan Dropcore',
+    description: 'Terdapat kendala akses tiang, pengelola cluster, atau jalur rumah.',
+    targetInstallerStatus: 'Pending Technical'
+  },
+  {
+    id: 'hardware_or_cancel',
+    label: 'Pelanggan Membatalkan / Gagal Instalasi',
+    description: 'Order dibatalkan di lokasi atau kondisi lokasi tidak memungkinkan.',
+    targetInstallerStatus: 'Failed / Cancelled'
+  }
+];
+
+function parseNumericDbm(raw?: string | number | null): number | null {
+  if (raw === undefined || raw === null) return null;
+  const cleaned = String(raw).replace(/[^\d.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /**
  * Categorizes a ticket into one of the four operational buckets:
  * - Done (Selesai)
@@ -61,7 +98,6 @@ interface InstallerPortalProps {
  * - Cancel (Dibatalkan)
  */
 export const classifyInstallerStatus = (ticket: Ticket): 'done' | 'pending' | 'reschedule' | 'cancel' => {
-  // 1. Cancel check
   const isCancel =
     ticket.statusWOInstaller === 'Failed / Cancelled' ||
     ticket.statusWOAgent === 'Cancelled' ||
@@ -71,7 +107,6 @@ export const classifyInstallerStatus = (ticket: Ticket): 'done' | 'pending' | 'r
 
   if (isCancel) return 'cancel';
 
-  // 2. Reschedule check
   const remarksInst = String(ticket.remarksWOInstaller ?? '').toLowerCase();
   const remarksAg = String(ticket.remarksAgent ?? '').toLowerCase();
   const appType = String(ticket.appointmentType ?? '').toLowerCase();
@@ -88,7 +123,6 @@ export const classifyInstallerStatus = (ticket: Ticket): 'done' | 'pending' | 'r
 
   if (isReschedule) return 'reschedule';
 
-  // 3. Done check
   const isDone =
     ticket.statusWOInstaller === 'Completed' ||
     ticket.statusWOInstaller === 'Installed' ||
@@ -98,12 +132,10 @@ export const classifyInstallerStatus = (ticket: Ticket): 'done' | 'pending' | 'r
 
   if (isDone) return 'done';
 
-  // 4. Default: Pending / Active
   return 'pending';
 };
 
 export const InstallerPortal: React.FC<InstallerPortalProps> = ({
-  onSelectTicket,
   onOpenWhatsApp,
   initialFilter = 'all'
 }) => {
@@ -111,6 +143,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     tickets,
     updateTicketStatus,
     startWorkOnTicket,
+    sendTicketMessage,
     currentUser,
     users,
     todayWIB,
@@ -120,8 +153,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     setTicketChatCategory
   } = useApp();
   const { toast } = useToast();
+  const { isOnline, pendingCount, syncNow, isSyncing, setIsOfflineModalOpen } = useOfflineSync();
 
-  // Active installer identification
   const myInstallers = users.filter(u => u.role === 'installer');
   const [selectedInstallerName, setSelectedInstallerName] = useState<string>(
     currentUser.role === 'installer' ? currentUser.name : (myInstallers[0]?.name || 'Andi Saputra')
@@ -129,7 +162,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   const effectiveInstallerName = currentUser.role === 'installer' ? currentUser.name : selectedInstallerName;
 
-  // Flexible matching for technician name (handles "Andi Saputra" vs "Andi Saputra (Teknisi MJS)")
   const isInstallerMatch = (ticketInstaller: string | undefined, installerName: string) => {
     if (!ticketInstaller || !ticketInstaller.trim()) return false;
     const tInst = ticketInstaller.toLowerCase().trim();
@@ -141,7 +173,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     return false;
   };
 
-  // Filter tickets for this technician: ONLY active today's work orders (appointmentDate === todayWIB) assigned to their account!
   const myTickets = useMemo(() => {
     const isHistoryView = initialFilter === 'done';
     if (currentUser.role === 'installer') {
@@ -154,11 +185,9 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         if (!t.installerName && !t.assignedTo) return false;
         if (!isHistoryView && getTicketAppointmentDate(t) !== todayWIB) return false;
 
-        // Check UID / assignedTo
         if (myId && t.assignedTo === myId) return true;
         if (myUsername && (t.assignedTo === myUsername || (t.assignedTo && t.assignedTo.toLowerCase() === myUsername))) return true;
 
-        // Check installerName
         if (myName && isInstallerMatch(t.installerName, myName)) return true;
         if (myUsername && isInstallerMatch(t.installerName, myUsername)) return true;
 
@@ -176,36 +205,33 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     );
   }, [tickets, currentUser, effectiveInstallerName, todayWIB, initialFilter]);
 
-  // Status Filter State
   const [statusFilter, setStatusFilter] = useState<StatusFilterCategory>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Record<string, boolean>>({});
+  const [materialStripDismissed, setMaterialStripDismissed] = useState(false);
 
-  // Sync filter when prop changes (navigating between Tugas Saya and Riwayat)
   React.useEffect(() => {
     if (initialFilter) {
       setStatusFilter(initialFilter);
     }
   }, [initialFilter]);
 
-  // Ensure KPI drilldown from Dashboard isn't masked by an earlier status pill
   React.useEffect(() => {
     if (activeKpiDrilldown) {
       setStatusFilter('all');
     }
   }, [activeKpiDrilldown]);
 
-  // Fullview ticket state for technician
   const [fullviewTicket, setFullviewTicket] = useState<Ticket | null>(null);
-
-  // Ticket Detail Modal State
   const [detailTicket, setDetailTicket] = useState<Ticket | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'details' | 'chat'>('details');
   const [chatInitialCategory, setChatInitialCategory] = useState<string | undefined>(undefined);
-
-  // Quick Live Chat Modal State
   const [chatModalTicket, setChatModalTicket] = useState<Ticket | null>(null);
 
-  // Status counts
+  // Level-3 Escalation / Kendala Modal state
+  const [kendalaTicket, setKendalaTicket] = useState<Ticket | null>(null);
+  const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
+
   const counts = useMemo(() => {
     let done = 0;
     let pending = 0;
@@ -216,11 +242,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
     myTickets.forEach(t => {
       const appStat = getTicketCanonicalApprovalStatus(t);
-      if (appStat === 'BUTUH APPROVAL') {
-        butuh_approval++;
-      } else if (appStat === 'REVISION') {
-        revision++;
-      }
+      if (appStat === 'BUTUH APPROVAL') butuh_approval++;
+      else if (appStat === 'REVISION') revision++;
       const cat = classifyInstallerStatus(t);
       if (cat === 'done') done++;
       else if (cat === 'pending') pending++;
@@ -239,14 +262,12 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     };
   }, [myTickets]);
 
-  // Filtered tickets based on active status filter, KPI drilldown, & search
   const filteredTickets = useMemo(() => {
     return myTickets.filter(t => {
       if (activeKpiDrilldown && !matchesKpiFilter(t, activeKpiDrilldown.filterKey)) {
         return false;
       }
 
-      // Status filter
       if (statusFilter === 'butuh_approval') {
         if (getTicketCanonicalApprovalStatus(t) !== 'BUTUH APPROVAL') return false;
       } else if (statusFilter === 'revision') {
@@ -256,7 +277,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         if (cat !== statusFilter) return false;
       }
 
-      // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchWO = String(t.woNumber ?? '').toLowerCase().includes(query);
@@ -273,25 +293,99 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     });
   }, [myTickets, statusFilter, searchQuery, activeKpiDrilldown]);
 
-  // Quick progression handler
+  // Real operational alerts derived from live assigned Work Orders (no dummy values)
+  const criticalRevisionTicket = useMemo(
+    () => myTickets.find(t => !isTicketClosed(t) && getTicketCanonicalApprovalStatus(t) === 'REVISION'),
+    [myTickets]
+  );
+
+  const highAttenuationTicket = useMemo(() => {
+    return myTickets.find(t => {
+      if (isTicketClosed(t)) return false;
+      const val = parseNumericDbm(t.technicalReport?.opticalPowerDbm || t.rosetRedamanDbm);
+      return val !== null && val < -24;
+    });
+  }, [myTickets]);
+
+  const missingCheckInTicket = useMemo(() => {
+    return myTickets.find(
+      t =>
+        !isTicketClosed(t) &&
+        Boolean(t.workStartedAt || t.statusWOInstaller === 'En Route' || t.statusWOInstaller === 'On Site') &&
+        !t.checkInAt
+    );
+  }, [myTickets]);
+
+  // Primary active WO for Material Terpakai contextual bar
+  const primaryActiveWo = useMemo(() => {
+    return (
+      filteredTickets.find(t => !isTicketClosed(t) && (t.workStartedAt || t.checkInAt)) ||
+      filteredTickets.find(t => !isTicketClosed(t)) ||
+      null
+    );
+  }, [filteredTickets]);
+
   const handleQuickStatus = (ticketId: string, status: TicketStatusWOInstaller, remark: string) => {
     updateTicketStatus(ticketId, undefined, status, remark);
     if (detailTicket && detailTicket.id === ticketId) {
-      setDetailTicket(prev => prev ? { ...prev, statusWOInstaller: status } : null);
+      setDetailTicket(prev => (prev ? { ...prev, statusWOInstaller: status } : null));
     }
   };
 
-  // Open ticket detail handler (Opens Fullview for installer)
   const handleOpenTicket = (ticket: Ticket) => {
     setFullviewTicket(ticket);
   };
 
-  // Open chat modal handler
-  const handleOpenChat = (ticket: Ticket) => {
+  const handleOpenChat = (ticket: Ticket, category?: string) => {
+    setChatInitialCategory(category);
+    if (category) {
+      setTicketChatCategory(ticket.id, category);
+    }
     setChatModalTicket(ticket);
   };
 
-  // Dedicated Fullview Experience for Installer
+  const handleConfirmKendala = async ({
+    selectedReason,
+    notes
+  }: {
+    selectedReason?: EscalationReasonOption;
+    notes: string;
+  }) => {
+    if (!kendalaTicket || !selectedReason) return;
+    setIsSubmittingKendala(true);
+    try {
+      const targetStatus: TicketStatusWOInstaller =
+        selectedReason.targetInstallerStatus || 'Pending Technical';
+      const prefix = selectedReason.isReschedule ? 'RESCHEDULE' : 'KENDALA LAPANGAN';
+      const remarkText = `[${prefix}: ${selectedReason.label}] ${notes}`;
+
+      updateTicketStatus(
+        kendalaTicket.id,
+        targetStatus === 'Failed / Cancelled' ? 'Cancelled' : undefined,
+        targetStatus,
+        remarkText
+      );
+
+      await sendTicketMessage(
+        kendalaTicket.id,
+        `${prefix} — ${selectedReason.label}. Catatan: ${notes}`,
+        [],
+        'ISSUE'
+      );
+
+      toast.warning(
+        `Kendala WO ${kendalaTicket.woNumber} dilaporkan ke Dispatch & tercatat di LiveChat (#ISSUE).`,
+        'Kendala Dilaporkan',
+        { withSound: true }
+      );
+      setKendalaTicket(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengirim laporan kendala.', 'Gagal');
+    } finally {
+      setIsSubmittingKendala(false);
+    }
+  };
+
   if (fullviewTicket) {
     return (
       <InstallerTicketFullview
@@ -303,41 +397,167 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5 pb-20 sm:pb-6">
       {/* ============================================================ */}
-      {/* 1. TOP HEADER BANNER & TECHNICIAN SELECTOR                   */}
+      {/* 1. REAL-TIME OPERATIONAL ALERTS & CONNECTIVITY SNACKBAR      */}
       {/* ============================================================ */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {(highAttenuationTicket && !dismissedAlertIds[`opm_${highAttenuationTicket.id}`]) && (
+        <TactileAlertBanner
+          variant="critical"
+          badge="PERINGATAN REDAMAN TINGGI"
+          metricBadge={`${highAttenuationTicket.technicalReport?.opticalPowerDbm || highAttenuationTicket.rosetRedamanDbm} (${highAttenuationTicket.fatCode || highAttenuationTicket.woNumber})`}
+          title={`Redaman melebihi batas toleransi FTTH (-24 dBm) pada ${highAttenuationTicket.woNumber}`}
+          description={`Pelanggan ${highAttenuationTicket.customerName}. Cek tekukan kabel dropcore dan kebersihan konektor/ferrule sebelum finalisasi.`}
+          primaryAction={{
+            label: 'Perbaiki Jalur',
+            icon: <Wrench className="w-3.5 h-3.5" />,
+            onClick: () => handleOpenTicket(highAttenuationTicket)
+          }}
+          secondaryAction={{
+            label: 'Abaikan',
+            onClick: () =>
+              setDismissedAlertIds(prev => ({
+                ...prev,
+                [`opm_${highAttenuationTicket.id}`]: true
+              }))
+          }}
+          onDismiss={() =>
+            setDismissedAlertIds(prev => ({
+              ...prev,
+              [`opm_${highAttenuationTicket.id}`]: true
+            }))
+          }
+        />
+      )}
+
+      {(criticalRevisionTicket && !dismissedAlertIds[`rev_${criticalRevisionTicket.id}`]) && (
+        <TactileAlertBanner
+          variant="critical"
+          badge="REVISI DISPATCH"
+          metricBadge={criticalRevisionTicket.woNumber}
+          title={`Laporan ${criticalRevisionTicket.customerName} perlu revisi dari Dispatch`}
+          description={
+            criticalRevisionTicket.rejectionReason ||
+            criticalRevisionTicket.progressReports?.[0]?.revisionReason ||
+            'Silakan periksa catatan Dispatch dan kirim ulang versi revisi laporan.'
+          }
+          primaryAction={{
+            label: 'Perbaiki & Kirim Revisi',
+            icon: <FileText className="w-3.5 h-3.5" />,
+            onClick: () => handleOpenTicket(criticalRevisionTicket)
+          }}
+          onDismiss={() =>
+            setDismissedAlertIds(prev => ({
+              ...prev,
+              [`rev_${criticalRevisionTicket.id}`]: true
+            }))
+          }
+        />
+      )}
+
+      {(missingCheckInTicket && !dismissedAlertIds[`checkin_${missingCheckInTicket.id}`]) && (
+        <TactileAlertBanner
+          variant="warning"
+          badge="CHECK-IN #PROGRESS DIPERLUKAN"
+          metricBadge={missingCheckInTicket.woNumber}
+          title={`Pekerjaan ${missingCheckInTicket.customerName} belum mencatat Check-in LiveChat`}
+          description="Kirim minimal 1 pesan LiveChat dengan kategori #PROGRESS agar tombol submit laporan & QC terbuka sesuai SOP."
+          primaryAction={{
+            label: 'Kirim #PROGRESS Sekarang',
+            icon: <MessageSquare className="w-3.5 h-3.5" />,
+            onClick: () => handleOpenChat(missingCheckInTicket, 'PROGRESS')
+          }}
+          onDismiss={() =>
+            setDismissedAlertIds(prev => ({
+              ...prev,
+              [`checkin_${missingCheckInTicket.id}`]: true
+            }))
+          }
+        />
+      )}
+
+      {/* Real Connectivity / Pending Sync Tactile Bar */}
+      {(!isOnline || pendingCount > 0) && (
+        <div className="rounded-2xl bg-[#F3EAFF] dark:bg-[#1E1238] border border-[#DAB9FF] dark:border-[#7135B5]/50 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_2px_0_#CEC3D4] dark:shadow-none text-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              {!isOnline ? (
+                <WifiOff className="w-4 h-4 text-amber-600 animate-pulse" />
+              ) : (
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              )}
+            </div>
+            <span className="font-semibold text-[#1F1638] dark:text-white truncate">
+              {!isOnline
+                ? `Mode Offline Aktif (${pendingCount} log tersimpan lokal)`
+                : `Tersambung Ulang: ${pendingCount} antrean telemetry siap disinkronkan`}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {isOnline && pendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => syncNow()}
+                disabled={isSyncing}
+                className="tactile-pill-btn px-3 py-1 rounded-lg bg-white dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-bold border border-[#E8DDFF] dark:border-[#7135B5] cursor-pointer"
+              >
+                {isSyncing ? 'Sync...' : 'Sync'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsOfflineModalOpen(true)}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:bg-white/60 dark:hover:bg-white/10 cursor-pointer"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 2. TOP HEADER & SEARCH/FILTER WORKSPACE                      */}
+      {/* ============================================================ */}
+      <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_3px_0_#2A0053]">
               <Wrench className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Portal Teknisi Lapangan (Installer)
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-[16px] sm:text-[17px] font-bold text-[#1F1638] dark:text-white tracking-tight">
+                  Tugas Saya (Field Ops)
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#7135B5]/50">
                   {effectiveInstallerName}
                 </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                    isOnline
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50'
+                      : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                  <span>{isOnline ? 'Online Sync' : 'Offline Cache'}</span>
+                </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Monitoring Work Order, pembaruan status pengerjaan, dan Live Chat koordinasi langsung dengan Dispatch.
+              <p className="text-[11.5px] text-[#7D7484] dark:text-[#CEC0E8] mt-0.5">
+                Jadwal hari ini ({todayWIB}) • Pantau telemetry OPM, Check-in #PROGRESS, dan kirim laporan QC lapangan.
               </p>
             </div>
           </div>
 
-          {/* Role Preview Selector (for Super Admin / Dispatch / Leader viewing) */}
           {currentUser.role !== 'installer' && (
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                Pilih Teknisi:
+            <div className="flex items-center gap-2 bg-[#F8F1FF] dark:bg-[#160D29] p-2 rounded-xl border border-[#E8DDFF] dark:border-[#35105E]">
+              <span className="text-xs font-semibold text-[#4B4452] dark:text-[#CEC0E8] whitespace-nowrap">
+                Teknisi:
               </span>
               <select
                 value={selectedInstallerName}
                 onChange={e => setSelectedInstallerName(e.target.value)}
-                className="px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md font-medium text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-500"
+                className="tactile-debossed-input px-2.5 py-1.5 text-xs bg-white dark:bg-[#22123F] rounded-lg font-semibold text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#58149C]"
               >
                 {myInstallers.map(inst => (
                   <option key={inst.id} value={inst.name}>
@@ -348,144 +568,153 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             </div>
           )}
         </div>
-      </div>
 
-      {/* ============================================================ */}
-      {/* 3. SEARCH & ACTIVE FILTER BAR                                */}
-      {/* ============================================================ */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Cari nomor WO, nama pelanggan, cluster, atau telepon..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        {/* Search & Filter Controls */}
+        <div className="pt-3 border-t border-[#E8DDFF] dark:border-[#35105E] flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-[#7D7484] absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Cari nomor WO, nama pelanggan, cluster, atau telepon..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="tactile-debossed-input w-full pl-9 pr-8 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#58149C]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                aria-label="Hapus pencarian"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-slate-500 font-medium text-[11px] mr-1 flex items-center gap-1">
-            <Filter className="w-3 h-3" /> Filter:
-          </span>
-          <button
-            onClick={() => {
-              setActiveKpiDrilldown(null);
-              setStatusFilter('all');
-            }}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === 'all' && !activeKpiDrilldown
-                ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
-            }`}
-          >
-            Semua ({counts.all})
-          </button>
-          <button
-            onClick={() => {
-              setActiveKpiDrilldown(null);
-              setStatusFilter('butuh_approval');
-            }}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              statusFilter === 'butuh_approval'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300/60'
-            }`}
-          >
-            <AlertCircle className="w-3 h-3" />
-            <span>Butuh Approval ({counts.butuh_approval})</span>
-          </button>
-          {counts.revision > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-[#7D7484] dark:text-[#CEC0E8] font-semibold text-[11px] mr-1 flex items-center gap-1">
+              <Filter className="w-3 h-3" /> Filter:
+            </span>
             <button
+              type="button"
               onClick={() => {
                 setActiveKpiDrilldown(null);
-                setStatusFilter('revision');
+                setStatusFilter('all');
               }}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-                statusFilter === 'revision'
-                  ? 'bg-[#B91C1C] text-white shadow-xs'
-                  : 'bg-[#FEF2F2] text-[#B91C1C] hover:bg-rose-100 dark:bg-rose-950/80 dark:text-rose-200 border border-[#FCA5A5]'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'all' && !activeKpiDrilldown
+                  ? 'bg-[#342B4E] text-white shadow-[0_2px_0_#160D29]'
+                  : 'bg-[#F8F1FF] text-[#4B4452] hover:bg-[#EEE4FF] dark:bg-[#160D29] dark:text-[#CEC0E8]'
               }`}
             >
-              <AlertTriangle className="w-3 h-3" />
-              <span>Revisi ({counts.revision})</span>
+              Semua ({counts.all})
             </button>
-          )}
-          <button
-            onClick={() => {
-              setActiveKpiDrilldown(null);
-              setStatusFilter('pending');
-            }}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === 'pending'
-                ? 'bg-amber-600 text-white'
-                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300'
-            }`}
-          >
-            Pending ({counts.pending})
-          </button>
-          <button
-            onClick={() => {
-              setActiveKpiDrilldown(null);
-              setStatusFilter('done');
-            }}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === 'done'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
-            }`}
-          >
-            Done ({counts.done})
-          </button>
-          <button
-            onClick={() => {
-              setActiveKpiDrilldown(null);
-              setStatusFilter('reschedule');
-            }}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === 'reschedule'
-                ? 'bg-blue-600 text-white'
-                : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300'
-            }`}
-          >
-            Reschedule ({counts.reschedule})
-          </button>
-          <button
-            onClick={() => {
-              setActiveKpiDrilldown(null);
-              setStatusFilter('cancel');
-            }}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === 'cancel'
-                ? 'bg-rose-600 text-white'
-                : 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300'
-            }`}
-          >
-            Cancel ({counts.cancel})
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveKpiDrilldown(null);
+                setStatusFilter('pending');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'pending'
+                  ? 'bg-[#58149C] text-white shadow-[0_2px_0_#2A0053]'
+                  : 'bg-[#F3EAFF] text-[#58149C] hover:bg-[#E8DDFF] dark:bg-[#261942] dark:text-[#DAB9FF]'
+              }`}
+            >
+              Aktif ({counts.pending})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveKpiDrilldown(null);
+                setStatusFilter('butuh_approval');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                statusFilter === 'butuh_approval'
+                  ? 'bg-amber-600 text-white shadow-[0_2px_0_#92400E]'
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-200 dark:border-amber-700/50'
+              }`}
+            >
+              <AlertCircle className="w-3 h-3" />
+              <span>Butuh Approval ({counts.butuh_approval})</span>
+            </button>
+            {counts.revision > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveKpiDrilldown(null);
+                  setStatusFilter('revision');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  statusFilter === 'revision'
+                    ? 'bg-[#BA1A1A] text-white shadow-[0_2px_0_#7F1D1D]'
+                    : 'bg-[#FEF2F2] text-[#BA1A1A] hover:bg-rose-100 dark:bg-rose-950/80 dark:text-rose-200 border border-rose-200'
+                }`}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>Revisi ({counts.revision})</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveKpiDrilldown(null);
+                setStatusFilter('done');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'done'
+                  ? 'bg-emerald-600 text-white shadow-[0_2px_0_#065F46]'
+                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+              }`}
+            >
+              Selesai ({counts.done})
+            </button>
+            {counts.reschedule > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveKpiDrilldown(null);
+                  setStatusFilter('reschedule');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  statusFilter === 'reschedule'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300'
+                }`}
+              >
+                Reschedule ({counts.reschedule})
+              </button>
+            )}
+            {counts.cancel > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveKpiDrilldown(null);
+                  setStatusFilter('cancel');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  statusFilter === 'cancel'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300'
+                }`}
+              >
+                Cancel ({counts.cancel})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Active KPI Drilldown Banner */}
       {activeKpiDrilldown && (
-        <div className="bg-[#160D29] text-white rounded-xl border border-[#7135B5]/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="bg-[#160D29] text-white rounded-2xl border border-[#7135B5]/60 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
           <div className="flex items-center gap-2.5 text-xs">
             <span className="px-2 py-0.5 rounded-md bg-[#7135B5] font-bold uppercase tracking-wider text-[10px]">
               KPI Drilldown
             </span>
-            <span className="font-semibold text-[#F5F1FF]">
-              Filter KPI Aktif: <strong className="text-[#D8B4FE]">{KPI_FILTER_LABELS[activeKpiDrilldown.filterKey]}</strong> ({filteredTickets.length} WO)
+            <span className="font-semibold text-[#F5EEFF]">
+              Filter KPI Aktif: <strong className="text-[#DAB9FF]">{KPI_FILTER_LABELS[activeKpiDrilldown.filterKey]}</strong> ({filteredTickets.length} WO)
             </span>
           </div>
           <button
@@ -494,7 +723,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               setActiveKpiDrilldown(null);
               setStatusFilter('all');
             }}
-            className="min-h-[36px] px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            className="min-h-[38px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
           >
             <X className="w-3.5 h-3.5" />
             <span>Reset Filter KPI</span>
@@ -503,40 +732,43 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* 4. WORK ORDERS LIST WITH PROMINENT MAIN DETAILS              */}
+      {/* 3. WORK ORDER HERO CARDS (STITCH TACTILE BEVELED WORKSTATION)*/}
       {/* ============================================================ */}
       {filteredTickets.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center text-slate-400 space-y-3">
-          <Wrench className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
-          <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+        <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-10 sm:p-12 text-center space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+            <Wrench className="w-7 h-7" />
+          </div>
+          <h4 className="font-display text-base font-bold text-[#1F1638] dark:text-white">
             Tidak Ada Work Order yang Sesuai
           </h4>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
+          <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8] max-w-md mx-auto leading-relaxed">
             {myTickets.length === 0
-              ? `Belum ada tiket yang ditugaskan kepada teknisi ${effectiveInstallerName}. Hubungi Koordinator Lapangan (Leader) untuk jadwal penugasan.`
+              ? `Belum ada tiket yang ditugaskan kepada teknisi ${effectiveInstallerName} untuk hari ini (${todayWIB}). Hubungi Koordinator Lapangan (Leader) untuk jadwal penugasan.`
               : `Tidak ditemukan tiket yang cocok dengan filter aktif atau kata kunci pencarian tersebut.`}
           </p>
           {(statusFilter !== 'all' || searchQuery || activeKpiDrilldown) && (
             <button
+              type="button"
               onClick={() => {
                 setActiveKpiDrilldown(null);
                 setStatusFilter('all');
                 setSearchQuery('');
               }}
-              className="min-h-[40px] px-4 py-2 text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 cursor-pointer"
+              className="tactile-btn-secondary min-h-[42px] px-4 py-2 text-xs font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2A1647] dark:text-[#DAB9FF] rounded-xl border border-[#E8DDFF] dark:border-[#5B35B1] cursor-pointer"
             >
-              Reset Filter & Tampilkan Semua WO
+              Reset Filter &amp; Tampilkan Semua WO
             </button>
           )}
         </div>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span className="text-xs font-bold text-[#4B4452] dark:text-[#E9D5FF] uppercase tracking-wider">
               Daftar Work Order ({filteredTickets.length} Tiket)
             </span>
-            <span className="text-[11px] text-slate-500">
-              Klik <strong>"Buka Tiket"</strong> untuk rincian lengkap & Live Chat koordinasi
+            <span className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8] hidden sm:inline">
+              Ketuk <strong>&ldquo;Buka Tiket&rdquo;</strong> untuk 3-Tier Checkout, Foto 4 Titik &amp; Validasi QC
             </span>
           </div>
 
@@ -545,32 +777,75 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               const ticketClosed = isTicketClosed(ticket);
               const canonicalApproval = getTicketCanonicalApprovalStatus(ticket);
               const canonicalReport = getTicketCanonicalReportStatus(ticket);
+              const unread = getTicketUnreadCount(ticket.id);
               const revisionReason =
                 ticket.rejectionReason ||
                 ticket.progressReports?.[0]?.revisionReason ||
                 ticket.progressReports?.[0]?.rejectionReason ||
                 '';
 
+              const rawOpm = ticket.technicalReport?.opticalPowerDbm || ticket.rosetRedamanDbm;
+              const numericOpm = parseNumericDbm(rawOpm);
+              const opmIsOutOfSpec = numericOpm !== null && numericOpm < -24;
+              const opmDisplay =
+                numericOpm !== null ? numericOpm.toFixed(1) : rawOpm ? String(rawOpm) : '—';
+
+              const rawFatDbm = ticket.technicalReport?.fatRedamanDbm || ticket.fatRedamanDbm;
+              const numericFat = parseNumericDbm(rawFatDbm);
+              const fatDisplay =
+                numericFat !== null
+                  ? `${numericFat.toFixed(1)}`
+                  : ticket.technicalReport?.deviceSerialNumber || ticket.ontSerialNumber || '—';
+
+              const isLiveJob =
+                !ticketClosed &&
+                (Boolean(ticket.workStartedAt) ||
+                  ticket.statusWOInstaller === 'En Route' ||
+                  ticket.statusWOInstaller === 'On Site' ||
+                  ticket.statusWOInstaller === 'In Progress');
+
+              const step1Done =
+                Boolean(ticket.workStartedAt) ||
+                (Boolean(ticket.statusWOInstaller) &&
+                  ticket.statusWOInstaller !== 'Assigned' &&
+                  ticket.statusWOInstaller !== 'Unassigned');
+              const step2Done = Boolean(ticket.checkInAt);
+              const step3Done =
+                Boolean(ticket.checkOutAt) ||
+                (ticket.progressReports && ticket.progressReports.length > 0) ||
+                ticket.statusWOInstaller === 'Completed';
+
+              const dropcoreInfo =
+                ticket.technicalReport?.dropcoreLength ||
+                ticket.dropcoreLength ||
+                (ticket.dropcoreLengthMeter ? `${ticket.dropcoreLengthMeter}m` : '');
+
               return (
-                <div
+                <article
                   key={ticket.id}
-                  className="bg-white dark:bg-[#1E1135] rounded-2xl border border-[#E9E5F0] dark:border-[#3B1D78] hover:border-[#431599]/50 dark:hover:border-[#A78BFA]/60 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all space-y-4 relative"
+                  className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 space-y-4 relative overflow-hidden transition-all"
                 >
-                  {/* Card Header: WO Number, Badges, Category */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E9E5F0] dark:border-[#35105E]">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2.5 py-1 bg-[#F5F1FF] dark:bg-[#2A1647] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-lg font-mono font-extrabold text-sm text-[#431599] dark:text-[#D8B4FE]">
+                  {/* 1. Card Header: WO Pill + Category + Live Job Indicator */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#E8DDFF] dark:border-[#7135B5]/60 font-mono font-extrabold text-[13px] text-[#58149C] dark:text-[#DAB9FF] tracking-tight">
                         {ticket.woNumber}
                       </span>
-                      <span className="px-2 py-0.5 rounded font-mono text-[11px] font-semibold bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] border border-[#E9E5F0] dark:border-[#35105E]">
-                        ID Cust: {ticket.idCustomer || ticket.customerId || '-'}
+                      <span className="text-xs font-semibold text-[#4B4452] dark:text-[#E9D5FF] truncate">
+                        • {ticket.ticketCategory || ticket.appointmentType || 'New Installation'}
                       </span>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8]">
-                        {ticket.ticketCategory || ticket.appointmentType || 'New Installation'}
+                      <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] hidden sm:inline">
+                        ID: {ticket.idCustomer || ticket.customerId || '-'}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
+                      {isLiveJob && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border border-[#DAB9FF]/70 dark:border-[#7135B5] text-[10.5px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#58149C] dark:bg-[#DAB9FF] animate-pulse" />
+                          <span>Live Job</span>
+                        </span>
+                      )}
                       {ticketClosed && <StatusBadge status="CLOSED" variant="wo_agent" />}
                       <StatusInstallerBadge status={ticket.statusWOInstaller} />
                       {canonicalReport !== 'NONE' && (
@@ -581,218 +856,339 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     </div>
                   </div>
 
-                  {/* Dispatch Revision Alert Banner on Card */}
+                  {/* Dispatch Revision Alert on Card */}
                   {canonicalApproval === 'REVISION' && (
-                    <div className="p-3 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FCA5A5] dark:border-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-                      <div className="flex items-start gap-2 text-[#B91C1C] dark:text-rose-200">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-extrabold uppercase tracking-wide">
-                            Revisi Laporan Diminta Dispatch
-                          </div>
-                          <div className="text-[11px] mt-0.5 text-[#7F1D1D] dark:text-rose-200/90">
-                            {revisionReason || 'Silakan perbaiki Report Status Pembaruan dan kirim ulang revisi.'}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTicket(ticket)}
-                        className="min-h-[38px] px-3 py-1.5 rounded-lg bg-[#B91C1C] hover:bg-[#991B1B] text-white font-bold text-[11px] shrink-0 cursor-pointer"
-                      >
-                        Perbaiki & Kirim Revisi Laporan
-                      </button>
-                    </div>
+                    <TactileAlertBanner
+                      variant="critical"
+                      badge="REVISI LAPORAN DIMINTA DISPATCH"
+                      title="Perlu Perbaikan Laporan Segera"
+                      description={
+                        revisionReason ||
+                        'Silakan perbaiki Report Status / data telemetry dan kirim ulang versi revisi.'
+                      }
+                      primaryAction={{
+                        label: 'Perbaiki & Kirim Revisi',
+                        icon: <FileText className="w-3.5 h-3.5" />,
+                        onClick: () => handleOpenTicket(ticket)
+                      }}
+                    />
                   )}
 
-                  {/* Primary Details Grid (Clear, Legible, High-Contrast) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                    {/* Column 1: Customer Identity & Contact with WhatsApp next to phone */}
-                    <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
-                      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block">
-                        Pelanggan & Kontak
-                      </span>
-                      <div className="font-bold text-slate-900 dark:text-white text-sm">
-                        {ticket.customerName}
+                  {/* 2. Customer Identity, Address & ODP/FAT Splitter Line */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-2xl bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#E8DDFF] dark:border-[#7135B5]/50 text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_#ffffff,0_2px_0_#CEC3D4] dark:shadow-none">
+                        <Router className="w-6 h-6" />
                       </div>
-                      <div className="flex items-center justify-between gap-2 pt-0.5">
-                        <div className="flex items-center gap-1.5 font-mono text-slate-700 dark:text-slate-300">
-                          <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="font-semibold">{ticket.customerPhone || '-'}</span>
-                        </div>
-                        {ticket.customerPhone && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenWhatsApp(ticket)}
-                            className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10.5px] font-bold flex items-center gap-1 shadow-2xs shrink-0 transition-colors cursor-pointer"
-                            title="Chat WhatsApp Pelanggan"
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>WA</span>
-                          </button>
-                        )}
-                      </div>
-                      {ticket.customerContact2 && (
-                        <div className="text-[11px] text-slate-400">
-                          Alt: {ticket.customerContact2}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Column 2: Address & Landmarks */}
-                    <div className="space-y-1.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block">
-                        Alamat & Lokasi
-                      </span>
-                      <div className="flex items-start gap-1.5 text-slate-800 dark:text-slate-200">
-                        <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-semibold">{ticket.clusterName || ticket.area}</div>
-                          <div className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2">
-                            {ticket.streetName || 'Alamat belum terisi'}
-                          </div>
-                        </div>
-                      </div>
-                      {ticket.streetAlternatif && (
-                        <div className="text-[10.5px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/60">
-                          Patokan: {ticket.streetAlternatif}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Column 3: Scheduled Date & Slot Time */}
-                    <div className="space-y-1.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400">
-                        <Clock className="w-3.5 h-3.5 shrink-0" />
-                        <span className="font-bold text-xs">
-                          {ticket.slotTime || '09:00 - 11:00 WIB'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Column 4: Network & Hardware Info */}
-                    <div className="space-y-1.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">Kode FDT:</span>
-                        <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                          {ticket.fdtCode || '-'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">Kode FAT:</span>
-                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                          {ticket.fatCode || '-'}
-                        </span>
-                      </div>
-                      {ticket.technicalReport?.opticalPowerDbm && (
-                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200 dark:border-slate-700">
-                          <span className="text-slate-400">Redaman OPM:</span>
-                          <span className="font-mono font-bold text-emerald-600">
-                            {ticket.technicalReport.opticalPowerDbm} dBm
+                      <div className="min-w-0 space-y-1">
+                        <h3 className="font-display font-bold text-[17px] text-[#1F1638] dark:text-white leading-tight truncate">
+                          {ticket.customerName}
+                        </h3>
+                        <div className="flex items-start gap-1.5 text-xs text-[#4B4452] dark:text-[#CEC0E8]">
+                          <MapPin className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">
+                            {ticket.clusterName ? `${ticket.clusterName} — ` : ''}
+                            {ticket.streetName || ticket.area || 'Alamat belum terisi'}
                           </span>
                         </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                          <span>
+                            {ticket.fdtCode || 'FDT -'} • FAT {ticket.fatCode || '-'}
+                            {ticket.fatPort ? ` (Port ${ticket.fatPort})` : ''}
+                          </span>
+                          {ticket.slotTime && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F8F1FF] dark:bg-[#160D29] text-[#4B4452] dark:text-[#E9D5FF] border border-[#E8DDFF] dark:border-[#35105E]">
+                              <Clock className="w-3 h-3 text-[#58149C] dark:text-[#DAB9FF]" />
+                              {ticket.slotTime}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Customer Contact Phone + Quick WA */}
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 bg-[#F8F1FF] dark:bg-[#160D29] px-3 py-2 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] shrink-0">
+                      <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-[#1F1638] dark:text-white">
+                        <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>{ticket.customerPhone || '-'}</span>
+                      </div>
+                      {ticket.customerPhone && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenWhatsApp(ticket)}
+                          className="tactile-pill-btn px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>WhatsApp</span>
+                        </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Remarks / Notes (if any) */}
+                  {/* 3. DARK MECHANICAL OPTICAL TELEMETRY CONSOLE */}
+                  <div className="rounded-2xl bg-[#160D29] border border-[#35105E] p-3.5 sm:p-4 text-white shadow-[0_6px_18px_rgba(22,13,41,0.22)]">
+                    <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-white/10 text-[10.5px] font-mono uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5 text-[#DAB9FF] font-bold">
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                        <span>OPM LIVE TELEMETRY (1490nm)</span>
+                      </span>
+                      <span className="text-[#CEC0E8] tabular-nums">
+                        REF: -24.00 dBm
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {/* Left Well: Power Rx ONT */}
+                      <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
+                        <div className="text-[11px] text-[#CEC0E8] font-medium">
+                          Power Rx ONT
+                        </div>
+                        <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums">
+                          <span
+                            className={`text-[20px] sm:text-[22px] font-bold leading-none ${
+                              numericOpm === null
+                                ? 'text-[#DAB9FF]'
+                                : opmIsOutOfSpec
+                                ? 'text-rose-400'
+                                : 'text-white'
+                            }`}
+                          >
+                            {opmDisplay}
+                          </span>
+                          {numericOpm !== null && (
+                            <span className="text-xs text-[#CEC0E8]">dBm</span>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold">
+                          {numericOpm === null ? (
+                            <span className="text-amber-300">Menunggu pengukuran OPM</span>
+                          ) : opmIsOutOfSpec ? (
+                            <span className="text-rose-400 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Redaman Tinggi (&lt;-24)
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Normal (Pass SOP)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right Well: FAT Redaman / ONT SN */}
+                      <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
+                        <div className="text-[11px] text-[#CEC0E8] font-medium">
+                          {numericFat !== null ? 'FAT Redaman Ref' : 'Serial Number ONT'}
+                        </div>
+                        <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums truncate">
+                          <span className="text-[18px] sm:text-[20px] font-bold text-white leading-none truncate">
+                            {fatDisplay}
+                          </span>
+                          {numericFat !== null && (
+                            <span className="text-xs text-[#CEC0E8]">dBm</span>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold">
+                          {numericFat !== null || ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber ? (
+                            <span className="text-emerald-400 flex items-center gap-1 truncate">
+                              <CheckCircle2 className="w-3 h-3 shrink-0" />
+                              <span>Terkunci ({ticket.fatCode || 'FAT'})</span>
+                            </span>
+                          ) : (
+                            <span className="text-[#DAB9FF]/80 truncate">
+                              {ticket.ontBrand || 'Input saat Checkout'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. 3-STEP INSTALLATION PROGRESS RIBBON */}
+                  <div>
+                    <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8] mb-2">
+                      TAHAPAN INSTALASI
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Step 1: Mulai Kerja */}
+                      <div
+                        className={`rounded-xl p-2.5 text-center border transition-all ${
+                          step1Done
+                            ? 'bg-[#F8F1FF] dark:bg-[#241740] border-[#E8DDFF] dark:border-[#4B386B]'
+                            : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E]'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-bold ${
+                            step1Done
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                          }`}
+                        >
+                          {step1Done ? <Check className="w-3.5 h-3.5" /> : '1'}
+                        </div>
+                        <div className="font-bold text-[11.5px] text-[#1F1638] dark:text-white mt-1.5 truncate">
+                          1. Mulai Kerja
+                        </div>
+                        <div className="text-[10px] text-[#7D7484] dark:text-[#CEC0E8] truncate font-mono">
+                          {ticket.workStartedAt
+                            ? `Mulai ${formatJakartaTimeOnly(ticket.workStartedAt)}`
+                            : dropcoreInfo
+                            ? `Dropcore ${dropcoreInfo}`
+                            : 'Siap Berangkat'}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Check-in #PROGRESS */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenChat(ticket, 'PROGRESS')}
+                        className={`rounded-xl p-2.5 text-center border transition-all cursor-pointer ${
+                          step2Done
+                            ? 'bg-[#F8F1FF] dark:bg-[#241740] border-[#E8DDFF] dark:border-[#4B386B]'
+                            : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60 hover:bg-amber-100/70'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-bold ${
+                            step2Done
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-amber-500 text-white'
+                          }`}
+                        >
+                          {step2Done ? <Check className="w-3.5 h-3.5" /> : '2'}
+                        </div>
+                        <div className="font-bold text-[11.5px] text-[#1F1638] dark:text-white mt-1.5 truncate">
+                          2. Check-in
+                        </div>
+                        <div className="text-[10px] font-mono truncate text-[#58149C] dark:text-[#DAB9FF]">
+                          {step2Done
+                            ? formatJakartaTimeOnly(ticket.checkInAt!)
+                            : 'Kirim #PROGRESS'}
+                        </div>
+                      </button>
+
+                      {/* Step 3: Laporan & QC */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTicket(ticket)}
+                        className={`rounded-xl p-2.5 text-center border transition-all cursor-pointer ${
+                          step3Done
+                            ? 'bg-[#F8F1FF] dark:bg-[#241740] border-[#E8DDFF] dark:border-[#4B386B]'
+                            : 'bg-[#F3EAFF] dark:bg-[#2E1459] border-[#58149C]/40 dark:border-[#A380FE]/50'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-bold ${
+                            step3Done
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-[#58149C] text-white'
+                          }`}
+                        >
+                          {step3Done ? <Check className="w-3.5 h-3.5" /> : '3'}
+                        </div>
+                        <div className="font-bold text-[11.5px] text-[#1F1638] dark:text-white mt-1.5 truncate">
+                          3. Laporan QC
+                        </div>
+                        <div className="text-[10px] font-semibold truncate text-[#58149C] dark:text-[#DAB9FF]">
+                          {step3Done
+                            ? ticket.approvalStatus === 'APPROVED'
+                              ? 'Approved'
+                              : 'Menunggu Dispatch'
+                            : step2Done
+                            ? 'Siap Submit...'
+                            : 'Terkunci'}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Remarks / Notes */}
                   {(ticket.remarksWOInstaller || ticket.remarksAgent) && (
-                    <div className="p-2.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-[11px] text-amber-900 dark:text-amber-200 space-y-0.5">
+                    <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-[11.5px] text-amber-950 dark:text-amber-200 space-y-0.5">
                       {ticket.remarksWOInstaller && (
                         <div>
                           <strong>Catatan Teknisi:</strong> {ticket.remarksWOInstaller}
                         </div>
                       )}
                       {ticket.remarksAgent && (
-                        <div className="text-amber-800 dark:text-amber-300">
+                        <div>
                           <strong>Catatan Dispatch:</strong> {ticket.remarksAgent}
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Action Bar: Open Ticket (Detailed view), Live Chat Button, WhatsApp, and Quick Statuses */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    {/* Quick status progression buttons for field technician */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {ticketClosed ? (
-                        <StatusBadge status="CLOSED" variant="wo_agent" size="sm" />
-                      ) : (
-                        <>
-                          {!ticket.workStartedAt && (ticket.statusWOInstaller === 'Assigned' || !ticket.statusWOInstaller) ? (
-                            <button
-                              type="button"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  const res = await startWorkOnTicket(ticket.id);
-                                  if (res.success && res.ticket) {
-                                    setFullviewTicket(res.ticket);
-                                    toast.success(`Tiket WO ${ticket.woNumber} dibuka dan status pengerjaan telah dimulai.`, 'Mulai Dikerjakan');
-                                  } else if (!res.success && res.error) {
-                                    toast.error(res.error, 'Gagal Memulai Pengerjaan');
-                                  } else {
-                                    setFullviewTicket(ticket);
-                                  }
-                                } catch {
-                                  setFullviewTicket(ticket);
-                                }
-                              }}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-[#7C3AED] to-[#5B35B1] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              <span>Mulai Kerjakan</span>
-                            </button>
-                          ) : null}
+                  {/* 5. TACTILE ACTION BAR */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-[#E8DDFF] dark:border-[#35105E]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!ticketClosed && !ticket.workStartedAt && (ticket.statusWOInstaller === 'Assigned' || !ticket.statusWOInstaller) && (
+                        <button
+                          type="button"
+                          onClick={async e => {
+                            e.stopPropagation();
+                            try {
+                              const res = await startWorkOnTicket(ticket.id);
+                              if (res.success && res.ticket) {
+                                setFullviewTicket(res.ticket);
+                                toast.success(
+                                  `Tiket WO ${ticket.woNumber} dibuka dan status pengerjaan dimulai.`,
+                                  'Mulai Dikerjakan',
+                                  { withSound: true }
+                                );
+                              } else if (!res.success && res.error) {
+                                toast.error(res.error, 'Gagal Memulai Pengerjaan');
+                              } else {
+                                setFullviewTicket(ticket);
+                              }
+                            } catch {
+                              setFullviewTicket(ticket);
+                            }
+                          }}
+                          className="tactile-btn-primary px-4 py-2 min-h-[42px] bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Mulai Kerjakan</span>
+                        </button>
+                      )}
 
-                          {ticket.statusWOInstaller === 'Assigned' && !ticket.workStartedAt && (
-                            <button
-                              onClick={() => handleQuickStatus(ticket.id, 'En Route', 'Teknisi berangkat menuju lokasi pelanggan')}
-                              className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
-                            >
-                              <Navigation className="w-3.5 h-3.5" />
-                              <span>Otw Lokasi</span>
-                            </button>
-                          )}
+                      {!ticketClosed && ticket.statusWOInstaller === 'Assigned' && !ticket.workStartedAt && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickStatus(ticket.id, 'En Route', 'Teknisi berangkat menuju lokasi pelanggan')}
+                          className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-white dark:bg-[#261942] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-700/50 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Navigation className="w-3.5 h-3.5" />
+                          <span>Otw</span>
+                        </button>
+                      )}
 
-                          {ticket.statusWOInstaller === 'En Route' && (
-                            <button
-                              onClick={() => handleQuickStatus(ticket.id, 'On Site', 'Teknisi tiba di lokasi pelanggan')}
-                              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
-                            >
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>Tiba di Lokasi</span>
-                            </button>
-                          )}
+                      {!ticketClosed && ticket.statusWOInstaller === 'En Route' && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickStatus(ticket.id, 'On Site', 'Teknisi tiba di lokasi pelanggan')}
+                          className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>Tiba di Lokasi</span>
+                        </button>
+                      )}
 
-                          {(ticket.statusWOInstaller === 'On Site' || ticket.workStartedAt) && ticket.statusWOInstaller !== 'Completed' && (
-                            <button
-                              onClick={() => handleOpenTicket(ticket)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>
-                                {canonicalApproval === 'REVISION'
-                                  ? 'Perbaiki Laporan (Revisi)'
-                                  : ticket.approvalStatus === 'BUTUH APPROVAL'
-                                  ? 'Lihat Laporan'
-                                  : 'Isi Laporan / Selesai'}
-                              </span>
-                            </button>
-                          )}
-
-                          {ticket.statusWOInstaller === 'Completed' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-bold rounded-lg">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Laporan Terkirim</span>
-                            </span>
-                          )}
-                        </>
+                      {!ticketClosed && (
+                        <button
+                          type="button"
+                          onClick={() => setKendalaTicket(ticket)}
+                          className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-white dark:bg-[#261942] text-[#BA1A1A] dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                          title="Laporkan kendala lapangan atau reschedule"
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <span>Kendala</span>
+                        </button>
                       )}
                     </div>
 
-                    {/* Primary Action Buttons: Clean responsive arrangement with zero overlaps */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 ml-auto">
                       <button
                         type="button"
                         onClick={() =>
@@ -800,45 +1196,46 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                             toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
                           })
                         }
-                        className="px-3 py-1.5 bg-[#F5F1FF] hover:bg-[#EFE9FA] dark:bg-[#2A1647] border border-[#D8CCF3] dark:border-[#5B35B1] text-[#431599] dark:text-[#D8B4FE] text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
                         title="Buka rute Google Maps"
                       >
                         <Navigation className="w-3.5 h-3.5" />
                         <span>Maps</span>
                       </button>
 
-                      {/* Tombol Live Chat */}
-                      {(() => {
-                        const unread = getTicketUnreadCount(ticket.id);
-                        return (
-                          <button
-                            onClick={() => handleOpenChat(ticket)}
-                            className="relative px-3.5 py-1.5 bg-[#5B35B1] hover:bg-[#431599] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-                            title="Buka Live Chat koordinasi dengan Dispatch untuk tiket ini"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Live Chat</span>
-                            {unread > 0 && (
-                              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#DC4C5A] text-white">
-                                {unread > 99 ? '99+' : unread}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })()}
-
-                      {/* Tombol "Buka Tiket" / "Open Ticket" */}
                       <button
+                        type="button"
+                        onClick={() => handleOpenChat(ticket)}
+                        className="tactile-btn-secondary relative px-3.5 py-2 min-h-[42px] bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] border border-[#DAB9FF] dark:border-[#7135B5] text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        title="Buka Live Chat koordinasi dengan Dispatch untuk tiket ini"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Live Chat</span>
+                        {unread > 0 && (
+                          <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#BA1A1A] text-white leading-none tabular-nums">
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => handleOpenTicket(ticket)}
-                        className="px-3.5 py-1.5 bg-[#431599] hover:bg-[#35105E] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        className="tactile-btn-primary px-4 py-2 min-h-[42px] bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 cursor-pointer"
                         title="Buka rincian lengkap tiket dan formulir teknis"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Buka Tiket</span>
+                        <span>
+                          {canonicalApproval === 'REVISION'
+                            ? 'Perbaiki Revisi'
+                            : ticket.workStartedAt && !ticketClosed
+                            ? 'Buka & Lapor QC'
+                            : 'Buka Tiket'}
+                        </span>
                       </button>
                     </div>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
@@ -846,45 +1243,120 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* 5. DEDICATED TICKET DETAIL MODAL WITH PROMINENT LIVE CHAT    */}
+      {/* 4. CONTEXTUAL MATERIAL TERPAKAI SUMMARY BAR (NON-BLOCKING)   */}
+      {/* ============================================================ */}
+      {primaryActiveWo && !materialStripDismissed && (
+        <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 border border-[#E8DDFF] dark:border-[#7135B5]/40">
+              <Package className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-display font-bold text-[13px] text-[#1F1638] dark:text-white flex items-center gap-1.5">
+                <span>Material Terpakai</span>
+                <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]">
+                  {primaryActiveWo.woNumber}
+                </span>
+              </div>
+              <p className="text-[11.5px] text-[#4B4452] dark:text-[#CEC0E8] truncate mt-0.5">
+                {primaryActiveWo.technicalReport?.usedMaterials ||
+                  [
+                    primaryActiveWo.technicalReport?.dropcoreLength || primaryActiveWo.dropcoreLength
+                      ? `${primaryActiveWo.technicalReport?.dropcoreLength || primaryActiveWo.dropcoreLength}m Dropcore`
+                      : null,
+                    primaryActiveWo.ontBrand ? `1x ONT ${primaryActiveWo.ontBrand}` : null,
+                    primaryActiveWo.technicalReport?.fatPort || primaryActiveWo.fatPort
+                      ? `Port ${primaryActiveWo.technicalReport?.fatPort || primaryActiveWo.fatPort}`
+                      : null
+                  ]
+                    .filter(Boolean)
+                    .join(' • ') ||
+                  'Belum ada material dicatat — ketuk Ubah untuk melengkapi'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleOpenTicket(primaryActiveWo)}
+              className="tactile-btn-secondary px-3 py-1.5 rounded-xl bg-white dark:bg-[#261942] text-[#1F1638] dark:text-white border border-[#CEC3D4] dark:border-[#4B386B] text-xs font-bold cursor-pointer"
+            >
+              Ubah
+            </button>
+            <button
+              type="button"
+              onClick={() => setMaterialStripDismissed(true)}
+              className="p-1.5 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white rounded-lg cursor-pointer"
+              aria-label="Sembunyikan ringkasan material"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 5. LEVEL-3 KENDALA / RESCHEDULE ESCALATION MODAL             */}
+      {/* ============================================================ */}
+      <TactileConfirmModal
+        isOpen={Boolean(kendalaTicket)}
+        onClose={() => setKendalaTicket(null)}
+        variant="danger"
+        badge={kendalaTicket ? `ESKALASI KENDALA • ${kendalaTicket.woNumber}` : 'ESKALASI KENDALA'}
+        title={`Laporkan Kendala / Tunda WO ${kendalaTicket?.woNumber || ''}`}
+        subtitle={
+          kendalaTicket
+            ? `Pelanggan: ${kendalaTicket.customerName}. Laporan akan langsung memperbarui status teknis WO dan mengirim notifikasi kategori #ISSUE ke Dispatch.`
+            : undefined
+        }
+        reasonOptions={KENDALA_ESCALATION_OPTIONS}
+        requireNotes={true}
+        notesLabel="Keterangan Detail Lapangan"
+        notesPlaceholder="Jelaskan kendala di lokasi (misal: port FAT penuh, pelanggan minta dijadwalkan besok pagi pukul 09:00)..."
+        confirmLabel="Kirim Laporan Kendala"
+        cancelLabel="Batal"
+        isSubmitting={isSubmittingKendala}
+        onConfirm={handleConfirmKendala}
+      />
+
+      {/* ============================================================ */}
+      {/* 6. DEDICATED TICKET DETAIL MODAL WITH LIVE CHAT              */}
       {/* ============================================================ */}
       {detailTicket && (
-        <div className="fixed inset-0 z-60 bg-black/75 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-5 py-4 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div className="fixed inset-0 z-60 bg-[#160D29]/75 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#35105E] shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-mono font-bold text-base text-indigo-600 dark:text-indigo-400">
+                <span className="font-mono font-bold text-base text-[#58149C] dark:text-[#DAB9FF]">
                   {detailTicket.woNumber}
                 </span>
-                <span className="px-2 py-0.5 rounded font-mono text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                <span className="px-2 py-0.5 rounded font-mono text-xs font-semibold bg-[#F3EAFF] dark:bg-[#35105E] text-[#1F1638] dark:text-[#E9D5FF]">
                   ID: {detailTicket.idCustomer || detailTicket.customerId}
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white text-sm">
+                <span className="font-bold text-[#1F1638] dark:text-white text-sm">
                   {detailTicket.customerName}
                 </span>
                 <StatusInstallerBadge status={detailTicket.statusWOInstaller} />
               </div>
 
-              {/* Action Buttons in Modal Header: LIVE CHAT, WHATSAPP, CLOSE */}
               <div className="flex items-center gap-2">
-                {/* Live Chat Tab Switcher Button */}
                 {(() => {
                   const detailUnread = getTicketUnreadCount(detailTicket.id);
                   return (
                     <button
-                      onClick={() => setDetailModalTab(prev => prev === 'chat' ? 'details' : 'chat')}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs ${
+                      type="button"
+                      onClick={() => setDetailModalTab(prev => (prev === 'chat' ? 'details' : 'chat'))}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ${
                         detailModalTab === 'chat'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                          ? 'bg-[#58149C] text-white'
+                          : 'bg-white hover:bg-[#F3EAFF] text-[#58149C] dark:bg-[#261942] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B]'
                       }`}
-                      title="Buka panel Live Chat untuk koordinasi instan"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>{detailModalTab === 'chat' ? 'Kembali ke Rincian' : 'Buka Live Chat'}</span>
                       {detailUnread > 0 && detailModalTab !== 'chat' && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#BA1A1A] text-white">
                           {detailUnread > 99 ? '99+' : detailUnread}
                         </span>
                       )}
@@ -892,186 +1364,50 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   );
                 })()}
 
-                {/* WhatsApp */}
                 <button
+                  type="button"
                   onClick={() => onOpenWhatsApp(detailTicket)}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   <span>WhatsApp</span>
                 </button>
 
-                {/* Close Modal Button */}
                 <button
+                  type="button"
                   onClick={() => setDetailTicket(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-1"
+                  className="p-1.5 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white rounded-lg cursor-pointer ml-1"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Body: Switch between Details and Live Chat */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6 text-xs">
               {detailModalTab === 'chat' ? (
-                /* LIVE CHAT VIEW */
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E8DDFF] dark:border-[#35105E]">
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                      <h4 className="font-bold text-[#1F1638] dark:text-white text-sm">
                         Live Chat Koordinasi WO {detailTicket.woNumber}
                       </h4>
                     </div>
-                    <span className="text-[11px] text-slate-500">
-                      Pesan terhubung langsung dengan Dispatch dan Korlap Leader
+                    <span className="text-[11px] text-[#7D7484]">
+                      Terhubung langsung dengan Dispatch dan Korlap Leader
                     </span>
                   </div>
 
-                  <div className="rounded-xl border border-indigo-200 dark:border-indigo-900 overflow-hidden shadow-xs">
+                  <div className="rounded-xl border border-[#E8DDFF] dark:border-[#4B386B] overflow-hidden">
                     <TicketLiveChat ticket={detailTicket} initialCategory={chatInitialCategory} />
                   </div>
                 </div>
               ) : (
-                /* FULL TICKET DETAILS VIEW (7 Sections) */
                 <div className="space-y-5">
-                  {/* Banner Live Chat CTA */}
-                  <div className="p-3 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl border border-indigo-200 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 text-indigo-900 dark:text-indigo-200">
-                      <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                      <div>
-                        <span className="font-bold block">Butuh bantuan koordinasi atau approval Dispatch?</span>
-                        <span className="text-[11px] text-indigo-700 dark:text-indigo-300">
-                          Gunakan fitur Live Chat untuk konfirmasi kendala lapangan, OPM, atau nomor port FAT.
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setDetailModalTab('chat')}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shrink-0 flex items-center justify-center gap-1.5 shadow-2xs"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Buka Live Chat Sekarang</span>
-                    </button>
-                  </div>
-
-                  {/* Section 1 & 2: Primary WO & Customer Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Data Utama WO */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5">
-                      <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-slate-200 dark:border-slate-700">
-                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>1. Data Utama Work Order</span>
-                      </h5>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div>
-                          <span className="text-slate-400 block">Nomor WO:</span>
-                          <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{detailTicket.woNumber}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">ID Pelanggan:</span>
-                          <span className="font-mono font-semibold">{detailTicket.idCustomer || detailTicket.customerId}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Kategori WO:</span>
-                          <span className="font-medium">{detailTicket.ticketCategory || 'New Installation'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Mitra Kontraktor:</span>
-                          <span className="font-medium">{detailTicket.contactorName || 'Mitra'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Data Pelanggan & Alamat */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5">
-                      <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-slate-200 dark:border-slate-700">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>2. Data Pelanggan & Lokasi</span>
-                      </h5>
-                      <div className="space-y-1.5 text-[11px]">
-                        <div>
-                          <span className="text-slate-400 block">Nama Lengkap:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{detailTicket.customerName}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400">Telepon / WhatsApp:</span>
-                          <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">{detailTicket.customerPhone}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Alamat Pemasangan:</span>
-                          <span className="text-slate-700 dark:text-slate-300 font-medium">{detailTicket.streetName}</span>
-                        </div>
-                        {detailTicket.streetAlternatif && (
-                          <div>
-                            <span className="text-slate-400 block">Patokan:</span>
-                            <span className="text-amber-700 dark:text-amber-400">{detailTicket.streetAlternatif}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 3 & 4: Schedule & Network */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Data Jadwal */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5">
-                      <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-slate-200 dark:border-slate-700">
-                        <Clock className="w-3.5 h-3.5 text-blue-600" />
-                        <span>3. Jadwal Kunjungan (Appointment)</span>
-                      </h5>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div>
-                          <span className="text-slate-400 block">Tanggal Janji:</span>
-                          <span className="font-semibold">{detailTicket.appointmentDate || 'Tanggal Belum Ada'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Slot Waktu:</span>
-                          <span className="font-bold text-indigo-600 dark:text-indigo-400">{detailTicket.slotTime || '09:00 - 11:00 WIB'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Status Konfirmasi WA:</span>
-                          <StatusWhatsAppBadge status={detailTicket.statusWhatsApp} />
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Status Lapangan:</span>
-                          <StatusInstallerBadge status={detailTicket.statusWOInstaller} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Data Jaringan & Hardware */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5">
-                      <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-slate-200 dark:border-slate-700">
-                        <Radio className="w-3.5 h-3.5 text-amber-600" />
-                        <span>4. Data Jaringan OLT / FDT / FAT</span>
-                      </h5>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div>
-                          <span className="text-slate-400 block">Kode FDT:</span>
-                          <span className="font-mono font-semibold">{detailTicket.fdtCode || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Kode FAT:</span>
-                          <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{detailTicket.fatCode || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Cluster:</span>
-                          <span className="font-medium">{detailTicket.clusterName || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block">Area / Regional:</span>
-                          <span className="font-medium">{detailTicket.area || '-'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 6: Formulir Laporan Teknis */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
-                    <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-slate-200 dark:border-slate-700">
-                      <Wifi className="w-3.5 h-3.5 text-teal-600" />
-                      <span>5. Laporan Teknis Lapangan (Optical Power OPM & Root Cause)</span>
+                  <div className="p-4 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] bg-white dark:bg-[#160D29] space-y-3">
+                    <h5 className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-[#E8DDFF] dark:border-[#35105E]">
+                      <Wifi className="w-3.5 h-3.5 text-[#58149C]" />
+                      <span>Laporan Teknis Lapangan (Optical Power OPM &amp; Root Cause)</span>
                     </h5>
                     <TechnicalReportForm
                       ticket={detailTicket}
@@ -1082,119 +1418,50 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       }}
                     />
                   </div>
-
-                  {/* Section 7: Bukti Foto Before & After */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
-                    <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 border-b pb-2 border-slate-200 dark:border-slate-700">
-                      <Camera className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>6. Bukti Foto Pengerjaan (Before & After)</span>
-                    </h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-center space-y-2">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300 block text-xs">
-                          Foto Sebelum Pengerjaan (Before)
-                        </span>
-                        {detailTicket.technicalReport?.photoBeforeUrl ? (
-                          <div className="relative rounded-lg overflow-hidden border aspect-video bg-black/5">
-                            <img
-                              src={detailTicket.technicalReport.photoBeforeUrl}
-                              alt="Foto Before"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-slate-400">
-                            <Camera className="w-6 h-6 mb-1 opacity-50" />
-                            <span className="text-[11px]">Belum ada foto before</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-center space-y-2">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300 block text-xs">
-                          Foto Sesudah Selesai (After)
-                        </span>
-                        {detailTicket.technicalReport?.photoAfterUrl ? (
-                          <div className="relative rounded-lg overflow-hidden border aspect-video bg-black/5">
-                            <img
-                              src={detailTicket.technicalReport.photoAfterUrl}
-                              alt="Foto After"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-slate-400">
-                            <Camera className="w-6 h-6 mb-1 opacity-50" />
-                            <span className="text-[11px]">Belum ada foto after</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
-              <div className="text-[11px] text-slate-500">
-                Teknisi: <strong className="text-slate-700 dark:text-slate-300">{detailTicket.installerName || effectiveInstallerName}</strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setDetailModalTab(prev => prev === 'chat' ? 'details' : 'chat')}
-                  className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{detailModalTab === 'chat' ? 'Kembali ke Rincian' : 'Buka Live Chat'}</span>
-                </button>
-                <button
-                  onClick={() => setDetailTicket(null)}
-                  className="px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                  Tutup
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* 6. STANDALONE QUICK LIVE CHAT MODAL (DIRECT FROM CARD)       */}
+      {/* 7. STANDALONE QUICK LIVE CHAT MODAL (DIRECT FROM CARD)       */}
       {/* ============================================================ */}
       {chatModalTicket && (
-        <div className="fixed inset-0 z-60 bg-black/75 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[88vh]">
-            <div className="px-5 py-3.5 bg-indigo-600 text-white flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 z-60 bg-[#160D29]/75 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#5B35B1] shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[88vh]">
+            <div className="px-5 py-3.5 bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <MessageSquare className="w-5 h-5 text-indigo-200" />
+                <MessageSquare className="w-5 h-5 text-[#EEDBFF]" />
                 <div>
                   <h4 className="font-bold text-sm">
                     Live Chat: {chatModalTicket.woNumber}
                   </h4>
-                  <p className="text-[11px] text-indigo-100">
+                  <p className="text-[11px] text-[#EEDBFF]">
                     Pelanggan: {chatModalTicket.customerName} ({chatModalTicket.area})
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setChatModalTicket(null)}
-                className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/10"
+                className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/10 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-4 flex-1 overflow-y-auto">
-              <TicketLiveChat ticket={chatModalTicket} />
+              <TicketLiveChat ticket={chatModalTicket} initialCategory={chatInitialCategory} />
             </div>
 
-            <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-800 border-t flex items-center justify-between text-xs text-slate-500">
-              <span>Koordinasi cepat dengan Dispatch & Leader</span>
+            <div className="px-5 py-2.5 bg-[#F8F1FF] dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between text-xs text-[#7D7484] dark:text-[#CEC0E8]">
+              <span>Koordinasi cepat dengan Dispatch &amp; Leader</span>
               <button
+                type="button"
                 onClick={() => setChatModalTicket(null)}
-                className="px-3 py-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-medium text-xs hover:bg-slate-300"
+                className="tactile-btn-secondary px-3 py-1.5 bg-white dark:bg-[#261942] text-[#1F1638] dark:text-white border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl font-bold text-xs cursor-pointer"
               >
                 Tutup Chat
               </button>

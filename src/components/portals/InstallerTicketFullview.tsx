@@ -56,11 +56,15 @@ import {
   AlertTriangle,
   User,
   Wrench,
-  Trash2
+  Trash2,
+  Package,
+  ShieldAlert,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
+import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
 
 interface InstallerTicketFullviewProps {
   ticket: Ticket;
@@ -240,7 +244,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const unreadChatCount = getTicketUnreadCount(activeTicket.id);
   const [copiedAddress, setCopiedAddress] = useState(false);
 
-  // Success Confirmation Alert Modal State
+  // Success Confirmation Alert Modal & Pre-submit QC Bottom Sheet State
+  const [showQcConfirmSheet, setShowQcConfirmSheet] = useState(false);
+  const [sopChecks, setSopChecks] = useState({
+    dropcoreNeat: true,
+    opmClean: true,
+    customerTested: true
+  });
+  const [showKendalaModal, setShowKendalaModal] = useState(false);
+  const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [savedReportSnapshot, setSavedReportSnapshot] = useState<{
@@ -329,6 +341,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return activeTicket.technicalReport?.fatPort || activeTicket.fatPort || '';
   });
 
+  const [usedMaterials, setUsedMaterials] = useState<string>(() => {
+    return activeTicket.technicalReport?.usedMaterials || '';
+  });
+  const materialInputRef = useRef<HTMLInputElement>(null);
+
   const [photoSlots, setPhotoSlots] = useState<Record<PhotoSlotKey, TechnicalPhotoSlot | null>>(() =>
     buildInitialPhotoSlots(activeTicket)
   );
@@ -391,6 +408,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         if (typeof draft.fatPort === 'string' && draft.fatPort.trim()) {
           setFatPort(draft.fatPort);
         }
+        if (typeof draft.usedMaterials === 'string' && draft.usedMaterials.trim()) {
+          setUsedMaterials(draft.usedMaterials);
+        }
         if (draft.photoSlots && typeof draft.photoSlots === 'object') {
           setPhotoSlots(prev => ({ ...prev, ...draft.photoSlots }));
         }
@@ -426,6 +446,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           ontSerialNumber,
           dropcoreLength,
           fatPort,
+          usedMaterials,
           photoSlots,
           customerSignatureUrl,
           customerConsentConfirmed,
@@ -458,6 +479,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       ontSerialNumber,
       dropcoreLength,
       fatPort,
+      usedMaterials,
       photoSlots,
       customerSignatureUrl,
       customerConsentConfirmed,
@@ -1049,18 +1071,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   };
 
   // -------------------------------------------------------------
-  // SAVE PROGRESS REPORT + TELEMETRY + PHOTO EVIDENCE + SIGNATURE
+  // PRE-SUBMIT VALIDATION -> OPEN QC BOTTOM SHEET -> EXECUTE SAVE
   // -------------------------------------------------------------
-  const handleSaveReport = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (isSubmittingReport) return;
-
+  const validateBeforeSubmit = (): boolean => {
     if (ticketClosed) {
       playErrorSound();
       const msg = 'Work Order ini sudah berstatus CLOSED (disetujui Dispatch) dan terkunci read-only.';
       setReportError(msg);
       toast.error(msg, 'WO Sudah Closed');
-      return;
+      return false;
     }
 
     if (requiresProgressCheckIn) {
@@ -1070,31 +1089,46 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       setReportError(msg);
       toast.error(msg, 'Check-in Wajib (PROGRESS)');
       handleOpenProgressChatForCheckIn();
-      return;
+      return false;
     }
 
     if (!reportStatus) {
       setReportError('LEVEL 1: Report Status wajib dipilih.');
-      return;
+      return false;
     }
     if (!reasonReport) {
       setReportError('LEVEL 2: Reason Report wajib dipilih.');
-      return;
+      return false;
     }
     if (!rootCause) {
       setReportError('LEVEL 3: Rootcause Code wajib dipilih.');
-      return;
+      return false;
     }
     if (!remarksReport.trim()) {
       setReportError('Catatan Teknisi & Hasil Commissioning wajib diisi.');
-      return;
+      return false;
     }
+    setReportError(null);
+    return true;
+  };
 
+  const handleOpenQcSheet = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isSubmittingReport) return;
+    if (!validateBeforeSubmit()) return;
+    setShowQcConfirmSheet(true);
+  };
+
+  const handleSaveReport = async () => {
+    if (isSubmittingReport) return;
+    if (!validateBeforeSubmit()) return;
+
+    setShowQcConfirmSheet(false);
     setReportError(null);
     setIsSubmittingReport(true);
     startLoading({
       title: 'MENGIRIM LAPORAN CHECKOUT KE DISPATCH...',
-      subtitle: 'Menyimpan relasi 3-tingkat, telemetri ONT, foto bukti fisik, dan memicu Check-out ke Supabase PostgreSQL'
+      subtitle: 'Menyimpan relasi 3-tingkat, telemetri ONT, foto bukti fisik, dan memicu Check-out ke database'
     });
 
     try {
@@ -1116,6 +1150,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           ontSerialNumber: ontSerialNumber.trim() || undefined,
           dropcoreLength: dropcoreLength.trim() || undefined,
           fatPort: fatPort.trim() || undefined,
+          usedMaterials: usedMaterials.trim() || undefined,
           photoSlots: uploadedPhotoSlotsList,
           photos: uploadedPhotoSlotsList.map(s => s.url),
           customerSignatureUrl: customerSignatureUrl || undefined,
@@ -1138,11 +1173,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         setShowSuccessAlert(true);
         toast.success(
           `Laporan checkout "${reportStatus}" berhasil dikirim ke Dispatch (status: BUTUH APPROVAL).`,
-          'LAPORAN TERKIRIM'
+          'LAPORAN TERKIRIM',
+          { withSound: true }
         );
       } else {
         playErrorSound();
-        const errMsg = res.error || 'Gagal menyimpan laporan ke Supabase PostgreSQL.';
+        const errMsg = res.error || 'Gagal menyimpan laporan ke database.';
         setReportError(errMsg);
         if ((res as any).code === 'CHECK_IN_REQUIRED') {
           toast.error(errMsg, 'Check-in PROGRESS Diperlukan');
@@ -1167,7 +1203,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         errorCode: 'MJ-DB-002',
         module: 'Database',
         operation: 'Save Progress Report Exception',
-        description: 'Terjadi kegagalan komunikasi dengan database Supabase PostgreSQL.',
+        description: 'Terjadi kegagalan komunikasi dengan server database.',
         message: errMsg,
         technicalDetails: errMsg,
         severity: 'HIGH',
@@ -1176,6 +1212,43 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     } finally {
       setIsSubmittingReport(false);
       stopLoading();
+    }
+  };
+
+  const handleConfirmKendalaFromFullview = async ({
+    selectedReason,
+    notes
+  }: {
+    selectedReason?: EscalationReasonOption;
+    notes: string;
+  }) => {
+    if (!selectedReason) return;
+    setIsSubmittingKendala(true);
+    try {
+      const targetStatus = selectedReason.targetInstallerStatus || 'Pending Technical';
+      const prefix = selectedReason.isReschedule ? 'RESCHEDULE' : 'KENDALA LAPANGAN';
+      updateTicketStatus(
+        activeTicket.id,
+        targetStatus === 'Failed / Cancelled' ? 'Cancelled' : undefined,
+        targetStatus,
+        `[${prefix}: ${selectedReason.label}] ${notes}`
+      );
+      await sendTicketMessage(
+        activeTicket.id,
+        `${prefix} — ${selectedReason.label}. Catatan: ${notes}`,
+        [],
+        'ISSUE'
+      );
+      toast.warning(
+        `Kendala WO ${activeTicket.woNumber} dilaporkan ke Dispatch (#ISSUE).`,
+        'Kendala Dilaporkan',
+        { withSound: true }
+      );
+      setShowKendalaModal(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal melaporkan kendala.', 'Gagal');
+    } finally {
+      setIsSubmittingKendala(false);
     }
   };
 
@@ -1311,6 +1384,18 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               >
                 <Navigation className="w-3.5 h-3.5" />
                 <span>Otw Lokasi</span>
+              </button>
+            )}
+
+            {!ticketClosed && (
+              <button
+                type="button"
+                onClick={() => setShowKendalaModal(true)}
+                className="tactile-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#22123F] text-[#BA1A1A] dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-[11px] font-bold cursor-pointer"
+                title="Laporkan kendala teknis atau minta reschedule"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Kendala</span>
               </button>
             )}
 
@@ -1510,7 +1595,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           {/* ========================================================== */}
           {/* LEFT COLUMN (7/12 on desktop): STITCH 3-TIER CHECKOUT FLOW */}
           {/* ========================================================== */}
-          <form onSubmit={handleSaveReport} className="lg:col-span-7 space-y-3.5">
+          <form onSubmit={handleOpenQcSheet} className="lg:col-span-7 space-y-3.5">
 
             {/* Error Alert */}
             {reportError && (
@@ -1812,6 +1897,51 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       {activeTicket.fatRedamanDbm ? `Tiang: ${activeTicket.fatRedamanDbm} dBm` : `FAT: ${activeTicket.fatCode || '-'}`}
                     </span>
                   </div>
+                </div>
+
+                {/* Material Terpakai di Lapangan + Quick Chips */}
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="materials-input"
+                      className="flex items-center gap-1.5 font-bold text-[11px] text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wider"
+                    >
+                      <Package className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                      <span>MATERIAL TERPAKAI DI LAPANGAN</span>
+                    </label>
+                    <span className="text-[10px] text-[#8B8495] font-mono">Opsional / Audit</span>
+                  </div>
+                  <input
+                    id="materials-input"
+                    ref={materialInputRef}
+                    type="text"
+                    value={usedMaterials}
+                    disabled={ticketClosed || isSubmittingReport}
+                    onChange={e => setUsedMaterials(e.target.value)}
+                    placeholder="Contoh: Dropcore 85m, 1x ONT ZTE, 2x Fast Connector, 1x Roset"
+                    className="tactile-debossed-input w-full bg-[#F5F1FF] dark:bg-[#160D29] text-[#160D29] dark:text-white font-semibold text-[12.5px] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#431599] disabled:opacity-60"
+                  />
+                  {!ticketClosed && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {['Fast Connector (2x)', 'Roset 1 Port', 'Patchcord SC-UPC', 'Clamp S (2x)'].map(chip => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => {
+                            setUsedMaterials(prev => {
+                              const clean = prev.trim();
+                              if (!clean) return chip;
+                              if (clean.toLowerCase().includes(chip.toLowerCase())) return clean;
+                              return `${clean}, ${chip}`;
+                            });
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-[#F3EAFF] hover:bg-[#E8DDFF] dark:bg-[#261942] dark:hover:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B] text-[10.5px] font-bold transition-colors cursor-pointer"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -2483,6 +2613,315 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           </div>
         </div>
       </div>
+
+      {/* ============================================================== */}
+      {/* STITCH AI BOTTOM SHEET MODAL: KONFIRMASI PENYELESAIAN WO (QC)  */}
+      {/* ============================================================== */}
+      {showQcConfirmSheet && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qc-confirm-sheet-title"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#160D29]/75 backdrop-blur-sm animate-in fade-in duration-150"
+        >
+          <div className="absolute inset-0" onClick={() => setShowQcConfirmSheet(false)} />
+
+          <div className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FDF7FF] dark:bg-[#1E1238] rounded-t-[1.5rem] sm:rounded-3xl border border-[#E8DDFF] dark:border-[#5B35B1]/60 shadow-[0_-12px_40px_rgba(22,13,41,0.4),0_20px_50px_rgba(22,13,41,0.45)] max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Pull Handle on mobile */}
+            <div className="flex justify-center pt-2.5 pb-1 sm:hidden shrink-0">
+              <div className="w-10 h-1.5 rounded-full bg-[#CEC3D4] dark:bg-[#4B386B]" />
+            </div>
+
+            {/* Sheet Header */}
+            <div className="px-5 pt-3 pb-3.5 border-b border-[#E8DDFF] dark:border-[#35105E] flex items-start justify-between gap-3 shrink-0">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-[#F3EAFF] dark:bg-[#35105E] border border-[#E8DDFF] dark:border-[#7135B5] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                      VALIDASI AKHIR QC
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-[#F3EAFF] dark:bg-[#2E1459] font-mono text-[10.5px] font-bold text-[#4B4452] dark:text-[#E9D5FF] border border-[#E8DDFF] dark:border-[#4B386B]">
+                      #{activeTicket.woNumber}
+                    </span>
+                  </div>
+                  <h3
+                    id="qc-confirm-sheet-title"
+                    className="font-display font-bold text-[18px] text-[#1F1638] dark:text-white leading-snug mt-0.5 truncate"
+                  >
+                    Konfirmasi Penyelesaian WO
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowQcConfirmSheet(false)}
+                className="tactile-pill-btn p-2 rounded-full bg-white dark:bg-[#2A1647] text-[#4B4452] dark:text-[#E9D5FF] border border-[#E8DDFF] dark:border-[#4B386B] cursor-pointer shrink-0"
+                aria-label="Tutup Konfirmasi QC"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Dark #160D29 Optical Telemetry Live Card */}
+              <div className="rounded-2xl bg-[#160D29] border border-[#35105E] p-4 text-white shadow-[0_8px_22px_rgba(22,13,41,0.3)] space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#DAB9FF]">
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>OPTICAL TELEMETRY LIVE</span>
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${
+                      opmStatus.isOutOfSpec
+                        ? 'bg-rose-950/70 text-rose-300 border-rose-500/50'
+                        : Number.isNaN(opmNumeric)
+                        ? 'bg-amber-950/70 text-amber-300 border-amber-500/50'
+                        : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>
+                      {opmStatus.isOutOfSpec
+                        ? 'Perlu Periksa Redaman'
+                        : Number.isNaN(opmNumeric)
+                        ? 'OPM Belum Diisi'
+                        : 'Status Optimal'}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
+                    <div className="text-[11px] text-[#CEC0E8]">Rx Optical Power</div>
+                    <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums">
+                      <span
+                        className={`text-[22px] font-bold leading-none ${
+                          opmStatus.isOutOfSpec ? 'text-rose-400' : 'text-emerald-400'
+                        }`}
+                      >
+                        {opmDbm.trim() || '—'}
+                      </span>
+                      {opmDbm.trim() && <span className="text-xs text-[#CEC0E8]">dBm</span>}
+                    </div>
+                    <div className="mt-1.5 text-[10.5px] font-mono text-emerald-300">
+                      ✓ Ambang: &gt;= -24 dBm
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
+                    <div className="text-[11px] text-[#CEC0E8]">Jalur &amp; Dropcore</div>
+                    <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums">
+                      <span className="text-[20px] font-bold text-white leading-none">
+                        {dropcoreLength.trim() || '—'}
+                      </span>
+                      {dropcoreLength.trim() && <span className="text-xs text-[#CEC0E8]">m</span>}
+                    </div>
+                    <div className="mt-1.5 text-[10.5px] font-mono text-[#DAB9FF] truncate">
+                      FAT {activeTicket.fatCode || '-'}{fatPort ? ` • #${fatPort}` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2 text-[11px]">
+                  <span className="flex items-center gap-1.5 font-semibold text-[#F5EEFF] truncate">
+                    <Radio className="w-3.5 h-3.5 text-[#DAB9FF] shrink-0" />
+                    <span className="truncate">
+                      {activeTicket.ontBrand || 'GPON ONT'} {activeTicket.ontModel || ''}
+                    </span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#241740] border border-white/10 font-mono text-[10.5px] text-[#DAB9FF] shrink-0">
+                    SN: {ontSerialNumber.trim() || 'Belum diisi'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Foto Bukti Lapangan */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-display font-bold text-[14px] text-[#1F1638] dark:text-white">
+                    Foto Bukti Lapangan
+                  </h4>
+                  <span className="font-mono text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                    {uploadedPhotoSlotsList.length} Terlampir
+                  </span>
+                </div>
+
+                {uploadedPhotoSlotsList.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {uploadedPhotoSlotsList.map(slot => (
+                      <button
+                        key={slot.slotKey}
+                        type="button"
+                        onClick={() => setZoomImage(slot.url)}
+                        className="relative h-28 rounded-xl overflow-hidden border border-[#E8DDFF] dark:border-[#4B386B] bg-[#F3EAFF] dark:bg-[#160D29] group cursor-pointer text-left"
+                      >
+                        <img
+                          src={getSafePreviewUrl(slot.url)}
+                          alt={slot.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#160D29]/90 via-[#160D29]/45 to-transparent p-2 flex items-center gap-1.5 text-white text-[10.5px] font-bold">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="truncate">{slot.title.replace(/^\d+\.\s*/, '')}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl border border-dashed border-[#CEC3D4] dark:border-[#4B386B] bg-white dark:bg-[#160D29] text-center space-y-2">
+                    <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8]">
+                      Belum ada foto bukti SOP yang diunggah. Anda disarankan melampirkan foto OPM &amp; SN sebelum kirim.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowQcConfirmSheet(false)}
+                      className="tactile-btn-secondary px-3 py-1.5 rounded-lg bg-[#F3EAFF] dark:bg-[#261942] text-[#58149C] dark:text-[#DAB9FF] text-[11px] font-bold cursor-pointer"
+                    >
+                      Unggah Foto Bukti Sekarang
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Lembar Verifikasi Kualitas (SOP) Interactive Checklist */}
+              <div className="rounded-2xl bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-3.5 space-y-2">
+                <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8]">
+                  Lembar Verifikasi Kualitas (SOP)
+                </div>
+                {[
+                  { key: 'dropcoreNeat' as const, label: 'Kabel dropcore terpasang rapi, aman & klem kencang' },
+                  { key: 'opmClean' as const, label: 'Konektor bersih & redaman OPM sesuai batas toleransi SOP' },
+                  { key: 'customerTested' as const, label: 'Pelanggan telah uji koneksi & menandatangani Berita Acara' }
+                ].map(item => (
+                  <label
+                    key={item.key}
+                    className="flex items-start gap-2.5 text-xs text-[#1F1638] dark:text-[#F5EEFF] cursor-pointer select-none py-0.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sopChecks[item.key]}
+                      onChange={e =>
+                        setSopChecks(prev => ({ ...prev, [item.key]: e.target.checked }))
+                      }
+                      className="mt-0.5 w-4 h-4 rounded accent-[#58149C] cursor-pointer"
+                    />
+                    <span className="leading-snug font-medium">{item.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Ringkasan Material Terpakai & 3-Tier Status */}
+              <div className="rounded-2xl bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-3.5 space-y-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <span>Material &amp; Status Laporan</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQcConfirmSheet(false);
+                      setTimeout(() => materialInputRef.current?.focus(), 120);
+                    }}
+                    className="text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                  >
+                    Ubah Material
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="px-2 py-0.5 rounded-lg bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-bold text-[11px]">
+                    {reportStatus} • {reasonReport}
+                  </span>
+                  {dropcoreLength && (
+                    <span className="px-2 py-0.5 rounded-lg bg-[#F8F1FF] dark:bg-[#241740] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[11px]">
+                      {dropcoreLength}m Dropcore
+                    </span>
+                  )}
+                  {usedMaterials && (
+                    <span className="px-2 py-0.5 rounded-lg bg-[#F8F1FF] dark:bg-[#241740] border border-[#E8DDFF] dark:border-[#4B386B] text-[11px]">
+                      {usedMaterials}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Sheet Sticky Footer 3D Extruded Buttons */}
+            <div className="px-5 py-4 bg-white dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] space-y-2.5 shrink-0">
+              <button
+                type="button"
+                disabled={isSubmittingReport || !sopChecks.dropcoreNeat || !sopChecks.opmClean || !sopChecks.customerTested}
+                onClick={handleSaveReport}
+                className="tactile-btn-primary w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white font-display font-bold text-[14px] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle2 className="w-4.5 h-4.5" />
+                <span>
+                  {isSubmittingReport
+                    ? 'Menyimpan ke Server...'
+                    : 'Kirim Laporan & Selesaikan WO'}
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingReport}
+                onClick={() => setShowQcConfirmSheet(false)}
+                className="tactile-btn-secondary w-full py-2.5 px-4 rounded-2xl bg-white dark:bg-[#22123F] text-[#4B4452] dark:text-[#E9D5FF] border border-[#CEC3D4] dark:border-[#4B386B] font-bold text-[13px] cursor-pointer"
+              >
+                Periksa Ulang / Kembali
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* LEVEL-3 KENDALA / RESCHEDULE ESCALATION MODAL                  */}
+      {/* ============================================================== */}
+      <TactileConfirmModal
+        isOpen={showKendalaModal}
+        onClose={() => setShowKendalaModal(false)}
+        variant="danger"
+        badge={`ESKALASI KENDALA • ${activeTicket.woNumber}`}
+        title={`Laporkan Kendala / Tunda WO ${activeTicket.woNumber}`}
+        subtitle={`Pelanggan: ${activeTicket.customerName}. Laporan akan memperbarui status teknis dan mengirim pesan #ISSUE ke LiveChat Dispatch.`}
+        reasonOptions={[
+          {
+            id: 'port_odp_full',
+            label: 'Port FAT / ODP Penuh atau Tidak Ada Signal',
+            description: 'Memerlukan relokasi FAT atau tindakan tim jaringan.',
+            targetInstallerStatus: 'Pending Technical'
+          },
+          {
+            id: 'customer_reschedule',
+            label: 'Pelanggan Tidak di Tempat / Minta Reschedule',
+            description: 'Jadwal pemasangan ditunda atas permintaan pelanggan.',
+            targetInstallerStatus: 'Pending Technical',
+            isReschedule: true
+          },
+          {
+            id: 'route_permit',
+            label: 'Hambatan Izin Jalur / Lokasi Tidak Memungkinkan',
+            description: 'Kendala akses cluster, tiang, atau perizinan jalur.',
+            targetInstallerStatus: 'Pending Technical'
+          },
+          {
+            id: 'cancelled_on_site',
+            label: 'Pelanggan Membatalkan / Gagal Instalasi',
+            description: 'Pekerjaan dibatalkan di lokasi.',
+            targetInstallerStatus: 'Failed / Cancelled'
+          }
+        ]}
+        requireNotes={true}
+        confirmLabel="Kirim Laporan Kendala"
+        cancelLabel="Batal"
+        isSubmitting={isSubmittingKendala}
+        onConfirm={handleConfirmKendalaFromFullview}
+      />
 
       {/* ============================================================== */}
       {/* MORAJAWS SUCCESS ALERT MODAL WITH CONFIRMATION BUTTON           */}

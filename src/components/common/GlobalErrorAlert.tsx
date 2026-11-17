@@ -175,21 +175,23 @@ export const GlobalErrorAlert: React.FC<GlobalErrorAlertProps> = ({
         </div>
 
         {/* Action Button Group */}
-        <div className="mt-6 pt-4 border-t border-purple-500/20 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="mt-6 pt-4 border-t border-purple-500/20 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {/* Retry Button */}
           {error.onRetry ? (
             <button
+              type="button"
               onClick={handleRetry}
               disabled={isRetrying}
-              className="py-2.5 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-60"
+              className="tactile-btn-primary py-2.5 px-3 bg-gradient-to-r from-[#58149C] to-[#7135B5] hover:brightness-110 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all disabled:opacity-60 cursor-pointer"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
               <span>COBA LAGI</span>
             </button>
           ) : (
             <button
+              type="button"
               onClick={onClose}
-              className="py-2.5 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
+              className="tactile-btn-primary py-2.5 px-3 bg-gradient-to-r from-[#58149C] to-[#7135B5] hover:brightness-110 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <span>MENGERTI</span>
             </button>
@@ -197,16 +199,18 @@ export const GlobalErrorAlert: React.FC<GlobalErrorAlertProps> = ({
 
           {/* Toggle Details */}
           <button
+            type="button"
             onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-            className="py-2.5 px-3 bg-white/10 hover:bg-white/15 active:scale-95 text-purple-200 border border-purple-400/25 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+            className="py-2.5 px-3 bg-white/10 hover:bg-white/15 active:translate-y-0.5 text-purple-200 border border-purple-400/25 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
             <span>DETAIL</span>
           </button>
 
           {/* Copy Error Code */}
           <button
+            type="button"
             onClick={handleCopyCode}
-            className="py-2.5 px-3 bg-white/10 hover:bg-white/15 active:scale-95 text-purple-200 border border-purple-400/25 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+            className="py-2.5 px-3 bg-white/10 hover:bg-white/15 active:translate-y-0.5 text-purple-200 border border-purple-400/25 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             title="Salin rincian kode error"
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -215,8 +219,9 @@ export const GlobalErrorAlert: React.FC<GlobalErrorAlertProps> = ({
 
           {/* Close Button */}
           <button
+            type="button"
             onClick={onClose}
-            className="py-2.5 px-3 bg-white/5 hover:bg-white/10 active:scale-95 text-slate-300 border border-white/10 font-semibold text-xs rounded-xl flex items-center justify-center transition-all"
+            className="py-2.5 px-3 bg-white/5 hover:bg-white/10 active:translate-y-0.5 text-slate-300 border border-white/10 font-semibold text-xs rounded-xl flex items-center justify-center transition-all cursor-pointer"
           >
             <span>TUTUP</span>
           </button>

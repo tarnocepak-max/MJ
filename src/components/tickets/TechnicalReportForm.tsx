@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { Ticket, TechnicalReport } from '../../types/index.ts';
+import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
+import { useToast } from '../../context/ToastContext';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import {
   Wrench,
   CheckCircle2,
-  AlertTriangle,
-  Upload,
   Camera,
   X,
-  FileText,
   ShieldCheck,
-  Clock,
-  Sparkles,
-  Maximize2
+  Maximize2,
+  SlidersHorizontal,
+  Radio,
+  Package
 } from 'lucide-react';
 
 interface TechnicalReportFormProps {
@@ -36,6 +36,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
     verifyTechnicalReport
   } = useApp();
   const { playReportSavedSound, playErrorSound } = useMoraJawsSound();
+  const { toast } = useToast();
 
   const existingReport = ticket.technicalReport;
   const requiresCheckIn = currentUser.role === 'installer' && !ticket.checkInAt;
@@ -78,7 +79,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Available root causes based on chosen mainCategory
   const currentCategoryObj = rootCauseCategories.find(c => c.name === mainCategory);
   const availableRootCauses = currentCategoryObj?.items || [];
 
@@ -96,6 +96,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
     if (file.size > 5 * 1024 * 1024) {
       setNotice({ type: 'error', text: 'Ukuran foto maksimal 5MB.' });
+      toast.warning('Ukuran foto maksimal 5MB.', 'File Terlalu Besar');
       setTimeout(() => setNotice(null), 3000);
       return;
     }
@@ -114,10 +115,10 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
     if (requiresCheckIn) {
       playErrorSound();
-      setNotice({
-        type: 'error',
-        text: 'Check-in belum tercatat. Teknisi wajib mengirim pesan LiveChat dengan kategori PROGRESS terlebih dahulu sebelum Save Report.'
-      });
+      const msg =
+        'Check-in belum tercatat. Teknisi wajib mengirim pesan LiveChat dengan kategori PROGRESS terlebih dahulu sebelum Save Report.';
+      setNotice({ type: 'error', text: msg });
+      toast.error(msg, 'Check-in PROGRESS Diperlukan');
       return;
     }
 
@@ -151,6 +152,9 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
       playReportSavedSound();
       setIsEditing(false);
       setNotice({ type: 'success', text: 'Laporan teknis pekerjaan & root cause berhasil disimpan!' });
+      toast.success('Laporan teknis berhasil disimpan & Check-out tercatat.', 'Laporan Tersimpan', {
+        withSound: true
+      });
       setTimeout(() => setNotice(null), 3500);
       onSuccess?.();
     } else {
@@ -163,35 +167,32 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
   return (
     <div className="space-y-4 text-xs">
       {notice && (
-        <div
-          className={`p-3 rounded-lg border flex items-center gap-2 ${
-            notice.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-              : 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-          }`}
-        >
-          {notice.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-          <span className="font-medium">{notice.text}</span>
-        </div>
+        <TactileAlertBanner
+          variant={notice.type === 'success' ? 'success' : 'critical'}
+          badge={notice.type === 'success' ? 'LAPORAN TERSIMPAN' : 'VALIDASI LAPORAN'}
+          title={notice.text}
+          onDismiss={() => setNotice(null)}
+        />
       )}
 
-      {/* Submitted Report Summary Card if exists and not editing */}
+      {/* Submitted Report Summary Card */}
       {existingReport && !isEditing && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50">
                   {existingReport.workResult}
                 </span>
                 {existingReport.verifiedByDispatch && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                    <ShieldCheck className="w-3 h-3 text-indigo-600" /> Terverifikasi Dispatch
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#7135B5]">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Terverifikasi Dispatch
                   </span>
                 )}
               </div>
-              <div className="text-slate-400 text-[11px] mt-1">
-                Diserahkan oleh: <span className="font-semibold text-slate-700 dark:text-slate-300">{existingReport.submittedBy}</span> pada {new Date(existingReport.submittedAt).toLocaleString()}
+              <div className="text-[#7D7484] dark:text-[#CEC0E8] text-[11px] mt-1.5">
+                Diserahkan oleh: <span className="font-bold text-[#1F1638] dark:text-white">{existingReport.submittedBy}</span> pada{' '}
+                {new Date(existingReport.submittedAt).toLocaleString('id-ID')}
               </div>
             </div>
 
@@ -200,7 +201,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 <button
                   type="button"
                   onClick={() => verifyTechnicalReport(ticket.id)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  className="tactile-btn-primary px-3.5 py-2 bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Verifikasi Laporan</span>
@@ -211,7 +212,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium"
+                  className="tactile-btn-secondary px-3.5 py-2 bg-white dark:bg-[#261942] text-[#1F1638] dark:text-white border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Edit Laporan
                 </button>
@@ -219,86 +220,100 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-[11px] text-slate-400 uppercase font-mono block">Kategori Utama</span>
-              <span className="font-bold text-slate-900 dark:text-white text-xs">{existingReport.mainCategory}</span>
-            </div>
-
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-[11px] text-slate-400 uppercase font-mono block">Penyebab Utama (Root Cause)</span>
-              <span className="font-bold text-rose-600 dark:text-rose-400 text-xs">{existingReport.rootCause}</span>
-            </div>
-
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-[11px] text-slate-400 uppercase font-mono block">Optical Power (Redaman OPM)</span>
-              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
-                {existingReport.opticalPowerDbm || '-'}
+          {/* Dark Optical Telemetry Live Summary */}
+          <div className="rounded-2xl bg-[#160D29] border border-[#35105E] p-3.5 text-white space-y-2.5">
+            <div className="flex items-center justify-between text-[10.5px] font-mono uppercase tracking-wider text-[#DAB9FF]">
+              <span className="flex items-center gap-1.5 font-bold">
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>OPTICAL TELEMETRY RECORD</span>
               </span>
+              <span className="text-emerald-300 font-bold">VERIFIED</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
+                <div className="text-[11px] text-[#CEC0E8]">Optical Power (Redaman OPM)</div>
+                <div className="mt-1 font-mono text-[18px] font-bold text-emerald-400 tabular-nums">
+                  {existingReport.opticalPowerDbm || '-'}
+                </div>
+              </div>
+              <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
+                <div className="text-[11px] text-[#CEC0E8]">Serial Number ONT / CPE</div>
+                <div className="mt-1 font-mono text-[15px] font-bold text-white flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-[#DAB9FF]" />
+                  <span>{existingReport.deviceSerialNumber || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-1">
+              <span className="text-[10.5px] text-[#7D7484] uppercase font-mono block">Kategori Utama</span>
+              <span className="font-bold text-[#1F1638] dark:text-white text-xs">{existingReport.mainCategory}</span>
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-[11px] text-slate-400 uppercase font-mono block">SN ONT / Perangkat</span>
-              <span className="font-mono text-slate-800 dark:text-slate-200 text-xs">
-                {existingReport.deviceSerialNumber || '-'}
-              </span>
+            <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-1">
+              <span className="text-[10.5px] text-[#7D7484] uppercase font-mono block">Penyebab Utama (Root Cause)</span>
+              <span className="font-bold text-[#BA1A1A] dark:text-rose-300 text-xs">{existingReport.rootCause}</span>
             </div>
 
-            <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-[11px] text-slate-400 uppercase font-mono block">Deskripsi Teknis Kendala</span>
-              <p className="text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.technicalDescription}</p>
+            <div className="md:col-span-2 p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-1">
+              <span className="text-[10.5px] text-[#7D7484] uppercase font-mono block">Deskripsi Teknis Kendala</span>
+              <p className="text-[#1F1638] dark:text-[#E9D5FF] leading-relaxed whitespace-pre-wrap">{existingReport.technicalDescription}</p>
             </div>
 
-            <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-              <span className="text-[11px] text-slate-400 uppercase font-mono block">Tindakan Perbaikan / Langkah Kerja</span>
-              <p className="text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.correctiveAction}</p>
+            <div className="md:col-span-2 p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-1">
+              <span className="text-[10.5px] text-[#7D7484] uppercase font-mono block">Tindakan Perbaikan / Langkah Kerja</span>
+              <p className="text-[#1F1638] dark:text-[#E9D5FF] leading-relaxed whitespace-pre-wrap">{existingReport.correctiveAction}</p>
             </div>
 
             {existingReport.usedMaterials && (
-              <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
-                <span className="text-[11px] text-slate-400 uppercase font-mono block">Material & Spare Part Terpakai</span>
-                <p className="text-slate-800 dark:text-slate-200">{existingReport.usedMaterials}</p>
+              <div className="md:col-span-2 p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-1">
+                <span className="text-[10.5px] text-[#7D7484] uppercase font-mono flex items-center gap-1">
+                  <Package className="w-3 h-3 text-[#58149C]" />
+                  <span>Material &amp; Spare Part Terpakai</span>
+                </span>
+                <p className="font-semibold text-[#1F1638] dark:text-white">{existingReport.usedMaterials}</p>
               </div>
             )}
           </div>
 
-          {/* Photos View */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            <h5 className="font-semibold text-slate-800 dark:text-slate-200 text-xs mb-3">Foto Bukti Pengerjaan</h5>
+          <div className="pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+            <h5 className="font-display font-bold text-[#1F1638] dark:text-white text-xs mb-3">Foto Bukti Pengerjaan</h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <span className="text-[11px] text-slate-500 mb-1 block">Foto Kondisi Awal (Sebelum Perbaikan):</span>
+                <span className="text-[11px] text-[#7D7484] mb-1 block">Foto Kondisi Awal (Before):</span>
                 {existingReport.photoBeforeUrl ? (
                   <div
                     onClick={() => setZoomImage(existingReport.photoBeforeUrl!)}
-                    className="cursor-pointer group relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 h-40 bg-slate-100 dark:bg-slate-800"
+                    className="cursor-pointer group relative rounded-xl overflow-hidden border border-[#E8DDFF] dark:border-[#4B386B] h-40 bg-[#F3EAFF] dark:bg-[#160D29]"
                   >
                     <img src={getSafePreviewUrl(existingReport.photoBeforeUrl)} alt="Foto Sebelum" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <div className="absolute inset-0 bg-[#160D29]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
                       <Maximize2 className="w-5 h-5" />
                     </div>
                   </div>
                 ) : (
-                  <div className="h-40 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-400 text-xs">
+                  <div className="h-40 rounded-xl border border-dashed border-[#CEC3D4] dark:border-[#4B386B] flex items-center justify-center text-[#7D7484] text-xs">
                     Tidak ada foto awal
                   </div>
                 )}
               </div>
 
               <div>
-                <span className="text-[11px] text-slate-500 mb-1 block">Foto Kondisi Akhir (Sesudah Perbaikan & OPM):</span>
+                <span className="text-[11px] text-[#7D7484] mb-1 block">Foto Kondisi Akhir (After &amp; OPM):</span>
                 {existingReport.photoAfterUrl ? (
                   <div
                     onClick={() => setZoomImage(existingReport.photoAfterUrl!)}
-                    className="cursor-pointer group relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 h-40 bg-slate-100 dark:bg-slate-800"
+                    className="cursor-pointer group relative rounded-xl overflow-hidden border border-[#E8DDFF] dark:border-[#4B386B] h-40 bg-[#F3EAFF] dark:bg-[#160D29]"
                   >
                     <img src={getSafePreviewUrl(existingReport.photoAfterUrl)} alt="Foto Sesudah" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <div className="absolute inset-0 bg-[#160D29]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
                       <Maximize2 className="w-5 h-5" />
                     </div>
                   </div>
                 ) : (
-                  <div className="h-40 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-400 text-xs">
+                  <div className="h-40 rounded-xl border border-dashed border-[#CEC3D4] dark:border-[#4B386B] flex items-center justify-center text-[#7D7484] text-xs">
                     Tidak ada foto akhir
                   </div>
                 )}
@@ -310,18 +325,18 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
       {/* Editing / New Form */}
       {isEditing && (
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center">
+        <form onSubmit={handleSubmit} className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shadow-[0_2px_0_#2A0053]">
                 <Wrench className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-white text-xs">
-                  Formulir Laporan Lapangan & Root Cause Teknisi Wi-Fi
+                <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-[13.5px]">
+                  Formulir Laporan Lapangan &amp; Root Cause
                 </h4>
-                <p className="text-[11px] text-slate-500">
-                  Wajib diisi oleh teknisi lapangan sebelum tiket dapat diselesaikan dan ditutup oleh Dispatch.
+                <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
+                  Wajib diisi oleh teknisi sebelum WO diverifikasi &amp; ditutup oleh Dispatch.
                 </p>
               </div>
             </div>
@@ -330,7 +345,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="px-2.5 py-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-xs"
+                className="tactile-btn-secondary px-3 py-1.5 bg-white dark:bg-[#261942] text-[#4B4452] dark:text-[#E9D5FF] border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl text-xs font-bold cursor-pointer"
               >
                 Batal
               </button>
@@ -338,38 +353,31 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
           </div>
 
           {requiresCheckIn && (
-            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-xs">Check-in Wajib via LiveChat (Kategori PROGRESS)</div>
-                  <p className="text-[11px] opacity-90 mt-0.5">
-                    Save Report akan mencatat Check-out otomatis dan diblokir sebelum Anda mengirim minimal 1 pesan LiveChat dengan kategori <strong>PROGRESS</strong>.
-                  </p>
-                </div>
-              </div>
-              {onRequestProgressCheckIn && (
-                <button
-                  type="button"
-                  onClick={onRequestProgressCheckIn}
-                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 cursor-pointer"
-                >
-                  Buka LiveChat (Kategori PROGRESS)
-                </button>
-              )}
-            </div>
+            <TactileAlertBanner
+              variant="warning"
+              badge="CHECK-IN WAJIB (SOP)"
+              title="Check-in via LiveChat Kategori #PROGRESS Diperlukan"
+              description="Save Report memicu Check-out otomatis dan diblokir sebelum Anda mengirim minimal 1 pesan LiveChat dengan kategori PROGRESS."
+              primaryAction={
+                onRequestProgressCheckIn
+                  ? {
+                      label: 'Buka LiveChat (Kategori PROGRESS)',
+                      onClick: onRequestProgressCheckIn
+                    }
+                  : undefined
+              }
+            />
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Main Category */}
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                Kategori Utama Gangguan <span className="text-rose-500">*</span>
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
+                Kategori Utama Gangguan <span className="text-[#BA1A1A]">*</span>
               </label>
               <select
                 value={mainCategory}
                 onChange={e => handleMainCategoryChange(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-medium"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-white font-semibold"
               >
                 {rootCauseCategories.map(cat => (
                   <option key={cat.id} value={cat.name}>{cat.name}</option>
@@ -377,15 +385,14 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               </select>
             </div>
 
-            {/* Root Cause Selection */}
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                Penyebab Masalah (Root Cause) <span className="text-rose-500">*</span>
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
+                Penyebab Masalah (Root Cause) <span className="text-[#BA1A1A]">*</span>
               </label>
               <select
                 value={rootCause}
                 onChange={e => setRootCause(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-medium"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-white font-semibold"
               >
                 {availableRootCauses.map(rc => (
                   <option key={rc} value={rc}>{rc}</option>
@@ -394,15 +401,14 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               </select>
             </div>
 
-            {/* Work Result */}
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                Hasil Pengerjaan Lapangan <span className="text-rose-500">*</span>
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
+                Hasil Pengerjaan Lapangan <span className="text-[#BA1A1A]">*</span>
               </label>
               <select
                 value={workResult}
                 onChange={e => setWorkResult(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-medium"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-white font-semibold"
               >
                 {workResultsList.map(res => (
                   <option key={res} value={res}>{res}</option>
@@ -410,9 +416,8 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               </select>
             </div>
 
-            {/* Optical Power */}
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
                 Redaman Fiber Optik (OPM dBm)
               </label>
               <input
@@ -420,86 +425,81 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 placeholder="Contoh: -18.5 dBm"
                 value={opticalPowerDbm}
                 onChange={e => setOpticalPowerDbm(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-mono font-bold text-[#1F1638] dark:text-white"
               />
             </div>
 
-            {/* Device SN */}
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
                 Serial Number Perangkat (ONT / Router)
               </label>
               <input
                 type="text"
                 placeholder="Contoh: HWTC12345678"
                 value={deviceSerialNumber}
-                onChange={e => setDeviceSerialNumber(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                onChange={e => setDeviceSerialNumber(e.target.value.toUpperCase())}
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-mono font-bold text-[#1F1638] dark:text-white uppercase"
               />
             </div>
 
-            {/* Used Materials */}
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                Material / Spare Part yang Digunakan
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
+                Material / Spare Part Terpakai
               </label>
               <input
                 type="text"
                 placeholder="Contoh: Dropcore 120m, Fast Connector 2 pcs, Roset 1 port"
                 value={usedMaterials}
                 onChange={e => setUsedMaterials(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-white"
               />
             </div>
 
-            {/* Technical Description */}
             <div className="md:col-span-2">
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                Deskripsi Teknis Kendala / Kondisi Lapangan <span className="text-rose-500">*</span>
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
+                Deskripsi Teknis Kendala / Kondisi Lapangan <span className="text-[#BA1A1A]">*</span>
               </label>
               <textarea
                 rows={2}
                 placeholder="Jelaskan kondisi sebelum diperbaiki, posisi kabel, titik redaman tinggi, atau kendala akses..."
                 value={technicalDescription}
                 onChange={e => setTechnicalDescription(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-white"
               />
             </div>
 
-            {/* Corrective Action */}
             <div className="md:col-span-2">
-              <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
-                Tindakan Perbaikan / Langkah Solusi <span className="text-rose-500">*</span>
+              <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-bold mb-1">
+                Tindakan Perbaikan / Langkah Solusi <span className="text-[#BA1A1A]">*</span>
               </label>
               <textarea
                 rows={2}
                 placeholder="Jelaskan tindakan yang dilakukan: penarikan ulang kabel, pembersihan konektor, splicing ulang, atau penggantian ONT..."
                 value={correctiveAction}
                 onChange={e => setCorrectiveAction(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-white"
               />
             </div>
 
-            {/* Photo Before */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
-              <label className="font-semibold text-slate-800 dark:text-slate-200 block">
+            <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
+              <label className="font-bold text-[#1F1638] dark:text-white block">
                 Foto Sebelum Perbaikan
               </label>
               {photoBeforeUrl ? (
-                <div className="relative group rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 h-32">
+                <div className="relative group rounded-xl overflow-hidden border border-[#CEC3D4] dark:border-[#4B386B] h-32">
                   <img src={getSafePreviewUrl(photoBeforeUrl)} alt="Foto Sebelum" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => setPhotoBeforeUrl('')}
-                    className="absolute top-1 right-1 p-1 bg-black/70 text-white rounded-full hover:bg-rose-600"
+                    className="absolute top-1.5 right-1.5 p-1 bg-[#160D29]/80 text-white rounded-full hover:bg-[#BA1A1A] cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ) : (
-                <label className="h-32 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  <Camera className="w-6 h-6 text-slate-400 mb-1" />
-                  <span className="text-[11px] text-slate-500">Klik untuk upload foto awal</span>
+                <label className="h-32 border-2 border-dashed border-[#CEC3D4] dark:border-[#4B386B] rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#F3EAFF] dark:hover:bg-[#22123F] transition-colors">
+                  <Camera className="w-6 h-6 text-[#58149C] dark:text-[#DAB9FF] mb-1" />
+                  <span className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">Klik untuk upload foto awal</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -510,26 +510,25 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               )}
             </div>
 
-            {/* Photo After */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
-              <label className="font-semibold text-slate-800 dark:text-slate-200 block">
+            <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
+              <label className="font-bold text-[#1F1638] dark:text-white block">
                 Foto Sesudah Perbaikan / Redaman OPM
               </label>
               {photoAfterUrl ? (
-                <div className="relative group rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 h-32">
+                <div className="relative group rounded-xl overflow-hidden border border-[#CEC3D4] dark:border-[#4B386B] h-32">
                   <img src={getSafePreviewUrl(photoAfterUrl)} alt="Foto Sesudah" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => setPhotoAfterUrl('')}
-                    className="absolute top-1 right-1 p-1 bg-black/70 text-white rounded-full hover:bg-rose-600"
+                    className="absolute top-1.5 right-1.5 p-1 bg-[#160D29]/80 text-white rounded-full hover:bg-[#BA1A1A] cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ) : (
-                <label className="h-32 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  <Camera className="w-6 h-6 text-slate-400 mb-1" />
-                  <span className="text-[11px] text-slate-500">Klik untuk upload foto hasil & OPM</span>
+                <label className="h-32 border-2 border-dashed border-[#CEC3D4] dark:border-[#4B386B] rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#F3EAFF] dark:hover:bg-[#22123F] transition-colors">
+                  <Camera className="w-6 h-6 text-[#58149C] dark:text-[#DAB9FF] mb-1" />
+                  <span className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">Klik untuk upload foto hasil &amp; OPM</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -541,34 +540,34 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E8DDFF] dark:border-[#35105E]">
             <button
               type="submit"
               disabled={requiresCheckIn}
               title={requiresCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu untuk Check-in' : 'Simpan Laporan Teknis & Check-out'}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
+              className="tactile-btn-primary px-5 py-2.5 min-h-[44px] bg-gradient-to-r from-[#58149C] to-[#7135B5] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Simpan Laporan & Selesaikan Tugas Lapangan</span>
+              <span>Simpan Laporan &amp; Selesaikan Tugas Lapangan</span>
             </button>
           </div>
         </form>
       )}
 
-      {/* Lightbox */}
       {zoomImage && (
         <div
-          className="fixed inset-0 z-70 bg-black/85 flex items-center justify-center p-4"
+          className="fixed inset-0 z-70 bg-[#160D29]/85 flex items-center justify-center p-4 backdrop-blur-xs"
           onClick={() => setZoomImage(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             <button
+              type="button"
               onClick={() => setZoomImage(null)}
-              className="absolute top-3 right-3 p-2 bg-black/60 text-white rounded-full hover:bg-rose-600 transition-colors z-10"
+              className="absolute top-3 right-3 p-2 bg-[#160D29]/80 text-white rounded-full hover:bg-[#BA1A1A] transition-colors z-10 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
-            <img src={getSafePreviewUrl(zoomImage)} alt="Bukti Foto Zoom" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
+            <img src={getSafePreviewUrl(zoomImage)} alt="Bukti Foto Zoom" className="max-w-full max-h-[85vh] object-contain rounded-xl" />
           </div>
         </div>
       )}
