@@ -21,6 +21,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Ticket } from '../../types/index.ts';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { PaginationBar } from '../common/PaginationBar';
 import { ColumnConfig } from './LeaderColumnSettingsModal';
@@ -244,6 +245,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 }) => {
   const [pendingInlineChoice, setPendingInlineChoice] = useState<Record<string, string>>({});
   const { isCompactUI } = useResponsiveViewport();
+  const { canSwitchDisplayMode, setDisplayMode } = useUIConfig();
 
   const unassignedTicketsInView = filteredTickets.filter(t => !t.installerName);
   const allUnassignedChecked =
@@ -255,7 +257,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
     techLookupMap.set(tech.installer.name.toLowerCase().trim(), tech);
   });
 
-  const effectiveViewMode = isCompactUI ? 'cards' : viewMode;
+  const effectiveViewMode: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
 
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
@@ -391,31 +393,43 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             ))}
           </select>
 
-          {/* View Mode Toggle: Card Matrix vs Table View (desktop/tablet) */}
-          {!isCompactUI && (
-            <div className="inline-flex items-center rounded-xl border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] p-0.5 ml-auto shrink-0 gap-0.5">
+          {/* View Mode Toggle: Synchronized with Global Display Mode (Mobile = Kartu, Desktop = Tabel) */}
+          {canSwitchDisplayMode && (
+            <div
+              role="group"
+              aria-label="Kartu & Tabel Layout Switch"
+              className="inline-flex items-center rounded-xl border border-[#e8ddff] dark:border-[#3E246F] bg-[#f8f1ff] dark:bg-[#160D29] p-0.5 ml-auto shrink-0 gap-0.5"
+            >
               <button
                 type="button"
-                onClick={() => onViewModeChange('cards')}
+                onClick={() => {
+                  setDisplayMode('mobile');
+                  onViewModeChange('cards');
+                }}
+                aria-pressed={effectiveViewMode === 'cards'}
                 className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
-                  viewMode === 'cards'
+                  effectiveViewMode === 'cards'
                     ? 'btn-3d-primary'
                     : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
-                title="Tampilan Kartu Stitch"
+                title="Tampilan Kartu (Terintegrasi dengan Mobile Mode)"
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 <span>Kartu</span>
               </button>
               <button
                 type="button"
-                onClick={() => onViewModeChange('table')}
+                onClick={() => {
+                  setDisplayMode('desktop');
+                  onViewModeChange('table');
+                }}
+                aria-pressed={effectiveViewMode === 'table'}
                 className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
-                  viewMode === 'table'
+                  effectiveViewMode === 'table'
                     ? 'btn-3d-primary'
                     : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
-                title="Tampilan Tabel Klasik"
+                title="Tampilan Tabel (Terintegrasi dengan Desktop Mode)"
               >
                 <TableIcon className="w-3.5 h-3.5" />
                 <span>Tabel</span>

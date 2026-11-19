@@ -220,16 +220,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Layout mode: 'cards' or 'table' ('auto' follows synchronized Display Mode)
-  const [layoutMode, setLayoutMode] = useState<'cards' | 'table' | 'auto'>('auto');
   // Table presentation mode: 'stitch' (rich 9-col grouped view) vs 'canonical' (46-col configurable view)
   const [tableStyleMode, setTableStyleMode] = useState<'stitch' | 'canonical'>('stitch');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [quickUpdateTicket, setQuickUpdateTicket] = useState<Ticket | null>(null);
-
-  useEffect(() => {
-    setLayoutMode('auto');
-  }, [isMobileView]);
 
   // Switch automatically to canonical mode when user picks a non-default preset
   useEffect(() => {
@@ -238,15 +232,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     }
   }, [config.ticketsTable.activePresetId]);
 
-  const effectiveLayout: 'cards' | 'table' =
-    layoutMode === 'auto'
-      ? isCompactUI
-        ? 'cards'
-        : 'table'
-      : layoutMode;
+  // Synchronized strictly with global Display Mode (Desktop Mode = Table, Mobile Mode = Cards)
+  const effectiveLayout: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
 
   const handleSelectLayoutMode = (nextLayout: 'table' | 'cards') => {
-    setLayoutMode(nextLayout);
     if (canSwitchDisplayMode) {
       setDisplayMode(nextLayout === 'table' ? 'desktop' : 'mobile');
     }
@@ -1989,40 +1978,42 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           {/* Right: Table/Cards Toggle, 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
           <div className="flex items-center gap-2 flex-wrap ml-auto">
             {/* Layout Toggle (Synchronized with Topbar Display Mode Switch) */}
-            <div
-              role="group"
-              aria-label="Table & Cards Layout Switch"
-              className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-[#1E1238] border border-slate-200/90 dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] shrink-0 gap-0.5"
-            >
-              <button
-                type="button"
-                onClick={() => handleSelectLayoutMode('table')}
-                aria-pressed={effectiveLayout === 'table'}
-                title="Tampilan Table (Terintegrasi dengan Desktop Mode)"
-                className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
-                  effectiveLayout === 'table'
-                    ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
-                }`}
+            {canSwitchDisplayMode && (
+              <div
+                role="group"
+                aria-label="Table & Cards Layout Switch"
+                className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-[#1E1238] border border-slate-200/90 dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] shrink-0 gap-0.5"
               >
-                <Monitor className="w-3.5 h-3.5 shrink-0" />
-                <span>Table</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectLayoutMode('cards')}
-                aria-pressed={effectiveLayout === 'cards'}
-                title="Tampilan Cards (Terintegrasi dengan Mobile Mode)"
-                className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
-                  effectiveLayout === 'cards'
-                    ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                <span>Cards</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => handleSelectLayoutMode('table')}
+                  aria-pressed={effectiveLayout === 'table'}
+                  title="Tampilan Table (Terintegrasi dengan Desktop Mode)"
+                  className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                    effectiveLayout === 'table'
+                      ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Monitor className="w-3.5 h-3.5 shrink-0" />
+                  <span>Table</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectLayoutMode('cards')}
+                  aria-pressed={effectiveLayout === 'cards'}
+                  title="Tampilan Cards (Terintegrasi dengan Mobile Mode)"
+                  className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                    effectiveLayout === 'cards'
+                      ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                  <span>Cards</span>
+                </button>
+              </div>
+            )}
 
             {/* Archive Filter Toggle */}
             <button

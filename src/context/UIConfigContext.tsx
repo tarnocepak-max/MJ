@@ -599,6 +599,18 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { ...item, roles: safeRoles };
       });
 
+    if (!seen.has('reassign_wo')) {
+      cleaned.push({
+        id: 'reassign_wo',
+        label: 'Reassign WO',
+        icon: 'ArrowRightLeft',
+        categoryId: 'contractor_area',
+        order: 2,
+        visible: true,
+        roles: ['leader']
+      });
+    }
+
     if (!seen.has('sla_monitoring')) {
       cleaned.push({
         id: 'sla_monitoring',

@@ -52,6 +52,7 @@ const TAB_TITLES: Record<string, string> = {
   users: 'Management User',
   leader_portal: 'Dashboard Leader',
   wo_assignment: 'Assign WO',
+  reassign_wo: 'Reassign WO',
   progress_dashboard: 'Dashboard Progress WO',
   installer_mgmt: 'Pendaftaran Akun Teknisi',
   quota_settings: 'Kuota & Kolom',
@@ -699,7 +700,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 aria-label="Desktop Mode"
                 aria-pressed={displayMode === 'desktop'}
                 data-testid="display-mode-desktop"
-                title="Desktop Mode — Sidebar penuh, grid desktop, dan tabel lengkap"
+                title="Desktop Mode — Tampilan tabel lengkap, grid desktop, dan sidebar penuh"
                 className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                   displayMode === 'desktop'
                     ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
@@ -715,7 +716,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 aria-label="Mobile Mode"
                 aria-pressed={displayMode === 'mobile'}
                 data-testid="display-mode-mobile"
-                title="Mobile Mode — Layout compact, drawer navigation, dan card view"
+                title="Mobile Mode — Tampilan kartu compact dan drawer navigation"
                 className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                   displayMode === 'mobile'
                     ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'

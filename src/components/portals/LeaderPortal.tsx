@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User, TicketStatusWOInstaller } from '../../types/index.ts';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusBadge } from '../common/Badge';
@@ -93,6 +94,8 @@ import {
 import { LeaderQuotaSidebar } from './LeaderQuotaSidebar';
 import { LeaderAssignMatrixPanel } from './LeaderAssignMatrixPanel';
 import { LeaderTechnicianManagementView } from './LeaderTechnicianManagementView';
+import { LeaderReassignView } from './LeaderReassignView';
+import { LeaderTwoStepReassignModal } from './LeaderTwoStepReassignModal';
 import {
   fetchLeaderQuotaConfig,
   saveLeaderQuotaConfig,
@@ -108,11 +111,20 @@ import {
 } from '../../services/leaderQuotaService';
 import { supabaseDb } from '../../services/supabaseDb';
 
+export type LeaderPortalTab =
+  | 'dashboard'
+  | 'wo_assignment'
+  | 'reassign_wo'
+  | 'progress_dashboard'
+  | 'installer_mgmt'
+  | 'quota_settings'
+  | 'contractor_recap';
+
 interface LeaderPortalProps {
   onSelectTicket: (ticket: Ticket) => void;
   onOpenWhatsApp?: (ticket: Ticket) => void;
-  activeLeaderTab?: 'dashboard' | 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap';
-  onLeaderTabChange?: (tab: 'dashboard' | 'wo_assignment' | 'progress_dashboard' | 'installer_mgmt' | 'quota_settings' | 'contractor_recap') => void;
+  activeLeaderTab?: LeaderPortalTab;
+  onLeaderTabChange?: (tab: LeaderPortalTab) => void;
 }
 
 type QuotaSettings = LeaderQuotaConfig;
@@ -159,9 +171,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     setActiveKpiDrilldown
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
+  const { canSwitchDisplayMode, setDisplayMode } = useUIConfig();
 
-  // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
-  const [internalTab, setInternalTab] = useState<'dashboard' | 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap'>(
+  // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Reassign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
+  const [internalTab, setInternalTab] = useState<LeaderPortalTab>(
     activeLeaderTab || 'wo_assignment'
   );
   const activeTab = activeLeaderTab || internalTab;
@@ -172,16 +185,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   }, [activeLeaderTab]);
 
-  const setActiveTab = (tab: 'dashboard' | 'wo_assignment' | 'installer_mgmt' | 'progress_dashboard' | 'quota_settings' | 'contractor_recap') => {
+  const setActiveTab = (tab: LeaderPortalTab) => {
     setInternalTab(tab);
     if (onLeaderTabChange) onLeaderTabChange(tab);
   };
 
   // Sub-view in Monitoring tab: 'installer_summary' (table of installers) vs 'wo_detail' (table of work orders)
   const [monitoringView, setMonitoringView] = useState<'installer_summary' | 'wo_detail'>('installer_summary');
-
-  // Mobile layout preference for WO table: 'table' vs 'cards'
-  const [mobileLayoutMode, setMobileLayoutMode] = useState<'table' | 'cards'>('table');
 
   // Last refreshed timestamp
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(() => new Date().toISOString());
@@ -369,15 +379,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
   const [slotFilter, setSlotFilter] = useState<string>('ALL');
   const [clusterFilter, setClusterFilter] = useState<string>('ALL');
-  const [matrixViewMode, setMatrixViewMode] = useState<'cards' | 'table'>('cards');
+  const matrixViewMode: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
   const [bulkQuickInstaller, setBulkQuickInstaller] = useState<string>('');
 
-  useEffect(() => {
-    if (isCompactUI) {
-      setMatrixViewMode('cards');
-    }
-  }, [isCompactUI]);
-  
   // Date Filter for Assign WO (Strict Asia/Jakarta Appointment Date === todayWIB, auto-resets at 00:00 WIB)
   const [dateFilterType, setDateFilterTypeState] = useState<'today'>('today');
   const [customDateStart, setCustomDateStart] = useState<string>(todayWIB);
@@ -396,9 +400,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   }, [todayWIB]);
 
-  // Pagination & Rows per page (6 default for Stitch card matrix clarity)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(6);
+  // Pagination & Rows per page (6 for mobile cards, 25 for desktop table)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(() => (isCompactUI ? 6 : 25));
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  useEffect(() => {
+    if (isCompactUI && rowsPerPage === 25) {
+      setRowsPerPage(6);
+      setCurrentPage(1);
+    } else if (!isCompactUI && rowsPerPage === 6) {
+      setRowsPerPage(25);
+      setCurrentPage(1);
+    }
+  }, [isCompactUI]);
 
   // Selected WOs for bulk operations
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
@@ -434,21 +448,15 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     slotTime?: string;
   } | null>(null);
 
-  // Reassign WO Modal State (Full Audit & Transactional Handoff)
+  // Reassign WO Modal State (Full 2-Step Audit & Transactional Handoff)
   const [reassignModalState, setReassignModalState] = useState<{
     isOpen: boolean;
     ticket: Ticket | null;
-    targetInstaller: string;
-    reason: string;
     isSubmitting: boolean;
-    step: 'form' | 'confirm';
   }>({
     isOpen: false,
     ticket: null,
-    targetInstaller: '',
-    reason: '',
-    isSubmitting: false,
-    step: 'form'
+    isSubmitting: false
   });
 
   const handleOpenReassignModal = (ticket: Ticket) => {
@@ -460,40 +468,32 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       toast.warning('Tiket ini belum memiliki teknisi. Silakan gunakan menu Assign WO untuk penugasan awal.', 'Belum Di-assign');
       return;
     }
-    if (ticket.statusWOInstaller === 'Completed' || ticket.statusWOAgent === 'Closed') {
+    if (ticket.statusWOInstaller === 'Completed' || ticket.statusWOInstaller === 'Installed' || ticket.statusWOAgent === 'Closed') {
       toast.error('Tiket yang sudah berstatus Selesai (Completed) atau Ditutup (Closed) tidak dapat dialihkan / reassign.', 'Reassign Ditolak');
       return;
     }
     setReassignModalState({
       isOpen: true,
       ticket,
-      targetInstaller: '',
-      reason: '',
-      isSubmitting: false,
-      step: 'form'
+      isSubmitting: false
     });
   };
 
-  const handleExecuteReassign = async () => {
+  const handleConfirmTwoStepReassign = async (payload: {
+    ticket: Ticket;
+    targetInstallerName: string;
+    reason: string;
+    prepareWhatsAppNotice: boolean;
+  }) => {
     if (!isLeaderRole) {
       toast.error('Hanya akun dengan peran Leader yang berwenang melakukan reassign teknisi.', 'Akses Ditolak');
       return;
     }
-    if (!reassignModalState.ticket) return;
-    if (!reassignModalState.targetInstaller) {
-      toast.error('Pilih teknisi baru yang akan menerima tugas WO.', 'Pilih Teknisi');
-      return;
-    }
-    if (!reassignModalState.reason || reassignModalState.reason.trim().length < 5) {
-      toast.error('Mohon masukkan alasan reassign yang jelas (minimal 5 karakter).', 'Alasan Diperlukan');
-      return;
-    }
-
     setReassignModalState(prev => ({ ...prev, isSubmitting: true }));
     const result = reassignTicketPersonnel(
-      reassignModalState.ticket.id,
-      reassignModalState.targetInstaller,
-      reassignModalState.reason.trim()
+      payload.ticket.id,
+      payload.targetInstallerName,
+      payload.reason.trim()
     );
     setReassignModalState(prev => ({ ...prev, isSubmitting: false }));
 
@@ -501,11 +501,29 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       setReassignModalState({
         isOpen: false,
         ticket: null,
-        targetInstaller: '',
-        reason: '',
-        isSubmitting: false,
-        step: 'form'
+        isSubmitting: false
       });
+      triggerNotice(
+        'success',
+        `WO ${payload.ticket.woNumber} berhasil dialihkan ke teknisi ${payload.targetInstallerName}.`
+      );
+      if (payload.prepareWhatsAppNotice) {
+        const targetInst = myInstallers.find(
+          u => u.name.toLowerCase().trim() === payload.targetInstallerName.toLowerCase().trim()
+        );
+        if (targetInst) {
+          const updatedTicketPreview: Ticket = {
+            ...payload.ticket,
+            installerName: targetInst.name
+          };
+          setAssignmentNoticeModal({
+            ticket: updatedTicketPreview,
+            installer: targetInst,
+            renderedMessage: buildInstallerAssignmentMessage(updatedTicketPreview, targetInst),
+            targetPhone: targetInst.phone || ''
+          });
+        }
+      }
       setTimeout(() => {
         reloadAssignmentFeed().catch(() => {});
       }, 450);
@@ -1990,7 +2008,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const isStandaloneFocusedTab =
     activeTab === 'installer_mgmt' ||
     activeTab === 'progress_dashboard' ||
-    activeTab === 'contractor_recap';
+    activeTab === 'contractor_recap' ||
+    activeTab === 'reassign_wo';
 
   return (
     <div className="space-y-4">
@@ -2266,12 +2285,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* 3. DESKTOP SEGMENTED NAVIGATION PILL (Hidden on Mobile Mode) */}
+      {/* 3. NAVIGATION SWITCHER (DESKTOP SEGMENTED + MOBILE SUB-TABS) */}
       {/* ============================================================ */}
-      {!isCompactUI && (
+      {!isCompactUI ? (
         <div className="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-[#f3eaff] dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-[#35105E] overflow-x-auto scrollbar-none">
           {[
             { id: 'wo_assignment' as const, label: 'Assign WO', badge: summaryMetrics.unassigned, icon: Layers },
+            { id: 'reassign_wo' as const, label: 'Reassign WO', badge: activeAssignedEligibleForReassign.length, icon: ArrowRightLeft },
             { id: 'progress_dashboard' as const, label: 'Progress Live', icon: Activity },
             { id: 'installer_mgmt' as const, label: 'Tim Teknisi', badge: myInstallers.length, icon: UserPlus },
             { id: 'contractor_recap' as const, label: 'Rekap Mitra', icon: FileText },
@@ -2307,7 +2327,40 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             );
           })}
         </div>
-      )}
+      ) : (activeTab === 'wo_assignment' || activeTab === 'reassign_wo') ? (
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#f3eaff] dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-[#35105E]">
+          <button
+            type="button"
+            onClick={() => setActiveTab('wo_assignment')}
+            className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              activeTab === 'wo_assignment'
+                ? 'bg-white dark:bg-[#342b4e] text-[#58149c] dark:text-[#dab9ff] shadow-xs'
+                : 'text-[#4b4452] dark:text-[#CEC0E8]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Assign WO</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+              {summaryMetrics.unassigned}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('reassign_wo')}
+            className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              activeTab === 'reassign_wo'
+                ? 'bg-white dark:bg-[#342b4e] text-[#58149c] dark:text-[#dab9ff] shadow-xs'
+                : 'text-[#4b4452] dark:text-[#CEC0E8]'
+            }`}
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>Reassign WO</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+              {activeAssignedEligibleForReassign.length}
+            </span>
+          </button>
+        </div>
+      ) : null}
 
       {/* Notice Banner */}
       {notice && (
@@ -2811,7 +2864,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 technicians={technicianSummaries}
                 viewMode={matrixViewMode}
                 onViewModeChange={mode => {
-                  setMatrixViewMode(mode);
+                  if (canSwitchDisplayMode) {
+                    setDisplayMode(mode === 'table' ? 'desktop' : 'mobile');
+                  }
                   if (mode === 'table' && rowsPerPage === 6) setRowsPerPage(25);
                   if (mode === 'cards' && rowsPerPage === 25) setRowsPerPage(6);
                   setCurrentPage(1);
@@ -2940,6 +2995,42 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           </div>
           </div>
         </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 1B: REASSIGN WO WORKSPACE (STITCH DESKTOP/MOBILE/EMPTY)  */}
+      {/* ============================================================ */}
+      {activeTab === 'reassign_wo' && (
+        <LeaderReassignView
+          todayTickets={todayContractorTickets}
+          todayWIB={todayWIB}
+          todayAppointmentDisplay={todayAppointmentDisplay}
+          displayContractor={displayContractor}
+          displayArea={displayArea}
+          clusterOptions={clusterOptions}
+          categoryOptions={categoryOptions}
+          technicians={technicianSummaries}
+          installers={myInstallers}
+          auditFeed={mergedAuditFeed}
+          isLeaderRole={isLeaderRole}
+          databaseStatus={databaseStatus}
+          syncStatus={syncStatus}
+          quotaUtilizationPct={quotaUtilizationPct}
+          totalMaxSlots={totalMaxSlots}
+          summaryMetrics={summaryMetrics}
+          onOpenReassignModal={handleOpenReassignModal}
+          onOpenBulkReassign={() => setIsBulkReassignModalOpen(true)}
+          onExecuteAutoBalance={handleExecuteAutoBalance}
+          onExportExcel={handleExportExcel}
+          onOpenAuditTrail={() => setIsAuditTrailModalOpen(true)}
+          onSelectTicket={onSelectTicket}
+          onRefreshData={async () => {
+            await Promise.all([refreshActiveTickets(), reloadAssignmentFeed()]);
+            handleRefresh();
+          }}
+          onJumpToAssignTab={() => setActiveTab('wo_assignment')}
+          onJumpToProgressTab={() => setActiveTab('progress_dashboard')}
+        />
       )}
 
       {/* ============================================================ */}
@@ -3423,155 +3514,21 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       />
 
       {/* ============================================================ */}
-      {/* MODAL 7: REASSIGN WO MODAL (LEADER ONLY)                     */}
+      {/* MODAL 7: 2-STEP REASSIGN WO MODAL (LEADER ONLY)              */}
       {/* ============================================================ */}
-      <ResponsiveModal
+      <LeaderTwoStepReassignModal
         isOpen={Boolean(reassignModalState.isOpen && reassignModalState.ticket)}
         onClose={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
-        size="md"
-        mobileVariant="sheet"
-        zIndexClass="z-60"
-        icon={<RotateCcw className="w-4 h-4 text-amber-600" />}
-        title="Reassign Work Order"
-        subtitle="Alihkan penugasan teknisi dengan validasi wilayah & pencatatan riwayat"
-        footer={
-          <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-            <button
-              type="button"
-              onClick={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
-              className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 font-semibold rounded-xl text-xs cursor-pointer"
-            >
-              Batal
-            </button>
-
-            <button
-              type="button"
-              disabled={reassignModalState.isSubmitting || !reassignModalState.targetInstaller || !reassignModalState.reason.trim()}
-              onClick={handleExecuteReassign}
-              className="min-h-[42px] sm:min-h-[38px] px-5 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-            >
-              <RotateCcw className={`w-3.5 h-3.5 ${reassignModalState.isSubmitting ? 'animate-spin' : ''}`} />
-              <span>{reassignModalState.isSubmitting ? 'Memproses Reassign...' : 'Konfirmasi & Alihkan WO'}</span>
-            </button>
-          </div>
-        }
-      >
-        {reassignModalState.ticket && (
-          <div className="space-y-4 text-xs">
-            <div className="p-3.5 bg-slate-50 dark:bg-[#160D29] rounded-xl border border-slate-200 dark:border-[#3E246F] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                  {reassignModalState.ticket.woNumber}
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                  {reassignModalState.ticket.ticketCategory}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200 dark:border-[#3E246F]">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Nama Pelanggan</span>
-                  <strong className="text-slate-800 dark:text-slate-200">{reassignModalState.ticket.customerName}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Customer ID (7 Digit)</span>
-                  <strong className="font-mono text-slate-800 dark:text-slate-200">{reassignModalState.ticket.idCustomer || '-'}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Kontraktor &amp; Area</span>
-                  <span className="text-slate-700 dark:text-slate-300">
-                    {reassignModalState.ticket.contactorName || reassignModalState.ticket.contractorName || '-'} ({reassignModalState.ticket.area || '-'})
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Appointment Date (WO Sumber)</span>
-                  <strong className="text-purple-700 dark:text-purple-300 font-medium">
-                    {formatAppointmentDateDisplay(reassignModalState.ticket.appointmentDate)} {reassignModalState.ticket.slotTime ? `(${reassignModalState.ticket.slotTime})` : ''}
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40">
-                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block mb-1">
-                    Teknisi Saat Ini (Lama)
-                  </span>
-                  <div className="font-bold text-sm text-slate-900 dark:text-white">
-                    {reassignModalState.ticket.installerName || 'Belum Ditugaskan'}
-                  </div>
-                  <div className="text-[10.5px] text-slate-500 mt-0.5">
-                    Status: {reassignModalState.ticket.statusWOInstaller || 'Unassigned'}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40">
-                  <label className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">
-                    Pilih Teknisi Baru (Tujuan) *
-                  </label>
-                  <select
-                    value={reassignModalState.targetInstaller}
-                    onChange={e => setReassignModalState(prev => ({ ...prev, targetInstaller: e.target.value }))}
-                    className="w-full px-2.5 py-2 text-xs bg-white dark:bg-[#160D29] border border-emerald-300 dark:border-emerald-700 rounded-lg font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 min-h-[38px]"
-                  >
-                    <option value="">-- Pilih Teknisi Tujuan --</option>
-                    {myInstallers
-                      .filter(inst => inst.name !== reassignModalState.ticket?.installerName && inst.active && !inst.isArchived)
-                      .map(inst => (
-                        <option key={inst.id} value={inst.name}>
-                          {inst.name} {inst.phone ? `(${inst.phone})` : ''}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Alasan Reassign / Pengalihan Tugas *
-                </label>
-                <textarea
-                  rows={2}
-                  value={reassignModalState.reason}
-                  onChange={e => setReassignModalState(prev => ({ ...prev, reason: e.target.value }))}
-                  placeholder="Contoh: Kendala armada teknisi di lapangan / pemerataan kuota harian / kendala jarak tempuh..."
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#160D29] border border-slate-300 dark:border-[#3E246F] rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                />
-                <span className="text-[10.5px] text-slate-400">
-                  Alasan ini akan dicatat ke dalam audit log dan riwayat penugasan resmi (append-only history).
-                </span>
-              </div>
-
-              {reassignModalState.ticket.assignmentHistory && reassignModalState.ticket.assignmentHistory.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#3E246F]">
-                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-semibold text-[11px] mb-1.5">
-                    <History className="w-3.5 h-3.5" />
-                    <span>Riwayat Penugasan Sebelumnya ({reassignModalState.ticket.assignmentHistory.length}):</span>
-                  </div>
-                  <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
-                    {reassignModalState.ticket.assignmentHistory.map((h, idx) => (
-                      <div key={idx} className="p-2 rounded-lg bg-slate-100 dark:bg-[#160D29] text-[10.5px] text-slate-600 dark:text-slate-400">
-                        <div className="flex items-center justify-between font-medium">
-                          <span className="text-slate-800 dark:text-slate-200">
-                            {h.previousInstaller || 'Unassigned'} &rarr; <strong>{h.assignedInstaller}</strong>
-                          </span>
-                          <span className="text-slate-400 font-mono text-[9.5px]">
-                            {new Date(h.timestamp).toLocaleString('id-ID')}
-                          </span>
-                        </div>
-                        <div className="text-slate-500 italic mt-0.5">
-                          "{h.reason}" &mdash; oleh {h.performedBy} ({h.performedByRole})
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </ResponsiveModal>
+        ticket={reassignModalState.ticket}
+        technicians={technicianSummaries}
+        quotaConfig={quotaSettings}
+        currentUser={currentUser}
+        displayContractor={displayContractor}
+        displayArea={displayArea}
+        isLeaderRole={isLeaderRole}
+        isSubmitting={reassignModalState.isSubmitting}
+        onConfirmReassign={handleConfirmTwoStepReassign}
+      />
 
       {/* ============================================================ */}
       {/* MODAL 8: DAILY LIMIT SETTINGS MODAL (ATUR LIMIT HARIAN)      */}

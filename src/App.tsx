@@ -556,6 +556,15 @@ const MainLayout: React.FC = () => {
             onLeaderTabChange={tab => navigateTo(tab)}
           />
         );
+      case 'reassign_wo':
+        return (
+          <LeaderPortal
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+            activeLeaderTab="reassign_wo"
+            onLeaderTabChange={tab => navigateTo(tab)}
+          />
+        );
       case 'progress_dashboard':
         return (
           <LeaderProgressDashboardView

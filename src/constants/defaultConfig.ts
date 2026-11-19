@@ -504,11 +504,20 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     roles: ['leader']
   },
   {
+    id: 'reassign_wo',
+    label: 'Reassign WO',
+    icon: 'ArrowRightLeft',
+    categoryId: 'contractor_area',
+    order: 2,
+    visible: true,
+    roles: ['leader']
+  },
+  {
     id: 'progress_dashboard',
     label: 'Dashboard Progress WO',
     icon: 'BarChart3',
     categoryId: 'contractor_area',
-    order: 2,
+    order: 3,
     visible: true,
     roles: ['super_admin', 'dispatch', 'leader']
   },

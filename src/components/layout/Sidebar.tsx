@@ -42,6 +42,7 @@ import {
   Search,
   Loader2,
   ArrowUpRight,
+  ArrowRightLeft,
   PanelLeftClose,
   PanelLeftOpen
 } from 'lucide-react';
@@ -86,7 +87,8 @@ export const ICON_REGISTRY: Record<string, React.ElementType> = {
   Layers,
   MapPin,
   HelpCircle,
-  Folder
+  Folder,
+  ArrowRightLeft
 };
 
 export const resolveNavIcon = (iconName?: string): React.ElementType => {

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useUIConfig } from '../../context/UIConfigContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User } from '../../types';
 import {
@@ -87,11 +88,11 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
     refreshDatabaseData
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
+  const { canSwitchDisplayMode, setDisplayMode } = useUIConfig();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StatCategoryFilter>('all');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-  const effectiveViewMode = isCompactUI ? 'cards' : viewMode;
+  const effectiveViewMode: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
   const [showLifecycleKpi, setShowLifecycleKpi] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sortField, setSortField] = useState<string>('woNumber');
@@ -533,13 +534,19 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             <span className="hidden sm:inline">KPI Lifecycle</span>
           </button>
 
-          {!isCompactUI && (
-            <div className="inline-flex items-center p-1 rounded-xl bg-[#f3eaff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/60">
+          {canSwitchDisplayMode && (
+            <div
+              role="group"
+              aria-label="Kartu Live & Tabel Layout Switch"
+              className="inline-flex items-center p-1 rounded-xl bg-[#f3eaff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/60"
+            >
               <button
                 type="button"
-                onClick={() => setViewMode('cards')}
+                onClick={() => setDisplayMode('mobile')}
+                aria-pressed={effectiveViewMode === 'cards'}
+                title="Tampilan Kartu Live (Terintegrasi dengan Mobile Mode)"
                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'cards'
+                  effectiveViewMode === 'cards'
                     ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
                     : 'text-[#4b4452] dark:text-slate-300'
                 }`}
@@ -549,9 +556,11 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('table')}
+                onClick={() => setDisplayMode('desktop')}
+                aria-pressed={effectiveViewMode === 'table'}
+                title="Tampilan Tabel (Terintegrasi dengan Desktop Mode)"
                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'table'
+                  effectiveViewMode === 'table'
                     ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
                     : 'text-[#4b4452] dark:text-slate-300'
                 }`}
