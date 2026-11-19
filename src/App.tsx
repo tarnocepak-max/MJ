@@ -39,6 +39,7 @@ import { DatabaseSyncMonitoringView } from './components/database/DatabaseSyncMo
 import { DatabaseManagementView } from './components/database/DatabaseManagementView';
 import { TextToTableImporter } from './components/textToTable/TextToTableImporter';
 import { GoogleSheetsSyncView } from './components/sheets/GoogleSheetsSyncView';
+import { MonitoringMapsView } from './components/maps/MonitoringMapsView';
 
 import { StaffLoginPortal } from './components/auth/StaffLoginPortal';
 import { SessionManagementModal } from './components/settings/SessionManagementModal';
@@ -471,6 +472,39 @@ const MainLayout: React.FC = () => {
       // Dispatch Management
       case 'dashboard':
         return <DashboardOverview onNavigate={tab => navigateTo(tab)} onSelectTicket={handleOpenTicketDetail} />;
+      case 'monitoring_maps': {
+        const canAccessMonitoringMaps =
+          currentUser.role === 'super_admin' ||
+          currentUser.role === 'dispatch' ||
+          currentUser.role === 'leader' ||
+          currentUser.role === 'management_data';
+        if (!canAccessMonitoringMaps) {
+          const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
+          setTimeout(() => {
+            setActiveTab(redirectTarget);
+          }, 1200);
+          return (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
+                ✕
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                Akses Ditolak: Monitoring Maps GIS
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Modul Monitoring Maps hanya tersedia untuk Super Admin, Dispatch, Leader/Korlap, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <MonitoringMapsView
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+            onNavigate={tab => navigateTo(tab)}
+          />
+        );
+      }
       case 'tickets':
         return (
           <TicketsTable

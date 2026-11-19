@@ -43,6 +43,7 @@ interface HeaderProps {
 
 const TAB_TITLES: Record<string, string> = {
   dashboard: 'Dashboard Monitoring',
+  monitoring_maps: 'Monitoring Maps',
   tickets: 'Ticket MyRepublic',
   form_sameday: 'Form Sameday Express',
   report_data_wo: 'Report Data WO',

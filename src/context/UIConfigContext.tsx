@@ -628,7 +628,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const sanitizeStandaloneMenus = (items: StandaloneMenuItem[]): StandaloneMenuItem[] => {
     if (!Array.isArray(items)) return DEFAULT_STANDALONE_MENUS;
-    return items.map(item => {
+    const cleaned = items.map(item => {
       const roles = Array.isArray(item.roles) ? item.roles : ['super_admin'];
       if (item.id === 'import') {
         return {
@@ -636,11 +636,30 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           roles: ['super_admin', 'management_data']
         };
       }
+      if (item.id === 'monitoring_maps') {
+        return {
+          ...item,
+          roles: roles.filter(r => r !== 'installer' && r !== 'it_support')
+        };
+      }
       return {
         ...item,
         roles
       };
     });
+
+    if (!cleaned.some(i => i?.id === 'monitoring_maps')) {
+      cleaned.splice(1, 0, {
+        id: 'monitoring_maps',
+        label: 'Monitoring Maps',
+        icon: 'Map',
+        order: 2,
+        visible: true,
+        roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+      });
+    }
+
+    return cleaned;
   };
 
   // 1. Exactly 3 Categories: Contractor & Area, Installer, Menu Tambahan

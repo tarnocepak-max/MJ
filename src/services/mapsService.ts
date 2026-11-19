@@ -76,6 +76,76 @@ export function buildGoogleMapsSearchUrl(ticket: Partial<Ticket>): { url: string
 }
 
 /**
+ * Parses a "lat, lng" string into a validated coordinate pair.
+ */
+export function parseCoordinateString(raw?: string | null): { latitude: number; longitude: number } | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const cleaned = raw.trim().replace(/[()]/g, '');
+  const parts = cleaned.split(/[,;\s]+/).filter(Boolean);
+  if (parts.length < 2) return null;
+  const lat = Number(parts[0]);
+  const lng = Number(parts[1]);
+  if (!isValidCoordinatePair(lat, lng)) return null;
+  return { latitude: Number(lat.toFixed(7)), longitude: Number(lng.toFixed(7)) };
+}
+
+/**
+ * Resolves registered customer/order coordinates from a Ticket record.
+ */
+export function getTicketRegisteredCoordinates(
+  ticket?: Partial<Ticket> | null
+): { latitude: number; longitude: number; source: 'ticket_coords' | 'customer_coordinates' } | null {
+  if (!ticket) return null;
+  if (isValidCoordinatePair(ticket.latitude, ticket.longitude)) {
+    return {
+      latitude: Number(ticket.latitude),
+      longitude: Number(ticket.longitude),
+      source: 'ticket_coords'
+    };
+  }
+  const parsed = parseCoordinateString(ticket.customerCoordinates);
+  if (parsed) {
+    return {
+      ...parsed,
+      source: 'customer_coordinates'
+    };
+  }
+  return null;
+}
+
+/**
+ * Calculates geodesic distance between two WGS84 coordinate pairs in meters (rounded integer).
+ */
+export function calculateHaversineDistanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  if (!isValidCoordinatePair(lat1, lng1) || !isValidCoordinatePair(lat2, lng2)) {
+    return 0;
+  }
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/**
+ * Formats a distance in meters cleanly for GIS telemetry labels.
+ */
+export function formatDistanceMetersLabel(meters?: number | null): string {
+  if (typeof meters !== 'number' || !Number.isFinite(meters) || meters < 0) return '-';
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(2)} km`;
+}
+
+/**
  * Opens Google Maps search directly in a new window/tab or launches the native Google Maps app on Android.
  */
 export function openCustomerAddressInGoogleMaps(ticket: Partial<Ticket>, onEmpty?: () => void): boolean {

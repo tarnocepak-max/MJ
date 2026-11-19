@@ -10,6 +10,7 @@ import { InstallerTicketFullview } from './InstallerTicketFullview';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import {
   matchesKpiFilter,
   KPI_FILTER_LABELS,
@@ -226,6 +227,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   const [detailModalTab, setDetailModalTab] = useState<'details' | 'chat'>('details');
   const [chatInitialCategory, setChatInitialCategory] = useState<string | undefined>(undefined);
   const [chatModalTicket, setChatModalTicket] = useState<Ticket | null>(null);
+  const [checkInCameraTicket, setCheckInCameraTicket] = useState<Ticket | null>(null);
 
   // Level-3 Escalation / Kendala Modal state
   const [kendalaTicket, setKendalaTicket] = useState<Ticket | null>(null);
@@ -469,12 +471,12 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           variant="warning"
           badge="CHECK-IN #PROGRESS DIPERLUKAN"
           metricBadge={missingCheckInTicket.woNumber}
-          title={`Pekerjaan ${missingCheckInTicket.customerName} belum mencatat Check-in LiveChat`}
-          description="Kirim minimal 1 pesan LiveChat dengan kategori #PROGRESS agar tombol submit laporan & QC terbuka sesuai SOP."
+          title={`Pekerjaan ${missingCheckInTicket.customerName} belum mencatat Check-in Foto Rumah`}
+          description="Ambil foto rumah langsung melalui kamera GPS untuk mengunggah bukti geotag & otomatis mengirim #PROGRESS agar tombol submit laporan terbuka."
           primaryAction={{
-            label: 'Kirim #PROGRESS Sekarang',
-            icon: <MessageSquare className="w-3.5 h-3.5" />,
-            onClick: () => handleOpenChat(missingCheckInTicket, 'PROGRESS')
+            label: 'Check-In Foto Rumah GPS',
+            icon: <Camera className="w-3.5 h-3.5" />,
+            onClick: () => setCheckInCameraTicket(missingCheckInTicket)
           }}
           onDismiss={() =>
             setDismissedAlertIds(prev => ({
@@ -1107,10 +1109,16 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                         </span>
                       </div>
 
-                      {/* Step 2: Check-in #PROGRESS */}
+                      {/* Step 2: Check-in Foto Rumah GPS + #PROGRESS */}
                       <button
                         type="button"
-                        onClick={() => handleOpenChat(ticket, 'PROGRESS')}
+                        onClick={() => {
+                          if (!step2Done) {
+                            setCheckInCameraTicket(ticket);
+                          } else {
+                            handleOpenChat(ticket, 'PROGRESS');
+                          }
+                        }}
                         className={`rounded-xl p-2.5 flex flex-col items-center text-center border transition-all cursor-pointer ${
                           step2Done
                             ? 'bg-white dark:bg-[#241740] border-purple-100 dark:border-[#3b3464] shadow-[0_2px_8px_rgba(113,53,181,0.04)]'
@@ -1124,7 +1132,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                               : 'bg-amber-500 text-white'
                           }`}
                         >
-                          {step2Done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : '2'}
+                          {step2Done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <Camera className="w-3.5 h-3.5" />}
                         </div>
                         <span className="text-[11.5px] font-bold text-slate-800 dark:text-white leading-tight truncate w-full">
                           2. Check-in
@@ -1132,7 +1140,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                         <span className="text-[10px] font-mono font-semibold mt-1 truncate w-full text-[#7135b5] dark:text-[#DAB9FF]">
                           {step2Done
                             ? `${formatJakartaTimeOnly(ticket.checkInAt!)} WIB`
-                            : 'Kirim #PROGRESS'}
+                            : 'Foto Rumah GPS'}
                         </span>
                       </button>
 
@@ -1507,6 +1515,17 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           <TicketLiveChat ticket={chatModalTicket} initialCategory={chatInitialCategory} />
         )}
       </ResponsiveModal>
+
+      {checkInCameraTicket && (
+        <GeoTagCameraCheckInModal
+          isOpen={Boolean(checkInCameraTicket)}
+          onClose={() => setCheckInCameraTicket(null)}
+          ticket={checkInCameraTicket}
+          onCheckInSuccess={() => {
+            setCheckInCameraTicket(null);
+          }}
+        />
+      )}
     </div>
   );
 };

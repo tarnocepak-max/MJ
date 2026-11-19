@@ -23,6 +23,7 @@ import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly, getTicketWorkStatus } from '../../services/workSessionService';
 import { MessageStatusReceipt } from '../chat/MessageStatusReceipt';
 import { GeoTagCameraModal, CapturedPhotoPayload } from '../camera/GeoTagCameraModal';
+import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
 import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
 import {
@@ -353,6 +354,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     buildInitialPhotoSlots(activeTicket)
   );
   const [cameraModalSlot, setCameraModalSlot] = useState<PhotoSlotDefinition | null>(null);
+  const [showCheckInCameraModal, setShowCheckInCameraModal] = useState(false);
   const [expandedMapSlot, setExpandedMapSlot] = useState<PhotoSlotKey | null>(null);
   const [slotUploadState, setSlotUploadState] = useState<
     Partial<
@@ -761,12 +763,74 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     );
   }, [photoSlots]);
 
+  const messages = getMessagesForTicket(activeTicket.id);
+
+  // Authoritative check against persisted DB LiveChat messages for PROGRESS check-in
+  const persistedProgressMessage = useMemo(() => {
+    const cleanUid = String(currentUser?.id || '').trim();
+    if (!cleanUid) return undefined;
+    const targetId = String(activeTicket.id || '').trim();
+    const targetWo = String(activeTicket.woNumber || '').trim().toUpperCase();
+
+    return (messages || []).find(m => {
+      if (!m || !m.id) return false;
+      const msgId = String(m.id).trim();
+      if (
+        !msgId ||
+        msgId.startsWith('temp_') ||
+        msgId.startsWith('pending_') ||
+        msgId.startsWith('local_offline_')
+      ) {
+        return false;
+      }
+      if (
+        (m as any)._offlineSyncStatus === 'pending' ||
+        (m as any).status === 'failed' ||
+        (m as any).status === 'pending'
+      ) {
+        return false;
+      }
+
+      const msgTicketId = String(m.ticketId || '').trim();
+      const msgWo = String(m.woNumber || '').trim().toUpperCase();
+      const woMatches =
+        (targetId && msgTicketId === targetId) ||
+        (targetWo && msgWo === targetWo) ||
+        (targetId && msgWo === targetId.toUpperCase());
+      if (!woMatches) return false;
+
+      const senderId = String(m.senderId || '').trim();
+      if (!senderId || senderId !== cleanUid) return false;
+
+      return String(m.category || '').trim().toUpperCase() === 'PROGRESS';
+    });
+  }, [messages, activeTicket.id, activeTicket.woNumber, currentUser?.id]);
+
+  const hasPersistedProgressFromCurrentTechnician = Boolean(persistedProgressMessage);
+
+  const hasValidProgressFromCurrentTechnician =
+    currentUser.role === 'installer' &&
+    (hasPersistedProgressFromCurrentTechnician || Boolean(serverProgressTriggerByTicket[triggerKey]));
+
+  const requiresProgressCheckIn =
+    currentUser.role === 'installer' && !hasValidProgressFromCurrentTechnician;
+
+  const validatedCheckInTime = useMemo(() => {
+    const iso = persistedProgressMessage?.timestamp || activeTicket.checkInAt;
+    if (!iso) return '-';
+    return formatJakartaTimeOnly(iso);
+  }, [persistedProgressMessage?.timestamp, activeTicket.checkInAt]);
+
   const openCameraForSlot = useCallback(
     (slotDef: PhotoSlotDefinition) => {
       if (ticketClosed) return;
+      if (slotDef.slotKey === 'customer_house' && requiresProgressCheckIn && currentUser.role === 'installer') {
+        setShowCheckInCameraModal(true);
+        return;
+      }
       setCameraModalSlot(slotDef);
     },
-    [ticketClosed]
+    [ticketClosed, requiresProgressCheckIn, currentUser.role]
   );
 
   const openCameraForSlotKey = useCallback(
@@ -1030,64 +1094,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const chatSectionRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
-
-  const messages = getMessagesForTicket(activeTicket.id);
-
-  // Authoritative check against persisted DB LiveChat messages for PROGRESS check-in
-  const persistedProgressMessage = useMemo(() => {
-    const cleanUid = String(currentUser?.id || '').trim();
-    if (!cleanUid) return undefined;
-    const targetId = String(activeTicket.id || '').trim();
-    const targetWo = String(activeTicket.woNumber || '').trim().toUpperCase();
-
-    return (messages || []).find(m => {
-      if (!m || !m.id) return false;
-      const msgId = String(m.id).trim();
-      if (
-        !msgId ||
-        msgId.startsWith('temp_') ||
-        msgId.startsWith('pending_') ||
-        msgId.startsWith('local_offline_')
-      ) {
-        return false;
-      }
-      if (
-        (m as any)._offlineSyncStatus === 'pending' ||
-        (m as any).status === 'failed' ||
-        (m as any).status === 'pending'
-      ) {
-        return false;
-      }
-
-      const msgTicketId = String(m.ticketId || '').trim();
-      const msgWo = String(m.woNumber || '').trim().toUpperCase();
-      const woMatches =
-        (targetId && msgTicketId === targetId) ||
-        (targetWo && msgWo === targetWo) ||
-        (targetId && msgWo === targetId.toUpperCase());
-      if (!woMatches) return false;
-
-      const senderId = String(m.senderId || '').trim();
-      if (!senderId || senderId !== cleanUid) return false;
-
-      return String(m.category || '').trim().toUpperCase() === 'PROGRESS';
-    });
-  }, [messages, activeTicket.id, activeTicket.woNumber, currentUser?.id]);
-
-  const hasPersistedProgressFromCurrentTechnician = Boolean(persistedProgressMessage);
-
-  const hasValidProgressFromCurrentTechnician =
-    currentUser.role === 'installer' &&
-    (hasPersistedProgressFromCurrentTechnician || Boolean(serverProgressTriggerByTicket[triggerKey]));
-
-  const requiresProgressCheckIn =
-    currentUser.role === 'installer' && !hasValidProgressFromCurrentTechnician;
-
-  const validatedCheckInTime = useMemo(() => {
-    const iso = persistedProgressMessage?.timestamp || activeTicket.checkInAt;
-    if (!iso) return '-';
-    return formatJakartaTimeOnly(iso);
-  }, [persistedProgressMessage?.timestamp, activeTicket.checkInAt]);
 
   useEffect(() => {
     setIsChatActive(false);
@@ -1664,12 +1670,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             ) : requiresProgressCheckIn ? (
               <button
                 type="button"
-                onClick={handleOpenProgressChatForCheckIn}
+                onClick={() => setShowCheckInCameraModal(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono text-[11px] font-bold border border-amber-300 dark:border-amber-700 shadow-xs cursor-pointer hover:bg-amber-100 transition-colors"
-                title="Klik untuk membuka LiveChat dengan kategori PROGRESS"
+                title="Klik untuk Check-In Foto Rumah GPS & membuka kunci Checkout"
               >
-                <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span className="tracking-wide">CHECKOUT LOCKED</span>
+                <Camera className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="tracking-wide">CHECKOUT LOCKED · CHECK-IN FOTO</span>
               </button>
             ) : (
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F4EAFF] dark:bg-[#2E1459] text-[#431599] dark:text-[#D8B4FE] font-mono text-[11px] font-bold border border-[#D8B4FE]/70 dark:border-[#7135B5] shadow-[0_2px_0_rgba(216,180,254,0.5),0_2px_6px_rgba(113,53,181,0.06)]">
@@ -1737,19 +1743,29 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               <div className="flex items-start gap-2 min-w-0">
                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="text-[12px] text-amber-900 dark:text-amber-200">
-                  <div className="font-bold">Wajib Check-in LiveChat Kategori #PROGRESS</div>
+                  <div className="font-bold">Wajib Check-in Foto Rumah GPS &amp; Tag #PROGRESS</div>
                   <p className="text-[11px] opacity-90 mt-0.5">
-                    Kirim minimal 1 pesan LiveChat dengan kategori <strong>PROGRESS</strong> untuk membuka tombol kirim checkout.
+                    Ambil foto rumah langsung via kamera GPS (otomatis kirim LiveChat <strong>#PROGRESS</strong>) untuk membuka tombol kirim checkout.
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleOpenProgressChatForCheckIn}
-                className="btn-3d-amber px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer"
-              >
-                Buka LiveChat (#PROGRESS)
-              </button>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowCheckInCameraModal(true)}
+                  className="btn-3d-amber px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Check-In Foto Rumah</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenProgressChatForCheckIn}
+                  className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border border-amber-400/70 text-amber-900 dark:text-amber-200 hover:bg-amber-100/70 dark:hover:bg-amber-900/40 shrink-0 cursor-pointer"
+                >
+                  LiveChat #PROGRESS
+                </button>
+              </div>
             </div>
           )}
 
@@ -3863,6 +3879,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           technicianName={currentUser.name || activeTicket.installerName || 'Teknisi'}
           customerName={activeTicket.customerName}
           onConfirmPhoto={handleConfirmCameraCapture}
+        />
+      )}
+
+      {showCheckInCameraModal && (
+        <GeoTagCameraCheckInModal
+          isOpen={showCheckInCameraModal}
+          onClose={() => setShowCheckInCameraModal(false)}
+          ticket={activeTicket}
+          onCheckInSuccess={() => {
+            setShowCheckInCameraModal(false);
+            setServerProgressTriggerByTicket(prev => ({
+              ...prev,
+              [triggerKey]: true
+            }));
+            refreshMessagesForTicket(activeTicket.id).catch(() => {});
+          }}
         />
       )}
 

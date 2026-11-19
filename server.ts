@@ -5095,8 +5095,18 @@ export async function createExpressApp(options?: {
       badgeText,
       statusTag,
       clientCaptureId,
-      woNumber
+      woNumber,
+      requireLiveCamera,
+      fieldNotes
     } = req.body || {};
+
+    if (requireLiveCamera === true && captureMethod === 'gallery') {
+      return res.status(400).json({
+        success: false,
+        code: 'GALLERY_FORBIDDEN_FOR_CHECKIN',
+        error: 'Check-In Foto Rumah GPS wajib diambil langsung dari kamera perangkat (anti-galeri).'
+      });
+    }
 
     if (!slotKey || !ALLOWED_PHOTO_SLOT_KEYS.has(String(slotKey))) {
       return res.status(400).json({
@@ -5315,7 +5325,8 @@ export async function createExpressApp(options?: {
       woNumber: ticket.woNumber,
       clientCaptureId: cleanClientCaptureId,
       sha256: storageRes.sha256,
-      uploadStatus: 'uploaded'
+      uploadStatus: 'uploaded',
+      ...(typeof fieldNotes === 'string' && fieldNotes.trim() ? { fieldNotes: fieldNotes.trim().slice(0, 300) } : {})
     };
 
     const nextSlots = [
@@ -5360,7 +5371,8 @@ export async function createExpressApp(options?: {
         technicianId: req.user!.id,
         technicianName: req.user!.name,
         locationSource: slotRecord.locationSource,
-        geotagStatus: resolvedGeotagStatus
+        geotagStatus: resolvedGeotagStatus,
+        ...(slotRecord.fieldNotes ? { fieldNotes: slotRecord.fieldNotes } : {})
       };
       updatedLocationType = 'houseLocation';
     } else if (slotRecord.slotKey === 'fat_attenuation' && parsedLat !== undefined && parsedLng !== undefined) {

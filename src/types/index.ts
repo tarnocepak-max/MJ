@@ -134,6 +134,7 @@ export interface WorkOrderGeoLocation {
   technicianName?: string;
   locationSource?: string;
   geotagStatus?: GeotagStatus;
+  fieldNotes?: string;
 }
 
 export interface TechnicalPhotoSlot {
@@ -167,6 +168,7 @@ export interface TechnicalPhotoSlot {
   sha256?: string;
   uploadStatus?: 'uploaded' | 'uploading' | 'failed' | 'pending_offline';
   uploadError?: string;
+  fieldNotes?: string;
 }
 
 export interface TechnicalReport {

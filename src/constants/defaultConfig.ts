@@ -424,10 +424,18 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support']
   },
   {
+    id: 'monitoring_maps',
+    label: 'Monitoring Maps',
+    icon: 'Map',
+    order: 2,
+    visible: true,
+    roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+  },
+  {
     id: 'tickets',
     label: 'Ticket MyRepublic',
     icon: 'Ticket',
-    order: 2,
+    order: 3,
     visible: true,
     roles: ['super_admin', 'dispatch']
   },
@@ -435,7 +443,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     id: 'report_data_wo',
     label: 'Report Data WO',
     icon: 'FileSpreadsheet',
-    order: 3,
+    order: 4,
     visible: true,
     roles: ['super_admin', 'dispatch', 'management_data']
   },
@@ -443,7 +451,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     id: 'import',
     label: 'Import Data WO',
     icon: 'FileSpreadsheet',
-    order: 4,
+    order: 5,
     visible: true,
     roles: ['super_admin', 'management_data']
   },
@@ -451,7 +459,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     id: 'contact_centre',
     label: 'Contact Centre',
     icon: 'MessageSquare',
-    order: 5,
+    order: 6,
     visible: true,
     roles: ['super_admin', 'dispatch', 'leader']
   },
@@ -459,7 +467,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     id: 'schedule',
     label: 'Schedule',
     icon: 'Calendar',
-    order: 6,
+    order: 7,
     visible: true,
     roles: ['super_admin', 'dispatch', 'leader']
   },
@@ -467,7 +475,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     id: 'users',
     label: 'Management User',
     icon: 'Users2',
-    order: 7,
+    order: 8,
     visible: true,
     roles: ['super_admin']
   }

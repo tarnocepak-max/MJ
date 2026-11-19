@@ -8,6 +8,7 @@ import { InstallerTicketFullview } from './InstallerTicketFullview';
 import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
 import { StatusBadge } from '../common/Badge';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import {
   getTicketCanonicalApprovalStatus,
   getTicketCanonicalReportStatus,
@@ -115,6 +116,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
   const [isSendingQuick, setIsSendingQuick] = useState(false);
   const [isStartingId, setIsStartingId] = useState<string | null>(null);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [checkInCameraTicket, setCheckInCameraTicket] = useState<Ticket | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   // Modals: Darurat & Bantuan Korlap / Reschedule
@@ -858,19 +860,40 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                     2
                   </div>
                 )}
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-[#211A2E] dark:text-white">
-                    Step 2: Check-in LiveChat Tag 'PROGRESS'
+                <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[#211A2E] dark:text-white">
+                      Step 2: Check-in Foto Rumah &amp; Tag 'PROGRESS'
+                    </div>
+                    <p
+                      className={`text-[11px] mt-0.5 ${
+                        isFeaturedCheckedIn ? 'text-[#16A36A] dark:text-emerald-300 font-medium' : 'text-[#766B83] dark:text-[#CEC0E8]'
+                      }`}
+                    >
+                      {isFeaturedCheckedIn
+                        ? `Check-in terverifikasi pukul ${formatJakartaTimeOnly(featuredTicket.checkInAt)}`
+                        : 'Ambil foto rumah langsung dari kamera GPS untuk auto check-in #PROGRESS'}
+                    </p>
                   </div>
-                  <p
-                    className={`text-[11px] mt-0.5 ${
-                      isFeaturedCheckedIn ? 'text-[#16A36A] dark:text-emerald-300 font-medium' : 'text-[#766B83] dark:text-[#CEC0E8]'
-                    }`}
-                  >
-                    {isFeaturedCheckedIn
-                      ? `Check-in terverifikasi pukul ${formatJakartaTimeOnly(featuredTicket.checkInAt)}`
-                      : 'Wajib kirim min. 1 update telemetry lapangan sebelum checkout'}
-                  </p>
+                  {!isFeaturedCheckedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setCheckInCameraTicket(featuredTicket)}
+                      className="btn-3d-amber px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Check-In Foto</span>
+                    </button>
+                  ) : !featuredTicket.houseLocation?.photoUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setCheckInCameraTicket(featuredTicket)}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap inline-flex items-center gap-1 border border-[#D8CCF3] dark:border-[#532B97] text-[#431599] dark:text-[#D8B4FE] hover:bg-[#F3EAFF] dark:hover:bg-[#2E1459]"
+                    >
+                      <Camera className="w-3 h-3" />
+                      <span>Foto Rumah GPS</span>
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -1410,6 +1433,17 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           </div>
         )}
       </ResponsiveModal>
+
+      {checkInCameraTicket && (
+        <GeoTagCameraCheckInModal
+          isOpen={Boolean(checkInCameraTicket)}
+          onClose={() => setCheckInCameraTicket(null)}
+          ticket={checkInCameraTicket}
+          onCheckInSuccess={() => {
+            setCheckInCameraTicket(null);
+          }}
+        />
+      )}
     </div>
   );
 };

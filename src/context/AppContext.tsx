@@ -253,6 +253,8 @@ interface AppContextType {
       statusTag?: string;
       clientCaptureId: string;
       woNumber?: string;
+      requireLiveCamera?: boolean;
+      fieldNotes?: string;
     }
   ) => Promise<{
     success: boolean;
@@ -3642,6 +3644,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       statusTag?: string;
       clientCaptureId: string;
       woNumber?: string;
+      requireLiveCamera?: boolean;
+      fieldNotes?: string;
     }
   ) => {
     const ticket = getTicketById(ticketId);
