@@ -4,13 +4,19 @@ import { Ticket, WOKpiFilterKey } from '../../types';
 import { SlaTelemetryDashboardView } from '../sla/SlaTelemetryDashboardView';
 import { DashboardKpiSummaryCards } from './DashboardKpiSummaryCards';
 import { OpsCommandHero, OpsCommandViewTab } from './OpsCommandHero';
+import { StitchLeaderCommandHub } from '../portals/StitchLeaderCommandHub';
 
 interface DashboardOverviewProps {
   onNavigate: (tab: string) => void;
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
+  onOpenWhatsApp?: (ticket: Ticket) => void;
 }
 
-export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate, onSelectTicket }) => {
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
+  onNavigate,
+  onSelectTicket,
+  onOpenWhatsApp
+}) => {
   const {
     currentUser,
     todayWIB,
@@ -53,6 +59,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     }
   };
 
+  if (currentUser?.role === 'leader') {
+    return (
+      <StitchLeaderCommandHub
+        onNavigate={onNavigate}
+        onSelectTicket={onSelectTicket}
+        onOpenWhatsApp={onOpenWhatsApp}
+        onDrillDown={handleKpiDrillDown}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Stitch 3D Tactile Ops Command Header & Interactive Operational Views */}
@@ -61,12 +78,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         onChangeView={setActiveCommandView}
         onNavigate={onNavigate}
         onSelectTicket={onSelectTicket}
+        onOpenWhatsApp={onOpenWhatsApp}
+        onDrillDown={handleKpiDrillDown}
       />
 
       {activeCommandView === 'overview' && (
         <>
-          {/* Live WO Lifecycle 13 KPI Cards & Vendor Breakdown */}
+          {/* Live WO Lifecycle Vendor / Area / Leader / Installer Capacity Breakdown */}
           <DashboardKpiSummaryCards
+            defaultPerspective="vendor"
             onDrillDown={handleKpiDrillDown}
             onOpenHistoryReport={() => onNavigate('history_progress')}
           />

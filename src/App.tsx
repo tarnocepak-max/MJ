@@ -15,6 +15,7 @@ import { InstallerBottomNav } from './components/layout/InstallerBottomNav';
 import { SetupHubView } from './components/setup/SetupHubView';
 
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
+import { DispatchVerificationDesk } from './components/dashboard/DispatchVerificationDesk';
 import { TicketsTable } from './components/tickets/TicketsTable';
 import { FormSamedayView } from './components/sameday/FormSamedayView';
 import { ReportDataWOView } from './components/reports/ReportDataWOView';
@@ -471,7 +472,45 @@ const MainLayout: React.FC = () => {
     switch (activeTab) {
       // Dispatch Management
       case 'dashboard':
-        return <DashboardOverview onNavigate={tab => navigateTo(tab)} onSelectTicket={handleOpenTicketDetail} />;
+        return (
+          <DashboardOverview
+            onNavigate={tab => navigateTo(tab)}
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
+      case 'verification_desk': {
+        const canAccessVerification =
+          currentUser.role === 'super_admin' ||
+          currentUser.role === 'dispatch' ||
+          currentUser.role === 'management_data';
+        if (!canAccessVerification) {
+          const redirectTarget = currentUser.role === 'leader' ? 'leader_portal' : 'dashboard';
+          setTimeout(() => {
+            setActiveTab(redirectTarget);
+          }, 1200);
+          return (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
+                ✕
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                Akses Ditolak: Dispatch Verification &amp; QC Desk
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Modul Verifikasi QC hanya tersedia untuk Super Admin, Dispatch, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <DispatchVerificationDesk
+            onNavigate={tab => navigateTo(tab)}
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
+      }
       case 'monitoring_maps': {
         const canAccessMonitoringMaps =
           currentUser.role === 'super_admin' ||
@@ -577,6 +616,7 @@ const MainLayout: React.FC = () => {
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
+            onNavigate={tab => navigateTo(tab)}
             activeLeaderTab={leaderSubTab}
             onLeaderTabChange={tab => navigateTo(tab)}
           />
@@ -586,6 +626,7 @@ const MainLayout: React.FC = () => {
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
+            onNavigate={tab => navigateTo(tab)}
             activeLeaderTab="wo_assignment"
             onLeaderTabChange={tab => navigateTo(tab)}
           />
@@ -595,6 +636,7 @@ const MainLayout: React.FC = () => {
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
+            onNavigate={tab => navigateTo(tab)}
             activeLeaderTab="reassign_wo"
             onLeaderTabChange={tab => navigateTo(tab)}
           />
@@ -611,6 +653,7 @@ const MainLayout: React.FC = () => {
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
+            onNavigate={tab => navigateTo(tab)}
             activeLeaderTab="installer_mgmt"
             onLeaderTabChange={tab => navigateTo(tab)}
           />
@@ -620,6 +663,7 @@ const MainLayout: React.FC = () => {
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
+            onNavigate={tab => navigateTo(tab)}
             activeLeaderTab="quota_settings"
             onLeaderTabChange={tab => navigateTo(tab)}
           />
@@ -898,7 +942,13 @@ const MainLayout: React.FC = () => {
         return <SetupHubView initialTab="droplists" onNavigateTab={tab => setActiveTab(tab)} />;
 
       default:
-        return <DashboardOverview onNavigate={tab => navigateTo(tab)} onSelectTicket={handleOpenTicketDetail} />;
+        return (
+          <DashboardOverview
+            onNavigate={tab => navigateTo(tab)}
+            onSelectTicket={handleOpenTicketDetail}
+            onOpenWhatsApp={handleOpenWhatsAppModal}
+          />
+        );
     }
   };
 
@@ -949,7 +999,7 @@ const MainLayout: React.FC = () => {
               isFullChatMode
                 ? `flex-1 min-h-0 flex flex-col overflow-hidden p-0 w-full ${
                     isInstaller
-                      ? 'pb-16'
+                      ? 'pb-24'
                       : currentUser.role === 'leader'
                       ? 'pb-[68px]'
                       : isMobileView && config.device?.android?.showBottomNavigation !== false

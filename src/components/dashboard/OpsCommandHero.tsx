@@ -26,19 +26,23 @@ import {
   Wrench
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { Ticket, WOKpiSummary } from '../../types/index.ts';
+import { Ticket, WOKpiFilterKey, WOKpiSummary } from '../../types/index.ts';
 import { computeClientKpiSummary } from '../../services/woLifecycleService';
 import { StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
+import { StitchOpsCommandCenter } from './StitchOpsCommandCenter';
+import { DispatchVerificationDesk } from './DispatchVerificationDesk';
 
-export type OpsCommandViewTab = 'overview' | 'queue' | 'matrix';
+export type OpsCommandViewTab = 'overview' | 'verification' | 'queue' | 'matrix';
 
 interface OpsCommandHeroProps {
   activeView: OpsCommandViewTab;
   onChangeView: (view: OpsCommandViewTab) => void;
   onNavigate: (tab: string) => void;
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
+  onOpenWhatsApp?: (ticket: Ticket) => void;
+  onDrillDown?: (filterKey: WOKpiFilterKey, filters?: { contractor?: string; area?: string }) => void;
 }
 
 interface TactileLogEntry {
@@ -53,7 +57,9 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
   activeView,
   onChangeView,
   onNavigate,
-  onSelectTicket
+  onSelectTicket,
+  onOpenWhatsApp,
+  onDrillDown
 }) => {
   const {
     currentUser,
@@ -65,7 +71,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
     databaseStatus,
     refreshDatabaseData,
     kpiContractorFilter,
-    kpiAreaFilter
+    kpiAreaFilter,
+    setActiveKpiDrilldown,
+    setKpiContractorFilter,
+    setKpiAreaFilter
   } = useApp();
 
   const [interactionLogs, setInteractionLogs] = useState<TactileLogEntry[]>([]);
@@ -206,35 +215,62 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
     return 'tickets';
   }, [currentUser.role]);
 
+  const resolvedDrillDown = (
+    filterKey: WOKpiFilterKey,
+    filters?: { contractor?: string; area?: string }
+  ) => {
+    if (onDrillDown) {
+      onDrillDown(filterKey, filters);
+      return;
+    }
+    if (filters?.contractor) {
+      setKpiContractorFilter(filters.contractor);
+    }
+    if (filters?.area) {
+      setKpiAreaFilter(filters.area);
+    }
+    setActiveKpiDrilldown({
+      filterKey,
+      dateWIB: todayWIB,
+      contractor: filters?.contractor,
+      area: filters?.area
+    });
+    onNavigate(roleActionTarget);
+  };
+
+  const hasDedicatedStitchHeader = activeView === 'overview' || activeView === 'verification';
+
   return (
     <section aria-label="MoraJaws Ops Command Center" className="space-y-5">
-      {/* Top Hero Header & 3D Tab Switcher */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-        <div className="space-y-2 min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="px-2.5 py-0.5 bg-[#7135b5] text-white text-[10px] font-extrabold font-mono uppercase tracking-wider rounded-md shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_#35105e] whitespace-nowrap">
-              OPS COMMAND · V4.2
-            </span>
-            <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8]">
-              Canonical 46-Column Architecture
-            </span>
-            <span className="hidden sm:inline text-[#cec3d4] dark:text-[#5b35b1]">|</span>
-            <span className="text-[11px] font-mono font-semibold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
-              todayWIB: {todayWIB} · Auto-Rollover Active
-            </span>
-          </div>
+      {/* Top Hero Header & 3D Tab Switcher (compact switcher bar when Stitch Overview or Verification Desk is active to avoid duplicate H1 headers) */}
+      <div className={`flex flex-col xl:flex-row ${hasDedicatedStitchHeader ? 'xl:items-center justify-end' : 'xl:items-end justify-between'} gap-4`}>
+        {!hasDedicatedStitchHeader && (
+          <div className="space-y-2 min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="px-2.5 py-0.5 bg-[#7135b5] text-white text-[10px] font-extrabold font-mono uppercase tracking-wider rounded-md shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_#35105e] whitespace-nowrap">
+                OPS COMMAND · V4.2
+              </span>
+              <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8]">
+                Canonical 46-Column Architecture
+              </span>
+              <span className="hidden sm:inline text-[#cec3d4] dark:text-[#5b35b1]">|</span>
+              <span className="text-[11px] font-mono font-semibold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+                todayWIB: {todayWIB} · Auto-Rollover Active
+              </span>
+            </div>
 
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#1f1638] dark:text-white tracking-tight leading-tight">
-            MoraJaws Ops Command &amp; Live Telemetry
-          </h1>
-          <p className="text-xs sm:text-sm text-[#4b4452] dark:text-[#cabde8] max-w-2xl leading-relaxed">
-            Pusat kendali operasional Work Order FTTH real-time dengan sinkronisasi Express API &amp; Supabase PostgreSQL untuk{' '}
-            <span className="font-semibold text-[#58149c] dark:text-[#dab9ff]">
-              {currentUser.name}
-            </span>
-            .
-          </p>
-        </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#1f1638] dark:text-white tracking-tight leading-tight">
+              MoraJaws Ops Command &amp; Live Telemetry
+            </h1>
+            <p className="text-xs sm:text-sm text-[#4b4452] dark:text-[#cabde8] max-w-2xl leading-relaxed">
+              Pusat kendali operasional Work Order FTTH real-time dengan sinkronisasi Express API &amp; Supabase PostgreSQL untuk{' '}
+              <span className="font-semibold text-[#58149c] dark:text-[#dab9ff]">
+                {currentUser.name}
+              </span>
+              .
+            </p>
+          </div>
+        )}
 
         {/* Debossed Tactile View Switcher */}
         <div
@@ -256,6 +292,28 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
             <LayoutGrid className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#dab9ff]" />
             <span>Operations Overview</span>
           </button>
+
+          {(currentUser.role === 'super_admin' || currentUser.role === 'dispatch') && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'verification'}
+              onClick={() => onChangeView('verification')}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                activeView === 'verification'
+                  ? 'mj-tactile-tab-active'
+                  : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#dab9ff]" />
+              <span>Antrean Verifikasi QC</span>
+              {counts.butuhApproval > 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-[#DC4C5A] text-white font-mono text-[10px] tabular-nums">
+                  {counts.butuhApproval}
+                </span>
+              )}
+            </button>
+          )}
 
           <button
             type="button"
@@ -291,6 +349,24 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
           </button>
         </div>
       </div>
+
+      {/* TAB 1: STITCH AI GLOBAL OPERATIONS COMMAND */}
+      {activeView === 'overview' && (
+        <StitchOpsCommandCenter
+          onNavigate={onNavigate}
+          onSelectTicket={onSelectTicket}
+          onDrillDown={resolvedDrillDown}
+        />
+      )}
+
+      {/* TAB 1B: STITCH AI DISPATCH VERIFICATION & QC DESK */}
+      {activeView === 'verification' && (
+        <DispatchVerificationDesk
+          onNavigate={onNavigate}
+          onSelectTicket={onSelectTicket}
+          onOpenWhatsApp={onOpenWhatsApp}
+        />
+      )}
 
       {/* TAB 2: LIVE QUEUE & DISPATCH TELEMETRY */}
       {activeView === 'queue' && (

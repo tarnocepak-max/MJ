@@ -24,7 +24,10 @@ import {
   Smartphone,
   Search,
   X,
-  Loader2
+  Loader2,
+  Radio,
+  Network,
+  BadgeCheck
 } from 'lucide-react';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
@@ -43,6 +46,7 @@ interface HeaderProps {
 
 const TAB_TITLES: Record<string, string> = {
   dashboard: 'Dashboard Monitoring',
+  verification_desk: 'Antrean Verifikasi & QC Desk',
   monitoring_maps: 'Monitoring Maps',
   tickets: 'Ticket MyRepublic',
   form_sameday: 'Form Sameday Express',
@@ -83,6 +87,7 @@ const TAB_TITLES: Record<string, string> = {
 export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectTicket }) => {
   const {
     currentUser,
+    users,
     todayWIB,
     logout,
     contractorsList,
@@ -209,6 +214,36 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     return { unreadTickets, pendingApprovalTickets, totalCount };
   }, [canCrossDateSearch, tickets, scopedTickets, todayWIB, getTicketUnreadCount, pendingCount]);
 
+  const headerTelemetry = useMemo(() => {
+    const todayScoped = (scopedTickets || []).filter(
+      t => !t.isDeleted && !t.isArchived && getTicketAppointmentDate(t) === todayWIB
+    );
+    const openCount = todayScoped.filter(
+      t => String(t.statusWOAgent || '').trim().toLowerCase() !== 'closed'
+    ).length;
+    const completedCount = todayScoped.filter(
+      t =>
+        String(t.statusWOAgent || '').trim().toLowerCase() === 'closed' ||
+        String(t.approvalStatus || '').trim().toUpperCase() === 'APPROVED'
+    ).length;
+    const slaPct =
+      todayScoped.length > 0 ? Math.round((completedCount / todayScoped.length) * 1000) / 10 : 0;
+
+    const totalTechs = (users || []).filter(u => u.role === 'installer' && u.active !== false).length;
+    const activeTechNames = new Set(
+      todayScoped
+        .map(t => String(t.installerName || t.installerId || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+    return {
+      totalToday: todayScoped.length,
+      openCount,
+      activeTechs: activeTechNames.size,
+      totalTechs,
+      slaPct
+    };
+  }, [scopedTickets, todayWIB, users]);
+
   const handleGlobalRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
@@ -259,227 +294,193 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   };
 
   if (currentUser.role === 'installer') {
-    const cloudLabel =
-      syncStatus === 'SAVED'
-        ? 'Cloud Live'
-        : syncStatus === 'SYNCING'
-        ? 'Menyimpan...'
-        : syncStatus === 'LOADING'
-        ? 'Memuat...'
-        : syncStatus === 'OFFLINE'
-        ? 'Offline Mode'
-        : 'Sync Error';
+    const liveBadge = !isOnline
+      ? {
+          label: isSimulatedOffline ? 'SIMULASI OFFLINE' : 'OFFLINE',
+          pillClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25',
+          dotClass: 'bg-amber-500'
+        }
+      : isSyncing || isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING'
+      ? {
+          label: 'SYNCING',
+          pillClass: 'bg-[#7135b5]/12 text-[#58149c] dark:text-[#DAB9FF] border border-[#7135b5]/25',
+          dotClass: 'bg-[#7135b5] animate-pulse'
+        }
+      : syncStatus === 'ERROR'
+      ? {
+          label: 'RETRY',
+          pillClass: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25',
+          dotClass: 'bg-rose-500'
+        }
+      : {
+          label: 'LIVE',
+          pillClass: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20',
+          dotClass: 'bg-emerald-500 animate-pulse'
+        };
+
+    const subtitleText = [
+      'TECH',
+      activeArea || activeContractor || formattedToday
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     return (
-      <header className="sticky top-0 z-40 bg-[#fcf8ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-purple-100/90 dark:border-[#35105E] shadow-[0_1px_10px_rgba(74,21,132,0.05)] transition-colors pt-safe">
-        <div className="max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 pt-2.5 pb-2 space-y-2">
-          {/* Row 1: Brand + FTTH + Technician Identity | Date + Profile Button */}
-          <div className="flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <button
-                type="button"
-                onClick={() => onNavigate('installer_dashboard')}
-                className="shrink-0 cursor-pointer"
-                title="Kembali ke Dashboard"
-              >
-                <MoraJawsLogo size="sm" animated={false} withGlow={false} />
-              </button>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-display font-extrabold text-[16px] text-slate-900 dark:text-white tracking-tight leading-none">
-                    {config.global.appName || 'MoraJaws'} Ops
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#dcfce7] dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-700/60 text-[#059669] dark:text-emerald-300 text-[9.5px] font-bold tracking-wider uppercase leading-none">
-                    FTTH
-                  </span>
-                </div>
-                <p className="text-[11.5px] font-semibold text-[#7135b5] dark:text-[#DAB9FF] truncate mt-0.5">
-                  Field Engineer · {currentUser.name}
-                </p>
-              </div>
-            </div>
+      <header className="sticky top-0 z-40 w-full pt-safe bg-[#fdf7ff]/88 dark:bg-[#160D29]/92 backdrop-blur-xl border-b border-[#e8ddff]/80 dark:border-[#35105E] shadow-[0_2px_12px_rgba(31,22,56,0.04)] transition-colors">
+        <div className="max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto h-16 px-3.5 sm:px-6 flex items-center justify-between gap-2">
+          {/* Left: Stitch 3D Purple Hub + Field Dispatch + Live Telemetry */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => onNavigate('installer_dashboard')}
+              title="Kembali ke Dashboard Field Dispatch"
+              aria-label="Kembali ke Dashboard Field Dispatch"
+              className="w-9 h-9 rounded-xl bg-gradient-to-b from-[#58149c] to-[#7135b5] flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_3px_8px_rgba(88,20,156,0.28)] active:scale-95 transition-transform cursor-pointer"
+            >
+              <Network className="w-[18px] h-[18px] text-white" strokeWidth={2.2} />
+            </button>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-[#CEC0E8] tabular-nums whitespace-nowrap hidden xs:inline sm:inline">
-                {formattedToday}
-              </span>
-
-              {/* User Account Dropdown */}
-              <div className="relative">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <button
                   type="button"
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  aria-label="Profil & Pengaturan Akun"
-                  className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6d28d9] to-[#4a1584] text-white font-display font-bold text-xs flex items-center justify-center shadow-md shadow-purple-900/20 hover:opacity-95 active:scale-95 transition-all cursor-pointer relative"
+                  onClick={() => onNavigate('installer_dashboard')}
+                  className="font-display font-extrabold text-[16px] sm:text-[18px] tracking-tight text-[#1f1638] dark:text-white leading-none truncate cursor-pointer text-left"
                 >
-                  {getInitials(currentUser.name)}
-                  <span
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#160D29] ${
-                      isOnline ? 'bg-emerald-500' : 'bg-amber-500'
-                    }`}
-                  />
+                  {activeTab === 'installer_dashboard' ? 'Field Dispatch' : activePageTitle}
                 </button>
-
-                {userMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xl border border-purple-100 dark:border-[#35105E] py-2 z-50 text-xs">
-                      <div className="px-4 py-2.5 border-b border-purple-100 dark:border-[#35105E] space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-[#211A2E] dark:text-white truncate">{currentUser.name}</span>
-                          {getRoleIcon(currentUser.role)}
-                        </div>
-                        <div className="font-mono text-[11px] text-[#7135B5] dark:text-[#D8B4FE]">@{currentUser.username}</div>
-                        <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] pt-1 space-y-0.5">
-                          <div>
-                            Peran: <span className="font-semibold capitalize text-[#211A2E] dark:text-white">Teknisi Lapangan</span>
-                          </div>
-                          {activeContractor && (
-                            <div className="truncate">
-                              Vendor: <span className="font-medium text-[#211A2E] dark:text-white">{activeContractor}</span>
-                            </div>
-                          )}
-                          {activeArea && (
-                            <div className="truncate">
-                              Wilayah: <span className="font-medium text-[#211A2E] dark:text-white">{activeArea}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="p-2 flex flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            setIsOfflineModalOpen(true);
-                          }}
-                          className="w-full text-left py-2 px-3 rounded-lg text-xs font-semibold text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Pusat Sinkronisasi Offline</span>
-                          <span className="font-mono text-[11px] text-[#431599] dark:text-[#D8B4FE]">{pendingCount} Pending</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            handleGlobalRefresh();
-                          }}
-                          className="w-full text-left py-2 px-3 rounded-lg text-xs font-semibold text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Sync Cloud Sekarang</span>
-                          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            logout();
-                          }}
-                          className="w-full text-center py-2 px-3 bg-[#DC4C5A]/10 hover:bg-[#DC4C5A]/20 text-[#DC4C5A] dark:text-rose-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span>Keluar / Logout dari Sistem</span>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <span
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-bold tracking-wider uppercase leading-none shrink-0 ${liveBadge.pillClass}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${liveBadge.dotClass}`} />
+                  <span>{liveBadge.label}</span>
+                </span>
               </div>
+              <span className="text-[10.5px] font-semibold text-[#4b4452] dark:text-[#CEC0E8] flex items-center gap-1 mt-0.5 truncate uppercase tracking-wide">
+                <BadgeCheck className="w-3 h-3 text-[#58149c] dark:text-[#DAB9FF] shrink-0" />
+                <span className="truncate">{subtitleText}</span>
+              </span>
             </div>
           </div>
 
-          {/* Row 2: Compact Cloud & Connectivity Strip (Stitch tactile status strip) */}
-          <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-purple-100/80 dark:border-[#35105E]/70">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {/* Cloud Live indicator */}
+          {/* Right: Telemetry / Offline Queue Button, Quick Sync, & Circular User Avatar */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsOfflineModalOpen(true)}
+              aria-label="Status Sinkronisasi & Telemetri Jaringan"
+              title={`Antrean Offline: ${pendingCount} · Status: ${liveBadge.label}`}
+              className={`relative w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl transition-colors cursor-pointer active:scale-95 ${
+                pendingCount > 0 || !isOnline
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/60'
+                  : 'bg-[#eee4ff] dark:bg-[#241442] text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#58149c] dark:hover:text-[#DAB9FF]'
+              }`}
+            >
+              {isOnline ? <Radio className="w-[18px] h-[18px]" /> : <WifiOff className="w-[18px] h-[18px]" />}
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-500 text-white text-[9.5px] font-extrabold flex items-center justify-center ring-2 ring-[#fdf7ff] dark:ring-[#160D29] tabular-nums">
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleGlobalRefresh}
+              disabled={isRefreshing}
+              aria-label="Sinkronisasi data cloud"
+              title="Sinkronisasi cloud sekarang"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#58149c] dark:hover:text-[#DAB9FF] shadow-2xs transition-colors cursor-pointer disabled:opacity-50 active:scale-95"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* User Account Dropdown */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={handleGlobalRefresh}
-                disabled={isRefreshing}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
-                  syncStatus === 'SAVED'
-                    ? 'bg-[#dcfce7] border-emerald-200 text-[#059669] dark:bg-emerald-950/60 dark:border-emerald-700/60 dark:text-emerald-300'
-                    : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                    ? 'bg-purple-50 border-purple-200 text-[#7135b5] dark:bg-[#35105E] dark:border-[#7135b5] dark:text-[#D8B4FE]'
-                    : syncStatus === 'OFFLINE'
-                    ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
-                    : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/60 dark:border-rose-700/60 dark:text-rose-300'
-                }`}
-                title="Ketuk untuk sinkronisasi cloud"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                aria-label="Profil & Pengaturan Akun"
+                className="w-9 h-9 rounded-full bg-gradient-to-b from-[#58149c] to-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shadow-[0_2px_6px_rgba(88,20,156,0.28)] hover:opacity-95 active:scale-95 transition-all cursor-pointer relative ml-0.5"
               >
+                {getInitials(currentUser.name)}
                 <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    syncStatus === 'SAVED'
-                      ? 'bg-emerald-500'
-                      : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                      ? 'bg-[#7135b5] animate-pulse'
-                      : syncStatus === 'OFFLINE'
-                      ? 'bg-amber-500'
-                      : 'bg-rose-500'
+                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#fdf7ff] dark:border-[#160D29] ${
+                    isOnline ? 'bg-emerald-500' : 'bg-amber-500'
                   }`}
                 />
-                <span>{isRefreshing ? 'Syncing...' : cloudLabel}</span>
               </button>
 
-              {/* Pending Queue Button */}
-              <button
-                type="button"
-                onClick={() => setIsOfflineModalOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border shadow-2xs transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
-                  pendingCount > 0
-                    ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
-                    : 'bg-white border-purple-200/80 text-slate-600 dark:bg-[#22123F] dark:border-[#35105E] dark:text-[#CEC0E8]'
-                }`}
-                title="Lihat antrean sinkronisasi offline"
-              >
-                <Cloud className="w-3 h-3 text-slate-400 dark:text-[#A78BFA] shrink-0" />
-                <span className="font-mono">{pendingCount} Pending</span>
-              </button>
-            </div>
+              {userMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#1A0E2E] rounded-2xl shadow-xl border border-[#e8ddff] dark:border-[#35105E] py-2 z-50 text-xs">
+                    <div className="px-4 py-2.5 border-b border-[#e8ddff] dark:border-[#35105E] space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#1f1638] dark:text-white truncate">{currentUser.name}</span>
+                        {getRoleIcon(currentUser.role)}
+                      </div>
+                      <div className="font-mono text-[11px] text-[#58149c] dark:text-[#D8B4FE]">@{currentUser.username}</div>
+                      <div className="text-[11px] text-[#4b4452] dark:text-[#CEC0E8] pt-1 space-y-0.5">
+                        <div>
+                          Tanggal Ops: <span className="font-mono font-semibold text-[#1f1638] dark:text-white">{formattedToday}</span>
+                        </div>
+                        {activeContractor && (
+                          <div className="truncate">
+                            Vendor: <span className="font-medium text-[#1f1638] dark:text-white">{activeContractor}</span>
+                          </div>
+                        )}
+                        {activeArea && (
+                          <div className="truncate">
+                            Wilayah: <span className="font-medium text-[#1f1638] dark:text-white">{activeArea}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-            {/* Right: Circular refresh + Online/Offline pill */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={handleGlobalRefresh}
-                disabled={isRefreshing}
-                aria-label="Sinkronisasi data"
-                className="w-7 h-7 rounded-full bg-white dark:bg-[#22123F] border border-purple-200 dark:border-[#35105E] flex items-center justify-center text-slate-600 dark:text-[#CEC0E8] hover:text-[#7135b5] hover:bg-purple-50 dark:hover:bg-[#35105E] shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
+                    <div className="p-2 flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setIsOfflineModalOpen(true);
+                        }}
+                        className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-semibold text-[#1f1638] dark:text-[#E9D5FF] hover:bg-[#f3eaff] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Cloud className="w-3.5 h-3.5 text-[#58149c] dark:text-[#D8B4FE]" />
+                          <span>Pusat Sinkronisasi Offline</span>
+                        </span>
+                        <span className="font-mono text-[11px] text-[#58149c] dark:text-[#D8B4FE] tabular-nums">{pendingCount} Pending</span>
+                      </button>
 
-              <button
-                type="button"
-                onClick={() => setIsOfflineModalOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border cursor-pointer whitespace-nowrap ${
-                  !isOnline
-                    ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
-                    : isSyncing
-                    ? 'bg-purple-50 border-purple-200 text-[#7135b5] dark:bg-[#35105E] dark:border-[#7135b5] dark:text-[#D8B4FE]'
-                    : 'bg-[#dcfce7] border-emerald-200 text-[#059669] dark:bg-emerald-950/60 dark:border-emerald-700/60 dark:text-emerald-300'
-                }`}
-              >
-                {!isOnline ? (
-                  <>
-                    <WifiOff className="w-3 h-3" />
-                    <span>{isSimulatedOffline ? 'SIMULASI OFFLINE' : 'OFFLINE'}</span>
-                  </>
-                ) : isSyncing ? (
-                  <>
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    <span>SYNCING</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>ONLINE</span>
-                  </>
-                )}
-              </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          handleGlobalRefresh();
+                        }}
+                        className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-semibold text-[#1f1638] dark:text-[#E9D5FF] hover:bg-[#f3eaff] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
+                      >
+                        <span>Sync Cloud Sekarang</span>
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full text-center py-2.5 px-3 bg-[#ba1a1a]/10 hover:bg-[#ba1a1a]/20 text-[#ba1a1a] dark:text-rose-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Keluar / Logout dari Sistem</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -490,11 +491,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   return (
     <>
       <header
-        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-3 bg-white/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#E9E5F0] dark:border-[#35105E] shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-colors ${
+        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-3 bg-[#fdf7ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#e8ddff] dark:border-[#35105E] shadow-[0_1px_8px_rgba(53,16,94,0.04)] transition-colors ${
           isMobileView ? 'px-3 sm:px-4' : 'px-4 sm:px-6'
         }`}
       >
-        {/* Zone 1: Toggle + Breadcrumbs + Appointment Date Pill */}
+        {/* Zone 1: Toggle + Breadcrumbs + Engine & Telemetry Strip */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
@@ -509,16 +510,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             <PanelLeft className="w-4 h-4" />
           </button>
 
-          {/* Compact Stitch identity in Mobile Mode; full Breadcrumb trail in Desktop Mode */}
+          {/* Compact Stitch identity in Mobile Mode; full Breadcrumb trail + Engine Status in Desktop Mode */}
           {isMobileView ? (
             <div className="flex items-center gap-2 min-w-0">
               <MoraJawsLogo size="sm" animated={false} withGlow={false} />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-display font-extrabold text-[14px] text-[#111c2d] dark:text-white tracking-tight leading-none truncate">
+                  <span className="font-display font-extrabold text-[14px] text-[#1f1638] dark:text-white tracking-tight leading-none truncate">
                     {config.global.appName || 'MoraJaws'} Ops
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#cce5ff] dark:bg-[#35105E] text-[#004b73] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none shrink-0">
+                  <span className="px-1.5 py-0.5 rounded bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[9px] font-extrabold tracking-wider uppercase leading-none shrink-0">
                     {currentUser.role === 'super_admin'
                       ? 'ADMIN'
                       : currentUser.role === 'dispatch'
@@ -532,7 +533,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 </div>
                 <div className="flex items-center gap-1 mt-0.5 min-w-0">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-[#16A36A]' : 'bg-[#E59A27]'}`} />
-                  <span className="text-[10.5px] font-semibold text-[#006194] dark:text-[#CEC0E8] truncate">
+                  <span className="text-[10.5px] font-semibold text-[#6a46c1] dark:text-[#CEC0E8] truncate">
                     {activePageTitle}
                     {currentUser.role === 'leader' && (activeArea || activeContractor)
                       ? ` · ${activeArea || activeContractor}`
@@ -545,7 +546,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             <>
               <nav
                 aria-label="Breadcrumb"
-                className="hidden xl:flex items-center gap-1.5 text-xs text-[#8B8495] dark:text-[#CEC0E8]/70 truncate max-w-[260px]"
+                className="hidden xl:flex items-center gap-1.5 text-xs text-[#7d7484] dark:text-[#CEC0E8]/70 truncate max-w-[230px]"
               >
                 <button
                   type="button"
@@ -558,29 +559,68 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                         : 'dashboard'
                     )
                   }
-                  className="hover:text-[#211A2E] dark:hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+                  className="hover:text-[#58149c] dark:hover:text-white transition-colors cursor-pointer whitespace-nowrap font-semibold"
                 >
                   {config.global.appName || 'MoraJaws'}
                 </button>
                 <span aria-hidden="true">/</span>
-                <span className="hidden 2xl:inline whitespace-nowrap">Work Order Management</span>
-                <span className="hidden 2xl:inline" aria-hidden="true">/</span>
-                <span className="text-[#35105E] dark:text-[#D8B4FE] font-semibold truncate">
+                <span className="text-[#58149c] dark:text-[#D8B4FE] font-bold truncate">
                   {activePageTitle}
                 </span>
               </nav>
 
               {/* Page title shown cleanly on Tablet / Small Desktop (<1280px) where full breadcrumb is hidden */}
-              <span className="xl:hidden text-xs sm:text-sm font-bold text-[#211A2E] dark:text-white truncate">
+              <span className="xl:hidden text-xs sm:text-sm font-bold text-[#1f1638] dark:text-white truncate">
                 {activePageTitle}
               </span>
 
-              {/* Active Appointment Date Pill */}
-              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-[#F5F1FF] dark:bg-[#35105E]/70 border border-[#D8CCF3] dark:border-[#7135B5]/50 rounded-full text-[#35105E] dark:text-[#E9D5FF] shadow-2xs shrink-0">
-                <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
-                <span className="text-[11px] font-bold tracking-tight whitespace-nowrap tabular-nums">
-                  {formattedToday}
+              {/* Stitch Engine Active + Console & Date Pill */}
+              <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 bg-[#f3eaff] dark:bg-[#35105E]/70 border border-[#e8ddff] dark:border-[#7135B5]/50 rounded-lg text-[#1f1638] dark:text-[#E9D5FF] shadow-[inset_0_1px_1px_rgba(33,24,58,0.04)] shrink-0">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    isOnline && databaseStatus === 'connected'
+                      ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.65)]'
+                      : 'bg-amber-500'
+                  }`}
+                />
+                <span className="text-[11px] font-bold tracking-wide uppercase whitespace-nowrap">
+                  {currentUser.role === 'dispatch'
+                    ? 'DISPATCH CONSOLE'
+                    : currentUser.role === 'super_admin'
+                    ? 'OPS ADMIN'
+                    : currentUser.role === 'leader'
+                    ? 'LEADER CONSOLE'
+                    : 'OPS CONSOLE'}
                 </span>
+                <span className="text-[#cec3d4] dark:text-[#7135B5]">•</span>
+                <Calendar className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A78BFA] shrink-0" />
+                <span className="text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
+                  {activeArea ? `${activeArea} · ${formattedToday}` : formattedToday}
+                </span>
+              </div>
+
+              {/* Live Telemetry Counters on 2xl */}
+              <div className="hidden 2xl:flex items-center gap-3 pl-1 text-xs shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10.5px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]/80 uppercase">Open:</span>
+                  <span className="font-display font-bold text-[#1f1638] dark:text-white tabular-nums">
+                    {headerTelemetry.openCount}
+                  </span>
+                </div>
+                <span className="w-1 h-3 bg-[#cec3d4] dark:bg-[#5B35B1] rounded-full" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10.5px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]/80 uppercase">Techs:</span>
+                  <span className="font-display font-bold text-[#58149c] dark:text-[#D8B4FE] tabular-nums">
+                    {headerTelemetry.activeTechs}/{headerTelemetry.totalTechs}
+                  </span>
+                </div>
+                <span className="w-1 h-3 bg-[#cec3d4] dark:bg-[#5B35B1] rounded-full" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10.5px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]/80 uppercase">Done:</span>
+                  <span className="font-display font-bold text-[#6a46c1] dark:text-emerald-300 tabular-nums">
+                    {headerTelemetry.slaPct}%
+                  </span>
+                </div>
               </div>
             </>
           )}
@@ -853,6 +893,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                               </div>
                             </div>
                             <ArrowUpRight className="w-4 h-4 text-[#766B83] shrink-0" />
+                          </button>
+                        )}
+
+                        {notificationSummary.pendingApprovalTickets.length > 0 && canCrossDateSearch && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotifOpen(false);
+                              onNavigate('verification_desk');
+                            }}
+                            className="w-full text-left px-4 py-2.5 bg-[#f8f1ff] dark:bg-[#2e1459]/70 hover:bg-[#eee4ff] dark:hover:bg-[#35105e] flex items-center justify-between gap-2 text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] cursor-pointer"
+                          >
+                            <span>Buka Hot Desk Verifikasi ({notificationSummary.pendingApprovalTickets.length}+ Antrean)</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         )}
 

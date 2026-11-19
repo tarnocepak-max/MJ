@@ -96,6 +96,7 @@ import { LeaderAssignMatrixPanel } from './LeaderAssignMatrixPanel';
 import { LeaderTechnicianManagementView } from './LeaderTechnicianManagementView';
 import { LeaderReassignView } from './LeaderReassignView';
 import { LeaderTwoStepReassignModal } from './LeaderTwoStepReassignModal';
+import { StitchLeaderCommandHub } from './StitchLeaderCommandHub';
 import {
   fetchLeaderQuotaConfig,
   saveLeaderQuotaConfig,
@@ -121,8 +122,9 @@ export type LeaderPortalTab =
   | 'contractor_recap';
 
 interface LeaderPortalProps {
-  onSelectTicket: (ticket: Ticket) => void;
+  onSelectTicket: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
   onOpenWhatsApp?: (ticket: Ticket) => void;
+  onNavigate?: (tab: string) => void;
   activeLeaderTab?: LeaderPortalTab;
   onLeaderTabChange?: (tab: LeaderPortalTab) => void;
 }
@@ -147,6 +149,7 @@ export type LeaderStatusFilter =
 export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   onSelectTicket,
   onOpenWhatsApp,
+  onNavigate,
   activeLeaderTab,
   onLeaderTabChange
 }) => {
@@ -2006,6 +2009,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       : 'Menghubungkan SSE...';
 
   const isStandaloneFocusedTab =
+    activeTab === 'dashboard' ||
     activeTab === 'installer_mgmt' ||
     activeTab === 'progress_dashboard' ||
     activeTab === 'contractor_recap' ||
@@ -2381,427 +2385,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* DASHBOARD LEADER VIEW (BAGIAN 3.2: 10 KPI, SLA, BEBAN TEKNISI)*/}
+      {/* DASHBOARD LEADER VIEW (STITCH LEADER COMMAND HUB)            */}
       {/* ============================================================ */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-5">
-          {/* 13 WO Lifecycle KPI Summary Cards (Authoritative Backend/Role-Scoped) */}
-          <DashboardKpiSummaryCards
-            onDrillDown={(filterKey, filters) => {
-              setActiveKpiDrilldown({
-                filterKey,
-                dateWIB: todayWIB,
-                contractor: filters?.contractor,
-                area: filters?.area
-              });
-              setStatusFilter('all');
-              setActiveTab('wo_assignment');
-              setCurrentPage(1);
-            }}
-          />
-
-          {/* 10 ACCURATE SUMMARY METRIC CARDS */}
-          <div className={`grid gap-3 sm:gap-4 ${isCompactUI ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'}`}>
-            {/* 1. Total WO */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
-                <span className="text-xs font-semibold">Total WO Masuk</span>
-                <Layers className="w-4 h-4 text-[#5B35B1]" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-[#21183A] dark:text-white">
-                  {summaryMetrics.total}
-                </span>
-                <span className="text-[10px] text-slate-400">Total WO</span>
-              </div>
-            </div>
-
-            {/* 2. Belum Di-assign (HIGHLIGHT) */}
-            <div
-              onClick={() => {
-                setActiveKpiDrilldown({ filterKey: 'unassigned', dateWIB: todayWIB });
-                setActiveTab('wo_assignment');
-              }}
-              className={`p-4 rounded-2xl border-2 shadow-xs flex flex-col justify-between cursor-pointer transition-transform hover:scale-[1.02] ${
-                summaryMetrics.unassigned > 0
-                  ? 'bg-amber-500/10 border-amber-500/60 text-amber-900 dark:text-amber-200'
-                  : 'bg-white dark:bg-[#1A0E2E] border-[#D8CCF3] dark:border-purple-900/60'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Belum Di-assign</span>
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-300">
-                  {summaryMetrics.unassigned}
-                </span>
-                <span className="text-[10px] font-bold text-amber-600 underline">Tugaskan Sekarang →</span>
-              </div>
-            </div>
-
-            {/* 3. Sudah Di-assign */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
-                <span className="text-xs font-semibold">Sudah Di-assign</span>
-                <UserCheck className="w-4 h-4 text-indigo-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-300">
-                  {summaryMetrics.assigned}
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  {summaryMetrics.total > 0 ? Math.round((summaryMetrics.assigned / summaryMetrics.total) * 100) : 0}%
-                </span>
-              </div>
-            </div>
-
-            {/* 4. Menunggu Pengerjaan */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
-                <span className="text-xs font-semibold">Menunggu</span>
-                <Clock className="w-4 h-4 text-slate-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-slate-700 dark:text-slate-300">
-                  {summaryMetrics.waiting}
-                </span>
-                <span className="text-[10px] text-slate-400">Antrean</span>
-              </div>
-            </div>
-
-            {/* 5. Sedang Dikerjakan */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-blue-300 dark:border-blue-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-                <span className="text-xs font-semibold">Sedang Dikerjakan</span>
-                <Activity className="w-4 h-4 text-blue-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-blue-600 dark:text-blue-300">
-                  {summaryMetrics.inProgress}
-                </span>
-                <span className="text-[10px] text-blue-400">On Site / En Route</span>
-              </div>
-            </div>
-
-            {/* 6. Selesai (Completed) */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-emerald-300 dark:border-emerald-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                <span className="text-xs font-semibold">Selesai (Completed)</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-300">
-                  {summaryMetrics.completed}
-                </span>
-                <span className="text-[10px] text-emerald-500 font-bold">
-                  {summaryMetrics.total > 0 ? Math.round((summaryMetrics.completed / summaryMetrics.total) * 100) : 0}% Rate
-                </span>
-              </div>
-            </div>
-
-            {/* 7. Tertunda / Pending */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
-                <span className="text-xs font-semibold">Tertunda / Reschedule</span>
-                <RotateCcw className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-300">
-                  {summaryMetrics.pending}
-                </span>
-                <span className="text-[10px] text-amber-400">Pending</span>
-              </div>
-            </div>
-
-            {/* 8. Bermasalah / Batal */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-rose-300 dark:border-rose-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
-                <span className="text-xs font-semibold">Bermasalah / Batal</span>
-                <XCircle className="w-4 h-4 text-rose-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-rose-600 dark:text-rose-300">
-                  {summaryMetrics.problem}
-                </span>
-                <span className="text-[10px] text-rose-400">Kendala</span>
-              </div>
-            </div>
-
-            {/* 9. Teknisi Aktif */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
-                <span className="text-xs font-semibold">Teknisi Aktif</span>
-                <Users2 className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-300">
-                  {summaryMetrics.activeInstallers}
-                </span>
-                <span className="text-[10px] text-slate-400">Mengerjakan</span>
-              </div>
-            </div>
-
-            {/* 10. Teknisi Siaga / Idle */}
-            <div className="bg-white dark:bg-[#1A0E2E] p-4 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-purple-300">
-                <span className="text-xs font-semibold">Teknisi Siaga / Idle</span>
-                <UserPlus className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-2xl font-black font-mono text-amber-600 dark:text-amber-300">
-                  {summaryMetrics.idleInstallers}
-                </span>
-                <span className="text-[10px] text-slate-400">Siap Ditugaskan</span>
-              </div>
-            </div>
-          </div>
-
-          {/* SLA PROGRESS BAR & BREAKDOWN */}
-          <div className="bg-white dark:bg-[#1A0E2E] p-5 rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="font-bold text-sm text-[#21183A] dark:text-white flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#5B35B1]" />
-                  <span>SLA & Progres Penyelesaian Work Order</span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Tingkat penyelesaian instalasi harian mitra kontraktor {displayContractor}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-black font-mono text-[#5B35B1] dark:text-purple-300">
-                  {summaryMetrics.total > 0 ? Math.round((summaryMetrics.completed / summaryMetrics.total) * 100) : 0}%
-                </span>
-                <span className="text-xs text-slate-400">Terselesaikan</span>
-              </div>
-            </div>
-
-            {/* Multi-segment Progress Bar */}
-            <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
-              <div
-                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.completed / summaryMetrics.total) * 100 : 0}%` }}
-                className="bg-emerald-500 transition-all duration-500"
-                title={`Selesai: ${summaryMetrics.completed}`}
-              />
-              <div
-                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.inProgress / summaryMetrics.total) * 100 : 0}%` }}
-                className="bg-blue-500 transition-all duration-500"
-                title={`Sedang Dikerjakan: ${summaryMetrics.inProgress}`}
-              />
-              <div
-                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.waiting / summaryMetrics.total) * 100 : 0}%` }}
-                className="bg-slate-400 transition-all duration-500"
-                title={`Menunggu: ${summaryMetrics.waiting}`}
-              />
-              <div
-                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.pending / summaryMetrics.total) * 100 : 0}%` }}
-                className="bg-amber-500 transition-all duration-500"
-                title={`Pending: ${summaryMetrics.pending}`}
-              />
-              <div
-                style={{ width: `${summaryMetrics.total > 0 ? (summaryMetrics.problem / summaryMetrics.total) * 100 : 0}%` }}
-                className="bg-rose-500 transition-all duration-500"
-                title={`Bermasalah: ${summaryMetrics.problem}`}
-              />
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-slate-600 dark:text-slate-300">Selesai ({summaryMetrics.completed})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                <span className="text-slate-600 dark:text-slate-300">Sedang Dikerjakan ({summaryMetrics.inProgress})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                <span className="text-slate-600 dark:text-slate-300">Menunggu ({summaryMetrics.waiting})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span className="text-slate-600 dark:text-slate-300">Pending ({summaryMetrics.pending})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span className="text-slate-600 dark:text-slate-300">Bermasalah ({summaryMetrics.problem})</span>
-              </div>
-            </div>
-          </div>
-
-          {/* DAFTAR BEBAN KERJA TEKNISI */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 shadow-xs p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-sm text-[#21183A] dark:text-white flex items-center gap-2">
-                  <Users2 className="w-4 h-4 text-[#5B35B1]" />
-                  <span>Daftar Beban Kerja & Status Teknisi Mitra</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#E9E1FF] dark:bg-purple-900/60 text-[#3B1D78] dark:text-purple-200">
-                    {myInstallers.length} Teknisi Terdaftar
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Pemantauan real-time kapasitas pengerjaan dan kuota harian teknisi
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('wo_assignment')}
-                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#5B35B1] hover:bg-[#3B1D78] rounded-xl shadow-xs transition-all cursor-pointer"
-                >
-                  Buka Menu Assign WO →
-                </button>
-              </div>
-            </div>
-
-            {/* Table / Priority Cards of Installers */}
-            <ResponsiveDataTable
-              data={installerProgressRows}
-              getRowKey={row => row.installer.id}
-              emptyState={{
-                title: 'Belum Ada Teknisi Terdaftar',
-                description:
-                  'Belum ada teknisi yang terdaftar untuk kontraktor ini. Silakan tambahkan akun teknisi melalui menu Manajemen Teknisi.'
-              }}
-              mobileTitle={row => (
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
-                    {row.installer.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate">{row.installer.name}</div>
-                    <div className="text-[10px] text-slate-400 font-normal">@{row.installer.username}</div>
-                  </div>
-                </div>
-              )}
-              mobileSubtitle={row => row.installer.phone || 'Nomor WA belum diisi'}
-              mobileStatus={row => {
-                const isActive = row.inProgress > 0 || row.notStarted > 0;
-                return isActive ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
-                    Aktif ({row.inProgress > 0 ? 'Sedang di Lokasi' : 'Siap Menuju'})
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
-                    Siaga (Idle)
-                  </span>
-                );
-              }}
-              getRowActions={row => [
-                {
-                  id: 'detail',
-                  label: 'Lihat Detail Teknisi',
-                  icon: <Eye className="w-3.5 h-3.5" />,
-                  onClick: () => setSelectedInstallerForDetail(row.installer)
-                }
-              ]}
-              renderDesktopActions={row => (
-                <button
-                  type="button"
-                  onClick={() => setSelectedInstallerForDetail(row.installer)}
-                  className="px-2.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 rounded-lg border border-purple-200 dark:border-purple-800 transition-colors cursor-pointer"
-                >
-                  Lihat Detail
-                </button>
-              )}
-              columns={
-                [
-                  {
-                    key: 'installer',
-                    label: 'Teknisi',
-                    priority: 'hidden_mobile',
-                    render: row => (
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
-                          {row.installer.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div>{row.installer.name}</div>
-                          <div className="text-[10px] text-slate-400 font-normal">@{row.installer.username}</div>
-                        </div>
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'phone',
-                    label: 'Kontak WhatsApp',
-                    priority: 'secondary',
-                    render: row => (
-                      <span className="font-mono text-slate-600 dark:text-slate-300">
-                        {row.installer.phone || '-'}
-                      </span>
-                    )
-                  },
-                  {
-                    key: 'status',
-                    label: 'Status',
-                    align: 'center',
-                    priority: 'hidden_mobile',
-                    render: row => {
-                      const isActive = row.inProgress > 0 || row.notStarted > 0;
-                      return isActive ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
-                          Aktif ({row.inProgress > 0 ? 'Sedang di Lokasi' : 'Siap Menuju'})
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
-                          Siaga (Idle)
-                        </span>
-                      );
-                    }
-                  },
-                  {
-                    key: 'totalWO',
-                    label: 'WO Aktif',
-                    align: 'center',
-                    numeric: true,
-                    priority: 'primary',
-                    render: row => (
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                        {row.totalWO}
-                      </span>
-                    )
-                  },
-                  {
-                    key: 'quota',
-                    label: 'Beban / Kuota',
-                    align: 'center',
-                    numeric: true,
-                    priority: 'primary',
-                    render: row => (
-                      <span className={row.totalWO >= row.maxQuota ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300'}>
-                        {row.totalWO} / {row.maxQuota} WO
-                      </span>
-                    )
-                  },
-                  {
-                    key: 'progress',
-                    label: 'Progres Selesai',
-                    align: 'center',
-                    priority: 'secondary',
-                    render: row => (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-16 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            style={{ width: `${row.progressPercent}%` }}
-                            className="h-full bg-emerald-500 rounded-full"
-                          />
-                        </div>
-                        <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
-                          {row.progressPercent}%
-                        </span>
-                      </div>
-                    )
-                  }
-                ] as ResponsiveColumn<(typeof installerProgressRows)[number]>[]
-              }
-            />
-          </div>
-        </div>
+        <StitchLeaderCommandHub
+          onNavigate={tab => (onNavigate ? onNavigate(tab) : setActiveTab(tab as LeaderPortalTab))}
+          onSelectTicket={onSelectTicket}
+          onOpenWhatsApp={onOpenWhatsApp}
+          onSwitchLeaderTab={(tab, preset) => {
+            if (preset) setStatusFilter(preset);
+            setActiveTab(tab);
+            setCurrentPage(1);
+          }}
+        />
       )}
 
       {/* ============================================================ */}

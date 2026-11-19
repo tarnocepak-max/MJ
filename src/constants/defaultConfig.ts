@@ -424,10 +424,18 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support']
   },
   {
+    id: 'verification_desk',
+    label: 'Antrean Verifikasi',
+    icon: 'Inbox',
+    order: 2,
+    visible: true,
+    roles: ['super_admin', 'dispatch']
+  },
+  {
     id: 'monitoring_maps',
     label: 'Monitoring Maps',
     icon: 'Map',
-    order: 2,
+    order: 3,
     visible: true,
     roles: ['super_admin', 'dispatch', 'leader', 'management_data']
   },

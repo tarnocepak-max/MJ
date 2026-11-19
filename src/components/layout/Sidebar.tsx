@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
-import { Ticket } from '../../types/index.ts';
+import { Ticket, StandaloneMenuItem } from '../../types/index.ts';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import {
   LayoutDashboard,
@@ -45,7 +45,8 @@ import {
   ArrowUpRight,
   ArrowRightLeft,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Inbox
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -91,7 +92,8 @@ export const ICON_REGISTRY: Record<string, React.ElementType> = {
   MapPin,
   HelpCircle,
   Folder,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Inbox
 };
 
 export const resolveNavIcon = (iconName?: string): React.ElementType => {
@@ -168,13 +170,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const totalActiveTickets = todayActiveTickets.length;
   const unassignedCount = todayActiveTickets.filter(t => !t.installerName).length;
+  const completedTodayCount = todayActiveTickets.filter(
+    t =>
+      String(t.statusWOAgent || '').trim().toLowerCase() === 'closed' ||
+      String(t.approvalStatus || '').trim().toUpperCase() === 'APPROVED'
+  ).length;
+  const todayCompletionPct =
+    totalActiveTickets > 0 ? Math.round((completedTodayCount / totalActiveTickets) * 100) : 0;
+  const butuhApprovalCount = useMemo(
+    () =>
+      (canCrossDateSearch ? tickets : scopedTickets).filter(
+        t => !t.isArchived && !t.isDeleted && t.approvalStatus === 'BUTUH APPROVAL'
+      ).length,
+    [canCrossDateSearch, tickets, scopedTickets]
+  );
 
   // =========================================================================
   // 1. STANDALONE MENUS (Menu Mandiri tanpa accordion, tanpa kategori induk)
   // Untuk Installer: Hanya Dashboard Installer & Tugas Saya
-  // Untuk Non-Installer: 7 Menu Mandiri yang dapat dikonfigurasi
+  // Untuk Non-Installer: Menu Mandiri yang dapat dikonfigurasi + Verification Desk Dispatch/Super Admin
   // =========================================================================
-  const filteredStandaloneMenus = useMemo(() => {
+  const filteredStandaloneMenus = useMemo<StandaloneMenuItem[]>(() => {
     if (isInstaller) {
       return [
         {
@@ -196,7 +212,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ];
     }
 
-    const list = Array.isArray(standaloneMenus) ? standaloneMenus : [];
+    const rawList: StandaloneMenuItem[] = Array.isArray(standaloneMenus) ? standaloneMenus : [];
+    const hasVerificationDesk = rawList.some(m => m && m.id === 'verification_desk');
+    const list: StandaloneMenuItem[] =
+      !hasVerificationDesk && (userRole === 'super_admin' || userRole === 'dispatch')
+        ? [
+            ...rawList,
+            {
+              id: 'verification_desk',
+              label: 'Antrean Verifikasi',
+              icon: 'Inbox',
+              order: 1.5,
+              visible: true,
+              roles: ['super_admin', 'dispatch']
+            }
+          ]
+        : rawList;
+
     return [...list]
       .filter(item => {
         if (!item || item.visible === false) return false;
@@ -456,6 +488,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Helper for dynamic badge calculation
   const getItemBadge = (itemId: string, defaultBadge?: string | number) => {
+    if (itemId === 'verification_desk' && butuhApprovalCount > 0) {
+      return {
+        text: butuhApprovalCount > 99 ? '99+' : butuhApprovalCount,
+        color: 'rose' as const
+      };
+    }
     if (itemId === 'contact_centre' && totalLiveChatUnreadCount > 0) {
       return {
         text: totalLiveChatUnreadCount > 99 ? '99+' : totalLiveChatUnreadCount,
@@ -499,7 +537,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar Main Frame: Stitch #160D29 */}
+      {/* Sidebar Main Frame: Stitch AI Light Elevated Surface (Dark Mode #160D29) */}
       <aside
         data-testid="app-sidebar"
         data-drawer-mode={isDrawerMode ? 'true' : 'false'}
@@ -509,16 +547,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ? 'fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-2xl'
             : isMiniMode
             ? 'relative w-[72px] shadow-none'
-            : 'relative w-64 shadow-[0_1px_8px_rgba(0,0,0,0.08)]'
-        } bg-[#160D29] text-[#CEC0E8] border-r border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
+            : 'relative w-72 shadow-[0_4px_24px_rgba(53,16,94,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.45)]'
+        } bg-white dark:bg-[#160D29] text-[#4b4452] dark:text-[#CEC0E8] border-r border-[#e8ddff] dark:border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
       >
         {/* 1. Sidebar Header / MoraJaws Brand Lockup */}
-        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-4 justify-between'} flex items-center bg-[#160D29] border-b border-white/10 sticky top-0 z-10 shrink-0`}>
+        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-5 justify-between'} flex items-center bg-white dark:bg-[#160D29] border-b border-[#f3eaff] dark:border-white/10 sticky top-0 z-10 shrink-0`}>
           {isMiniMode ? (
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-10 h-10 rounded-xl nav-3d-active text-white flex items-center justify-center active:translate-y-0.5 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-[#7135b5] text-white flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)] active:translate-y-0.5 cursor-pointer"
               title="Perluas Sidebar (Work Order Management)"
               aria-label="Perluas Sidebar"
             >
@@ -526,53 +564,109 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           ) : (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl nav-3d-active flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-[#7135b5] flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(33,24,58,0.2)] shrink-0">
                 <MoraJawsLogo size="sm" animated={false} withGlow={false} />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-display font-extrabold text-[17px] leading-none text-white tracking-tight truncate">
-                  {config.global.appName || 'MoraJaws'}
+                <span className="font-display font-extrabold text-[17px] leading-none text-[#58149c] dark:text-white tracking-tight truncate uppercase">
+                  {config.global.appName || 'MORAJAWS'}
                 </span>
-                <span className="text-[9.5px] font-bold text-[#A78BFA] uppercase tracking-wider mt-1 truncate">
-                  Work Order Management
+                <span className="text-[10px] font-bold text-[#6a46c1] dark:text-[#A78BFA] uppercase tracking-[0.14em] mt-1 truncate">
+                  {userRole === 'dispatch' ? 'Ops Dispatch' : 'Ops Command'}
                 </span>
               </div>
             </div>
           )}
 
-          {isDrawerMode ? (
-            <button
-              type="button"
-              onClick={() => onChangeState('closed')}
-              className="min-w-[38px] min-h-[38px] flex items-center justify-center text-[#CEC0E8] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
-              title="Tutup Menu"
-              aria-label="Tutup Menu"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          ) : !isMiniMode ? (
-            <button
-              type="button"
-              onClick={() => onChangeState('minimized')}
-              className="p-1.5 text-[#A78BFA] hover:text-white hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer shrink-0"
-              title="Mode Ikon Ringkas (72px)"
-              aria-label="Mode Ikon Ringkas"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          ) : null}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isMiniMode && !isDrawerMode && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#eee4ff] dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E]"
+                title={`Status Core: ${isOnline ? databaseStatus : 'offline'} / ${syncStatus}`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    !isOnline
+                      ? 'bg-amber-500'
+                      : databaseStatus === 'connected'
+                      ? 'bg-emerald-500 animate-pulse'
+                      : 'bg-amber-500'
+                  }`}
+                />
+                <span className="text-[10px] font-bold tracking-wider text-[#1f1638] dark:text-white">
+                  {!isOnline ? 'OFF' : syncStatus === 'SYNCING' ? 'SYNCING' : 'SYNC'}
+                </span>
+              </div>
+            )}
+            {isDrawerMode ? (
+              <button
+                type="button"
+                onClick={() => onChangeState('closed')}
+                className="min-w-[38px] min-h-[38px] flex items-center justify-center text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#58149c] dark:hover:text-white hover:bg-[#eee4ff] dark:hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
+                title="Tutup Menu"
+                aria-label="Tutup Menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            ) : !isMiniMode ? (
+              <button
+                type="button"
+                onClick={() => onChangeState('minimized')}
+                className="p-1.5 text-[#7d7484] dark:text-[#A78BFA] hover:text-[#58149c] dark:hover:text-white hover:bg-[#f3eaff] dark:hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer shrink-0"
+                title="Mode Ikon Ringkas (72px)"
+                aria-label="Mode Ikon Ringkas"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            ) : null}
+          </div>
         </div>
+
+        {/* Live System Status Chip (Expanded Mode) */}
+        {!isMiniMode && (
+          <div className="px-4 pt-3 pb-1 shrink-0">
+            <div className="bg-[#f3eaff] dark:bg-[#22123F] rounded-lg px-2.5 py-2 flex items-center justify-between shadow-[inset_0_1px_2px_rgba(33,24,58,0.04)] border border-[#e8ddff]/60 dark:border-[#35105E]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    !isOnline
+                      ? 'bg-amber-500'
+                      : databaseStatus === 'connected'
+                      ? 'bg-emerald-500 animate-pulse'
+                      : databaseStatus === 'connecting'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-rose-500'
+                  }`}
+                />
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#CEC0E8] truncate">
+                  ACTIVE TOPOLOGY
+                </span>
+              </div>
+              <span
+                className={`text-[10.5px] font-bold uppercase tracking-wider shrink-0 truncate max-w-[100px] ${
+                  !isOnline
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : databaseStatus === 'connected'
+                    ? 'text-[#58149c] dark:text-[#dab9ff]'
+                    : 'text-amber-700 dark:text-amber-300'
+                }`}
+              >
+                {currentUser?.area || (!isOnline ? 'OFFLINE' : databaseStatus === 'connected' ? 'FTTH CORE' : databaseStatus.toUpperCase())}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* 2. Global Search Bar */}
         {isMiniMode ? (
-          <div className="px-2 py-2.5 border-b border-white/10 flex flex-col items-center gap-1.5 shrink-0">
+          <div className="px-2 py-2.5 border-b border-[#f3eaff] dark:border-white/10 flex flex-col items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
                 (window as any).__mjFocusSidebarSearch = true;
                 onChangeState('expanded');
               }}
-              className="w-11 h-10 rounded-xl bg-[#22123F] hover:bg-[#35105E] text-[#A78BFA] hover:text-white flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-colors cursor-pointer"
+              className="w-11 h-10 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] text-[#58149c] dark:text-[#A78BFA] flex items-center justify-center border border-[#e8ddff] dark:border-[#35105E] transition-colors cursor-pointer"
               title="Cari menu, fitur, No. WO (Ctrl+K)"
               aria-label="Cari di Sidebar"
             >
@@ -581,7 +675,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-11 h-8 rounded-lg text-[#A78BFA] hover:text-white hover:bg-[#35105E] flex items-center justify-center transition-colors cursor-pointer"
+              className="w-11 h-8 rounded-lg text-[#6a46c1] dark:text-[#A78BFA] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] flex items-center justify-center transition-colors cursor-pointer"
               title="Perluas Sidebar"
               aria-label="Perluas Sidebar"
             >
@@ -589,9 +683,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         ) : (
-          <div className="px-3 pt-3 pb-2 border-b border-white/10 bg-[#160D29] shrink-0">
+          <div className="px-4 pt-2 pb-2.5 border-b border-[#f3eaff] dark:border-white/10 bg-white dark:bg-[#160D29] shrink-0">
             <div className="relative flex items-center w-full">
-              <Search className="w-3.5 h-3.5 text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
+              <Search className="w-3.5 h-3.5 text-[#7d7484] dark:text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -606,7 +700,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 placeholder="Cari menu, fitur, No. WO..."
                 aria-label="Global Search Sidebar"
                 data-testid="sidebar-global-search"
-                className="w-full pl-8 pr-12 py-2 bg-[#22123F] hover:bg-[#2A1650] focus:bg-[#2A1650] text-xs text-white placeholder-[#8B8495] rounded-lg border border-[#35105E] focus:border-[#A78BFA]/70 focus:ring-1 focus:ring-[#A78BFA]/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] outline-none transition-all"
+                className="w-full pl-8 pr-12 py-1.5 bg-[#f8f1ff] dark:bg-[#22123F] hover:bg-[#f3eaff] dark:hover:bg-[#2A1650] focus:bg-white dark:focus:bg-[#2A1650] text-xs text-[#1f1638] dark:text-white placeholder-[#7d7484] dark:placeholder-[#8B8495] rounded-lg border border-[#e8ddff] dark:border-[#35105E] focus:border-[#7135b5] dark:focus:border-[#A78BFA]/70 focus:ring-2 focus:ring-[#7135b5]/20 shadow-[inset_0_1px_2px_rgba(33,24,58,0.05)] outline-none transition-all"
               />
               {searchQuery ? (
                 <button
@@ -615,7 +709,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2 p-1 rounded text-[#A78BFA] hover:text-white hover:bg-[#35105E] transition-colors cursor-pointer"
+                  className="absolute right-2 p-1 rounded text-[#7d7484] dark:text-[#A78BFA] hover:text-[#58149c] dark:hover:text-white hover:bg-[#eee4ff] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
                   title="Bersihkan pencarian"
                   aria-label="Bersihkan pencarian"
                 >
@@ -623,7 +717,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               ) : (
                 !isDrawerMode && (
-                  <kbd className="absolute right-2 px-1.5 py-0.5 bg-[#160D29]/90 border border-[#35105E] rounded text-[9px] font-mono font-bold text-[#A78BFA] pointer-events-none">
+                  <kbd className="absolute right-2 px-1.5 py-0.5 bg-white dark:bg-[#160D29]/90 border border-[#e8ddff] dark:border-[#35105E] rounded text-[9px] font-mono font-bold text-[#6a46c1] dark:text-[#A78BFA] pointer-events-none">
                     Ctrl K
                   </kbd>
                 )
@@ -633,7 +727,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* 3. Navigation Menu (Iconic Mini OR Unified Live Search Results OR Standard Menu) */}
-        <nav className={`flex-1 ${isMiniMode ? 'px-2 py-3 space-y-1.5' : 'px-3 py-3 space-y-1'} overflow-y-auto scrollbar-thin`}>
+        <nav className={`flex-1 ${isMiniMode ? 'px-2 py-3 space-y-1.5' : 'px-4 py-2.5 space-y-1'} overflow-y-auto scrollbar-thin`}>
           {isMiniMode ? (
             <div className="flex flex-col items-center gap-1.5">
               {filteredStandaloneMenus.map(item => {
@@ -652,21 +746,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     aria-label={item.label}
                     className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer active:translate-y-0.5 ${
                       isActive
-                        ? 'nav-3d-active text-white'
-                        : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
+                        ? 'bg-[#7135b5] text-white shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)]'
+                        : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
                     {badgeInfo && (
                       <span
-                        className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[8.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-[#160D29] ${
+                        className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[8.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-[#160D29] ${
                           badgeInfo.color === 'rose'
                             ? 'bg-[#DC4C5A] text-white'
                             : badgeInfo.color === 'amber'
                             ? 'bg-[#D97706] text-white'
                             : badgeInfo.color === 'emerald'
                             ? 'bg-[#16A36A] text-white'
-                            : 'bg-[#7135B5] text-white'
+                            : 'bg-[#7b1eca] text-white'
                         }`}
                       >
                         {typeof badgeInfo.text === 'number' && badgeInfo.text > 99 ? '99+' : badgeInfo.text}
@@ -677,7 +771,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
 
               {filteredCategoriesWithSubmenus.length > 0 && (
-                <div className="w-8 h-px bg-[#35105E] my-1" />
+                <div className="w-8 h-px bg-[#e8ddff] dark:bg-[#35105E] my-1" />
               )}
 
               {filteredCategoriesWithSubmenus.flatMap(cat => cat.submenus).map(item => {
@@ -696,11 +790,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     aria-label={item.label}
                     className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer active:translate-y-0.5 ${
                       isActive
-                        ? 'nav-3d-active text-white'
-                        : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
+                        ? 'bg-[#7135b5] text-white shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)]'
+                        : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
                     }`}
                   >
-                    <SubIcon className={`w-4.5 h-4.5 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
+                    <SubIcon className={`w-4.5 h-4.5 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
                   </button>
                 );
               })}
@@ -709,12 +803,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="space-y-3" data-testid="sidebar-search-results">
               {/* Group A: Live RBAC Menu & Feature Results */}
               <div className="space-y-1">
-                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider">
-                  <span>Menu & Fitur (RBAC)</span>
-                  <span className="font-mono text-[#D8B4FE]">{matchedMenus.length}</span>
+                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#7d7484] dark:text-[#A78BFA] uppercase tracking-wider">
+                  <span>Menu &amp; Fitur (RBAC)</span>
+                  <span className="font-mono text-[#58149c] dark:text-[#D8B4FE]">{matchedMenus.length}</span>
                 </div>
                 {matchedMenus.length === 0 ? (
-                  <p className="px-2.5 py-1.5 text-[11px] text-[#8B8495] italic">
+                  <p className="px-2.5 py-1.5 text-[11px] text-[#7d7484] italic">
                     Tidak ada menu yang cocok.
                   </p>
                 ) : (
@@ -731,18 +825,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                         className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer ${
                           isActive
-                            ? 'bg-gradient-to-r from-[#5B35B1] to-[#7135B5] text-white font-bold shadow-xs'
-                            : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
+                            ? 'bg-[#7135b5] text-white font-bold shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.2)]'
+                            : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
                         }`}
                       >
-                        <ItemIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
+                        <ItemIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
                         <div className="flex-1 min-w-0 text-left">
                           <div className="truncate font-semibold">{item.label}</div>
                           {item.group && (
-                            <div className="text-[9.5px] text-[#8B8495] truncate">{item.group}</div>
+                            <div className={`text-[9.5px] truncate ${isActive ? 'text-white/80' : 'text-[#7d7484]'}`}>{item.group}</div>
                           )}
                         </div>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-[#A78BFA] shrink-0" />
+                        <ArrowUpRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
                       </button>
                     );
                   })
@@ -750,22 +844,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {/* Group B: Live Work Order Search Results */}
-              <div className="space-y-1 pt-2 border-t border-[#35105E]/60">
-                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider">
+              <div className="space-y-1 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]/60">
+                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#7d7484] dark:text-[#A78BFA] uppercase tracking-wider">
                   <span>Work Order</span>
                   {isSearching ? (
-                    <Loader2 className="w-3 h-3 animate-spin text-[#D8B4FE]" />
+                    <Loader2 className="w-3 h-3 animate-spin text-[#7135b5] dark:text-[#D8B4FE]" />
                   ) : (
-                    <span className="font-mono text-[#D8B4FE]">{searchResults.length}</span>
+                    <span className="font-mono text-[#58149c] dark:text-[#D8B4FE]">{searchResults.length}</span>
                   )}
                 </div>
 
                 {searchError && (
-                  <p className="px-2.5 py-1 text-[10px] text-amber-300/90">{searchError}</p>
+                  <p className="px-2.5 py-1 text-[10px] text-amber-700 dark:text-amber-300/90">{searchError}</p>
                 )}
 
                 {!isSearching && searchResults.length === 0 ? (
-                  <p className="px-2.5 py-1.5 text-[11px] text-[#8B8495] italic">
+                  <p className="px-2.5 py-1.5 text-[11px] text-[#7d7484] italic">
                     Tidak ada Work Order cocok.
                   </p>
                 ) : (
@@ -785,22 +879,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onChangeState('closed');
                           }
                         }}
-                        className="w-full text-left px-2.5 py-2 rounded-lg bg-[#1E1236]/80 hover:bg-[#35105E] border border-[#35105E]/70 transition-colors cursor-pointer space-y-1"
+                        className="w-full text-left px-2.5 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#1E1236]/80 hover:bg-[#eee4ff] dark:hover:bg-[#35105E] border border-[#e8ddff] dark:border-[#35105E]/70 transition-colors cursor-pointer space-y-1"
                       >
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-mono text-[11px] font-bold text-white truncate">
+                          <span className="font-mono text-[11px] font-bold text-[#58149c] dark:text-white truncate">
                             {t.woNumber || '-'}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded bg-[#35105E] text-[#D8B4FE] text-[9px] font-bold shrink-0">
+                          <span className="px-1.5 py-0.5 rounded bg-[#eee4ff] dark:bg-[#35105E] text-[#58149c] dark:text-[#D8B4FE] text-[9px] font-bold shrink-0">
                             {apptDate}
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#CEC0E8] truncate">
+                        <div className="text-[11px] font-medium text-[#1f1638] dark:text-[#CEC0E8] truncate">
                           {t.customerName || '-'}
                         </div>
-                        <div className="flex items-center justify-between gap-1.5 text-[9.5px] text-[#8B8495]">
+                        <div className="flex items-center justify-between gap-1.5 text-[9.5px] text-[#7d7484] dark:text-[#8B8495]">
                           <span className="truncate">{t.idCustomer || t.installerName || '-'}</span>
-                          <span className="text-[#A78BFA] font-semibold shrink-0">{t.statusWOInstaller || t.statusWOAgent || 'OPEN'}</span>
+                          <span className="text-[#6a46c1] dark:text-[#A78BFA] font-semibold shrink-0">{t.statusWOInstaller || t.statusWOAgent || 'OPEN'}</span>
                         </div>
                       </button>
                     );
@@ -810,164 +904,164 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
-              <div className="px-2.5 py-1.5 text-[10.5px] font-bold text-[#8B8495] uppercase tracking-[0.08em]">
-                Operations Core
+              <div className="px-2 pt-1 pb-1 text-[10.5px] font-bold text-[#7d7484] dark:text-[#8B8495] uppercase tracking-[0.08em]">
+                Operational Dispatch
               </div>
 
               {/* Standalone Menus */}
               <div className="space-y-1">
-            {filteredStandaloneMenus.map(item => {
-              const Icon = resolveNavIcon(item.icon);
-              const isActive =
-                activeTab === item.id ||
-                (item.id === 'tickets' && (activeTab === 'tickets' || activeTab === 'wo_management')) ||
-                (item.id === 'installer_portal' && (activeTab === 'installer_portal' || activeTab === 'installer_dashboard'));
+                {filteredStandaloneMenus.map(item => {
+                  const Icon = resolveNavIcon(item.icon);
+                  const isActive =
+                    activeTab === item.id ||
+                    (item.id === 'tickets' && (activeTab === 'tickets' || activeTab === 'wo_management')) ||
+                    (item.id === 'installer_portal' && (activeTab === 'installer_portal' || activeTab === 'installer_dashboard'));
 
-              const badgeInfo = getItemBadge(item.id, item.badge);
+                  const badgeInfo = getItemBadge(item.id, item.badge);
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handleItemClick(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer active:translate-y-0.5 ${
-                    isActive
-                      ? 'nav-3d-active text-white font-bold'
-                      : 'text-[#CEC0E8] font-medium hover:bg-[#35105E] hover:text-white'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
-                  <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
-                  {badgeInfo && (
-                    <span
-                      className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded tabular-nums shrink-0 ${
-                        badgeInfo.color === 'rose'
-                          ? 'bg-[#DC4C5A] text-white'
-                          : isActive
-                          ? 'bg-white/20 text-white'
-                          : badgeInfo.color === 'amber'
-                          ? 'bg-[#E59A27]/25 text-[#FBBF24]'
-                          : badgeInfo.color === 'emerald'
-                          ? 'bg-[#16A36A]/25 text-emerald-300'
-                          : 'bg-[#22123F] text-[#CEC0E8]'
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemClick(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all cursor-pointer active:translate-y-0.5 ${
+                        isActive
+                          ? 'bg-[#7135b5] text-white font-semibold shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
+                          : 'text-[#4b4452] dark:text-[#CEC0E8] font-semibold hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
                       }`}
                     >
-                      {badgeInfo.text}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Collapsible Category Accordions */}
-          {filteredCategoriesWithSubmenus.length > 0 && (
-            <div className="pt-3 space-y-1">
-              {filteredCategoriesWithSubmenus.map(cat => {
-                const CatIcon = resolveNavIcon(cat.icon);
-                const isAccordionMode = cat.mode !== 'static';
-                const isOpen = isAccordionMode ? !!openGroups[cat.id] : true;
-                const hasActiveChild = cat.submenus.some(
-                  sub =>
-                    activeTab === sub.id ||
-                    (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-                    (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
-                );
-
-                return (
-                  <div key={cat.id} className="space-y-1">
-                    {isAccordionMode ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleGroup(cat.id, 'accordion')}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          hasActiveChild
-                            ? 'text-white bg-[#35105E]/70'
-                            : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white'
-                        }`}
-                        aria-expanded={isOpen}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <CatIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
-                          <span className="truncate">{cat.name}</span>
-                        </div>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 shrink-0 text-[#A78BFA] transition-transform duration-200 ${
-                            isOpen ? 'rotate-180' : 'rotate-0'
+                      <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                      <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
+                      {badgeInfo && (
+                        <span
+                          className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-full tabular-nums shrink-0 ${
+                            badgeInfo.color === 'rose'
+                              ? 'bg-[#DC4C5A] text-white'
+                              : isActive
+                              ? 'bg-white/20 text-white'
+                              : badgeInfo.color === 'amber'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
+                              : badgeInfo.color === 'emerald'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-[#16A36A]/25 dark:text-emerald-300'
+                              : 'bg-[#7b1eca] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
                           }`}
-                        />
-                      </button>
-                    ) : (
-                      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-bold text-[#CEC0E8]">
-                        <CatIcon className="w-4 h-4 shrink-0 text-[#A78BFA]" />
-                        <span className="truncate">{cat.name}</span>
-                      </div>
-                    )}
+                        >
+                          {badgeInfo.text}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-                    {isOpen && (
-                      <div className="pl-5 pr-1 py-0.5 space-y-1">
-                        {cat.submenus.map(item => {
-                          const SubIcon = resolveNavIcon(item.icon);
-                          const isActive =
-                            activeTab === item.id ||
-                            (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-                            (item.id === 'setup' &&
-                              ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
+              {/* Collapsible Category Accordions */}
+              {filteredCategoriesWithSubmenus.length > 0 && (
+                <div className="pt-3 space-y-1.5">
+                  {filteredCategoriesWithSubmenus.map(cat => {
+                    const CatIcon = resolveNavIcon(cat.icon);
+                    const isAccordionMode = cat.mode !== 'static';
+                    const isOpen = isAccordionMode ? !!openGroups[cat.id] : true;
+                    const hasActiveChild = cat.submenus.some(
+                      sub =>
+                        activeTab === sub.id ||
+                        (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
+                        (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
+                    );
 
-                          const badgeInfo = getItemBadge(item.id, item.badge);
-
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleItemClick(item.id)}
-                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer active:translate-y-0.5 ${
-                                isActive
-                                  ? 'nav-3d-active text-white font-bold'
-                                  : item.highlight
-                                  ? 'text-white bg-[#35105E]/50 hover:bg-[#35105E] font-medium'
-                                  : 'text-[#CEC0E8] hover:bg-[#35105E] hover:text-white font-normal'
+                    return (
+                      <div key={cat.id} className="space-y-1">
+                        {isAccordionMode ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(cat.id, 'accordion')}
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                              hasActiveChild
+                                ? 'text-[#58149c] dark:text-white bg-[#f3eaff] dark:bg-[#35105E]/70'
+                                : 'text-[#7d7484] dark:text-[#A78BFA] hover:bg-[#f8f1ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
+                            }`}
+                            aria-expanded={isOpen}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6a46c1] dark:text-[#A78BFA]" />
+                              <span className="truncate">{cat.name}</span>
+                            </div>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 shrink-0 text-[#7d7484] dark:text-[#A78BFA] transition-transform duration-200 ${
+                                isOpen ? 'rotate-180' : 'rotate-0'
                               }`}
-                            >
-                              <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#D8B4FE]' : 'text-[#A78BFA]'}`} />
-                              <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
-                              {badgeInfo && (
-                                <span
-                                  className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded tabular-nums shrink-0 ${
-                                    badgeInfo.color === 'rose'
-                                      ? 'bg-[#DC4C5A] text-white'
-                                      : isActive
-                                      ? 'bg-white/20 text-white'
-                                      : badgeInfo.color === 'amber'
-                                      ? 'bg-[#E59A27]/25 text-[#FBBF24]'
-                                      : badgeInfo.color === 'emerald'
-                                      ? 'bg-[#16A36A]/25 text-emerald-300'
-                                      : 'bg-[#22123F] text-[#CEC0E8]'
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-full flex items-center gap-2 px-2.5 pt-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A78BFA]">
+                            <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6a46c1] dark:text-[#A78BFA]" />
+                            <span className="truncate">{cat.name}</span>
+                          </div>
+                        )}
+
+                        {isOpen && (
+                          <div className="space-y-0.5 pl-1">
+                            {cat.submenus.map(item => {
+                              const SubIcon = resolveNavIcon(item.icon);
+                              const isActive =
+                                activeTab === item.id ||
+                                (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
+                                (item.id === 'setup' &&
+                                  ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
+
+                              const badgeInfo = getItemBadge(item.id, item.badge);
+
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleItemClick(item.id)}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12.5px] transition-all cursor-pointer active:translate-y-0.5 ${
+                                    isActive
+                                      ? 'bg-[#7135b5] text-white font-semibold shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
+                                      : item.highlight
+                                      ? 'text-[#58149c] dark:text-white bg-[#f3eaff] dark:bg-[#35105E]/50 hover:bg-[#eee4ff] dark:hover:bg-[#35105E] font-semibold'
+                                      : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white font-semibold'
                                   }`}
                                 >
-                                  {badgeInfo.text}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
+                                  <SubIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                                  <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
+                                  {badgeInfo && (
+                                    <span
+                                      className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded-full tabular-nums shrink-0 ${
+                                        badgeInfo.color === 'rose'
+                                          ? 'bg-[#DC4C5A] text-white'
+                                          : isActive
+                                          ? 'bg-white/20 text-white'
+                                          : badgeInfo.color === 'amber'
+                                          ? 'bg-amber-100 text-amber-800 dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
+                                          : badgeInfo.color === 'emerald'
+                                          ? 'bg-emerald-100 text-emerald-800 dark:bg-[#16A36A]/25 dark:text-emerald-300'
+                                          : 'bg-[#7b1eca] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                                      }`}
+                                    >
+                                      {badgeInfo.text}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </nav>
 
-        {/* 4. Recessed Bottom Role Badge & Cluster Status Well */}
-        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-3'} bg-[#35105E]/40 border-t border-white/10 space-y-2 shrink-0`}>
+        {/* 4. Bottom Live Operational Summary & Session Controls */}
+        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-4'} bg-white dark:bg-[#1a0f30] border-t border-[#f3eaff] dark:border-white/10 space-y-2.5 shrink-0`}>
           {isMiniMode ? (
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className="w-11 h-9 rounded-lg bg-[#160D29]/75 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] flex items-center justify-center border border-[#35105E]"
+                className="w-11 h-9 rounded-lg bg-[#f8f1ff] dark:bg-[#160D29]/75 flex items-center justify-center border border-[#e8ddff] dark:border-[#35105E]"
                 title={`Cluster: ${databaseStatus === 'connected' ? 'JKT-01' : databaseStatus} (${syncStatus})`}
               >
                 <span
@@ -983,7 +1077,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={logout}
-                className="w-11 h-9 rounded-lg text-rose-300 hover:text-white hover:bg-[#DC4C5A]/30 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-11 h-9 rounded-lg text-rose-600 dark:text-rose-300 hover:text-white hover:bg-[#DC4C5A] flex items-center justify-center transition-colors cursor-pointer"
                 title="Keluar / Logout"
                 aria-label="Keluar / Logout"
               >
@@ -991,17 +1085,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           ) : (
-            <div className="p-2.5 rounded-lg bg-[#160D29]/75 shadow-[inset_0_2px_4px_rgba(0,0,0,0.28)] border border-white/10 space-y-2">
-              <div className="flex items-center justify-between gap-2 text-[10.5px]">
-                <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#A78BFA]">
-                  Role Badge
-                </span>
-                <span className="px-2 py-0.5 rounded-md nav-3d-active text-white font-bold capitalize text-[10px]">
-                  {userRole.replace('_', ' ')}
-                </span>
+            <div className="p-3 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29]/80 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.28)] border border-[#e8ddff] dark:border-white/10 space-y-2.5">
+              {/* Live WO & Unassigned Counters + Real Completion Meter */}
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-white/10">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#A78BFA]">
+                    WO HARI INI
+                  </span>
+                  <span className="font-display text-sm font-extrabold text-[#58149c] dark:text-white tabular-nums">
+                    {totalActiveTickets} Aktif
+                  </span>
+                </div>
+                <div className="flex flex-col text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#A78BFA]">
+                    UNASSIGNED
+                  </span>
+                  <span className={`font-display text-sm font-extrabold tabular-nums ${unassignedCount > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-[#6a46c1] dark:text-emerald-300'}`}>
+                    {unassignedCount} WO
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between text-[10.5px]">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#A78BFA]">
+                    SLA COMPLETION RATE
+                  </span>
+                  <span className="text-[10.5px] font-mono font-bold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+                    {todayCompletionPct}%
+                  </span>
+                </div>
+                <div className="w-full bg-[#e8ddff] dark:bg-[#22123F] h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-[#58149c] dark:bg-[#a380fe] h-full transition-all duration-300"
+                    style={{ width: `${todayCompletionPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 text-[10.5px]">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${
@@ -1012,25 +1134,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'bg-[#DC4C5A]'
                     }`}
                   />
-                  <span className="font-bold text-[#CEC0E8] truncate text-[11px]">
-                    {databaseStatus === 'connected'
-                      ? 'Cluster: JKT-01'
-                      : databaseStatus === 'connecting'
-                      ? 'Menghubungkan DB'
-                      : 'Mode Lokal'}
+                  <span className="font-bold text-[#1f1638] dark:text-[#CEC0E8] truncate text-[11px]">
+                    {currentUser?.name || 'Staff'}
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-[#A78BFA] font-semibold">
-                  v4.18 · {syncStatus === 'SAVED' ? 'LIVE' : syncStatus}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10.5px] text-[#CEC0E8]">
-                <span className="truncate font-medium text-white">
-                  {currentUser?.name || 'Staff'}
-                </span>
-                <span className="font-mono text-[10px] text-[#A78BFA] truncate max-w-[95px]">
-                  @{currentUser?.username || 'staff'}
+                <span className="px-2 py-0.5 rounded-md bg-[#7135b5] text-white font-bold capitalize text-[10px] shrink-0">
+                  {userRole.replace('_', ' ')}
                 </span>
               </div>
 
@@ -1039,10 +1148,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsSessionModalOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 text-white hover:bg-[#35105E] text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-white dark:bg-white/5 text-[#58149c] dark:text-white border border-[#e8ddff] dark:border-white/10 hover:bg-[#eee4ff] dark:hover:bg-[#35105E] text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
                     title="Kelola Sesi Staf Aktif"
                   >
-                    <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#A78BFA]" />
+                    <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#7135b5] dark:text-[#A78BFA]" />
                     <span>Sesi</span>
                   </button>
                 )}
@@ -1050,7 +1159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#DC4C5A]/20 text-rose-200 hover:text-white hover:bg-[#DC4C5A]/45 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-rose-50 dark:bg-[#DC4C5A]/20 text-rose-700 dark:text-rose-200 border border-rose-200/80 dark:border-transparent hover:bg-rose-600 hover:text-white dark:hover:bg-[#DC4C5A]/45 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
                   title="Keluar / Logout"
                 >
                   <LogOut className="w-3.5 h-3.5 shrink-0" />
