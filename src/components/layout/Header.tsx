@@ -270,8 +270,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         : 'Sync Error';
 
     return (
-      <header className="sticky top-0 z-40 bg-[#f9f9ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#d8e3fb] dark:border-[#35105E] shadow-[0_1px_8px_rgba(17,28,45,0.05)] transition-colors pt-safe">
-        <div className="max-w-lg lg:max-w-5xl mx-auto px-3.5 sm:px-6 pt-2 pb-2 space-y-1.5">
+      <header className="sticky top-0 z-40 bg-[#fcf8ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-purple-100/90 dark:border-[#35105E] shadow-[0_1px_10px_rgba(74,21,132,0.05)] transition-colors pt-safe">
+        <div className="max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto px-3.5 sm:px-6 pt-2.5 pb-2 space-y-2">
           {/* Row 1: Brand + FTTH + Technician Identity | Date + Profile Button */}
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -285,21 +285,21 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               </button>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-display font-extrabold text-[15px] text-[#111c2d] dark:text-white tracking-tight leading-none">
+                  <span className="font-display font-extrabold text-[16px] text-slate-900 dark:text-white tracking-tight leading-none">
                     {config.global.appName || 'MoraJaws'} Ops
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#cce5ff] dark:bg-[#35105E] text-[#004b73] dark:text-[#D8B4FE] text-[9.5px] font-extrabold tracking-wider uppercase leading-none">
+                  <span className="px-1.5 py-0.5 rounded bg-[#dcfce7] dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-700/60 text-[#059669] dark:text-emerald-300 text-[9.5px] font-bold tracking-wider uppercase leading-none">
                     FTTH
                   </span>
                 </div>
-                <p className="text-[11px] font-semibold text-[#006194] dark:text-[#93ccff] truncate mt-0.5">
+                <p className="text-[11.5px] font-semibold text-[#7135b5] dark:text-[#DAB9FF] truncate mt-0.5">
                   Field Engineer · {currentUser.name}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className="font-mono text-[11px] font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap">
+              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-[#CEC0E8] tabular-nums whitespace-nowrap hidden xs:inline sm:inline">
                 {formattedToday}
               </span>
 
@@ -309,12 +309,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   aria-label="Profil & Pengaturan Akun"
-                  className="w-9 h-9 rounded-full bg-gradient-to-br from-[#5B35B1] to-[#431599] text-white font-display font-bold text-xs flex items-center justify-center shadow-xs hover:opacity-95 active:scale-95 transition-all cursor-pointer relative"
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6d28d9] to-[#4a1584] text-white font-display font-bold text-xs flex items-center justify-center shadow-md shadow-purple-900/20 hover:opacity-95 active:scale-95 transition-all cursor-pointer relative"
                 >
                   {getInitials(currentUser.name)}
                   <span
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-[#160D29] ${
-                      isOnline ? 'bg-[#16A36A]' : 'bg-[#E59A27]'
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#160D29] ${
+                      isOnline ? 'bg-emerald-500' : 'bg-amber-500'
                     }`}
                   />
                 </button>
@@ -322,8 +322,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 {userMenuOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xl border border-[#E9E5F0] dark:border-[#35105E] py-2 z-50 text-xs">
-                      <div className="px-4 py-2.5 border-b border-[#E9E5F0] dark:border-[#35105E] space-y-1">
+                    <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xl border border-purple-100 dark:border-[#35105E] py-2 z-50 text-xs">
+                      <div className="px-4 py-2.5 border-b border-purple-100 dark:border-[#35105E] space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-bold text-[#211A2E] dark:text-white truncate">{currentUser.name}</span>
                           {getRoleIcon(currentUser.role)}
@@ -390,34 +390,34 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </div>
           </div>
 
-          {/* Row 2: Compact Cloud & Connectivity Strip (wrapping safe on 360px screens) */}
-          <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-[#E9E5F0]/80 dark:border-[#35105E]/70">
-            <div className="flex items-center gap-1 min-w-0">
+          {/* Row 2: Compact Cloud & Connectivity Strip (Stitch tactile status strip) */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-purple-100/80 dark:border-[#35105E]/70">
+            <div className="flex items-center gap-1.5 min-w-0">
               {/* Cloud Live indicator */}
               <button
                 type="button"
                 onClick={handleGlobalRefresh}
                 disabled={isRefreshing}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                   syncStatus === 'SAVED'
-                    ? 'bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300'
+                    ? 'bg-[#dcfce7] border-emerald-200 text-[#059669] dark:bg-emerald-950/60 dark:border-emerald-700/60 dark:text-emerald-300'
                     : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                    ? 'bg-[#F0E3FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                    ? 'bg-purple-50 border-purple-200 text-[#7135b5] dark:bg-[#35105E] dark:border-[#7135b5] dark:text-[#D8B4FE]'
                     : syncStatus === 'OFFLINE'
-                    ? 'bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950/60 dark:text-amber-300'
-                    : 'bg-[#FEF2F2] text-[#DC4C5A] dark:bg-rose-950/60 dark:text-rose-300'
+                    ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
+                    : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/60 dark:border-rose-700/60 dark:text-rose-300'
                 }`}
                 title="Ketuk untuk sinkronisasi cloud"
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                     syncStatus === 'SAVED'
-                      ? 'bg-[#16A36A]'
+                      ? 'bg-emerald-500'
                       : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                      ? 'bg-[#431599] animate-pulse'
+                      ? 'bg-[#7135b5] animate-pulse'
                       : syncStatus === 'OFFLINE'
-                      ? 'bg-[#E59A27]'
-                      : 'bg-[#DC4C5A]'
+                      ? 'bg-amber-500'
+                      : 'bg-rose-500'
                   }`}
                 />
                 <span>{isRefreshing ? 'Syncing...' : cloudLabel}</span>
@@ -427,26 +427,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               <button
                 type="button"
                 onClick={() => setIsOfflineModalOpen(true)}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border shadow-2xs transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
                   pendingCount > 0
-                    ? 'bg-[#FEF3C7] border-[#F59E0B]/40 text-[#92400E] dark:bg-amber-950/60 dark:text-amber-300'
-                    : 'bg-[#F7F6FA] border-[#E9E5F0] text-[#494453] dark:bg-[#22123F] dark:border-[#35105E] dark:text-[#CEC0E8]'
+                    ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
+                    : 'bg-white border-purple-200/80 text-slate-600 dark:bg-[#22123F] dark:border-[#35105E] dark:text-[#CEC0E8]'
                 }`}
                 title="Lihat antrean sinkronisasi offline"
               >
-                <Cloud className="w-3 h-3 text-[#766B83] dark:text-[#A78BFA] shrink-0" />
+                <Cloud className="w-3 h-3 text-slate-400 dark:text-[#A78BFA] shrink-0" />
                 <span className="font-mono">{pendingCount} Pending</span>
               </button>
             </div>
 
-            {/* Right: Online / Offline pill + mini refresh */}
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Right: Circular refresh + Online/Offline pill */}
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={handleGlobalRefresh}
                 disabled={isRefreshing}
                 aria-label="Sinkronisasi data"
-                className="p-1.5 rounded-full text-[#766B83] hover:text-[#431599] hover:bg-[#F5F1FF] dark:text-[#CEC0E8] dark:hover:bg-[#35105E] transition-colors cursor-pointer disabled:opacity-50"
+                className="w-7 h-7 rounded-full bg-white dark:bg-[#22123F] border border-purple-200 dark:border-[#35105E] flex items-center justify-center text-slate-600 dark:text-[#CEC0E8] hover:text-[#7135b5] hover:bg-purple-50 dark:hover:bg-[#35105E] shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -454,12 +454,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               <button
                 type="button"
                 onClick={() => setIsOfflineModalOpen(true)}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase border cursor-pointer whitespace-nowrap ${
                   !isOnline
-                    ? 'bg-[#FEF3C7] text-[#B45309] dark:bg-amber-950/60 dark:text-amber-300'
+                    ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
                     : isSyncing
-                    ? 'bg-[#F0E3FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]'
-                    : 'bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300'
+                    ? 'bg-purple-50 border-purple-200 text-[#7135b5] dark:bg-[#35105E] dark:border-[#7135b5] dark:text-[#D8B4FE]'
+                    : 'bg-[#dcfce7] border-emerald-200 text-[#059669] dark:bg-emerald-950/60 dark:border-emerald-700/60 dark:text-emerald-300'
                 }`}
               >
                 {!isOnline ? (
@@ -474,7 +474,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                   </>
                 ) : (
                   <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span>ONLINE</span>
                   </>
                 )}

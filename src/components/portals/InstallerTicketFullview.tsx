@@ -13,10 +13,18 @@ import {
   getTicketCanonicalReportStatus
 } from '../../services/woLifecycleService';
 import { buildWhatsAppClickToChatUrl } from '../../services/whatsappService';
-import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
+import {
+  buildGoogleMapsCoordinateUrl,
+  formatCoordinates,
+  isValidCoordinatePair,
+  openCustomerAddressInGoogleMaps
+} from '../../services/mapsService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly, getTicketWorkStatus } from '../../services/workSessionService';
 import { MessageStatusReceipt } from '../chat/MessageStatusReceipt';
+import { GeoTagCameraModal, CapturedPhotoPayload } from '../camera/GeoTagCameraModal';
+import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
+import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
 import {
   ArrowLeft,
   ArrowRight,
@@ -65,7 +73,9 @@ import {
   ExternalLink,
   Building2,
   Share2,
-  CheckSquare
+  CheckSquare,
+  Satellite,
+  RotateCcw
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
@@ -92,31 +102,45 @@ interface PhotoSlotDefinition {
 const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
   {
     slotKey: 'opm',
-    title: '1. Redaman OPM',
+    title: '1. Foto Redaman OPM',
     defaultTag: 'OPM',
-    verifiedTag: 'EXIF OK',
-    emptyHint: 'Foto layar Optical Power Meter di roset pelanggan'
+    verifiedTag: 'GPS OK',
+    emptyHint: 'Ambil foto layar Optical Power Meter di roset pelanggan'
   },
   {
     slotKey: 'barcode_sn',
-    title: '2. Barcode & MAC',
+    title: '2. Foto SN & MAC ONT',
     defaultTag: 'SN ONT',
-    verifiedTag: 'MATCH',
-    emptyHint: 'Foto stiker Serial Number & MAC Address ONT'
+    verifiedTag: 'GPS OK',
+    emptyHint: 'Ambil foto stiker Serial Number & MAC Address ONT'
   },
   {
     slotKey: 'fat_pole',
-    title: '3. FAT & Port Lapangan',
-    defaultTag: 'FAT / Tiang',
+    title: '3. Foto FAT & Port Lapangan',
+    defaultTag: 'FAT / Port',
     verifiedTag: 'GPS OK',
-    emptyHint: 'Foto port aktif & label kotak FAT di tiang'
+    emptyHint: 'Ambil foto port aktif & label kotak FAT di tiang'
   },
   {
     slotKey: 'customer_install',
-    title: '4. Instalasi Pelanggan',
-    defaultTag: 'Lokasi ONT',
-    verifiedTag: 'VALID',
-    emptyHint: 'Foto perangkat ONT terpasang & lampu indikator menyala'
+    title: '4. Foto Instalasi Pelanggan',
+    defaultTag: 'Instalasi ONT',
+    verifiedTag: 'GPS OK',
+    emptyHint: 'Ambil foto perangkat ONT terpasang & lampu indikator menyala'
+  },
+  {
+    slotKey: 'customer_house',
+    title: '5. Foto Rumah',
+    defaultTag: 'Lokasi Rumah',
+    verifiedTag: 'LOKASI RUMAH',
+    emptyHint: 'Ambil foto tampak depan rumah pelanggan (otomatis set Lokasi Rumah)'
+  },
+  {
+    slotKey: 'fat_attenuation',
+    title: '6. Foto Redaman FAT',
+    defaultTag: 'Redaman FAT',
+    verifiedTag: 'LOKASI FAT',
+    emptyHint: 'Ambil foto pengukuran redaman pada titik FAT (otomatis set Lokasi FAT)'
   }
 ];
 
@@ -136,48 +160,14 @@ function formatDurationClock(totalSeconds: number): string {
   return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
 }
 
-function compressImageToDataUrl(file: File, maxDim = 1280, quality = 0.78): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
-    reader.onload = () => {
-      const src = String(reader.result || '');
-      const img = new Image();
-      img.onerror = () => resolve(src);
-      img.onload = () => {
-        try {
-          const width = img.naturalWidth || img.width;
-          const height = img.naturalHeight || img.height;
-          const scale = Math.min(1, maxDim / Math.max(width, height, 1));
-          const targetW = Math.max(1, Math.round(width * scale));
-          const targetH = Math.max(1, Math.round(height * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(src);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, targetW, targetH);
-          const compressed = canvas.toDataURL('image/jpeg', quality);
-          resolve(compressed || src);
-        } catch {
-          resolve(src);
-        }
-      };
-      img.src = src;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function buildInitialPhotoSlots(ticket: Ticket): Record<PhotoSlotKey, TechnicalPhotoSlot | null> {
   const map: Record<PhotoSlotKey, TechnicalPhotoSlot | null> = {
     opm: null,
     barcode_sn: null,
     fat_pole: null,
-    customer_install: null
+    customer_install: null,
+    customer_house: null,
+    fat_attenuation: null
   };
 
   const existingSlots = ticket.technicalReport?.photoSlots;
@@ -197,7 +187,7 @@ function buildInitialPhotoSlots(ticket: Ticket): Record<PhotoSlotKey, TechnicalP
     legacyPhotos[3]
   ];
 
-  PHOTO_SLOT_DEFINITIONS.forEach((def, idx) => {
+  PHOTO_SLOT_DEFINITIONS.slice(0, 4).forEach((def, idx) => {
     if (!map[def.slotKey] && fallbacks[idx]) {
       map[def.slotKey] = {
         slotKey: def.slotKey,
@@ -224,6 +214,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     updateTicketStatus,
     startWorkOnTicket,
     saveProgressReport,
+    uploadWoPhotoEvidence,
     currentUser,
     getMessagesForTicket,
     refreshMessagesForTicket,
@@ -361,13 +352,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [photoSlots, setPhotoSlots] = useState<Record<PhotoSlotKey, TechnicalPhotoSlot | null>>(() =>
     buildInitialPhotoSlots(activeTicket)
   );
-  const [uploadingSlot, setUploadingSlot] = useState<PhotoSlotKey | null>(null);
-  const photoInputRefs = useRef<Record<PhotoSlotKey, HTMLInputElement | null>>({
-    opm: null,
-    barcode_sn: null,
-    fat_pole: null,
-    customer_install: null
-  });
+  const [cameraModalSlot, setCameraModalSlot] = useState<PhotoSlotDefinition | null>(null);
+  const [expandedMapSlot, setExpandedMapSlot] = useState<PhotoSlotKey | null>(null);
+  const [slotUploadState, setSlotUploadState] = useState<
+    Partial<
+      Record<
+        PhotoSlotKey,
+        {
+          status: 'uploading' | 'failed';
+          error?: string;
+          pendingPayload?: CapturedPhotoPayload;
+        }
+      >
+    >
+  >({});
 
   // Customer Digital Signature Canvas
   const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -424,7 +422,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           setUsedMaterials(draft.usedMaterials);
         }
         if (draft.photoSlots && typeof draft.photoSlots === 'object') {
-          setPhotoSlots(prev => ({ ...prev, ...draft.photoSlots }));
+          setPhotoSlots(prev => {
+            const next = { ...prev };
+            Object.entries(draft.photoSlots).forEach(([k, val]) => {
+              const key = k as PhotoSlotKey;
+              if (!(key in next) || !val || typeof val !== 'object') return;
+              const draftSlot = val as TechnicalPhotoSlot;
+              if (!draftSlot.url) return;
+              const existing = next[key];
+              if (!existing || existing.uploadStatus !== 'uploaded') {
+                next[key] = draftSlot;
+              }
+            });
+            return next;
+          });
         }
         if (typeof draft.customerSignatureUrl === 'string' && draft.customerSignatureUrl) {
           setCustomerSignatureUrl(draft.customerSignatureUrl);
@@ -708,61 +719,212 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   }, [opmNumeric]);
 
   // -------------------------------------------------------------
-  // 4-POINT SOP PHOTO HANDLERS
+  // 6-POINT SOP GEOTAG CAMERA & PHOTO UPLOAD HANDLERS
   // -------------------------------------------------------------
+  useEffect(() => {
+    const serverSlots = activeTicket.technicalReport?.photoSlots;
+    if (!Array.isArray(serverSlots) || serverSlots.length === 0) return;
+    setPhotoSlots(prev => {
+      const next = { ...prev };
+      let changed = false;
+      serverSlots.forEach(s => {
+        if (s && s.url && s.slotKey in next) {
+          const current = next[s.slotKey];
+          if (
+            !current ||
+            (current.uploadStatus !== 'uploading' &&
+              current.uploadStatus !== 'pending_offline' &&
+              current.uploadStatus !== 'failed') ||
+            current.clientCaptureId === s.clientCaptureId
+          ) {
+            if (
+              !current ||
+              current.url !== s.url ||
+              current.capturedAtIso !== s.capturedAtIso ||
+              current.latitude !== s.latitude ||
+              current.longitude !== s.longitude ||
+              current.uploadStatus !== s.uploadStatus
+            ) {
+              next[s.slotKey] = s;
+              changed = true;
+            }
+          }
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [activeTicket.technicalReport?.photoSlots]);
+
   const uploadedPhotoSlotsList = useMemo(() => {
     return PHOTO_SLOT_DEFINITIONS.map(def => photoSlots[def.slotKey]).filter(
       (s): s is TechnicalPhotoSlot => Boolean(s && s.url)
     );
   }, [photoSlots]);
 
-  const handlePhotoUploadForSlot = async (slotDef: PhotoSlotDefinition, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('File harus berupa gambar (JPG, PNG, atau WebP).', 'Format Tidak Valid');
-      return;
-    }
+  const openCameraForSlot = useCallback(
+    (slotDef: PhotoSlotDefinition) => {
+      if (ticketClosed) return;
+      setCameraModalSlot(slotDef);
+    },
+    [ticketClosed]
+  );
 
-    setUploadingSlot(slotDef.slotKey);
-    try {
-      const compressedUrl = await compressImageToDataUrl(file);
-      const capturedAt = formatJakartaTimeOnly(new Date().toISOString());
-      const badgeValue =
-        slotDef.slotKey === 'opm'
-          ? opmDbm
-            ? `${opmDbm} dBm`
-            : slotDef.defaultTag
-          : slotDef.slotKey === 'barcode_sn'
-          ? ontSerialNumber
-            ? ontSerialNumber.slice(0, 10)
-            : slotDef.defaultTag
-          : slotDef.slotKey === 'fat_pole'
-          ? activeTicket.fatCode || slotDef.defaultTag
-          : activeTicket.clusterName || slotDef.defaultTag;
+  const openCameraForSlotKey = useCallback(
+    (slotKey: PhotoSlotKey) => {
+      const def = PHOTO_SLOT_DEFINITIONS.find(d => d.slotKey === slotKey);
+      if (def) openCameraForSlot(def);
+    },
+    [openCameraForSlot]
+  );
 
+  const computeSlotBadgeText = useCallback(
+    (slotDef: PhotoSlotDefinition): string => {
+      if (slotDef.slotKey === 'opm') return opmDbm ? `${opmDbm} dBm` : slotDef.defaultTag;
+      if (slotDef.slotKey === 'barcode_sn') return ontSerialNumber ? ontSerialNumber.slice(0, 12) : slotDef.defaultTag;
+      if (slotDef.slotKey === 'fat_pole') return activeTicket.fatCode || slotDef.defaultTag;
+      if (slotDef.slotKey === 'customer_house') return 'Lokasi Rumah';
+      if (slotDef.slotKey === 'fat_attenuation') return activeTicket.fatCode ? `FAT ${activeTicket.fatCode}` : 'Lokasi FAT';
+      return activeTicket.clusterName || slotDef.defaultTag;
+    },
+    [opmDbm, ontSerialNumber, activeTicket.fatCode, activeTicket.clusterName]
+  );
+
+  const executeSlotUpload = useCallback(
+    async (slotDef: PhotoSlotDefinition, payload: CapturedPhotoPayload) => {
+      const gps = payload.gps;
+      const hasValidGps = Boolean(gps && isValidCoordinatePair(gps.latitude, gps.longitude));
+      const badgeValue = computeSlotBadgeText(slotDef);
+      const localCapturedLabel = formatJakartaTimeOnly(payload.capturedAtIso);
+
+      // Show captured photo locally immediately while uploading
       setPhotoSlots(prev => ({
         ...prev,
         [slotDef.slotKey]: {
           slotKey: slotDef.slotKey,
           title: slotDef.title,
-          url: compressedUrl,
-          fileName: file.name,
-          fileSizeBytes: file.size,
-          capturedAt,
+          url: payload.fileData,
+          fileName: payload.fileName,
+          fileSizeBytes: payload.fileSizeBytes,
+          mimeType: payload.mimeType,
+          capturedAt: localCapturedLabel,
+          capturedAtIso: payload.capturedAtIso,
           badgeText: badgeValue,
-          statusTag: slotDef.verifiedTag
+          statusTag: hasValidGps ? slotDef.verifiedTag : 'NO GPS',
+          latitude: hasValidGps ? gps!.latitude : undefined,
+          longitude: hasValidGps ? gps!.longitude : undefined,
+          gpsAccuracyMeters: gps?.accuracyMeters,
+          altitudeMeters: gps?.altitudeMeters,
+          headingDeg: gps?.headingDeg,
+          speedMps: gps?.speedMps,
+          locationSource: gps?.locationSource,
+          permissionStatus: gps?.permissionStatus,
+          geotagStatus: gps?.geotagStatus || 'missing',
+          captureMethod: payload.captureMethod,
+          uploadStatus: 'uploading',
+          clientCaptureId: payload.clientCaptureId
         }
       }));
-      toast.success(`Foto "${slotDef.title}" berhasil dilampirkan.`);
-    } catch {
-      toast.error(`Gagal memproses foto "${slotDef.title}".`, 'Upload Foto Gagal');
-    } finally {
-      setUploadingSlot(null);
-      const inputEl = photoInputRefs.current[slotDef.slotKey];
-      if (inputEl) inputEl.value = '';
-    }
-  };
+
+      setSlotUploadState(prev => ({
+        ...prev,
+        [slotDef.slotKey]: { status: 'uploading', pendingPayload: payload }
+      }));
+
+      const res = await uploadWoPhotoEvidence(activeTicket.id, {
+        slotKey: slotDef.slotKey,
+        title: slotDef.title,
+        fileData: payload.fileData,
+        fileName: payload.fileName,
+        mimeType: payload.mimeType,
+        capturedAt: payload.capturedAtIso,
+        latitude: hasValidGps ? gps!.latitude : undefined,
+        longitude: hasValidGps ? gps!.longitude : undefined,
+        gpsAccuracyMeters: gps?.accuracyMeters,
+        altitudeMeters: gps?.altitudeMeters,
+        headingDeg: gps?.headingDeg,
+        speedMps: gps?.speedMps,
+        locationSource: gps?.locationSource,
+        permissionStatus: gps?.permissionStatus,
+        geotagStatus: gps?.geotagStatus || 'missing',
+        captureMethod: payload.captureMethod,
+        badgeText: badgeValue,
+        statusTag: hasValidGps ? slotDef.verifiedTag : 'NO GPS',
+        clientCaptureId: payload.clientCaptureId,
+        woNumber: activeTicket.woNumber
+      });
+
+      if (res.success && res.photoSlot) {
+        setPhotoSlots(prev => ({
+          ...prev,
+          [slotDef.slotKey]: res.photoSlot!
+        }));
+        setSlotUploadState(prev => {
+          const copy = { ...prev };
+          delete copy[slotDef.slotKey];
+          return copy;
+        });
+
+        if (slotDef.slotKey === 'customer_house' && res.houseLocation) {
+          toast.success(
+            `Foto Rumah tersimpan & Lokasi Rumah WO (${formatCoordinates(res.houseLocation.latitude, res.houseLocation.longitude)}) otomatis diperbarui.`,
+            'Lokasi Rumah Diperbarui'
+          );
+        } else if (slotDef.slotKey === 'fat_attenuation' && res.fatLocation) {
+          toast.success(
+            `Foto Redaman FAT tersimpan & Lokasi FAT WO (${formatCoordinates(res.fatLocation.latitude, res.fatLocation.longitude)}) otomatis diperbarui.`,
+            'Lokasi FAT Diperbarui'
+          );
+        } else {
+          toast.success(`Foto "${slotDef.title}" berhasil diunggah dengan geotag.`);
+        }
+      } else {
+        const errText = res.error || 'Gagal mengunggah foto ke server.';
+        setPhotoSlots(prev => {
+          const curr = prev[slotDef.slotKey];
+          if (!curr) return prev;
+          return {
+            ...prev,
+            [slotDef.slotKey]: {
+              ...curr,
+              uploadStatus: 'failed'
+            }
+          };
+        });
+        setSlotUploadState(prev => ({
+          ...prev,
+          [slotDef.slotKey]: {
+            status: 'failed',
+            error: errText,
+            pendingPayload: payload
+          }
+        }));
+        toast.error(`${errText} Tekan "Retry Upload" untuk mengirim ulang tanpa ambil foto ulang.`, 'Upload Foto Tertunda');
+      }
+    },
+    [activeTicket.id, activeTicket.woNumber, computeSlotBadgeText, toast, uploadWoPhotoEvidence]
+  );
+
+  const handleConfirmCameraCapture = useCallback(
+    async (payload: CapturedPhotoPayload) => {
+      const def = PHOTO_SLOT_DEFINITIONS.find(d => d.slotKey === payload.slotKey);
+      if (!def) return;
+      setCameraModalSlot(null);
+      await executeSlotUpload(def, payload);
+    },
+    [executeSlotUpload]
+  );
+
+  const handleRetrySlotUpload = useCallback(
+    async (slotDef: PhotoSlotDefinition) => {
+      const pending = slotUploadState[slotDef.slotKey]?.pendingPayload;
+      if (!pending) {
+        openCameraForSlot(slotDef);
+        return;
+      }
+      await executeSlotUpload(slotDef, pending);
+    },
+    [executeSlotUpload, openCameraForSlot, slotUploadState]
+  );
 
   // -------------------------------------------------------------
   // CUSTOMER SIGNATURE PAD HANDLERS
@@ -1919,7 +2081,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       3
                     </span>
                     <span>
-                      Unggah 4 titik bukti foto SOP, isi 3-Tier Checkout &amp; tanda tangan pelanggan sebelum mengirim ke Dispatch.
+                      Ambil 6 titik bukti foto SOP ber-geotag GPS (termasuk Foto Rumah &amp; Foto Redaman FAT), isi 3-Tier Checkout &amp; tanda tangan pelanggan sebelum mengirim ke Dispatch.
                     </span>
                   </li>
                 </ol>
@@ -2271,10 +2433,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   </div>
                   {showSnScannerTip && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-[#F5F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#4B386B] text-[11px] text-[#431599] dark:text-[#D8B4FE]">
-                      <span>Ketik SN manual atau foto stiker barcode pada slot Foto #2 di bawah.</span>
+                      <span>Ketik SN manual atau ambil foto stiker barcode pada slot Foto #2 di bawah.</span>
                       <button
                         type="button"
-                        onClick={() => photoInputRefs.current.barcode_sn?.click()}
+                        onClick={() => openCameraForSlotKey('barcode_sn')}
                         className="font-bold underline shrink-0 cursor-pointer"
                       >
                         Ambil Foto SN
@@ -2393,50 +2555,72 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </section>
 
             {/* -------------------------------------------------------- */}
-            {/* SECTION 3: BUKTI FOTO FISIK (4 TITIK SOP)                */}
+            {/* SECTION 3: BUKTI FOTO FISIK (6 TITIK SOP + GEOTAG GPS)   */}
             {/* -------------------------------------------------------- */}
-            <section ref={photoSectionRef} className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-1.5">
+            <section ref={photoSectionRef} className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 space-y-3.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#35105E] to-[#160D29] text-white flex items-center justify-center border-t border-white/30 shadow-[0_2px_0_#160D29]">
                     <Camera className="w-4 h-4" />
                   </div>
                   <h2 className="font-display font-bold text-[16px] text-[#160D29] dark:text-white">
-                    Bukti Foto Fisik (4 Titik SOP)
+                    Bukti Foto Fisik (6 Titik SOP)
                   </h2>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full bg-[#E9D5FF] dark:bg-[#35105E] text-[#35105E] dark:text-[#D8B4FE] font-mono text-[11px] font-bold border border-[#D8CCF3] dark:border-[#5B35B1] shadow-xs tabular-nums">
-                  {uploadedPhotoSlotsList.length}/4 Terunggah
+                  {uploadedPhotoSlotsList.length}/6 Terunggah
                 </span>
               </div>
-              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mb-3 leading-tight">
-                EXIF Geotag dan stempel waktu otomatis dicatat saat teknisi mengunggah bukti fisik dari perangkat lapangan.
+
+              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] leading-snug">
+                Pengambilan foto menggunakan kamera belakang perangkat dengan GPS Geotag aktual dan timestamp otomatis.
+                <span className="font-semibold text-[#35105E] dark:text-[#D8B4FE]"> Foto Rumah (#5)</span> otomatis mengisi <span className="font-mono">Lokasi Rumah</span>, sedangkan <span className="font-semibold text-[#35105E] dark:text-[#D8B4FE]">Foto Redaman FAT (#6)</span> otomatis mengisi <span className="font-mono">Lokasi FAT</span>.
               </p>
 
-              {/* 2x2 Photo Evidence Grid */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* 6-Slot Photo Evidence Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PHOTO_SLOT_DEFINITIONS.map(slotDef => {
                   const slotData = photoSlots[slotDef.slotKey];
-                  const isBusy = uploadingSlot === slotDef.slotKey;
+                  const uploadMeta = slotUploadState[slotDef.slotKey];
+                  const isBusy = uploadMeta?.status === 'uploading';
+                  const isFailed = uploadMeta?.status === 'failed' || slotData?.uploadStatus === 'failed';
+                  const hasValidCoords = Boolean(
+                    slotData && isValidCoordinatePair(slotData.latitude, slotData.longitude)
+                  );
+                  const isMapExpanded = expandedMapSlot === slotDef.slotKey;
+
+                  const geotagBadge = (() => {
+                    if (isBusy) {
+                      return { cls: 'bg-blue-600 text-white', label: 'Mengunggah...' };
+                    }
+                    if (isFailed) {
+                      return { cls: 'bg-rose-600 text-white', label: 'Upload Tertunda' };
+                    }
+                    if (!slotData?.url) return null;
+                    if (hasValidCoords) {
+                      const accLabel =
+                        typeof slotData.gpsAccuracyMeters === 'number'
+                          ? ` ±${Math.round(slotData.gpsAccuracyMeters)}m`
+                          : '';
+                      if (slotData.geotagStatus === 'weak') {
+                        return { cls: 'bg-amber-600 text-white', label: `Weak GPS${accLabel}` };
+                      }
+                      return { cls: 'bg-[#16A36A] text-white', label: `GPS Valid${accLabel}` };
+                    }
+                    return { cls: 'bg-slate-700/90 text-slate-100', label: 'Tanpa GPS' };
+                  })();
 
                   return (
                     <div
                       key={slotDef.slotKey}
-                      className="relative rounded-xl overflow-hidden bg-white dark:bg-[#160D29] flex flex-col border border-[#D8CCF3]/70 dark:border-[#35105E] shadow-[0_2px_0_#CEC3D4,0_4px_8px_rgba(27,18,48,0.04)] dark:shadow-none"
+                      className={`relative rounded-xl overflow-hidden bg-white dark:bg-[#160D29] flex flex-col border shadow-[0_2px_0_#CEC3D4,0_4px_8px_rgba(27,18,48,0.04)] dark:shadow-none ${
+                        isFailed
+                          ? 'border-rose-400 dark:border-rose-700'
+                          : 'border-[#D8CCF3]/70 dark:border-[#35105E]'
+                      }`}
                     >
-                      <input
-                        ref={el => {
-                          photoInputRefs.current[slotDef.slotKey] = el;
-                        }}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        disabled={ticketClosed}
-                        onChange={e => handlePhotoUploadForSlot(slotDef, e)}
-                        className="hidden"
-                      />
-
-                      <div className="h-28 w-full relative bg-[#F5F1FF] dark:bg-[#140827]">
+                      {/* Photo Canvas Area */}
+                      <div className="h-32 w-full relative bg-[#F5F1FF] dark:bg-[#140827]">
                         {slotData?.url ? (
                           <>
                             <img
@@ -2445,18 +2629,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               onClick={() => setZoomImage(slotData.url)}
                               className="w-full h-full object-cover cursor-pointer"
                             />
-                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#160D29]/85 text-white font-mono text-[9px] font-bold backdrop-blur-xs shadow-xs max-w-[90px] truncate">
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#160D29]/85 text-white font-mono text-[9px] font-bold backdrop-blur-xs shadow-xs max-w-[115px] truncate">
                               {slotData.badgeText || slotDef.defaultTag}
                             </span>
-                            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-[#16A36A] text-white font-bold text-[9px] flex items-center gap-0.5 shadow-xs">
-                              <Check className="w-2.5 h-2.5" />
-                              <span>{slotData.statusTag || slotDef.verifiedTag}</span>
-                            </span>
+                            {geotagBadge && (
+                              <span
+                                className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md font-mono font-bold text-[9px] flex items-center gap-1 shadow-xs ${geotagBadge.cls}`}
+                              >
+                                <Satellite className="w-2.5 h-2.5" />
+                                <span>{geotagBadge.label}</span>
+                              </span>
+                            )}
                             <button
                               type="button"
                               onClick={() => setZoomImage(slotData.url)}
-                              className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white hover:bg-black/70 cursor-pointer"
-                              title="Perbesar Foto"
+                              className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/55 text-white hover:bg-black/75 cursor-pointer"
+                              title="Perbesar Foto & Detail GPS"
                             >
                               <Maximize2 className="w-3 h-3" />
                             </button>
@@ -2465,44 +2653,133 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                           <button
                             type="button"
                             disabled={ticketClosed || isBusy}
-                            onClick={() => photoInputRefs.current[slotDef.slotKey]?.click()}
-                            className="w-full h-full flex flex-col items-center justify-center gap-1 p-2 text-center text-[#766B83] dark:text-[#CEC0E8] hover:bg-[#EDE4FF]/60 dark:hover:bg-[#22123F] transition-colors cursor-pointer disabled:opacity-50"
+                            onClick={() => openCameraForSlot(slotDef)}
+                            className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-3 text-center text-[#766B83] dark:text-[#CEC0E8] hover:bg-[#EDE4FF]/60 dark:hover:bg-[#22123F] transition-colors cursor-pointer disabled:opacity-50"
                           >
-                            <Camera className="w-5 h-5 text-[#7135B5] dark:text-[#D8B4FE]" />
-                            <span className="text-[10px] font-semibold leading-tight line-clamp-2">
-                              {isBusy ? 'Memproses...' : slotDef.emptyHint}
+                            <div className="w-9 h-9 rounded-full bg-[#EDE4FF] dark:bg-[#261942] flex items-center justify-center text-[#58149C] dark:text-[#D8B4FE]">
+                              <Camera className="w-4.5 h-4.5" />
+                            </div>
+                            <span className="text-[10.5px] font-semibold leading-tight line-clamp-2 max-w-[210px]">
+                              {isBusy ? 'Mengunggah...' : slotDef.emptyHint}
                             </span>
                           </button>
                         )}
                       </div>
 
-                      <div className="p-2 flex flex-col justify-between flex-1 bg-white dark:bg-[#1E1238]">
-                        <div>
-                          <p className="font-bold text-[11px] text-[#211A2E] dark:text-white line-clamp-1">
-                            {slotDef.title}
-                          </p>
-                          <p className="font-mono text-[9px] text-[#8B8495] dark:text-[#CEC0E8]/75">
+                      {/* Metadata & Actions */}
+                      <div className="p-2.5 flex flex-col justify-between flex-1 bg-white dark:bg-[#1E1238] space-y-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <p className="font-bold text-[11.5px] text-[#211A2E] dark:text-white line-clamp-1">
+                              {slotDef.title}
+                            </p>
+                            {hasValidCoords && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedMapSlot(isMapExpanded ? null : slotDef.slotKey)
+                                }
+                                className="px-1.5 py-0.5 rounded bg-[#F5F1FF] dark:bg-[#261942] text-[#431599] dark:text-[#D8B4FE] text-[9.5px] font-bold inline-flex items-center gap-1 cursor-pointer shrink-0 border border-[#D8CCF3] dark:border-[#4B386B]"
+                              >
+                                <MapPin className="w-2.5 h-2.5" />
+                                <span>{isMapExpanded ? 'Tutup Peta' : 'Lihat Peta'}</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <p className="font-mono text-[9.5px] text-[#8B8495] dark:text-[#CEC0E8]/80">
                             {slotData?.capturedAt
-                              ? `${slotData.capturedAt} • ${formatBytesToLabel(slotData.fileSizeBytes)}`
-                              : 'Belum diunggah'}
+                              ? `${slotData.capturedAt} WIB • ${formatBytesToLabel(slotData.fileSizeBytes)}`
+                              : 'Belum diambil dengan kamera'}
                           </p>
+
+                          {hasValidCoords && slotData && (
+                            <div className="flex items-center justify-between gap-1.5 text-[9.5px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/40 px-2 py-1 rounded-md border border-emerald-200/70 dark:border-emerald-800/50">
+                              <span className="truncate">
+                                {formatCoordinates(slotData.latitude!, slotData.longitude!)}
+                              </span>
+                              <a
+                                href={buildGoogleMapsCoordinateUrl(slotData.latitude!, slotData.longitude!)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-bold underline shrink-0 inline-flex items-center gap-0.5"
+                              >
+                                <span>Maps</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
+                          )}
+
+                          {isFailed && uploadMeta?.error && (
+                            <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-300 leading-tight">
+                              {uploadMeta.error}
+                            </p>
+                          )}
                         </div>
 
+                        {/* Expandable Interactive Mini Map */}
+                        {isMapExpanded && hasValidCoords && slotData && (
+                          <GeoLocationMiniMap
+                            latitude={slotData.latitude}
+                            longitude={slotData.longitude}
+                            accuracyMeters={slotData.gpsAccuracyMeters}
+                            geotagStatus={slotData.geotagStatus}
+                            label={slotDef.title}
+                            markerVariant={
+                              slotDef.slotKey === 'customer_house'
+                                ? 'house'
+                                : slotDef.slotKey === 'fat_attenuation'
+                                ? 'fat'
+                                : 'photo'
+                            }
+                            heightClass="h-32"
+                            compact
+                          />
+                        )}
+
                         {!ticketClosed && (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => photoInputRefs.current[slotDef.slotKey]?.click()}
-                            className="tactile-pill-btn mt-2 w-full py-1 px-2 rounded-lg bg-white dark:bg-[#261942] text-[#431599] dark:text-[#D8B4FE] font-bold text-[10px] flex items-center justify-center gap-1 border border-[#D8CCF3] dark:border-[#4B386B] cursor-pointer"
-                          >
-                            <RefreshCw className={`w-3 h-3 ${isBusy ? 'animate-spin' : ''}`} />
-                            <span>{slotData?.url ? 'Ganti Foto' : 'Unggah Foto'}</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            {isFailed && uploadMeta?.pendingPayload && (
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleRetrySlotUpload(slotDef)}
+                                className="flex-1 min-h-[38px] py-1.5 px-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10.5px] flex items-center justify-center gap-1 cursor-pointer disabled:opacity-60"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Retry Upload</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => openCameraForSlot(slotDef)}
+                              className="tactile-pill-btn flex-1 min-h-[38px] py-1.5 px-2.5 rounded-lg bg-white dark:bg-[#261942] text-[#431599] dark:text-[#D8B4FE] font-bold text-[10.5px] flex items-center justify-center gap-1.5 border border-[#D8CCF3] dark:border-[#4B386B] cursor-pointer disabled:opacity-60"
+                            >
+                              {isBusy ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Camera className="w-3.5 h-3.5" />
+                              )}
+                              <span>{slotData?.url ? 'Ambil Ulang' : 'Ambil Foto'}</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Dedicated Isolated WO House & FAT Location Cards */}
+              <div className="pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+                <WorkOrderLocationsCard
+                  ticket={activeTicket}
+                  compact
+                  canQuickCapture={!ticketClosed}
+                  onQuickCaptureHouse={() => openCameraForSlotKey('customer_house')}
+                  onQuickCaptureFat={() => openCameraForSlotKey('fat_attenuation')}
+                />
               </div>
             </section>
 
@@ -3205,29 +3482,37 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
                 {uploadedPhotoSlotsList.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2.5">
-                    {uploadedPhotoSlotsList.map(slot => (
-                      <button
-                        key={slot.slotKey}
-                        type="button"
-                        onClick={() => setZoomImage(slot.url)}
-                        className="relative h-28 rounded-xl overflow-hidden border border-[#E8DDFF] dark:border-[#4B386B] bg-[#F3EAFF] dark:bg-[#160D29] group cursor-pointer text-left"
-                      >
-                        <img
-                          src={getSafePreviewUrl(slot.url)}
-                          alt={slot.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#160D29]/90 via-[#160D29]/45 to-transparent p-2 flex items-center gap-1.5 text-white text-[10.5px] font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span className="truncate">{slot.title.replace(/^\d+\.\s*/, '')}</span>
-                        </div>
-                      </button>
-                    ))}
+                    {uploadedPhotoSlotsList.map(slot => {
+                      const hasGps = isValidCoordinatePair(slot.latitude, slot.longitude);
+                      return (
+                        <button
+                          key={slot.slotKey}
+                          type="button"
+                          onClick={() => setZoomImage(slot.url)}
+                          className="relative h-28 rounded-xl overflow-hidden border border-[#E8DDFF] dark:border-[#4B386B] bg-[#F3EAFF] dark:bg-[#160D29] group cursor-pointer text-left"
+                        >
+                          <img
+                            src={getSafePreviewUrl(slot.url)}
+                            alt={slot.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          {hasGps && (
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white font-mono text-[9px] font-bold">
+                              GPS OK
+                            </span>
+                          )}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#160D29]/90 via-[#160D29]/45 to-transparent p-2 flex items-center gap-1.5 text-white text-[10.5px] font-bold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="truncate">{slot.title.replace(/^\d+\.\s*/, '')}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-3.5 rounded-xl border border-dashed border-[#CEC3D4] dark:border-[#4B386B] bg-white dark:bg-[#160D29] text-center space-y-2">
                     <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8]">
-                      Belum ada foto bukti SOP yang diunggah. Anda disarankan melampirkan foto OPM &amp; SN sebelum kirim.
+                      Belum ada foto bukti SOP yang diunggah. Anda disarankan melampirkan minimal foto OPM, SN, Rumah &amp; Redaman FAT sebelum kirim.
                     </p>
                     <button
                       type="button"
@@ -3456,7 +3741,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               )}
               <div className="flex items-center justify-between pt-1 border-t border-[#D8B4FE]/15">
                 <span className="text-[#D8B4FE]/70">Bukti Foto SOP:</span>
-                <span className="font-mono font-bold text-white">{uploadedPhotoSlotsList.length}/4 Terunggah</span>
+                <span className="font-mono font-bold text-white">{uploadedPhotoSlotsList.length}/6 Terunggah</span>
               </div>
             </div>
 
@@ -3494,10 +3779,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               type="button"
               onClick={() => {
                 photoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setTimeout(() => photoInputRefs.current.opm?.click(), 220);
+                const nextMissing =
+                  PHOTO_SLOT_DEFINITIONS.find(d => !photoSlots[d.slotKey]?.url) || PHOTO_SLOT_DEFINITIONS[0];
+                setTimeout(() => openCameraForSlot(nextMissing), 220);
               }}
-              aria-label="Unggah Bukti Foto SOP"
-              title="Unggah Bukti Foto SOP"
+              aria-label="Ambil Foto Bukti SOP (Geo-Tag Camera)"
+              title="Ambil Foto Bukti SOP (Geo-Tag Camera)"
               className="w-12 min-h-[46px] rounded-xl bg-[#e7eeff] dark:bg-[#261942] hover:bg-[#dee8ff] text-[#006194] dark:text-[#93ccff] flex items-center justify-center shrink-0 cursor-pointer"
             >
               <Camera className="w-5 h-5" />
@@ -3563,30 +3850,96 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       />
 
       {/* ============================================================== */}
-      {/* LIGHTBOX MODAL: FULLSIZE IMAGE VIEW                            */}
+      {/* GEO-TAG CAMERA CAPTURE MODAL                                   */}
       {/* ============================================================== */}
-      {zoomImage && (
-        <div
-          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs"
-          onClick={() => setZoomImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[92vh]" onClick={e => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setZoomImage(null)}
-              className="absolute top-3 right-3 p-2 bg-black/70 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
-              title="Tutup"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <img
-              src={getSafePreviewUrl(zoomImage)}
-              alt="Lampiran Bukti Lapangan"
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
-            />
-          </div>
-        </div>
+      {cameraModalSlot && (
+        <GeoTagCameraModal
+          isOpen={Boolean(cameraModalSlot)}
+          onClose={() => setCameraModalSlot(null)}
+          slotKey={cameraModalSlot.slotKey}
+          slotTitle={cameraModalSlot.title}
+          slotHint={cameraModalSlot.emptyHint}
+          woNumber={activeTicket.woNumber}
+          technicianName={currentUser.name || activeTicket.installerName || 'Teknisi'}
+          customerName={activeTicket.customerName}
+          onConfirmPhoto={handleConfirmCameraCapture}
+        />
       )}
+
+      {/* ============================================================== */}
+      {/* LIGHTBOX MODAL: FULLSIZE IMAGE + GEOTAG MAP VIEW               */}
+      {/* ============================================================== */}
+      {zoomImage && (() => {
+        const matchedSlot = uploadedPhotoSlotsList.find(
+          s => s.url === zoomImage || getSafePreviewUrl(s.url) === getSafePreviewUrl(zoomImage)
+        );
+        const hasZoomGps = Boolean(
+          matchedSlot && isValidCoordinatePair(matchedSlot.latitude, matchedSlot.longitude)
+        );
+        return (
+          <div
+            className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto"
+            onClick={() => setZoomImage(null)}
+          >
+            <div
+              className="relative w-full max-w-3xl max-h-[92vh] flex flex-col gap-3 bg-[#160D29] border border-[#A78BFA]/30 rounded-2xl p-3 sm:p-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2 text-white">
+                <div className="min-w-0">
+                  <div className="font-bold text-sm truncate">
+                    {matchedSlot?.title || 'Lampiran Bukti Lapangan'}
+                  </div>
+                  {matchedSlot?.capturedAtIso && (
+                    <div className="text-[11px] font-mono text-[#DAB9FF]">
+                      Diambil: {formatJakartaTimeOnly(matchedSlot.capturedAtIso)} WIB
+                      {typeof matchedSlot.gpsAccuracyMeters === 'number'
+                        ? ` · Akurasi GPS ±${Math.round(matchedSlot.gpsAccuracyMeters)}m`
+                        : ''}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setZoomImage(null)}
+                  className="p-2 bg-black/60 text-white rounded-full hover:bg-rose-600 transition-colors cursor-pointer shrink-0"
+                  title="Tutup"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex justify-center bg-black/40 rounded-xl overflow-hidden">
+                <img
+                  src={getSafePreviewUrl(zoomImage)}
+                  alt={matchedSlot?.title || 'Lampiran Bukti Lapangan'}
+                  className="max-w-full max-h-[52vh] object-contain"
+                />
+              </div>
+
+              {hasZoomGps && matchedSlot && (
+                <div className="rounded-xl bg-[#1E1238] border border-white/10 p-2.5">
+                  <GeoLocationMiniMap
+                    latitude={matchedSlot.latitude}
+                    longitude={matchedSlot.longitude}
+                    accuracyMeters={matchedSlot.gpsAccuracyMeters}
+                    geotagStatus={matchedSlot.geotagStatus}
+                    label={matchedSlot.title}
+                    markerVariant={
+                      matchedSlot.slotKey === 'customer_house'
+                        ? 'house'
+                        : matchedSlot.slotKey === 'fat_attenuation'
+                        ? 'fat'
+                        : 'photo'
+                    }
+                    heightClass="h-40"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

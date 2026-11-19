@@ -1,5 +1,6 @@
 import { getSupabaseBackendClient } from './supabaseClient.ts';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 
 // ==============================================================================
@@ -460,41 +461,61 @@ export async function downloadBufferFromSupabaseStorage(params: {
   const bucket = params.bucket || MORAJAWS_STORAGE_BUCKET;
   const client = getSupabaseBackendClient();
 
-  if (!client) {
-    return {
-      success: false,
-      error: 'Supabase client belum dikonfigurasi (SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum aktif).'
-    };
+  if (client) {
+    try {
+      const { data, error } = await client.storage
+        .from(bucket)
+        .download(params.storagePath);
+
+      if (!error && data) {
+        const arrayBuffer = await data.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const mimeType = (data as any).type || 'application/octet-stream';
+
+        return {
+          success: true,
+          data: buffer,
+          mimeType,
+          sizeBytes: buffer.length
+        };
+      }
+    } catch {
+      // Fall through to local persistent upload cache
+    }
   }
 
   try {
-    const { data, error } = await client.storage
-      .from(bucket)
-      .download(params.storagePath);
-
-    if (error || !data) {
+    const cleanRel = params.storagePath.replace(/^\/+/, '').replace(/\.\./g, '');
+    const localBase = path.resolve(process.cwd(), 'data', 'uploads');
+    const localFile = path.resolve(localBase, cleanRel);
+    if (localFile.startsWith(localBase + path.sep) && fs.existsSync(localFile)) {
+      const buffer = fs.readFileSync(localFile);
+      const ext = path.extname(localFile).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+        '.pdf': 'application/pdf'
+      };
       return {
-        success: false,
-        error: error?.message || 'File tidak ditemukan di Supabase Storage.'
+        success: true,
+        data: buffer,
+        mimeType: mimeMap[ext] || 'application/octet-stream',
+        sizeBytes: buffer.length
       };
     }
-
-    const arrayBuffer = await data.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const mimeType = (data as any).type || 'application/octet-stream';
-
-    return {
-      success: true,
-      data: buffer,
-      mimeType,
-      sizeBytes: buffer.length
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err?.message || 'Gagal mengunduh file dari Supabase Storage'
-    };
+  } catch {
+    // Ignore fs errors
   }
+
+  return {
+    success: false,
+    error: client
+      ? 'File tidak ditemukan di Supabase Storage maupun penyimpanan lokal.'
+      : 'Supabase client belum dikonfigurasi dan file tidak ditemukan di penyimpanan lokal.'
+  };
 }
 
 /**
@@ -702,14 +723,26 @@ export function evaluateFileAccessPermission(
         };
       }
 
-      // Installer verification: strict assignment check
+      // Installer verification: strict assignment check (by ID/UID first, then name/phone)
       if (role === 'installer') {
+        const myId = String(user.id || '').trim();
+        const assignedIds = [
+          ticket.installerId,
+          ticket.installerUid,
+          ticket.assignedToUid,
+          ticket.assignedToId
+        ]
+          .filter(Boolean)
+          .map((v: any) => String(v).trim());
+        const idMatch = Boolean(myId && assignedIds.includes(myId));
+
         const myName = (user.name || '').toLowerCase().trim();
         const cleanMyName = myName.replace(/\(.*?\)/g, '').trim();
         const ticketInst = (ticket.installerName || '').toLowerCase().trim();
 
         const nameMatch = Boolean(
           ticketInst &&
+          cleanMyName &&
           (ticketInst === myName ||
             ticketInst === cleanMyName ||
             ticketInst.includes(cleanMyName) ||
@@ -721,7 +754,7 @@ export function evaluateFileAccessPermission(
           ticket.installerContact.replace(/\D/g, '') === user.phone.replace(/\D/g, '')
         );
 
-        if (nameMatch || phoneMatch) {
+        if (idMatch || nameMatch || phoneMatch) {
           return {
             allowed: true,
             statusCode: 200,
@@ -1073,6 +1106,137 @@ export async function uploadFile(params: {
     signedUrl: uploadResult.signedUrl,
     expiresIn: uploadResult.expiresIn || 3600
   };
+}
+
+/**
+ * Uploads an operational Work Order field photo evidence buffer.
+ * Prioritizes Supabase Storage (`technical-reports/{woNumber}/{slotKey}/...`) when configured & bucket ready,
+ * and falls back cleanly to persistent backend disk storage (`data/uploads/...`) so uploads remain durable
+ * and protected by backend RBAC (`checkTicketAccess` / `checkFileAccess`) in all environments.
+ */
+export async function uploadWoPhotoEvidence(params: {
+  userId: string;
+  userRole?: string;
+  userName?: string;
+  woNumber: string;
+  slotKey: string;
+  fileName: string;
+  fileBuffer: Buffer;
+  mimeType: string;
+  bucket?: string;
+}): Promise<{
+  success: boolean;
+  storageProvider: 'supabase' | 'local_disk';
+  storagePath?: string;
+  fileId?: string;
+  sha256?: string;
+  downloadUrl?: string;
+  signedUrl?: string;
+  error?: string;
+}> {
+  const { userId, woNumber, slotKey, fileName, fileBuffer, mimeType } = params;
+  const bucket = params.bucket || MORAJAWS_STORAGE_BUCKET;
+
+  const validation = validateFileBeforeUpload(fileBuffer, fileName, mimeType, 'image_report');
+  if (!validation.valid) {
+    return {
+      success: false,
+      storageProvider: 'supabase',
+      error: validation.error
+    };
+  }
+
+  const safeWo = sanitizePathSegment(woNumber || 'WO_GENERAL');
+  const safeSlot = sanitizePathSegment(slotKey || 'general');
+  const { fullPath, uniqueFileId } = buildStorageObjectPath(
+    `${STORAGE_FOLDERS.TECHNICAL_REPORTS}/${safeWo}`,
+    safeSlot,
+    fileName,
+    'evd'
+  );
+  const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  const downloadUrl = `/api/storage/adapter/download?storagePath=${encodeURIComponent(fullPath)}&category=technical-reports&woNumber=${encodeURIComponent(woNumber)}`;
+
+  const client = getSupabaseBackendClient();
+  if (client) {
+    const supaRes = await uploadBufferToSupabaseStorage({
+      bucket,
+      storagePath: fullPath,
+      fileBuffer,
+      mimeType,
+      upsert: false
+    });
+    if (supaRes.success) {
+      logStorageOperation({
+        operation: 'upload',
+        status: 'success',
+        provider: 'supabase',
+        fileId: uniqueFileId,
+        filePath: fullPath,
+        userId,
+        userRole: params.userRole,
+        timestamp: new Date().toISOString()
+      });
+      return {
+        success: true,
+        storageProvider: 'supabase',
+        storagePath: fullPath,
+        fileId: uniqueFileId,
+        sha256,
+        downloadUrl,
+        signedUrl: supaRes.signedUrl
+      };
+    }
+  }
+
+  // Persistent backend file fallback when Supabase client or bucket is unconfigured in dev/local runtime
+  try {
+    const localBase = path.resolve(process.cwd(), 'data', 'uploads');
+    const targetFile = path.resolve(localBase, fullPath);
+    if (!targetFile.startsWith(localBase + path.sep)) {
+      return { success: false, storageProvider: 'local_disk', error: 'Path penyimpanan tidak valid.' };
+    }
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, fileBuffer);
+
+    logStorageOperation({
+      operation: 'upload',
+      status: 'success',
+      provider: 'supabase',
+      fileId: uniqueFileId,
+      filePath: fullPath,
+      userId,
+      userRole: params.userRole,
+      timestamp: new Date().toISOString()
+    });
+
+    return {
+      success: true,
+      storageProvider: 'local_disk',
+      storagePath: fullPath,
+      fileId: uniqueFileId,
+      sha256,
+      downloadUrl
+    };
+  } catch (err: any) {
+    logStorageOperation({
+      operation: 'upload',
+      status: 'failed',
+      provider: 'supabase',
+      fileId: uniqueFileId,
+      filePath: fullPath,
+      userId,
+      userRole: params.userRole,
+      timestamp: new Date().toISOString(),
+      errorCode: 'LOCAL_DISK_WRITE_ERROR',
+      errorMessage: err?.message
+    });
+    return {
+      success: false,
+      storageProvider: 'local_disk',
+      error: err?.message || 'Gagal menyimpan foto bukti lapangan.'
+    };
+  }
 }
 
 /**

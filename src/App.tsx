@@ -869,7 +869,11 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden bg-[#fdf7ff] dark:bg-[#140827] text-[#1f1638] dark:text-[#f5eeff] transition-colors relative">
+    <div
+      className={`h-dvh flex flex-col overflow-hidden ${
+        isInstaller ? 'bg-[#fcf8ff]' : 'bg-[#fdf7ff]'
+      } dark:bg-[#140827] text-[#1f1638] dark:text-[#f5eeff] transition-colors relative`}
+    >
       {/* Main Workspace Frame */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Navigation Sidebar: STRICTLY NOT RENDERED FOR INSTALLER */}

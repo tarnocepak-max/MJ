@@ -79,6 +79,8 @@ export function classifyFileSource(urlOrData?: string | null): StorageClassifica
     clean.startsWith('/morajaws-reports/') ||
     clean.startsWith('morajaws-reports/') ||
     clean.startsWith('test-sandbox/') ||
+    clean.startsWith('technical-reports/') ||
+    clean.startsWith('work-orders/') ||
     clean.startsWith('/api/storage/')
   ) {
     return {
@@ -140,6 +142,9 @@ export function getSafePreviewUrl(urlOrData?: string | null): string {
   const normalized = clean.replace(/^\/+/, '').replace(/^morajaws-reports\//, '');
   if (normalized.startsWith('test-sandbox/')) {
     return `/api/storage/adapter/download?storagePath=${encodeURIComponent(normalized)}`;
+  }
+  if (normalized.startsWith('technical-reports/') || normalized.startsWith('work-orders/')) {
+    return `/api/storage/adapter/download?storagePath=${encodeURIComponent(normalized)}&category=technical-reports`;
   }
   return clean;
 }

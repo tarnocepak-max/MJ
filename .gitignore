@@ -12,6 +12,7 @@ coverage/
 *production_backup*.json
 data/*_backup*.json
 data/morajaws_database.json
+data/uploads/
 quarantine/
 *.zip
 *.bak

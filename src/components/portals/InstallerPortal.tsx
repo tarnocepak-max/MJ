@@ -18,7 +18,7 @@ import {
   getTicketCanonicalReportStatus
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
-import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
+import { openCustomerAddressInGoogleMaps, openCoordinatesInGoogleMaps, isValidCoordinatePair } from '../../services/mapsService';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import {
   Wrench,
@@ -30,12 +30,9 @@ import {
   FileText,
   AlertTriangle,
   Clock,
-  Radio,
   Wifi,
   Camera,
-  Filter,
   Search,
-  Eye,
   Check,
   X,
   AlertCircle,
@@ -45,7 +42,8 @@ import {
   Package,
   ShieldAlert,
   SlidersHorizontal,
-  ArrowUpDown
+  ArrowUpDown,
+  Ticket as TicketIcon
 } from 'lucide-react';
 
 export type StatusFilterCategory = 'all' | 'pending' | 'butuh_approval' | 'revision' | 'done' | 'reschedule' | 'cancel';
@@ -408,7 +406,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5 pb-20 sm:pb-6">
+    <div className="max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto space-y-4 sm:space-y-5 pb-20 sm:pb-6">
       {/* ============================================================ */}
       {/* 1. REAL-TIME OPERATIONAL ALERTS & CONNECTIVITY SNACKBAR      */}
       {/* ============================================================ */}
@@ -527,48 +525,48 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* 2. TOP HEADER & SEARCH/FILTER WORKSPACE (STITCH SCREEN 1)    */}
+      {/* 2. TOP HEADER & SEARCH/FILTER WORKSPACE (STITCH PURPLE OPS)  */}
       {/* ============================================================ */}
       <div className="mj-stitch-card rounded-2xl p-4 sm:p-5 space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#006194] text-white flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7e3cb8] to-[#5b2299] text-white flex items-center justify-center shrink-0 shadow-md shadow-purple-900/20">
               <Wrench className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-[17px] sm:text-[18px] font-bold text-[#111c2d] dark:text-white tracking-tight">
+                <h2 className="font-display text-[17px] sm:text-[18px] font-bold text-[#1f1638] dark:text-white tracking-tight">
                   Daftar Work Order
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e7eeff] dark:bg-[#35105E] text-[#006194] dark:text-[#DAB9FF]">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 dark:bg-[#35105E] text-[#7135b5] dark:text-[#DAB9FF] border border-purple-200/80 dark:border-[#7135b5]/40">
                   {effectiveInstallerName}
                 </span>
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${
                     isOnline
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-[#ffddb8] dark:bg-amber-950/60 text-[#633c00] dark:text-amber-300'
+                      ? 'bg-[#dcfce7] border-emerald-200 text-[#059669] dark:bg-emerald-950/60 dark:border-emerald-700/60 dark:text-emerald-300'
+                      : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/60 dark:border-amber-700/60 dark:text-amber-300'
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
                   <span>{isOnline ? 'Online Sync' : 'Offline Cache'}</span>
                 </span>
               </div>
-              <p className="text-[11.5px] text-[#3f4850] dark:text-[#CEC0E8] mt-0.5">
+              <p className="text-[11.5px] text-slate-500 dark:text-[#CEC0E8] mt-0.5">
                 Jadwal {todayWIB} • {counts.pending} Aktif • {counts.revision + counts.butuh_approval} Perlu Tindak Lanjut
               </p>
             </div>
           </div>
 
           {currentUser.role !== 'installer' && (
-            <div className="flex items-center gap-2 bg-[#f0f3ff] dark:bg-[#160D29] p-2 rounded-xl border border-[#d8e3fb] dark:border-[#35105E]">
-              <span className="text-xs font-semibold text-[#3f4850] dark:text-[#CEC0E8] whitespace-nowrap">
+            <div className="flex items-center gap-2 bg-[#fcf8ff] dark:bg-[#160D29] p-2 rounded-xl border border-purple-200/80 dark:border-[#35105E]">
+              <span className="text-xs font-semibold text-slate-600 dark:text-[#CEC0E8] whitespace-nowrap">
                 Teknisi:
               </span>
               <select
                 value={selectedInstallerName}
                 onChange={e => setSelectedInstallerName(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-white dark:bg-[#22123F] rounded-lg font-semibold text-[#111c2d] dark:text-white border border-[#d8e3fb] dark:border-[#4b386b] focus:outline-none focus:ring-2 focus:ring-[#006194]"
+                className="px-2.5 py-1.5 text-xs bg-white dark:bg-[#22123F] rounded-lg font-semibold text-[#1f1638] dark:text-white border border-purple-200 dark:border-[#4b386b] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
               >
                 {myInstallers.map(inst => (
                   <option key={inst.id} value={inst.name}>
@@ -590,8 +588,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             }}
             className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
               statusFilter === 'all' && !activeKpiDrilldown
-                ? 'bg-[#111c2d] dark:bg-[#006194] text-white shadow-xs'
-                : 'bg-[#f0f3ff] text-[#111c2d] hover:bg-[#e7eeff] dark:bg-[#160D29] dark:text-[#CEC0E8]'
+                ? 'bg-[#18152e] dark:bg-[#7135b5] text-white shadow-xs'
+                : 'bg-[#f6f0ff] text-[#1f1638] hover:bg-purple-100 dark:bg-[#160D29] dark:text-[#CEC0E8]'
             }`}
           >
             <span>Semua</span>
@@ -608,8 +606,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             }}
             className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 inline-flex items-center gap-1.5 ${
               statusFilter === 'pending'
-                ? 'bg-[#006194] text-white shadow-xs'
-                : 'bg-[#e7eeff] text-[#006194] hover:bg-[#dee8ff] dark:bg-[#261942] dark:text-[#93ccff]'
+                ? 'bg-[#7135b5] text-white shadow-[0_2px_0_#4a1584]'
+                : 'bg-purple-50 text-[#7135b5] hover:bg-purple-100 border border-purple-200/70 dark:bg-[#261942] dark:border-[#4B386B] dark:text-[#DAB9FF]'
             }`}
           >
             <span>Aktif</span>
@@ -627,8 +625,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               }}
               className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 statusFilter === 'revision'
-                  ? 'bg-[#ba1a1a] text-white shadow-xs'
-                  : 'bg-[#ffdad6] text-[#93000a] hover:bg-[#ffdad6]/80 dark:bg-rose-950/80 dark:text-rose-200'
+                  ? 'bg-[#b91c1c] text-white shadow-xs'
+                  : 'bg-[#fee2e2] text-[#b91c1c] hover:bg-[#fecaca] dark:bg-rose-950/80 dark:text-rose-200'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
@@ -647,8 +645,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             }}
             className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === 'butuh_approval'
-                ? 'bg-[#825100] text-white shadow-xs'
-                : 'bg-[#ffddb8] text-[#633c00] hover:bg-[#ffddb8]/80 dark:bg-amber-950/70 dark:text-amber-200'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 dark:bg-amber-950/70 dark:border-amber-700/60 dark:text-amber-200'
             }`}
           >
             <AlertCircle className="w-3.5 h-3.5" />
@@ -663,8 +661,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             }}
             className={`min-h-[38px] px-3 py-1.5 rounded-full font-bold transition-all cursor-pointer shrink-0 ${
               statusFilter === 'done'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300'
+                ? 'bg-[#00a884] text-white shadow-xs'
+                : 'bg-[#dcfce7] text-[#059669] hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-700/60 dark:text-emerald-300'
             }`}
           >
             Selesai ({counts.done})
@@ -706,21 +704,21 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         </div>
 
         {/* Search & Sort Controls */}
-        <div className="pt-2 border-t border-[#e7eeff] dark:border-[#35105E] flex items-center gap-2">
+        <div className="pt-2 border-t border-purple-100/80 dark:border-[#35105E] flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 text-[#707881] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Cari no. WO, pelanggan, cluster, telepon..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full min-h-[44px] pl-10 pr-9 py-2 bg-[#f0f3ff] dark:bg-[#160D29] rounded-full text-xs text-[#111c2d] dark:text-white placeholder:text-[#707881] focus:outline-none focus:ring-2 focus:ring-[#006194]"
+              className="w-full min-h-[44px] pl-10 pr-9 py-2 bg-[#fcf8ff] dark:bg-[#160D29] border border-purple-100 dark:border-[#35105E] rounded-full text-xs text-[#1f1638] dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#707881] hover:text-[#111c2d] dark:hover:text-white cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
                 aria-label="Hapus pencarian"
               >
                 <X className="w-4 h-4" />
@@ -728,13 +726,13 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[#f0f3ff] dark:bg-[#160D29] px-2.5 min-h-[44px] rounded-xl border border-[#d8e3fb] dark:border-[#35105E] shrink-0">
-            <ArrowUpDown className="w-3.5 h-3.5 text-[#006194] dark:text-[#93ccff]" />
+          <div className="flex items-center gap-1.5 bg-[#fcf8ff] dark:bg-[#160D29] px-2.5 min-h-[44px] rounded-xl border border-purple-100 dark:border-[#35105E] shrink-0">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#DAB9FF]" />
             <select
               aria-label="Urutkan Tugas"
               value={sortBy}
               onChange={e => setSortBy(e.target.value as 'slot' | 'status' | 'wo')}
-              className="bg-transparent text-xs font-bold text-[#111c2d] dark:text-white focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-bold text-[#1f1638] dark:text-white focus:outline-none cursor-pointer"
             >
               <option value="slot">Slot Waktu</option>
               <option value="status">Status</option>
@@ -802,15 +800,15 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-[#4B4452] dark:text-[#E9D5FF] uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-[#E9D5FF] uppercase tracking-widest">
               Daftar Work Order ({filteredTickets.length} Tiket)
             </span>
             <span className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8] hidden sm:inline">
-              Ketuk <strong>&ldquo;Buka Tiket&rdquo;</strong> untuk 3-Tier Checkout, Foto 4 Titik &amp; Validasi QC
+              Ketuk <strong>&ldquo;Buka Tiket&rdquo;</strong> untuk 3-Tier Checkout, Foto 6 Titik &amp; Validasi QC
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 items-start">
             {filteredTickets.map(ticket => {
               const ticketClosed = isTicketClosed(ticket);
               const canonicalApproval = getTicketCanonicalApprovalStatus(ticket);
@@ -830,10 +828,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
               const rawFatDbm = ticket.technicalReport?.fatRedamanDbm || ticket.fatRedamanDbm;
               const numericFat = parseNumericDbm(rawFatDbm);
-              const fatDisplay =
-                numericFat !== null
-                  ? `${numericFat.toFixed(1)}`
-                  : ticket.technicalReport?.deviceSerialNumber || ticket.ontSerialNumber || '—';
+              const ontSn = ticket.technicalReport?.deviceSerialNumber || ticket.ontSerialNumber || '';
 
               const isLiveJob =
                 !ticketClosed &&
@@ -858,29 +853,42 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 ticket.dropcoreLength ||
                 (ticket.dropcoreLengthMeter ? `${ticket.dropcoreLengthMeter}m` : '');
 
+              const hasHouseGps = isValidCoordinatePair(
+                ticket.houseLocation?.latitude,
+                ticket.houseLocation?.longitude
+              );
+              const hasFatGps = isValidCoordinatePair(
+                ticket.fatLocation?.latitude,
+                ticket.fatLocation?.longitude
+              );
+              const photoCount =
+                ticket.photoEvidenceCount ??
+                (Array.isArray(ticket.technicalReport?.photoSlots)
+                  ? ticket.technicalReport!.photoSlots.length
+                  : Array.isArray(ticket.technicalReport?.photos)
+                  ? ticket.technicalReport!.photos.length
+                  : 0);
+
               return (
                 <article
                   key={ticket.id}
-                  className="tactile-card-shell bg-white dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 space-y-4 relative overflow-hidden transition-all"
+                  className="bg-[#fcf8ff] dark:bg-[#1E1238] rounded-2xl border border-purple-100 dark:border-[#35105E] p-3.5 sm:p-4 shadow-tactile-card space-y-3.5 relative overflow-hidden transition-all"
                 >
-                  {/* 1. Card Header: WO Pill + Category + Live Job Indicator */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+                  {/* 1. Compact Header Row: WO Number + Metadata + Status */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-100 dark:border-[#35105E]">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <span className="px-2.5 py-1 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#E8DDFF] dark:border-[#7135B5]/60 font-mono font-extrabold text-[13px] text-[#58149C] dark:text-[#DAB9FF] tracking-tight">
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-[#2E1459] border border-purple-200/80 dark:border-[#7135B5]/60 font-mono font-extrabold text-[12.5px] text-[#4a1584] dark:text-[#DAB9FF] tracking-tight">
                         {ticket.woNumber}
                       </span>
-                      <span className="text-xs font-semibold text-[#4B4452] dark:text-[#E9D5FF] truncate">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-[#E9D5FF] truncate">
                         • {ticket.ticketCategory || ticket.appointmentType || 'New Installation'}
-                      </span>
-                      <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] hidden sm:inline">
-                        ID: {ticket.idCustomer || ticket.customerId || '-'}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
                       {isLiveJob && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border border-[#DAB9FF]/70 dark:border-[#7135B5] text-[10.5px] font-bold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#58149C] dark:bg-[#DAB9FF] animate-pulse" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-[#35105E] text-[#7135b5] dark:text-[#DAB9FF] border border-purple-200 dark:border-[#7135B5] text-[10px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#7135b5] dark:bg-[#DAB9FF] animate-pulse" />
                           <span>Live Job</span>
                         </span>
                       )}
@@ -889,7 +897,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       {canonicalReport !== 'NONE' && (
                         <StatusBadge status={canonicalReport} variant="report" />
                       )}
-                      <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
                       <StatusApprovalBadge status={ticket.approvalStatus} />
                     </div>
                   </div>
@@ -912,322 +919,359 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     />
                   )}
 
-                  {/* 2. Customer Identity, Address & ODP/FAT Splitter Line */}
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  {/* 2. STITCH CUSTOMER & WHATSAPP CONTACT CARD */}
+                  <div className="bg-white dark:bg-[#160D29] rounded-2xl p-3.5 border border-purple-100/90 dark:border-[#35105E] shadow-[0_2px_10px_rgba(99,74,140,0.05)] space-y-3">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#E8DDFF] dark:border-[#7135B5]/50 text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_#ffffff,0_2px_0_#CEC3D4] dark:shadow-none">
-                        <Router className="w-6 h-6" />
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-[#2E1459] border border-purple-100 dark:border-[#7135B5]/50 text-[#7135b5] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                        <Router className="w-5 h-5" />
                       </div>
-                      <div className="min-w-0 space-y-1">
-                        <h3 className="font-display font-bold text-[17px] text-[#1F1638] dark:text-white leading-tight truncate">
-                          {ticket.customerName}
-                        </h3>
-                        <div className="flex items-start gap-1.5 text-xs text-[#4B4452] dark:text-[#CEC0E8]">
-                          <MapPin className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-display font-bold text-[15.5px] text-slate-900 dark:text-white leading-tight truncate">
+                            {ticket.customerName}
+                          </h3>
+                          {ticket.slotTime && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 dark:bg-[#241740] text-[#4a1584] dark:text-[#E9D5FF] border border-purple-100 dark:border-[#35105E] font-mono text-[10px] font-bold shrink-0">
+                              <Clock className="w-3 h-3 text-[#7135b5] dark:text-[#DAB9FF]" />
+                              {ticket.slotTime}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-[#CEC0E8]">
+                          <MapPin className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
                           <span className="line-clamp-2">
                             {ticket.clusterName ? `${ticket.clusterName} — ` : ''}
                             {ticket.streetName || ticket.area || 'Alamat belum terisi'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-mono font-semibold text-[#7135b5] dark:text-[#DAB9FF]">
                           <span>
                             {ticket.fdtCode || 'FDT -'} • FAT {ticket.fatCode || '-'}
                             {ticket.fatPort ? ` (Port ${ticket.fatPort})` : ''}
                           </span>
-                          {ticket.slotTime && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F8F1FF] dark:bg-[#160D29] text-[#4B4452] dark:text-[#E9D5FF] border border-[#E8DDFF] dark:border-[#35105E]">
-                              <Clock className="w-3 h-3 text-[#58149C] dark:text-[#DAB9FF]" />
-                              {ticket.slotTime}
+                          <span className="inline-flex items-center gap-1 text-slate-500 dark:text-[#CEC0E8]">
+                            <Camera className="w-3 h-3 text-[#7135b5] dark:text-[#DAB9FF]" />
+                            {photoCount}/6 Foto
+                          </span>
+                          {(hasHouseGps || hasFatGps) && (
+                            <span className="text-emerald-600 dark:text-emerald-300 font-bold">
+                              GPS {hasHouseGps && hasFatGps ? 'Rumah+FAT' : hasHouseGps ? 'Rumah' : 'FAT'}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Customer Contact Phone + Quick WA */}
-                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 bg-[#F8F1FF] dark:bg-[#160D29] px-3 py-2 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] shrink-0">
-                      <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-[#1F1638] dark:text-white">
-                        <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{ticket.customerPhone || '-'}</span>
+                    {/* Stitch Phone + Vibrant WhatsApp CTA Row */}
+                    <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-purple-50 dark:border-[#35105E]/80">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-[#059669] dark:text-emerald-300 shrink-0">
+                          <Phone className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-mono text-[13.5px] font-bold tracking-tight text-slate-800 dark:text-white truncate">
+                            {ticket.customerPhone || 'No. HP Kosong'}
+                          </div>
+                          <div className="mt-0.5">
+                            <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                          </div>
+                        </div>
                       </div>
-                      {ticket.customerPhone && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenWhatsApp(ticket)}
-                          className="tactile-pill-btn px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          <span>WhatsApp</span>
-                        </button>
-                      )}
+
+                      <button
+                        type="button"
+                        disabled={!ticket.customerPhone}
+                        onClick={() => onOpenWhatsApp(ticket)}
+                        className="bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-45 disabled:cursor-not-allowed text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-tactile-wa active:translate-y-0.5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                        <span>WhatsApp</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* 3. DARK MECHANICAL OPTICAL TELEMETRY CONSOLE */}
-                  <div className="rounded-2xl bg-[#160D29] border border-[#35105E] p-3.5 sm:p-4 text-white shadow-[0_6px_18px_rgba(22,13,41,0.22)]">
-                    <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-white/10 text-[10.5px] font-mono uppercase tracking-wider">
-                      <span className="flex items-center gap-1.5 text-[#DAB9FF] font-bold">
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
-                        <span>OPM LIVE TELEMETRY (1490nm)</span>
-                      </span>
-                      <span className="text-[#CEC0E8] tabular-nums">
-                        REF: -24.00 dBm
-                      </span>
-                    </div>
+                  {/* 3. STITCH DARK OPM LIVE TELEMETRY CONSOLE */}
+                  <div className="rounded-2xl bg-[#18152e] border border-[#2d2752] p-4 text-white shadow-tactile-telemetry relative overflow-hidden">
+                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-purple-600/20 blur-2xl rounded-full pointer-events-none" />
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {/* Left Well: Power Rx ONT */}
-                      <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
-                        <div className="text-[11px] text-[#CEC0E8] font-medium">
-                          Power Rx ONT
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 text-purple-200/90 text-[11px] font-mono font-bold tracking-widest uppercase">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          <span>OPM LIVE TELEMETRY</span>
                         </div>
-                        <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums">
-                          <span
-                            className={`text-[20px] sm:text-[22px] font-bold leading-none ${
-                              numericOpm === null
-                                ? 'text-[#DAB9FF]'
-                                : opmIsOutOfSpec
-                                ? 'text-rose-400'
-                                : 'text-white'
-                            }`}
-                          >
-                            {opmDisplay}
-                          </span>
-                          {numericOpm !== null && (
-                            <span className="text-xs text-[#CEC0E8]">dBm</span>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold">
-                          {numericOpm === null ? (
-                            <span className="text-amber-300">Menunggu pengukuran OPM</span>
-                          ) : opmIsOutOfSpec ? (
-                            <span className="text-rose-400 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              Redaman Tinggi (&lt;-24)
-                            </span>
-                          ) : (
-                            <span className="text-emerald-400 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Normal (Pass SOP)
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-[11px] font-mono text-purple-300/75 tabular-nums">
+                          REF: -24.00 DBM
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-purple-300/70 mb-3">
+                        (1490NM)
                       </div>
 
-                      {/* Right Well: FAT Redaman / ONT SN */}
-                      <div className="rounded-xl bg-[#241740] border border-white/10 p-3">
-                        <div className="text-[11px] text-[#CEC0E8] font-medium">
-                          {numericFat !== null ? 'FAT Redaman Ref' : 'Serial Number ONT'}
-                        </div>
-                        <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums truncate">
-                          <span className="text-[18px] sm:text-[20px] font-bold text-white leading-none truncate">
-                            {fatDisplay}
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Left Well: Power Rx ONT */}
+                        <div className="bg-[#242042] border border-[#3b3464] rounded-xl p-3 flex flex-col justify-between">
+                          <span className="text-[11px] text-slate-300 font-medium">
+                            Power Rx ONT
                           </span>
-                          {numericFat !== null && (
-                            <span className="text-xs text-[#CEC0E8]">dBm</span>
-                          )}
+                          <div className="mt-1.5 flex items-baseline gap-1 font-mono tabular-nums">
+                            <span
+                              className={`text-[22px] sm:text-[24px] font-bold tracking-tight leading-none ${
+                                numericOpm === null
+                                  ? 'text-purple-200'
+                                  : opmIsOutOfSpec
+                                  ? 'text-rose-400'
+                                  : 'text-white'
+                              }`}
+                            >
+                              {opmDisplay}
+                            </span>
+                            {numericOpm !== null && (
+                              <span className="text-xs font-medium text-slate-400">dBm</span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold">
+                            {numericOpm === null ? (
+                              <span className="text-amber-300">Menunggu pengukuran</span>
+                            ) : opmIsOutOfSpec ? (
+                              <span className="text-rose-400 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                <span>Redaman Tinggi (&lt;-24)</span>
+                              </span>
+                            ) : (
+                              <span className="text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                <span>Normal (Pass SOP)</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold">
-                          {numericFat !== null || ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber ? (
-                            <span className="text-emerald-400 flex items-center gap-1 truncate">
-                              <CheckCircle2 className="w-3 h-3 shrink-0" />
-                              <span>Terkunci ({ticket.fatCode || 'FAT'})</span>
+
+                        {/* Right Well: Serial Number ONT & FAT Redaman */}
+                        <div className="bg-[#242042] border border-[#3b3464] rounded-xl p-3 flex flex-col justify-between">
+                          <span className="text-[11px] text-slate-300 font-medium">
+                            Serial Number ONT
+                          </span>
+                          <div className="mt-1.5 flex items-baseline gap-1 font-mono tabular-nums min-w-0">
+                            <span className="text-[18px] sm:text-[20px] font-bold text-white leading-none truncate">
+                              {ontSn || (numericFat !== null ? `${numericFat.toFixed(1)} dBm` : '—')}
                             </span>
-                          ) : (
-                            <span className="text-[#DAB9FF]/80 truncate">
-                              {ticket.ontBrand || 'Input saat Checkout'}
-                            </span>
-                          )}
+                          </div>
+                          <div className="mt-2 text-[11px] font-medium truncate">
+                            {numericFat !== null ? (
+                              <span className="text-emerald-400 font-mono">
+                                FAT {ticket.fatCode || '-'}: {numericFat.toFixed(1)} dBm
+                              </span>
+                            ) : ontSn ? (
+                              <span className="text-emerald-400 flex items-center gap-1 truncate">
+                                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                <span>Terkunci ({ticket.fatCode || 'ONT'})</span>
+                              </span>
+                            ) : (
+                              <span className="text-purple-200/75 truncate">
+                                {ticket.ontBrand || 'Input saat Checkout'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* 4. 3-STEP INSTALLATION PROGRESS RIBBON */}
+                  {/* 4. STITCH 3-STEP TAHAPAN INSTALASI */}
                   <div>
-                    <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8] mb-2">
+                    <h4 className="text-[11px] font-bold text-slate-500 dark:text-[#CEC0E8] tracking-widest uppercase mb-2 px-0.5">
                       TAHAPAN INSTALASI
-                    </div>
+                    </h4>
                     <div className="grid grid-cols-3 gap-2">
                       {/* Step 1: Mulai Kerja */}
-                      <div
-                        className={`rounded-xl p-2.5 text-center border transition-all ${
-                          step1Done
-                            ? 'bg-[#F8F1FF] dark:bg-[#241740] border-[#E8DDFF] dark:border-[#4B386B]'
-                            : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E]'
-                        }`}
-                      >
+                      <div className="bg-white dark:bg-[#241740] border border-purple-100 dark:border-[#3b3464] rounded-xl p-2.5 flex flex-col items-center text-center shadow-[0_2px_8px_rgba(113,53,181,0.04)]">
                         <div
-                          className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-bold ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center mb-1.5 text-[11px] font-bold ${
                             step1Done
                               ? 'bg-emerald-500 text-white'
-                              : 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                              : 'bg-purple-100 dark:bg-[#35105E] text-[#7135b5] dark:text-[#DAB9FF]'
                           }`}
                         >
-                          {step1Done ? <Check className="w-3.5 h-3.5" /> : '1'}
+                          {step1Done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : '1'}
                         </div>
-                        <div className="font-bold text-[11.5px] text-[#1F1638] dark:text-white mt-1.5 truncate">
+                        <span className="text-[11.5px] font-bold text-slate-800 dark:text-white leading-tight truncate w-full">
                           1. Mulai Kerja
-                        </div>
-                        <div className="text-[10px] text-[#7D7484] dark:text-[#CEC0E8] truncate font-mono">
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-[#CEC0E8] mt-1 font-medium truncate w-full">
                           {ticket.workStartedAt
                             ? `Mulai ${formatJakartaTimeOnly(ticket.workStartedAt)}`
                             : dropcoreInfo
                             ? `Dropcore ${dropcoreInfo}`
                             : 'Siap Berangkat'}
-                        </div>
+                        </span>
                       </div>
 
                       {/* Step 2: Check-in #PROGRESS */}
                       <button
                         type="button"
                         onClick={() => handleOpenChat(ticket, 'PROGRESS')}
-                        className={`rounded-xl p-2.5 text-center border transition-all cursor-pointer ${
+                        className={`rounded-xl p-2.5 flex flex-col items-center text-center border transition-all cursor-pointer ${
                           step2Done
-                            ? 'bg-[#F8F1FF] dark:bg-[#241740] border-[#E8DDFF] dark:border-[#4B386B]'
+                            ? 'bg-white dark:bg-[#241740] border-purple-100 dark:border-[#3b3464] shadow-[0_2px_8px_rgba(113,53,181,0.04)]'
                             : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60 hover:bg-amber-100/70'
                         }`}
                       >
                         <div
-                          className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-bold ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center mb-1.5 text-[11px] font-bold ${
                             step2Done
                               ? 'bg-emerald-500 text-white'
                               : 'bg-amber-500 text-white'
                           }`}
                         >
-                          {step2Done ? <Check className="w-3.5 h-3.5" /> : '2'}
+                          {step2Done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : '2'}
                         </div>
-                        <div className="font-bold text-[11.5px] text-[#1F1638] dark:text-white mt-1.5 truncate">
+                        <span className="text-[11.5px] font-bold text-slate-800 dark:text-white leading-tight truncate w-full">
                           2. Check-in
-                        </div>
-                        <div className="text-[10px] font-mono truncate text-[#58149C] dark:text-[#DAB9FF]">
+                        </span>
+                        <span className="text-[10px] font-mono font-semibold mt-1 truncate w-full text-[#7135b5] dark:text-[#DAB9FF]">
                           {step2Done
-                            ? formatJakartaTimeOnly(ticket.checkInAt!)
+                            ? `${formatJakartaTimeOnly(ticket.checkInAt!)} WIB`
                             : 'Kirim #PROGRESS'}
-                        </div>
+                        </span>
                       </button>
 
-                      {/* Step 3: Laporan & QC */}
+                      {/* Step 3: Laporan QC */}
                       <button
                         type="button"
                         onClick={() => handleOpenTicket(ticket)}
-                        className={`rounded-xl p-2.5 text-center border transition-all cursor-pointer ${
-                          step3Done
-                            ? 'bg-[#F8F1FF] dark:bg-[#241740] border-[#E8DDFF] dark:border-[#4B386B]'
-                            : 'bg-[#F3EAFF] dark:bg-[#2E1459] border-[#58149C]/40 dark:border-[#A380FE]/50'
-                        }`}
+                        className="bg-white dark:bg-[#241740] border border-purple-100 dark:border-[#3b3464] rounded-xl p-2.5 flex flex-col items-center text-center shadow-[0_2px_8px_rgba(113,53,181,0.04)] hover:border-purple-300 transition-all cursor-pointer"
                       >
                         <div
-                          className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-bold ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center mb-1.5 text-[11px] font-bold ${
                             step3Done
                               ? 'bg-emerald-500 text-white'
-                              : 'bg-[#58149C] text-white'
+                              : 'bg-[#7135b5] text-white'
                           }`}
                         >
-                          {step3Done ? <Check className="w-3.5 h-3.5" /> : '3'}
+                          {step3Done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : '3'}
                         </div>
-                        <div className="font-bold text-[11.5px] text-[#1F1638] dark:text-white mt-1.5 truncate">
+                        <span className="text-[11.5px] font-bold text-slate-800 dark:text-white leading-tight truncate w-full">
                           3. Laporan QC
-                        </div>
-                        <div className="text-[10px] font-semibold truncate text-[#58149C] dark:text-[#DAB9FF]">
+                        </span>
+                        <span className="text-[10px] font-semibold mt-1 truncate w-full text-[#7135b5] dark:text-[#DAB9FF]">
                           {step3Done
                             ? ticket.approvalStatus === 'APPROVED'
                               ? 'Approved'
-                              : 'Menunggu Dispatch'
+                              : 'Menunggu Disp...'
                             : step2Done
                             ? 'Siap Submit...'
                             : 'Terkunci'}
-                        </div>
+                        </span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Remarks / Notes */}
+                  {/* 5. STITCH TECHNICIAN & DISPATCH REMARKS ALERT */}
                   {(ticket.remarksWOInstaller || ticket.remarksAgent) && (
-                    <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-[11.5px] text-amber-950 dark:text-amber-200 space-y-0.5">
-                      {ticket.remarksWOInstaller && (
-                        <div>
-                          <strong>Catatan Teknisi:</strong> {ticket.remarksWOInstaller}
-                        </div>
-                      )}
-                      {ticket.remarksAgent && (
-                        <div>
-                          <strong>Catatan Dispatch:</strong> {ticket.remarksAgent}
-                        </div>
-                      )}
+                    <div className="bg-[#fffbeb] dark:bg-amber-950/30 border border-[#fef08a] dark:border-amber-800/50 rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 shadow-2xs">
+                      <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="text-[11.5px] text-amber-900 dark:text-amber-200 leading-snug space-y-0.5 min-w-0">
+                        {ticket.remarksWOInstaller && (
+                          <div className="break-words">
+                            <span className="font-bold">Catatan Teknisi: </span>
+                            <span className="font-mono text-[11px] uppercase tracking-tight text-amber-800 dark:text-amber-100">
+                              {ticket.remarksWOInstaller}
+                            </span>
+                          </div>
+                        )}
+                        {ticket.remarksAgent && (
+                          <div className="break-words">
+                            <span className="font-bold">Catatan Dispatch: </span>
+                            <span className="text-amber-800 dark:text-amber-200">{ticket.remarksAgent}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {/* 5. TACTILE ACTION BAR */}
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-[#E8DDFF] dark:border-[#35105E]">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {!ticketClosed && ticket.statusWOInstaller === 'En Route' && (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickStatus(ticket.id, 'On Site', 'Teknisi tiba di lokasi pelanggan')}
-                          className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span>Tiba di Lokasi</span>
-                        </button>
-                      )}
+                  {/* Quick On-Site Arrival CTA when En Route */}
+                  {!ticketClosed && ticket.statusWOInstaller === 'En Route' && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickStatus(ticket.id, 'On Site', 'Teknisi tiba di lokasi pelanggan')}
+                      className="w-full py-2.5 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Konfirmasi Tiba di Lokasi (On Site)</span>
+                    </button>
+                  )}
 
-                      {!ticketClosed && (
-                        <button
-                          type="button"
-                          onClick={() => setKendalaTicket(ticket)}
-                          className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-white dark:bg-[#261942] text-[#BA1A1A] dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                          title="Laporkan kendala lapangan atau reschedule"
-                        >
-                          <ShieldAlert className="w-3.5 h-3.5" />
-                          <span>Kendala</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 ml-auto">
+                  {/* 6. STITCH UNIFIED 4-BUTTON TACTILE ACTION DOCK */}
+                  <div className="bg-white/85 dark:bg-[#160D29]/90 backdrop-blur-md border border-purple-100 dark:border-[#35105E] p-2 rounded-2xl shadow-tactile-card">
+                    <div className="grid grid-cols-4 gap-2">
+                      {/* 1. Kendala */}
                       <button
                         type="button"
-                        onClick={() =>
-                          openCustomerAddressInGoogleMaps(ticket, () => {
-                            toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
-                          })
-                        }
-                        className="tactile-btn-secondary px-3 py-2 min-h-[42px] bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                        title="Buka rute Google Maps"
+                        disabled={ticketClosed}
+                        onClick={() => setKendalaTicket(ticket)}
+                        title={ticketClosed ? 'WO sudah ditutup' : 'Laporkan kendala lapangan atau reschedule'}
+                        className="h-12 flex flex-col items-center justify-center rounded-xl bg-[#fee2e2] hover:bg-[#fecaca] disabled:opacity-45 disabled:cursor-not-allowed border border-[#f87171] dark:bg-rose-950/60 dark:border-rose-700/70 text-[#b91c1c] dark:text-rose-200 shadow-tactile-danger active:translate-y-0.5 transition-all cursor-pointer"
                       >
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>Maps</span>
+                        <ShieldAlert className="w-4 h-4 mb-0.5" />
+                        <span className="text-[11px] font-bold leading-none">Kendala</span>
                       </button>
 
+                      {/* 2. Maps (prioritize captured house GPS, fallback address) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hasHouseGps) {
+                            openCoordinatesInGoogleMaps(
+                              ticket.houseLocation!.latitude,
+                              ticket.houseLocation!.longitude
+                            );
+                          } else {
+                            openCustomerAddressInGoogleMaps(ticket, () => {
+                              toast.warning('Alamat & koordinat GPS pelanggan belum tersedia.', 'Google Maps');
+                            });
+                          }
+                        }}
+                        title={
+                          hasHouseGps
+                            ? 'Buka koordinat GPS Rumah Pelanggan di Google Maps'
+                            : 'Buka rute alamat pelanggan di Google Maps'
+                        }
+                        className="h-12 flex flex-col items-center justify-center rounded-xl bg-purple-50 hover:bg-purple-100/80 dark:bg-[#261942] dark:hover:bg-[#342b4e] border border-purple-200/80 dark:border-[#4B386B] text-[#4a1584] dark:text-[#DAB9FF] shadow-tactile-subtle active:translate-y-0.5 transition-all cursor-pointer"
+                      >
+                        <Navigation className="w-4 h-4 mb-0.5 text-[#7135b5] dark:text-[#DAB9FF]" />
+                        <span className="text-[11px] font-bold leading-none">Maps</span>
+                      </button>
+
+                      {/* 3. Live Chat */}
                       <button
                         type="button"
                         onClick={() => handleOpenChat(ticket)}
-                        className="tactile-btn-secondary relative px-3.5 py-2 min-h-[42px] bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] border border-[#DAB9FF] dark:border-[#7135B5] text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
                         title="Buka Live Chat koordinasi dengan Dispatch untuk tiket ini"
+                        className="h-12 flex flex-col items-center justify-center rounded-xl bg-purple-50 hover:bg-purple-100/80 dark:bg-[#261942] dark:hover:bg-[#342b4e] border border-purple-200/80 dark:border-[#4B386B] text-[#4a1584] dark:text-[#DAB9FF] shadow-tactile-subtle active:translate-y-0.5 transition-all relative cursor-pointer"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>Live Chat</span>
-                        {unread > 0 && (
-                          <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#BA1A1A] text-white leading-none tabular-nums">
-                            {unread > 99 ? '99+' : unread}
-                          </span>
-                        )}
+                        <div className="relative">
+                          <MessageSquare className="w-4 h-4 mb-0.5 text-[#7135b5] dark:text-[#DAB9FF]" />
+                          {unread > 0 && (
+                            <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-1 ring-white dark:ring-[#261942] tabular-nums">
+                              {unread > 99 ? '99+' : unread}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-bold leading-none">Live Chat</span>
                       </button>
 
+                      {/* 4. Buka Tiket (Primary Tactile Purple) */}
                       <button
                         type="button"
                         onClick={() => handleOpenTicket(ticket)}
-                        className="tactile-btn-primary px-4 py-2 min-h-[42px] bg-gradient-to-r from-[#58149C] to-[#7135B5] text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 cursor-pointer"
-                        title="Buka rincian lengkap tiket dan formulir teknis"
+                        title="Buka rincian lengkap tiket, kamera geotag 6 titik & 3-Tier Checkout"
+                        className="h-12 flex flex-col items-center justify-center rounded-xl bg-gradient-to-b from-[#7e3cb8] to-[#5b2299] text-white shadow-tactile-primary active:translate-y-[3px] transition-all relative overflow-hidden cursor-pointer px-1"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>
-                          {canonicalApproval === 'REVISION'
-                            ? 'Perbaiki Revisi'
-                            : ticket.workStartedAt && !ticketClosed
-                            ? 'Buka & Lapor QC'
-                            : 'Buka Tiket'}
+                        <div className="absolute inset-x-0 top-0 h-px bg-white/25 pointer-events-none" />
+                        <TicketIcon className="w-4 h-4 mb-0.5" />
+                        <span className="text-[11px] font-bold leading-none tracking-tight truncate max-w-full">
+                          {canonicalApproval === 'REVISION' ? 'Perbaiki' : 'Buka Tiket'}
                         </span>
                       </button>
                     </div>

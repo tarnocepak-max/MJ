@@ -230,6 +230,39 @@ interface AppContextType {
     }
   ) => Promise<{ success: boolean; error?: string; code?: string; report?: ProgressReportEntry }>;
   verifyTechnicalReport: (ticketId: string) => void;
+  uploadWoPhotoEvidence: (
+    ticketId: string,
+    payload: {
+      slotKey: import('../types/index.ts').TechnicalPhotoSlotKey;
+      title: string;
+      fileData: string;
+      fileName: string;
+      mimeType: string;
+      capturedAt: string;
+      latitude?: number;
+      longitude?: number;
+      gpsAccuracyMeters?: number;
+      altitudeMeters?: number;
+      headingDeg?: number;
+      speedMps?: number;
+      locationSource?: string;
+      permissionStatus?: string;
+      geotagStatus?: import('../types/index.ts').GeotagStatus;
+      captureMethod?: 'camera' | 'gallery';
+      badgeText?: string;
+      statusTag?: string;
+      clientCaptureId: string;
+      woNumber?: string;
+    }
+  ) => Promise<{
+    success: boolean;
+    photoSlot?: import('../types/index.ts').TechnicalPhotoSlot;
+    houseLocation?: import('../types/index.ts').WorkOrderGeoLocation;
+    fatLocation?: import('../types/index.ts').WorkOrderGeoLocation;
+    ticket?: Ticket;
+    error?: string;
+    offline?: boolean;
+  }>;
   startWorkOnTicket: (ticketId: string) => Promise<{ success: boolean; error?: string; ticket?: Ticket }>;
   approveProgressReport: (ticketId: string, notes?: string) => Promise<{ success: boolean; error?: string }>;
   rejectProgressReport: (ticketId: string, reason: string) => Promise<{ success: boolean; error?: string }>;
@@ -3586,6 +3619,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const uploadWoPhotoEvidence = async (
+    ticketId: string,
+    payload: {
+      slotKey: import('../types/index.ts').TechnicalPhotoSlotKey;
+      title: string;
+      fileData: string;
+      fileName: string;
+      mimeType: string;
+      capturedAt: string;
+      latitude?: number;
+      longitude?: number;
+      gpsAccuracyMeters?: number;
+      altitudeMeters?: number;
+      headingDeg?: number;
+      speedMps?: number;
+      locationSource?: string;
+      permissionStatus?: string;
+      geotagStatus?: import('../types/index.ts').GeotagStatus;
+      captureMethod?: 'camera' | 'gallery';
+      badgeText?: string;
+      statusTag?: string;
+      clientCaptureId: string;
+      woNumber?: string;
+    }
+  ) => {
+    const ticket = getTicketById(ticketId);
+    if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
+
+    if (!isOnline) {
+      return {
+        success: false,
+        offline: true,
+        error: 'Perangkat sedang offline. Foto & koordinat tersimpan di draft lokal; tekan Retry Upload saat online.'
+      };
+    }
+
+    try {
+      const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/photo-evidence`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          ...payload,
+          woNumber: payload.woNumber || ticket.woNumber
+        })
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: json?.error || `Upload foto gagal (HTTP ${resp.status}).`
+        };
+      }
+
+      if (json.ticket && json.ticket.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+      }
+      setLastSyncTime(new Date().toISOString());
+      return {
+        success: true,
+        photoSlot: json.photoSlot,
+        houseLocation: json.houseLocation,
+        fatLocation: json.fatLocation,
+        ticket: json.ticket
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Koneksi gagal saat mengunggah foto bukti.'
+      };
+    }
+  };
+
   const verifyTechnicalReport = (ticketId: string) => {
     if (currentUser.role !== 'dispatch' && currentUser.role !== 'super_admin') return;
     const target = tickets.find(t => t.id === ticketId);
@@ -6352,6 +6457,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateRootCauseCategories,
         saveTechnicalReport,
         saveProgressReport,
+        uploadWoPhotoEvidence,
         verifyTechnicalReport,
         startWorkOnTicket,
         approveProgressReport,

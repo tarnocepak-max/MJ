@@ -131,6 +131,7 @@ import {
   checkActualBucketAvailability,
   evaluateFileAccessPermission,
   uploadFile,
+  uploadWoPhotoEvidence,
   downloadFile,
   getSignedFileUrl,
   refreshSignedFileUrl,
@@ -5045,6 +5046,406 @@ export async function createExpressApp(options?: {
     res.json({ success: true, technicalReport, ticket: updatedTicket });
   });
 
+  // Upload & Attach Geo-Tagged Field Photo Evidence (6 SOP Categories + Auto Rumah / FAT WO Location)
+  const ALLOWED_PHOTO_SLOT_KEYS = new Set([
+    'opm',
+    'barcode_sn',
+    'fat_pole',
+    'customer_install',
+    'customer_house',
+    'fat_attenuation'
+  ]);
+
+  const SLOT_TITLES_MAP: Record<string, string> = {
+    opm: '1. Foto Redaman OPM',
+    barcode_sn: '2. Foto SN & MAC ONT',
+    fat_pole: '3. Foto FAT & Port Lapangan',
+    customer_install: '4. Foto Instalasi Pelanggan',
+    customer_house: '5. Foto Rumah',
+    fat_attenuation: '6. Foto Redaman FAT'
+  };
+
+  function isValidServerGeoCoord(lat: unknown, lng: unknown): boolean {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return false;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+    if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
+    return true;
+  }
+
+  app.post('/api/tickets/:id/photo-evidence', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const cleanId = (req.params.id || '').trim();
+    const {
+      slotKey,
+      title,
+      fileName,
+      fileData,
+      mimeType,
+      capturedAt,
+      latitude,
+      longitude,
+      gpsAccuracyMeters,
+      altitudeMeters,
+      headingDeg,
+      speedMps,
+      locationSource,
+      permissionStatus,
+      geotagStatus,
+      captureMethod,
+      badgeText,
+      statusTag,
+      clientCaptureId,
+      woNumber
+    } = req.body || {};
+
+    if (!slotKey || !ALLOWED_PHOTO_SLOT_KEYS.has(String(slotKey))) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_SLOT_KEY',
+        error: 'Kategori foto (slotKey) tidak valid.'
+      });
+    }
+
+    if (!fileData || typeof fileData !== 'string') {
+      return res.status(400).json({
+        success: false,
+        code: 'MISSING_PHOTO_DATA',
+        error: 'Data foto (fileData) wajib disertakan.'
+      });
+    }
+
+    if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+      return res.status(503).json({
+        success: false,
+        code: 'SUPABASE_NOT_CONFIGURED',
+        error: 'Database authoritative tidak tersedia.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) {
+        ticket = supaGet.data;
+      } else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
+    }
+    if (!ticket) {
+      return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
+    }
+
+    // Strict RBAC check: Installer only on assigned WO, Dispatch/SuperAdmin allowed
+    if (!checkTicketAccess(ticket, req.user!)) {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_WO_ACCESS',
+        error: 'Akses Ditolak: Anda tidak memiliki wewenang mengunggah foto bukti untuk Work Order ini.'
+      });
+    }
+
+    if (ticket.statusWOAgent === 'Closed' && req.user!.role === 'installer') {
+      return res.status(409).json({
+        success: false,
+        code: 'WO_CLOSED',
+        error: 'Work Order sudah berstatus CLOSED dan foto tidak dapat diubah oleh teknisi.'
+      });
+    }
+
+    if (woNumber && String(woNumber).trim().toUpperCase() !== String(ticket.woNumber || '').trim().toUpperCase()) {
+      return res.status(400).json({
+        success: false,
+        code: 'WO_MISMATCH',
+        error: 'WO Number pada metadata foto tidak cocok dengan Work Order target.'
+      });
+    }
+
+    // Validate coordinates if supplied — strictly reject Null Island (0,0) or out-of-range
+    const hasLat = latitude !== undefined && latitude !== null && latitude !== '';
+    const hasLng = longitude !== undefined && longitude !== null && longitude !== '';
+    let parsedLat: number | undefined;
+    let parsedLng: number | undefined;
+    if (hasLat || hasLng) {
+      const numLat = Number(latitude);
+      const numLng = Number(longitude);
+      if (!isValidServerGeoCoord(numLat, numLng)) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_GEOTAG',
+          error: 'Koordinat GPS tidak valid (koordinat 0,0 atau di luar rentang geografis ditolak).'
+        });
+      }
+      parsedLat = Number(numLat.toFixed(7));
+      parsedLng = Number(numLng.toFixed(7));
+    }
+
+    let parsedAccuracy: number | undefined;
+    if (gpsAccuracyMeters !== undefined && gpsAccuracyMeters !== null && gpsAccuracyMeters !== '') {
+      const numAcc = Number(gpsAccuracyMeters);
+      if (!Number.isFinite(numAcc) || numAcc < 0 || numAcc > 100000) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_GPS_ACCURACY',
+          error: 'Nilai akurasi GPS tidak valid.'
+        });
+      }
+      parsedAccuracy = Math.round(numAcc);
+    }
+
+    // Validate capture timestamp separately from server upload time
+    const uploadedAt = new Date().toISOString();
+    let validCapturedAtIso = uploadedAt;
+    if (capturedAt && typeof capturedAt === 'string') {
+      const dt = new Date(capturedAt);
+      if (Number.isNaN(dt.getTime())) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_CAPTURE_TIMESTAMP',
+          error: 'Format capturedAt tidak valid.'
+        });
+      }
+      validCapturedAtIso = dt.toISOString();
+    }
+
+    // Idempotency / deduplication check for retry safety
+    const existingTr = ticket.technicalReport && typeof ticket.technicalReport === 'object' ? ticket.technicalReport : {};
+    const existingSlots: any[] = Array.isArray(existingTr.photoSlots) ? [...existingTr.photoSlots] : [];
+    const cleanClientCaptureId = typeof clientCaptureId === 'string' && clientCaptureId.trim() ? clientCaptureId.trim() : undefined;
+
+    if (cleanClientCaptureId) {
+      const alreadySaved = existingSlots.find(
+        s => s && s.slotKey === slotKey && s.clientCaptureId === cleanClientCaptureId
+      );
+      if (alreadySaved) {
+        return res.json({
+          success: true,
+          deduplicated: true,
+          photoSlot: alreadySaved,
+          houseLocation: ticket.houseLocation,
+          fatLocation: ticket.fatLocation,
+          ticket
+        });
+      }
+    }
+
+    // Parse image buffer
+    let resolvedMime = typeof mimeType === 'string' && mimeType.trim() ? mimeType.trim().toLowerCase() : 'image/jpeg';
+    let rawBase64 = fileData;
+    const dataUriMatch = fileData.match(/^data:([a-zA-Z0-9/+-]+);base64,(.*)$/);
+    if (dataUriMatch) {
+      resolvedMime = dataUriMatch[1].toLowerCase();
+      rawBase64 = dataUriMatch[2];
+    }
+    const buffer = Buffer.from(rawBase64, 'base64');
+    if (!buffer || buffer.length < 32) {
+      return res.status(400).json({
+        success: false,
+        code: 'EMPTY_IMAGE_BUFFER',
+        error: 'Buffer gambar kosong atau rusak.'
+      });
+    }
+
+    const ext = resolvedMime === 'image/png' ? 'png' : resolvedMime === 'image/webp' ? 'webp' : 'jpg';
+    const safeFileName = (typeof fileName === 'string' && fileName.trim())
+      ? fileName.trim()
+      : `${ticket.woNumber}_${slotKey}_${Date.now()}.${ext}`;
+
+    const storageRes = await uploadWoPhotoEvidence({
+      userId: req.user!.id,
+      userRole: req.user!.role,
+      userName: req.user!.name,
+      woNumber: ticket.woNumber,
+      slotKey: String(slotKey),
+      fileName: safeFileName,
+      fileBuffer: buffer,
+      mimeType: resolvedMime
+    });
+
+    if (!storageRes.success || !storageRes.downloadUrl) {
+      return res.status(400).json({
+        success: false,
+        code: 'STORAGE_UPLOAD_FAILED',
+        error: storageRes.error || 'Gagal menyimpan file foto.'
+      });
+    }
+
+    const resolvedGeotagStatus =
+      parsedLat !== undefined && parsedLng !== undefined
+        ? (parsedAccuracy !== undefined && parsedAccuracy > 50 ? 'weak' : 'valid')
+        : (geotagStatus === 'failed' || geotagStatus === 'pending' || geotagStatus === 'gallery_unverified'
+            ? geotagStatus
+            : 'missing');
+
+    const slotRecord = {
+      id: storageRes.fileId || `evd_${Date.now()}`,
+      slotKey: String(slotKey),
+      title: (typeof title === 'string' && title.trim()) ? title.trim() : (SLOT_TITLES_MAP[String(slotKey)] || String(slotKey)),
+      url: storageRes.downloadUrl,
+      storagePath: storageRes.storagePath,
+      fileName: safeFileName,
+      fileSizeBytes: buffer.length,
+      mimeType: resolvedMime,
+      capturedAt: new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(new Date(validCapturedAtIso)),
+      capturedAtIso: validCapturedAtIso,
+      uploadedAt,
+      badgeText: typeof badgeText === 'string' && badgeText.trim() ? badgeText.trim() : undefined,
+      statusTag: typeof statusTag === 'string' && statusTag.trim() ? statusTag.trim() : undefined,
+      latitude: parsedLat,
+      longitude: parsedLng,
+      gpsAccuracyMeters: parsedAccuracy,
+      altitudeMeters: typeof altitudeMeters === 'number' && Number.isFinite(altitudeMeters) ? altitudeMeters : undefined,
+      headingDeg: typeof headingDeg === 'number' && Number.isFinite(headingDeg) ? headingDeg : undefined,
+      speedMps: typeof speedMps === 'number' && Number.isFinite(speedMps) ? speedMps : undefined,
+      locationSource: typeof locationSource === 'string' ? locationSource : 'device_gps_high_accuracy',
+      permissionStatus: typeof permissionStatus === 'string' ? permissionStatus : undefined,
+      geotagStatus: resolvedGeotagStatus,
+      captureMethod: captureMethod === 'gallery' ? 'gallery' : 'camera',
+      technicianId: req.user!.id,
+      technicianName: req.user!.name,
+      woNumber: ticket.woNumber,
+      clientCaptureId: cleanClientCaptureId,
+      sha256: storageRes.sha256,
+      uploadStatus: 'uploaded'
+    };
+
+    const nextSlots = [
+      ...existingSlots.filter(s => s && s.slotKey !== slotRecord.slotKey),
+      slotRecord
+    ];
+    const nextPhotos = nextSlots.map(s => s.url).filter(Boolean);
+
+    const updates: Record<string, any> = {
+      technicalReport: {
+        ...existingTr,
+        id: existingTr.id || `rep_${Date.now()}`,
+        ticketId: ticket.id,
+        photoSlots: nextSlots,
+        photos: nextPhotos,
+        photoAfterUrl: nextPhotos[0] || existingTr.photoAfterUrl,
+        updatedAt: uploadedAt
+      },
+      photoEvidenceCount: nextSlots.length,
+      updatedAt: uploadedAt,
+      updatedBy: req.user!.name
+    };
+
+    // STRICT SEPARATION RULE:
+    // - Only 'customer_house' photo updates WO Lokasi Rumah (houseLocation)
+    // - Only 'fat_attenuation' photo updates WO Lokasi FAT (fatLocation)
+    let updatedLocationType: 'houseLocation' | 'fatLocation' | null = null;
+    if (slotRecord.slotKey === 'customer_house' && parsedLat !== undefined && parsedLng !== undefined) {
+      updates.houseLocation = {
+        latitude: parsedLat,
+        longitude: parsedLng,
+        accuracyMeters: parsedAccuracy,
+        altitudeMeters: slotRecord.altitudeMeters,
+        headingDeg: slotRecord.headingDeg,
+        speedMps: slotRecord.speedMps,
+        capturedAt: validCapturedAtIso,
+        uploadedAt,
+        photoUrl: slotRecord.url,
+        storagePath: slotRecord.storagePath,
+        photoId: slotRecord.id,
+        slotKey: 'customer_house',
+        technicianId: req.user!.id,
+        technicianName: req.user!.name,
+        locationSource: slotRecord.locationSource,
+        geotagStatus: resolvedGeotagStatus
+      };
+      updatedLocationType = 'houseLocation';
+    } else if (slotRecord.slotKey === 'fat_attenuation' && parsedLat !== undefined && parsedLng !== undefined) {
+      updates.fatLocation = {
+        latitude: parsedLat,
+        longitude: parsedLng,
+        accuracyMeters: parsedAccuracy,
+        altitudeMeters: slotRecord.altitudeMeters,
+        headingDeg: slotRecord.headingDeg,
+        speedMps: slotRecord.speedMps,
+        capturedAt: validCapturedAtIso,
+        uploadedAt,
+        photoUrl: slotRecord.url,
+        storagePath: slotRecord.storagePath,
+        photoId: slotRecord.id,
+        slotKey: 'fat_attenuation',
+        technicianId: req.user!.id,
+        technicianName: req.user!.name,
+        locationSource: slotRecord.locationSource,
+        geotagStatus: resolvedGeotagStatus
+      };
+      updatedLocationType = 'fatLocation';
+    }
+
+    let updatedTicket = { ...ticket, ...updates };
+    if (isSupabaseMode()) {
+      const supaRes = await updateWorkOrderInSupabase(ticket.id, updates);
+      if (!supaRes.success && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'DATABASE_UNAVAILABLE',
+          error: 'Gagal menyimpan metadata foto ke database authoritative Supabase.'
+        });
+      }
+      if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const localIdx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
+      if (localIdx !== -1) {
+        db.tickets[localIdx] = updatedTicket;
+      }
+      saveDatabaseToDisk();
+    }
+
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
+
+    const coordInfo = parsedLat !== undefined && parsedLng !== undefined
+      ? ` (${parsedLat.toFixed(6)}, ${parsedLng.toFixed(6)} ±${parsedAccuracy ?? '?'}m)`
+      : ' (tanpa koordinat GPS)';
+    await logServerAuditAsync(
+      'WO Photo Evidence Uploaded',
+      'report',
+      ticket.woNumber,
+      `Foto "${slotRecord.title}" diunggah oleh ${req.user!.name} untuk WO ${ticket.woNumber}${coordInfo}`,
+      req.user
+    );
+
+    if (updatedLocationType === 'houseLocation') {
+      await logServerAuditAsync(
+        'WO House Location Updated',
+        'location',
+        ticket.woNumber,
+        `Lokasi Rumah WO ${ticket.woNumber} diperbarui otomatis dari Foto Rumah oleh ${req.user!.name}${coordInfo}`,
+        req.user
+      );
+    } else if (updatedLocationType === 'fatLocation') {
+      await logServerAuditAsync(
+        'WO FAT Location Updated',
+        'location',
+        ticket.woNumber,
+        `Lokasi FAT WO ${ticket.woNumber} diperbarui otomatis dari Foto Redaman FAT oleh ${req.user!.name}${coordInfo}`,
+        req.user
+      );
+    }
+
+    return res.json({
+      success: true,
+      photoSlot: slotRecord,
+      houseLocation: updatedTicket.houseLocation,
+      fatLocation: updatedTicket.fatLocation,
+      ticket: updatedTicket
+    });
+  });
+
   // Save Progress Report
   app.post('/api/tickets/:id/progress-report', requireAuth, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
@@ -5250,14 +5651,86 @@ export async function createExpressApp(options?: {
       const telemetryFatPort = technicalTelemetry.fatPort !== undefined
         ? String(technicalTelemetry.fatPort).trim()
         : (prevTr.fatPort || ticket.fatPort || '');
-      const telemetryPhotoSlots = Array.isArray(technicalTelemetry.photoSlots)
+      const rawSlots = Array.isArray(technicalTelemetry.photoSlots)
         ? technicalTelemetry.photoSlots
         : prevTr.photoSlots;
-      const telemetryPhotos = Array.isArray(technicalTelemetry.photos)
-        ? technicalTelemetry.photos.filter((p: unknown) => typeof p === 'string' && p.trim().length > 0)
-        : (Array.isArray(telemetryPhotoSlots)
-            ? telemetryPhotoSlots.map((s: any) => s?.url).filter((u: unknown) => typeof u === 'string' && u.trim().length > 0)
+      // Preserve server-stored photo URLs and never allow spoofed (0,0) coordinates
+      const telemetryPhotoSlots = Array.isArray(rawSlots)
+        ? rawSlots.map((slot: any) => {
+            if (!slot || typeof slot !== 'object') return slot;
+            const existingMatch = Array.isArray(prevTr.photoSlots)
+              ? prevTr.photoSlots.find((p: any) => p && p.slotKey === slot.slotKey)
+              : undefined;
+            const sanitizedSlot = { ...slot };
+            if (
+              existingMatch &&
+              existingMatch.storagePath &&
+              (!sanitizedSlot.storagePath || String(sanitizedSlot.url || '').startsWith('data:'))
+            ) {
+              sanitizedSlot.url = existingMatch.url;
+              sanitizedSlot.storagePath = existingMatch.storagePath;
+            }
+            if (sanitizedSlot.latitude !== undefined || sanitizedSlot.longitude !== undefined) {
+              if (!isValidServerGeoCoord(Number(sanitizedSlot.latitude), Number(sanitizedSlot.longitude))) {
+                delete sanitizedSlot.latitude;
+                delete sanitizedSlot.longitude;
+                sanitizedSlot.geotagStatus = 'missing';
+              }
+            }
+            return sanitizedSlot;
+          })
+        : prevTr.photoSlots;
+      const telemetryPhotos = Array.isArray(telemetryPhotoSlots)
+        ? telemetryPhotoSlots.map((s: any) => s?.url).filter((u: unknown) => typeof u === 'string' && u.trim().length > 0)
+        : (Array.isArray(technicalTelemetry.photos)
+            ? technicalTelemetry.photos.filter((p: unknown) => typeof p === 'string' && p.trim().length > 0)
             : prevTr.photos);
+
+      // Derive houseLocation strictly from customer_house slot & fatLocation strictly from fat_attenuation slot
+      if (Array.isArray(telemetryPhotoSlots)) {
+        const houseSlot = telemetryPhotoSlots.find(
+          (s: any) => s?.slotKey === 'customer_house' && isValidServerGeoCoord(Number(s?.latitude), Number(s?.longitude))
+        );
+        if (houseSlot) {
+          updates.houseLocation = {
+            ...(ticket.houseLocation || {}),
+            latitude: Number(houseSlot.latitude),
+            longitude: Number(houseSlot.longitude),
+            accuracyMeters: typeof houseSlot.gpsAccuracyMeters === 'number' ? houseSlot.gpsAccuracyMeters : ticket.houseLocation?.accuracyMeters,
+            capturedAt: houseSlot.capturedAtIso || ticket.houseLocation?.capturedAt || now,
+            uploadedAt: houseSlot.uploadedAt || now,
+            photoUrl: houseSlot.url,
+            storagePath: houseSlot.storagePath,
+            photoId: houseSlot.id,
+            slotKey: 'customer_house',
+            technicianId: houseSlot.technicianId || req.user!.id,
+            technicianName: houseSlot.technicianName || req.user!.name,
+            locationSource: houseSlot.locationSource || 'device_gps_high_accuracy',
+            geotagStatus: houseSlot.geotagStatus || 'valid'
+          };
+        }
+        const fatSlot = telemetryPhotoSlots.find(
+          (s: any) => s?.slotKey === 'fat_attenuation' && isValidServerGeoCoord(Number(s?.latitude), Number(s?.longitude))
+        );
+        if (fatSlot) {
+          updates.fatLocation = {
+            ...(ticket.fatLocation || {}),
+            latitude: Number(fatSlot.latitude),
+            longitude: Number(fatSlot.longitude),
+            accuracyMeters: typeof fatSlot.gpsAccuracyMeters === 'number' ? fatSlot.gpsAccuracyMeters : ticket.fatLocation?.accuracyMeters,
+            capturedAt: fatSlot.capturedAtIso || ticket.fatLocation?.capturedAt || now,
+            uploadedAt: fatSlot.uploadedAt || now,
+            photoUrl: fatSlot.url,
+            storagePath: fatSlot.storagePath,
+            photoId: fatSlot.id,
+            slotKey: 'fat_attenuation',
+            technicianId: fatSlot.technicianId || req.user!.id,
+            technicianName: fatSlot.technicianName || req.user!.name,
+            locationSource: fatSlot.locationSource || 'device_gps_high_accuracy',
+            geotagStatus: fatSlot.geotagStatus || 'valid'
+          };
+        }
+      }
       const telemetrySignature = typeof technicalTelemetry.customerSignatureUrl === 'string' && technicalTelemetry.customerSignatureUrl.trim()
         ? technicalTelemetry.customerSignatureUrl.trim()
         : (prevTr.customerSignatureUrl || ticket.customerSignatureUrl);
@@ -8464,10 +8937,31 @@ export async function createExpressApp(options?: {
   app.get('/api/storage/adapter/download', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const storagePath = req.query.storagePath as string;
     const category = req.query.category as string | undefined;
-    const woNumber = req.query.woNumber as string | undefined;
+    let woNumber = req.query.woNumber as string | undefined;
 
     if (!storagePath) {
       return res.status(400).json({ error: 'Parameter query storagePath wajib disertakan.' });
+    }
+
+    if (!woNumber) {
+      const m = storagePath.match(/(?:work-orders|wo_document|technical-reports|image_report|live-chat|chat_attachment)\/([a-zA-Z0-9_-]+)/);
+      if (m) woNumber = m[1];
+    }
+
+    let ticketsForAccess = db.tickets || [];
+    if (woNumber && isSupabaseMode()) {
+      const hasLocal = ticketsForAccess.some(t => t.woNumber === woNumber || t.id === woNumber);
+      if (!hasLocal) {
+        const supaWo = await getWorkOrderByWoNumberFromSupabase(woNumber);
+        if (supaWo.success && supaWo.data) {
+          ticketsForAccess = [supaWo.data];
+        } else {
+          const supaById = await getWorkOrderByIdFromSupabase(woNumber);
+          if (supaById.success && supaById.data) {
+            ticketsForAccess = [supaById.data];
+          }
+        }
+      }
     }
 
     const result = await downloadFile({
@@ -8475,7 +8969,7 @@ export async function createExpressApp(options?: {
       user: req.user!,
       category,
       woNumber,
-      tickets: db.tickets
+      tickets: ticketsForAccess
     });
 
     if (!result.success || !result.data) {
@@ -8498,13 +8992,22 @@ export async function createExpressApp(options?: {
       return res.status(400).json({ error: 'Parameter storagePath wajib disertakan.' });
     }
 
+    let ticketsForAccess = db.tickets || [];
+    if (woNumber && isSupabaseMode()) {
+      const hasLocal = ticketsForAccess.some(t => t.woNumber === woNumber || t.id === woNumber);
+      if (!hasLocal) {
+        const supaWo = await getWorkOrderByWoNumberFromSupabase(woNumber);
+        if (supaWo.success && supaWo.data) ticketsForAccess = [supaWo.data];
+      }
+    }
+
     const result = await getSignedFileUrl({
       storagePath,
       user: req.user!,
       expiresInSeconds: Number(expiresInSeconds) || 3600,
       category,
       woNumber,
-      tickets: db.tickets
+      tickets: ticketsForAccess
     });
 
     if (!result.success) {
@@ -8526,13 +9029,22 @@ export async function createExpressApp(options?: {
       return res.status(400).json({ error: 'Parameter storagePath wajib disertakan.' });
     }
 
+    let ticketsForAccess = db.tickets || [];
+    if (woNumber && isSupabaseMode()) {
+      const hasLocal = ticketsForAccess.some(t => t.woNumber === woNumber || t.id === woNumber);
+      if (!hasLocal) {
+        const supaWo = await getWorkOrderByWoNumberFromSupabase(woNumber);
+        if (supaWo.success && supaWo.data) ticketsForAccess = [supaWo.data];
+      }
+    }
+
     const result = await refreshSignedFileUrl({
       storagePath,
       user: req.user!,
       expiresInSeconds: Number(expiresInSeconds) || 3600,
       category,
       woNumber,
-      tickets: db.tickets
+      tickets: ticketsForAccess
     });
 
     if (!result.success) {

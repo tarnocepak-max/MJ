@@ -101,15 +101,72 @@ export interface RootCauseCategory {
   items: string[];
 }
 
+export type TechnicalPhotoSlotKey =
+  | 'opm'
+  | 'barcode_sn'
+  | 'fat_pole'
+  | 'customer_install'
+  | 'customer_house'
+  | 'fat_attenuation';
+
+export type GeotagStatus =
+  | 'valid'
+  | 'weak'
+  | 'pending'
+  | 'failed'
+  | 'missing'
+  | 'gallery_unverified';
+
+export interface WorkOrderGeoLocation {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  altitudeMeters?: number;
+  headingDeg?: number;
+  speedMps?: number;
+  capturedAt: string;
+  uploadedAt?: string;
+  photoUrl?: string;
+  storagePath?: string;
+  photoId?: string;
+  slotKey: 'customer_house' | 'fat_attenuation';
+  technicianId?: string;
+  technicianName?: string;
+  locationSource?: string;
+  geotagStatus?: GeotagStatus;
+}
+
 export interface TechnicalPhotoSlot {
-  slotKey: 'opm' | 'barcode_sn' | 'fat_pole' | 'customer_install';
+  id?: string;
+  slotKey: TechnicalPhotoSlotKey;
   title: string;
   url: string;
+  storagePath?: string;
   fileName?: string;
   fileSizeBytes?: number;
+  mimeType?: string;
   capturedAt?: string;
+  capturedAtIso?: string;
+  uploadedAt?: string;
   badgeText?: string;
   statusTag?: string;
+  latitude?: number;
+  longitude?: number;
+  gpsAccuracyMeters?: number;
+  altitudeMeters?: number;
+  headingDeg?: number;
+  speedMps?: number;
+  locationSource?: string;
+  permissionStatus?: string;
+  geotagStatus?: GeotagStatus;
+  captureMethod?: 'camera' | 'gallery';
+  technicianId?: string;
+  technicianName?: string;
+  woNumber?: string;
+  clientCaptureId?: string;
+  sha256?: string;
+  uploadStatus?: 'uploaded' | 'uploading' | 'failed' | 'pending_offline';
+  uploadError?: string;
 }
 
 export interface TechnicalReport {
@@ -285,6 +342,8 @@ export interface Ticket {
   area: string;
   latitude?: number;
   longitude?: number;
+  houseLocation?: WorkOrderGeoLocation;
+  fatLocation?: WorkOrderGeoLocation;
 
   // --- C. Appointment & Schedule ---
   appointmentDate?: string;

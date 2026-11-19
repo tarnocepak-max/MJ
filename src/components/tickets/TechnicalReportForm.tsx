@@ -145,6 +145,8 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
       usedMaterials: usedMaterials.trim(),
       photoBeforeUrl,
       photoAfterUrl,
+      photos: existingReport?.photos,
+      photoSlots: existingReport?.photoSlots,
       additionalNotes: additionalNotes.trim()
     });
 

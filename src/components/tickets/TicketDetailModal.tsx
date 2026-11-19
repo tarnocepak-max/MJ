@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Ticket } from '../../types/index.ts';
+import { Ticket, GeotagStatus, TechnicalPhotoSlotKey } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { StatusApprovalBadge } from '../common/Badge';
@@ -15,7 +15,15 @@ import {
 } from '../../services/woLifecycleService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
+import { formatJakartaTimeOnly } from '../../services/workSessionService';
+import {
+  buildGoogleMapsCoordinateUrl,
+  formatCoordinates,
+  isValidCoordinatePair
+} from '../../services/mapsService';
 import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
+import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
+import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
 import {
   X,
   MessageSquare,
@@ -47,7 +55,9 @@ import {
   ArrowRight,
   Printer,
   History,
-  ImageOff
+  ImageOff,
+  Satellite,
+  ExternalLink
 } from 'lucide-react';
 
 interface TicketDetailModalProps {
@@ -64,6 +74,13 @@ interface EvidencePhotoItem {
   url: string;
   title: string;
   subtitle: string;
+  slotKey?: TechnicalPhotoSlotKey;
+  latitude?: number;
+  longitude?: number;
+  gpsAccuracyMeters?: number;
+  capturedAtIso?: string;
+  geotagStatus?: GeotagStatus;
+  captureMethod?: 'camera' | 'gallery';
 }
 
 export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
@@ -179,13 +196,19 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [ticket, ticketActivities]);
 
-  // Deduplicated real photo evidence from technicalReport, signature, and LiveChat image attachments
+  // Deduplicated real photo evidence from 6-slot geotag photoSlots, technicalReport, signature, and LiveChat image attachments
   const evidencePhotos = useMemo<EvidencePhotoItem[]>(() => {
     if (!ticket) return [];
     const seenUrls = new Set<string>();
     const items: EvidencePhotoItem[] = [];
 
-    const pushPhoto = (url: string | undefined | null, title: string, subtitle: string, idPrefix: string) => {
+    const pushPhoto = (
+      url: string | undefined | null,
+      title: string,
+      subtitle: string,
+      idPrefix: string,
+      geo?: Partial<EvidencePhotoItem>
+    ) => {
       if (!url || typeof url !== 'string' || !url.trim()) return;
       const safe = getSafePreviewUrl(url.trim());
       if (!safe || seenUrls.has(safe)) return;
@@ -194,12 +217,31 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         id: `${idPrefix}-${items.length + 1}`,
         url: safe,
         title,
-        subtitle
+        subtitle,
+        ...geo
       });
     };
 
     const tr = ticket.technicalReport;
     if (tr) {
+      if (Array.isArray(tr.photoSlots)) {
+        tr.photoSlots.forEach((slot, idx) => {
+          if (!slot || !slot.url) return;
+          const timeLabel = slot.capturedAtIso
+            ? `${formatJakartaTimeOnly(slot.capturedAtIso)} WIB`
+            : slot.capturedAt || '';
+          const sub = [slot.badgeText, timeLabel].filter(Boolean).join(' · ') || 'Bukti SOP';
+          pushPhoto(slot.url, slot.title || `Bukti SOP #${idx + 1}`, sub, `tr-slot-${slot.slotKey || idx}`, {
+            slotKey: slot.slotKey,
+            latitude: slot.latitude,
+            longitude: slot.longitude,
+            gpsAccuracyMeters: slot.gpsAccuracyMeters,
+            capturedAtIso: slot.capturedAtIso,
+            geotagStatus: slot.geotagStatus,
+            captureMethod: slot.captureMethod
+          });
+        });
+      }
       pushPhoto(tr.photoBeforeUrl, 'Foto Kondisi Awal', 'Technical Report (Before)', 'tr-before');
       pushPhoto(tr.photoAfterUrl, 'Foto Hasil & OPM', tr.opticalPowerRx || tr.opticalPowerDbm || 'Technical Report (After)', 'tr-after');
       if (Array.isArray(tr.photos)) {
@@ -852,51 +894,98 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
 
               {evidencePhotos.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {evidencePhotos.map(photo => (
-                    <div
-                      key={photo.id}
-                      onClick={() => setZoomPhoto(photo)}
-                      className="group relative rounded-xl overflow-hidden bg-[#F7F6FA] dark:bg-[#160D29] shadow-xs hover:shadow-md transition-all border border-[#E9E5F0] dark:border-[#35105E] cursor-pointer"
-                    >
-                      <div className="w-full h-28 overflow-hidden relative bg-[#E9E5F0] dark:bg-[#261942]">
-                        {!failedImages[photo.id] ? (
-                          <img
-                            src={photo.url}
-                            alt={photo.title}
-                            referrerPolicy="no-referrer"
-                            onError={() => setFailedImages(prev => ({ ...prev, [photo.id]: true }))}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-[#8B8495] p-2 text-center">
-                            <ImageOff className="w-5 h-5 mb-1" />
-                            <span className="text-[10px] truncate w-full">{photo.title}</span>
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setZoomPhoto(photo);
-                          }}
-                          className="btn-3d-icon absolute top-2 right-2 w-7 h-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                          title="Zoom Foto"
-                        >
-                          <ZoomIn className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="p-2 bg-white dark:bg-[#1E1238] flex items-center justify-between gap-1.5">
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-bold text-[#211A2E] dark:text-white truncate">{photo.title}</div>
-                          <div className="font-mono text-[10px] text-[#766B83] dark:text-[#CEC0E8] truncate">{photo.subtitle}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {evidencePhotos.map(photo => {
+                    const hasGps = isValidCoordinatePair(photo.latitude, photo.longitude);
+                    return (
+                      <div
+                        key={photo.id}
+                        onClick={() => setZoomPhoto(photo)}
+                        className="group relative rounded-xl overflow-hidden bg-[#F7F6FA] dark:bg-[#160D29] shadow-xs hover:shadow-md transition-all border border-[#E9E5F0] dark:border-[#35105E] cursor-pointer flex flex-col"
+                      >
+                        <div className="w-full h-32 overflow-hidden relative bg-[#E9E5F0] dark:bg-[#261942]">
+                          {!failedImages[photo.id] ? (
+                            <img
+                              src={photo.url}
+                              alt={photo.title}
+                              referrerPolicy="no-referrer"
+                              onError={() => setFailedImages(prev => ({ ...prev, [photo.id]: true }))}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-[#8B8495] p-2 text-center">
+                              <ImageOff className="w-5 h-5 mb-1" />
+                              <span className="text-[10px] truncate w-full">{photo.title}</span>
+                            </div>
+                          )}
+
+                          {hasGps && (
+                            <span
+                              className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold flex items-center gap-1 shadow-xs ${
+                                photo.geotagStatus === 'weak'
+                                  ? 'bg-amber-600/95 text-white'
+                                  : 'bg-[#16A36A]/95 text-white'
+                              }`}
+                            >
+                              <Satellite className="w-2.5 h-2.5" />
+                              <span>
+                                {photo.geotagStatus === 'weak' ? 'Weak GPS' : 'GPS Valid'}
+                                {typeof photo.gpsAccuracyMeters === 'number'
+                                  ? ` ±${Math.round(photo.gpsAccuracyMeters)}m`
+                                  : ''}
+                              </span>
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setZoomPhoto(photo);
+                            }}
+                            className="btn-3d-icon absolute top-2 right-2 w-7 h-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Zoom Foto & Peta GPS"
+                          >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        <span className="tactile-chip text-[10px] px-1.5 py-0.5 rounded text-[#35105E] font-bold shrink-0">
-                          Zoom
-                        </span>
+
+                        <div className="p-2.5 bg-white dark:bg-[#1E1238] space-y-1 flex-1 flex flex-col justify-between">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div className="min-w-0">
+                              <div className="text-[11px] font-bold text-[#211A2E] dark:text-white truncate">
+                                {photo.title}
+                              </div>
+                              <div className="font-mono text-[10px] text-[#766B83] dark:text-[#CEC0E8] truncate">
+                                {photo.subtitle}
+                              </div>
+                            </div>
+                            <span className="tactile-chip text-[10px] px-1.5 py-0.5 rounded text-[#35105E] font-bold shrink-0">
+                              Zoom
+                            </span>
+                          </div>
+
+                          {hasGps && (
+                            <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-[#E9E5F0]/80 dark:border-[#35105E] text-[9.5px] font-mono text-emerald-700 dark:text-emerald-300">
+                              <span className="truncate">
+                                {formatCoordinates(photo.latitude!, photo.longitude!)}
+                              </span>
+                              <a
+                                href={buildGoogleMapsCoordinateUrl(photo.latitude!, photo.longitude!)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="font-bold underline shrink-0 inline-flex items-center gap-0.5"
+                              >
+                                <span>Maps</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-4 rounded-xl border border-dashed border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-center text-[#8B8495] text-xs">
@@ -1111,14 +1200,17 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                       {hasValue(ticket.latitude) && hasValue(ticket.longitude) && (
                         <>
                           <span>·</span>
-                          <span>LAT: {ticket.latitude}</span>
+                          <span>LAT Import: {ticket.latitude}</span>
                           <span>·</span>
-                          <span>LONG: {ticket.longitude}</span>
+                          <span>LONG Import: {ticket.longitude}</span>
                         </>
                       )}
                     </div>
                   )}
                 </div>
+
+                {/* Isolated Geo-Tagged Field Locations: Lokasi Rumah & Lokasi FAT */}
+                <WorkOrderLocationsCard ticket={ticket} />
               </div>
 
               {/* Card 2: Jadwal & Penugasan Kontraktor */}
@@ -1487,30 +1579,64 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Evidence Photo Lightbox */}
+      {/* Evidence Photo Lightbox + GeoTag Interactive Mini Map */}
       {zoomPhoto && (
         <div
-          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto"
           onClick={() => setZoomPhoto(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setZoomPhoto(null)}
-              className="absolute -top-2 -right-2 p-2 bg-[#160D29] text-white rounded-full border border-white/20 hover:bg-[#DC4C5A] transition-colors z-10 cursor-pointer shadow-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <img
-              src={zoomPhoto.url}
-              alt={zoomPhoto.title}
-              referrerPolicy="no-referrer"
-              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10"
-            />
-            <div className="px-4 py-2 rounded-xl bg-[#160D29]/90 text-white text-xs text-center border border-[#A78BFA]/30">
-              <div className="font-bold">{zoomPhoto.title}</div>
-              <div className="text-[11px] text-[#DAB9FF] font-mono">{zoomPhoto.subtitle}</div>
+          <div
+            className="relative w-full max-w-3xl max-h-[92vh] flex flex-col gap-3 bg-[#160D29] border border-[#A78BFA]/30 rounded-2xl p-3.5 sm:p-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 text-white">
+              <div className="min-w-0">
+                <div className="font-bold text-sm truncate">{zoomPhoto.title}</div>
+                <div className="text-[11px] text-[#DAB9FF] font-mono truncate">
+                  {zoomPhoto.subtitle}
+                  {typeof zoomPhoto.gpsAccuracyMeters === 'number'
+                    ? ` · Akurasi ±${Math.round(zoomPhoto.gpsAccuracyMeters)}m`
+                    : ''}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setZoomPhoto(null)}
+                className="p-2 bg-black/60 text-white rounded-full border border-white/20 hover:bg-[#DC4C5A] transition-colors cursor-pointer shadow-lg shrink-0"
+                title="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
+
+            <div className="flex justify-center bg-black/40 rounded-xl overflow-hidden">
+              <img
+                src={zoomPhoto.url}
+                alt={zoomPhoto.title}
+                referrerPolicy="no-referrer"
+                className="max-w-full max-h-[52vh] object-contain"
+              />
+            </div>
+
+            {isValidCoordinatePair(zoomPhoto.latitude, zoomPhoto.longitude) && (
+              <div className="rounded-xl bg-[#1E1238] border border-white/10 p-2.5">
+                <GeoLocationMiniMap
+                  latitude={zoomPhoto.latitude}
+                  longitude={zoomPhoto.longitude}
+                  accuracyMeters={zoomPhoto.gpsAccuracyMeters}
+                  geotagStatus={zoomPhoto.geotagStatus}
+                  label={zoomPhoto.title}
+                  markerVariant={
+                    zoomPhoto.slotKey === 'customer_house'
+                      ? 'house'
+                      : zoomPhoto.slotKey === 'fat_attenuation'
+                      ? 'fat'
+                      : 'photo'
+                  }
+                  heightClass="h-44"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

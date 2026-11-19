@@ -450,6 +450,8 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     distributedAt: ticket.distributedAt || null,
     distributedBy: ticket.distributedBy || null,
     closedById: ticket.closedById || null,
+    houseLocation: ticket.houseLocation || null,
+    fatLocation: ticket.fatLocation || null,
     ...(ticket.payload && typeof ticket.payload === 'object' ? ticket.payload : {})
   };
 
@@ -631,6 +633,8 @@ export function postgresRowToTicket(row: any): any {
     postalCode: row.postal_code || undefined,
     clusterName: row.cluster_name || undefined,
     area: row.area || '',
+    houseLocation: row.house_location || payload.houseLocation || undefined,
+    fatLocation: row.fat_location || payload.fatLocation || undefined,
 
     appointmentDate: row.appointment_date || undefined,
     appointmentType: row.appointment_type || undefined,
@@ -1872,6 +1876,8 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
     if (updates.dropcoreLengthMeter !== undefined) mergedPayload.dropcoreLengthMeter = updates.dropcoreLengthMeter;
     if (updates.photoEvidenceCount !== undefined) mergedPayload.photoEvidenceCount = updates.photoEvidenceCount;
     if (updates.customerSignatureUrl !== undefined) mergedPayload.customerSignatureUrl = updates.customerSignatureUrl;
+    if (updates.houseLocation !== undefined) mergedPayload.houseLocation = updates.houseLocation;
+    if (updates.fatLocation !== undefined) mergedPayload.fatLocation = updates.fatLocation;
     if (updates.payload && typeof updates.payload === 'object') {
       Object.assign(mergedPayload, updates.payload);
     }
