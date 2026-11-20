@@ -1508,11 +1508,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const lifecycleSteps = useMemo(() => {
     const isAssigned = Boolean(activeTicket.installerName || activeTicket.assignedTo);
-    const isStarted =
-      Boolean(activeTicket.workStartedAt) ||
-      ['En Route', 'On Site', 'In Progress', 'Completed', 'Installed'].includes(
-        String(activeTicket.statusWOInstaller || '')
-      );
     const isCheckedIn = Boolean(activeTicket.checkInAt) || hasValidProgressFromCurrentTechnician;
     const isReported =
       Boolean(activeTicket.checkOutAt) ||
@@ -1536,18 +1531,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         active: !isAssigned
       },
       {
-        key: 'start',
-        label: 'Mulai / OTW',
-        time: activeTicket.workStartedAt ? formatJakartaTimeOnly(activeTicket.workStartedAt) : isStarted ? activeTicket.statusWOInstaller || 'Aktif' : '—',
-        done: isStarted,
-        active: isAssigned && !isStarted
-      },
-      {
         key: 'checkin',
         label: 'Check-in',
         time: isCheckedIn ? validatedCheckInTime : 'Belum',
         done: isCheckedIn,
-        active: isStarted && !isCheckedIn
+        active: isAssigned && !isCheckedIn
       },
       {
         key: 'report',
@@ -1562,20 +1550,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         time: isApproved ? 'Disetujui' : canonicalApproval === 'REVISION' ? 'Revisi' : isReported ? 'Review' : '—',
         done: isApproved,
         active: isReported && !isApproved
-      },
-      {
-        key: 'closed',
-        label: 'Closed',
-        time: ticketClosed ? 'Selesai' : '—',
-        done: ticketClosed,
-        active: false
       }
     ];
 
     const completedCount = steps.filter(s => s.done).length;
     const pct = Math.round((completedCount / steps.length) * 100);
     return { steps, completedCount, total: steps.length, pct };
-  }, [activeTicket, hasValidProgressFromCurrentTechnician, validatedCheckInTime, canonicalApproval, ticketClosed]);
+  }, [activeTicket, hasValidProgressFromCurrentTechnician, validatedCheckInTime, canonicalApproval]);
 
   const rawCustomerPhone = String(activeTicket.customerPhone || '').trim();
   const telCustomerHref = rawCustomerPhone ? `tel:${rawCustomerPhone.replace(/[^\d+]/g, '')}` : '';
@@ -1899,7 +1880,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   {idx < lifecycleSteps.steps.length - 1 && (
                     <div
                       aria-hidden="true"
-                      className={`h-0.5 w-6 mt-3.5 shrink-0 rounded-full ${
+                      className={`h-0.5 w-6 sm:flex-1 sm:min-w-[20px] mt-3.5 shrink-0 rounded-full ${
                         step.done ? 'bg-[#006194]' : 'bg-[#d8e3fb] dark:bg-[#35105E]'
                       }`}
                     />
