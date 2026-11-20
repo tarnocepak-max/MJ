@@ -13278,7 +13278,7 @@ export async function createExpressApp(options?: {
 
 export async function startServer() {
   const app = await createExpressApp();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`MoraJaws Dispatch Management Server running on http://0.0.0.0:${PORT}`);
