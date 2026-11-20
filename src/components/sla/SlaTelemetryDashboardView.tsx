@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AlertOctagon,
   AlertTriangle,
-  ArrowRight,
   Award,
   BarChart3,
   Building2,
@@ -22,7 +21,6 @@ import {
   Radio,
   RefreshCw,
   Sliders,
-  Wallet,
   Wifi,
   WifiOff
 } from 'lucide-react';
@@ -60,14 +58,6 @@ interface SlaTelemetryDashboardViewProps {
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
   onNavigate?: (tab: string) => void;
   viewContext?: SlaDashboardContext;
-}
-
-function formatRupiah(amount: number): string {
-  const abs = Math.abs(Math.round(amount));
-  const formatted = new Intl.NumberFormat('id-ID').format(abs);
-  if (amount > 0) return `+Rp ${formatted}`;
-  if (amount < 0) return `-Rp ${formatted}`;
-  return 'Rp 0';
 }
 
 function formatWibClock(date: Date): string {
@@ -454,7 +444,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
 
   if (!telemetry) return null;
 
-  const { kpis, vendorLeaderboard, slotTrend, slotInsights, operationalMatrix, breachQueue, pksLedger } = telemetry;
+  const { kpis, vendorLeaderboard, slotTrend, slotInsights, operationalMatrix, breachQueue } = telemetry;
   const activeVendorCount = telemetry.filterOptions.contractors.length || vendorLeaderboard.length;
 
   const breadcrumbSection = viewContext === 'dashboard_monitoring' ? 'Operations Core' : 'Contractor & Area';
@@ -1650,106 +1640,6 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                   );
                 })
               )}
-            </div>
-          </div>
-
-          {/* Incentive & Penalty Ledger Overview */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-sm p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-3 gap-2">
-              <div>
-                <h3 className="font-display text-base sm:text-lg font-bold text-[#160D29] dark:text-white">
-                  Proyeksi Insentif &amp; Penalti
-                </h3>
-                <p className="text-xs text-[#766B83] dark:text-[#A78BFA]">
-                  Estimasi penalti keterlambatan SLA atau bonus pencapaian
-                </p>
-              </div>
-              <Wallet className="w-5 h-5 text-[#7135B5] shrink-0" />
-            </div>
-
-            {!pksLedger.isCustomConfigured && (
-              <div className="mb-2.5 px-3 py-2 rounded-lg bg-[#F5F1FF] dark:bg-[#140827] border border-[#E9E5F0] dark:border-[#35105E] text-[11px] text-[#766B83] flex items-center justify-between gap-2">
-                <span>Menggunakan tarif baseline PKS default sistem.</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfigModalTab('pks');
-                    setConfigModalOpen(true);
-                  }}
-                  className="font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline shrink-0 cursor-pointer"
-                >
-                  Atur Tarif
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-2 text-xs">
-              {pksLedger.items.length === 0 ? (
-                <div className="py-6 text-center text-xs text-[#766B83]">
-                  Belum ada data proyeksi PKS pada periode terpilih.
-                </div>
-              ) : (
-                pksLedger.items.map(item => {
-                  const isWarningPenalty = item.ledgerType === 'PENALTY' && item.slaStatus === 'WARNING';
-                  const boxClass =
-                    item.ledgerType === 'BONUS'
-                      ? 'bg-[#16A36A]/10 border-[#16A36A]/20 dark:bg-emerald-950/30 dark:border-emerald-800/60'
-                      : isWarningPenalty
-                      ? 'bg-[#E59A27]/10 border-[#E59A27]/20 dark:bg-amber-950/30 dark:border-amber-800/60'
-                      : item.ledgerType === 'PENALTY'
-                      ? 'bg-[#DC4C5A]/10 border-[#DC4C5A]/20 dark:bg-rose-950/30 dark:border-rose-800/60'
-                      : 'bg-[#F4EAFF] border-[#E9E5F0] dark:bg-[#140827] dark:border-[#35105E]';
-
-                  const subColor =
-                    item.ledgerType === 'BONUS'
-                      ? 'text-[#16A36A]'
-                      : isWarningPenalty
-                      ? 'text-[#E59A27]'
-                      : item.ledgerType === 'PENALTY'
-                      ? 'text-[#DC4C5A]'
-                      : 'text-[#766B83]';
-
-                  const amountColor =
-                    item.ledgerType === 'BONUS'
-                      ? 'text-[#16A36A]'
-                      : isWarningPenalty
-                      ? 'text-[#E59A27]'
-                      : item.ledgerType === 'PENALTY'
-                      ? 'text-[#DC4C5A]'
-                      : 'text-[#766B83]';
-
-                  return (
-                    <div
-                      key={item.contractorId}
-                      className={`p-2.5 rounded-lg border ${boxClass} flex items-center justify-between gap-2`}
-                    >
-                      <div className="min-w-0">
-                        <span className="font-bold text-[#160D29] dark:text-white block truncate">{item.contractorName}</span>
-                        <span className={`text-[11px] font-semibold block ${subColor}`}>{item.explanation}</span>
-                      </div>
-                      <span className={`font-mono font-bold text-sm shrink-0 ${amountColor}`}>
-                        {formatRupiah(item.amount)}
-                        {item.ledgerType === 'BONUS' ? ' (Bonus)' : item.ledgerType === 'NEUTRAL' ? ' (Netral)' : ''}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="mt-3 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between font-mono text-[11px] text-[#8B8495]">
-              <span>Dihitung berdasarkan {pksLedger.clauseReference}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfigModalTab('pks');
-                  setConfigModalOpen(true);
-                }}
-                className="text-[#7135B5] dark:text-[#D8B4FE] font-bold hover:underline inline-flex items-center gap-1 shrink-0 cursor-pointer"
-              >
-                Detail Klausul
-                <ArrowRight className="w-3 h-3" />
-              </button>
             </div>
           </div>
         </div>

@@ -334,6 +334,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       onApprovedAndClosed?.();
     } else if (result?.error) {
       setDecisionError(result.error);
+      toast.error(result.error, 'Gagal Approve & Close');
     }
   };
 
@@ -593,17 +594,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <Phone className="w-3.5 h-3.5" />
               <span>WhatsApp</span>
             </button>
-
-            {canCloseTicket && (
-              <button
-                type="button"
-                onClick={() => setShowCloseModal(v => !v)}
-                className="btn-3d-primary h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Close WO</span>
-              </button>
-            )}
 
             {isTicketClosed && canManageApproval && (
               <button
@@ -1567,14 +1557,48 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             >
               Tutup Modal
             </button>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="btn-3d-primary flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Cetak Berita Acara (BA)</span>
-            </button>
+            {canManageApproval ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (ticket.approvalStatus === 'BUTUH APPROVAL') {
+                    void handleConfirmApprove();
+                  } else if (canCloseTicket) {
+                    if (!closeNotes.trim() && decisionNotes.trim()) {
+                      setCloseNotes(decisionNotes.trim());
+                    }
+                    setShowCloseModal(v => !v);
+                  }
+                }}
+                disabled={isApproving || isRejecting || isTicketClosed}
+                title={
+                  isTicketClosed
+                    ? 'Work Order sudah berstatus Closed'
+                    : ticket.approvalStatus === 'BUTUH APPROVAL'
+                    ? 'Setujui laporan teknisi (APPROVED) dan tutup WO (CLOSED)'
+                    : 'Tutup Work Order (Close WO)'
+                }
+                className="btn-3d-success flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>
+                  {isApproving
+                    ? 'Memproses...'
+                    : isTicketClosed
+                    ? 'Approved & Closed'
+                    : 'Approved & Close'}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn-3d-primary flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Cetak Berita Acara (BA)</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
