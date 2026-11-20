@@ -46,7 +46,8 @@ import {
   ArrowRightLeft,
   PanelLeftClose,
   PanelLeftOpen,
-  Inbox
+  Inbox,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -93,7 +94,8 @@ export const ICON_REGISTRY: Record<string, React.ElementType> = {
   HelpCircle,
   Folder,
   ArrowRightLeft,
-  Inbox
+  Inbox,
+  AlertTriangle
 };
 
 export const resolveNavIcon = (iconName?: string): React.ElementType => {
@@ -108,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, scopedTickets, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus, totalLiveChatUnreadCount } = useApp();
+  const { currentUser, tickets, scopedTickets, overdueSummary, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus, totalLiveChatUnreadCount } = useApp();
   const {
     isMobileView,
     config,
@@ -143,6 +145,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canCrossDateSearch = userRole === 'super_admin' || userRole === 'dispatch';
 
   const canAccessMenuId = (menuId: string): boolean => {
+    if (menuId === 'overdue_wo') {
+      return ['super_admin', 'dispatch', 'leader', 'management_data'].includes(userRole);
+    }
     if (userRole === 'super_admin') return true;
     const permMap: Record<string, any> = {
       audit_logs: 'view_audit_logs',
@@ -213,21 +218,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     const rawList: StandaloneMenuItem[] = Array.isArray(standaloneMenus) ? standaloneMenus : [];
-    const hasVerificationDesk = rawList.some(m => m && m.id === 'verification_desk');
-    const list: StandaloneMenuItem[] =
-      !hasVerificationDesk && (userRole === 'super_admin' || userRole === 'dispatch')
-        ? [
-            ...rawList,
-            {
-              id: 'verification_desk',
-              label: 'Antrean Verifikasi',
-              icon: 'Inbox',
-              order: 1.5,
-              visible: true,
-              roles: ['super_admin', 'dispatch']
-            }
-          ]
-        : rawList;
+    const list: StandaloneMenuItem[] = [...rawList];
+    const hasVerificationDesk = list.some(m => m && m.id === 'verification_desk');
+    if (!hasVerificationDesk && (userRole === 'super_admin' || userRole === 'dispatch')) {
+      list.push({
+        id: 'verification_desk',
+        label: 'Antrean Verifikasi',
+        icon: 'Inbox',
+        order: 1.5,
+        visible: true,
+        roles: ['super_admin', 'dispatch']
+      });
+    }
+    const hasOverdueWo = list.some(m => m && m.id === 'overdue_wo');
+    if (!hasOverdueWo && ['super_admin', 'dispatch', 'leader', 'management_data'].includes(userRole)) {
+      list.push({
+        id: 'overdue_wo',
+        label: 'OVERDUE WO',
+        icon: 'AlertTriangle',
+        order: 2.5,
+        visible: true,
+        roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+      });
+    }
 
     return [...list]
       .filter(item => {
@@ -502,6 +515,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     if (itemId === 'wo_assignment' && unassignedCount > 0) {
       return { text: `${unassignedCount} Belum`, color: 'amber' as const };
+    }
+    if (itemId === 'overdue_wo' && overdueSummary.totalOverdue > 0) {
+      return {
+        text: overdueSummary.totalOverdue > 99 ? '99+' : overdueSummary.totalOverdue,
+        color: 'rose' as const
+      };
     }
     if (itemId === 'tickets' && totalActiveTickets > 0) {
       return { text: totalActiveTickets, color: 'purple' as const };

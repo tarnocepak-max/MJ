@@ -110,12 +110,12 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
       onClose={onClose}
       title="Pengaturan & Urutan Kolom Tabel WO"
       subtitle="Centang untuk menampilkan/menyembunyikan, dan geser atau gunakan tombol ↑ ↓ untuk mengatur posisi urutan kolom."
-      icon={<Sliders className="w-5 h-5 text-[#5B35B1] dark:text-purple-400" />}
+      icon={<Sliders className="w-5 h-5 text-[#2563EB] dark:text-[#38BDF8]" />}
       size="lg"
       mobileVariant="sheet"
       zIndexClass="z-60"
       headerExtra={
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-950 dark:text-purple-300 shrink-0">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8] shrink-0">
           {visibleCount} / {columns.length} Aktif
         </span>
       }
@@ -127,7 +127,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[42px] sm:min-h-[38px] px-4 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold rounded-xl transition-colors shadow-sm cursor-pointer shrink-0"
+            className="min-h-[44px] sm:min-h-[38px] px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-xl transition-colors shadow-sm cursor-pointer shrink-0"
           >
             Terapkan &amp; Simpan
           </button>
@@ -143,7 +143,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
             <button
               type="button"
               onClick={showAll}
-              className="text-[#5B35B1] dark:text-purple-400 hover:underline font-semibold cursor-pointer"
+              className="text-[#2563EB] dark:text-[#38BDF8] hover:underline font-semibold cursor-pointer"
             >
               Tampilkan Semua
             </button>
@@ -174,10 +174,10 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
                 onDragEnd={handleDragEnd}
                 className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all ${
                   draggedIndex === index
-                    ? 'opacity-40 border-dashed border-[#5B35B1]'
+                    ? 'opacity-40 border-dashed border-[#2563EB]'
                     : col.visible
-                    ? 'bg-slate-50/90 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium'
-                    : 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400'
+                    ? 'bg-slate-50/90 dark:bg-[#1E293B]/60 border-slate-200 dark:border-slate-700 text-[#0F172A] dark:text-white font-medium'
+                    : 'bg-slate-100/50 dark:bg-[#0F172A]/40 border-slate-200 dark:border-slate-800 text-slate-400'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -198,7 +198,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
                       checked={col.visible}
                       disabled={isLocked}
                       onChange={() => toggleColumn(col.id)}
-                      className="w-4 h-4 text-[#5B35B1] rounded border-slate-300 dark:border-slate-700 focus:ring-[#5B35B1] cursor-pointer shrink-0"
+                      className="w-4 h-4 accent-[#2563EB] rounded border-slate-300 dark:border-slate-700 focus:ring-[#2563EB] cursor-pointer shrink-0"
                     />
                     <span className={`text-xs truncate ${col.visible ? 'font-semibold' : 'line-through text-slate-400'}`}>
                       {col.label}
@@ -218,7 +218,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
                     type="button"
                     onClick={() => moveColumn(index, 'up')}
                     disabled={isFirst}
-                    className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    className="min-h-[40px] min-w-[40px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     title="Pindahkan kolom ke atas / kiri"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -227,7 +227,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
                     type="button"
                     onClick={() => moveColumn(index, 'down')}
                     disabled={isLast}
-                    className="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    className="min-h-[40px] min-w-[40px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     title="Pindahkan kolom ke bawah / kanan"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />

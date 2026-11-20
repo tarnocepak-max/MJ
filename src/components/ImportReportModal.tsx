@@ -147,7 +147,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       priority: 'secondary',
       numeric: true,
       render: row => (
-        <span className="font-bold text-purple-700 dark:text-purple-300">
+        <span className="font-bold text-[#2563EB] dark:text-[#38BDF8]">
           {row.agentId || row.ticket?.agentId || '-'}
         </span>
       )
@@ -194,7 +194,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       }
       subtitle={
         <>
-          Sheet: <strong className="font-mono text-indigo-600 dark:text-indigo-400">{report.selectedSheet}</strong> •{' '}
+          Sheet: <strong className="font-mono text-[#2563EB] dark:text-[#38BDF8]">{report.selectedSheet}</strong> •{' '}
           {report.totalRead} baris terbaca • {report.usedColumnsCount} kolom digunakan
         </>
       }
@@ -203,7 +203,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
           <button
             type="button"
             onClick={onOpenColumnMapper}
-            className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 rounded-lg transition-colors cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 min-h-[36px] text-xs font-semibold text-[#2563EB] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors cursor-pointer"
           >
             Atur Kolom
           </button>
@@ -226,7 +226,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isImporting}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer min-h-[38px]"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer min-h-[44px] sm:min-h-[38px]"
             >
               Tutup
             </button>
@@ -236,7 +236,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
                 type="button"
                 onClick={handleExecute}
                 disabled={isImporting}
-                className="px-5 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 min-h-[38px]"
+                className="px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 min-h-[44px] sm:min-h-[38px]"
               >
                 {isImporting ? (
                   <span>Mengimpor...</span>
@@ -251,7 +251,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
               <button
                 type="button"
                 disabled
-                className="px-5 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold cursor-not-allowed min-h-[38px]"
+                className="px-5 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold cursor-not-allowed min-h-[44px] sm:min-h-[38px]"
                 title="Tidak ada tiket WO valid untuk diimpor"
               >
                 Import Dinonaktifkan (0 WO Valid)
@@ -264,10 +264,10 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       <div className="space-y-4">
         {/* Multi-Sheet Selection Bar (If workbook has more than 1 sheet) */}
         {report.allSheets && report.allSheets.length > 1 && onSelectSheet && (
-          <div className="p-3 bg-purple-50/70 dark:bg-[#1E1138] rounded-xl border border-[#D8CCF3] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-purple-600 shrink-0" />
-              <span className="font-semibold text-purple-900 dark:text-purple-200">
+              <Layers className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+              <span className="font-semibold text-[#0F172A] dark:text-white">
                 Pilih Sheet Workbook ({report.allSheets.length} sheet):
               </span>
             </div>
@@ -279,10 +279,10 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
                     key={s.sheetName}
                     type="button"
                     onClick={() => onSelectSheet(s.sheetName)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-[#5B35B1] text-white shadow-xs font-bold'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                        ? 'bg-[#2563EB] text-white shadow-xs font-bold'
+                        : 'bg-white dark:bg-[#0F172A] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                     }`}
                     title={s.recommendationReason}
                   >
@@ -290,7 +290,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                         isSelected
-                          ? 'bg-purple-900 text-purple-100'
+                          ? 'bg-blue-900 text-blue-100'
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                       }`}
                     >
@@ -348,8 +348,8 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
             </div>
           </div>
         ) : (
-          <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-[#1E1138] border border-purple-200 dark:border-purple-900 text-purple-900 dark:text-purple-200 text-xs flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-[#1E293B] border border-blue-200 dark:border-slate-700 text-[#0F172A] dark:text-slate-200 text-xs flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
             <span>{report.summaryMessage}</span>
           </div>
         )}
@@ -410,9 +410,9 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 col-span-2 sm:col-span-1">
-            <span className="text-purple-700 dark:text-purple-400 text-[11px] block font-semibold">Agent ID Unik</span>
-            <span className="font-mono font-bold text-base text-purple-800 dark:text-purple-300">
+          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 col-span-2 sm:col-span-1">
+            <span className="text-[#2563EB] dark:text-[#38BDF8] text-[11px] block font-semibold">Agent ID Unik</span>
+            <span className="font-mono font-bold text-base text-[#0F172A] dark:text-white">
               {report.agentIdSummary.uniqueCount} ID
             </span>
           </div>
@@ -420,7 +420,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
 
         {/* Import Mode Selection (Only if WO tickets are available) */}
         {report.canCreateWOTickets && (
-          <div className="p-4 rounded-xl border border-[#D8CCF3] dark:border-[#35105E] bg-slate-50/60 dark:bg-slate-900/60 space-y-2">
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-[#0F172A]/60 space-y-2">
             <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block">
               Pilih Mode Penggabungan Data:
             </span>

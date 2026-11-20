@@ -21,6 +21,7 @@ import {
   computeFieldDispatchCounts
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
+import { classifyWorkOrder } from '../../services/woClassificationService';
 import { openCustomerAddressInGoogleMaps, openCoordinatesInGoogleMaps, isValidCoordinatePair } from '../../services/mapsService';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { PHOTO_SLOT_DEFINITIONS } from './fullview/types';
@@ -46,7 +47,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-export type InstallerWoBucket = 'tugas_baru' | 'dalam_proses' | 'selesai';
+export type InstallerWoBucket = 'tugas_baru' | 'dalam_proses' | 'selesai' | 'overdue';
 
 export type StatusFilterCategory =
   | InstallerWoBucket
@@ -368,6 +369,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   }, [tickets, currentUser, effectiveInstallerName]);
 
   const mapInitialToBucket = (filter?: StatusFilterCategory): InstallerWoBucket => {
+    if (filter === 'overdue') return 'overdue';
     if (filter === 'selesai' || filter === 'done') return 'selesai';
     if (filter === 'dalam_proses' || filter === 'revision') return 'dalam_proses';
     if (filter === 'tugas_baru') return 'tugas_baru';
@@ -385,7 +387,9 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   useEffect(() => {
     if (!initialFilter) return;
-    if (initialFilter === 'done' || initialFilter === 'selesai') {
+    if (initialFilter === 'overdue') {
+      setActiveBucket('overdue');
+    } else if (initialFilter === 'done' || initialFilter === 'selesai') {
       setActiveBucket('selesai');
       setDateScope('all');
     } else if (initialFilter === 'dalam_proses' || initialFilter === 'revision') {
@@ -431,16 +435,20 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   const [kendalaTicket, setKendalaTicket] = useState<Ticket | null>(null);
   const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
 
-  // Scoped ticket pool respecting dateScope for Tugas Baru, keeping active Dalam Proses and Selesai accessible
+  // Strictly isolate Today's operational queue from past-date unfinished WOs (Overdue WOs live in dedicated 'overdue' tab)
   const scopedTickets = useMemo(() => {
     return myAssignedTickets.filter(t => {
       if (dateScope === 'all') return true;
       const appDate = getTicketAppointmentDate(t);
       const bucket = classifyInstallerWoBucket(t);
-      if (bucket === 'selesai' || bucket === 'dalam_proses') return true;
-      return !appDate || appDate === todayWIB;
+      if (bucket === 'selesai') return true;
+      return appDate === todayWIB;
     });
   }, [myAssignedTickets, dateScope, todayWIB]);
+
+  const overdueAssignedTickets = useMemo(() => {
+    return myAssignedTickets.filter(t => classifyWorkOrder(t, todayWIB).classification === 'OVERDUE');
+  }, [myAssignedTickets, todayWIB]);
 
   // Exact date-scoped Field Dispatch KPI counts (synced 1:1 with Dashboard Field Dispatch matrix)
   const fieldDispatchDateScopedCounts = useMemo(() => {
@@ -462,8 +470,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       else selesai++;
     });
 
-    return { tugas_baru, dalam_proses, selesai };
-  }, [scopedTickets]);
+    return { tugas_baru, dalam_proses, selesai, overdue: overdueAssignedTickets.length };
+  }, [scopedTickets, overdueAssignedTickets.length]);
 
   const displayedTickets = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -473,6 +481,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           const targetDate = activeKpiDrilldown.dateWIB || todayWIB;
           return getTicketAppointmentDate(t) === targetDate;
         })
+      : activeBucket === 'overdue'
+      ? overdueAssignedTickets
       : scopedTickets;
 
     const matched = basePool.filter(t => {
@@ -480,7 +490,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) {
           return false;
         }
-      } else if (classifyInstallerWoBucket(t) !== activeBucket) {
+      } else if (activeBucket !== 'overdue' && classifyInstallerWoBucket(t) !== activeBucket) {
         return false;
       }
 
@@ -772,11 +782,11 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           </div>
         </div>
 
-        {/* 3 Segmented Tabs: Tugas Baru | Dalam Proses | Selesai */}
+        {/* 4 Segmented Tabs: Tugas Baru | Dalam Proses | Selesai | Overdue */}
         <div
           role="tablist"
           aria-label="Kategori Status Work Order"
-          className="mj-tactile-tab-bar grid grid-cols-3 gap-1 p-1 border border-[#e8ddff]"
+          className="mj-tactile-tab-bar grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 border border-[#e8ddff]"
         >
           {(
             [
@@ -797,6 +807,12 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 label: 'Selesai',
                 count: bucketCounts.selesai,
                 badgeCls: 'bg-[#ECFDF5] text-[#15803D] border-[#86EFAC]'
+              },
+              {
+                key: 'overdue' as InstallerWoBucket,
+                label: 'Overdue',
+                count: bucketCounts.overdue,
+                badgeCls: 'bg-[#FEF2F2] text-[#B91C1C] border-[#FCA5A5]'
               }
             ] as const
           ).map(tab => {

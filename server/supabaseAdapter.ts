@@ -1,6 +1,12 @@
 import { getSupabaseBackendClient } from './supabaseClient.ts';
 import type { ServerUser } from '../server.ts';
 import { isAreaMatch, isContractorMatch, mapSupabaseMessageToModel } from './appFlowHelpers.ts';
+import {
+  attachClassificationMetadata,
+  classifyWorkOrderServer,
+  getJakartaDateStringServer,
+  WoClassification
+} from './woClassificationService.ts';
 
 // ==============================================================================
 // MORAJAWS SUPABASE DATA ACCESS LAYER & HARDENED ADAPTER
@@ -435,6 +441,8 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     workStartedBy: ticket.workStartedBy || null,
     workStartedById: ticket.workStartedById || null,
     approvalStatus: ticket.approvalStatus || 'NONE',
+    dispatchApprovalStatus: ticket.dispatchApprovalStatus || null,
+    ticketResult: ticket.ticketResult || null,
     approvalNotes: ticket.approvalNotes || null,
     approvedAt: ticket.approvedAt || null,
     approvedBy: ticket.approvedBy || null,
@@ -718,6 +726,8 @@ export function postgresRowToTicket(row: any): any {
     workStartedBy: payload.workStartedBy || undefined,
     workStartedById: payload.workStartedById || undefined,
     approvalStatus: payload.approvalStatus || 'NONE',
+    dispatchApprovalStatus: payload.dispatchApprovalStatus || undefined,
+    ticketResult: payload.ticketResult || (payload.approvalStatus === 'APPROVED' ? 'Closed' : undefined),
     approvalNotes: payload.approvalNotes || undefined,
     approvedAt: payload.approvedAt || undefined,
     approvedBy: payload.approvedBy || undefined,
@@ -773,6 +783,9 @@ export function postgresRowToTicket(row: any): any {
     importBatchId: row.import_batch_id || undefined,
 
     payload,
+    woClassification: row.wo_classification || undefined,
+    overdueDays: typeof row.overdue_days === 'number' ? row.overdue_days : undefined,
+    overdueDurationBucket: row.overdue_duration_bucket || undefined,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
     updatedBy: row.updated_by || undefined
@@ -1271,6 +1284,92 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
   }
+}
+
+export interface GetClassifiedWorkOrdersOptions extends GetWorkOrdersOptions {
+  classification?: WoClassification;
+  referenceDateWIB?: string;
+}
+
+/**
+ * Fetches classified Work Orders from the database-side Asia/Jakarta view
+ * (`v_work_orders_classified`) when available and matching live WIB date,
+ * gracefully falling back to `work_orders` + `woClassificationService` if the
+ * migration view has not been applied yet or an overridden WIB reference date is requested.
+ */
+export async function getClassifiedWorkOrdersFromSupabase(
+  options: GetClassifiedWorkOrdersOptions = {}
+): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+
+  const liveJakartaToday = getJakartaDateStringServer();
+  const refDate = options.referenceDateWIB || liveJakartaToday;
+  const canUseLiveView = refDate === liveJakartaToday && !options.includeDeleted && !options.includeArchived;
+
+  if (canUseLiveView) {
+    try {
+      let query = client.from('v_work_orders_classified').select('*');
+      if (options.classification) {
+        query = query.eq('wo_classification', options.classification);
+      }
+      if (options.area) {
+        query = query.eq('area', options.area);
+      }
+      if (options.contractorId) {
+        query = query.eq('contractor_id', options.contractorId);
+      }
+      if (options.installerName) {
+        query = query.eq('installer_name', options.installerName);
+      }
+      if (options.appointmentDate) {
+        query = query.eq('appointment_date', options.appointmentDate);
+      }
+
+      if (options.classification === 'OVERDUE') {
+        query = query.order('appointment_date', { ascending: true });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      if (typeof options.limit === 'number' && options.limit > 0) {
+        query = query.limit(options.limit);
+      }
+      if (typeof options.offset === 'number' && options.offset > 0) {
+        query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
+      }
+
+      const { data, error } = await query;
+      if (!error) {
+        const tickets = (data || []).map((row: any) => attachClassificationMetadata(postgresRowToTicket(row), refDate));
+        return { success: true, data: tickets };
+      }
+
+      const code = String((error as any)?.code || '');
+      const msg = String((error as any)?.message || '');
+      const viewMissing =
+        code === '42P01' ||
+        code === 'PGRST205' ||
+        msg.toLowerCase().includes('v_work_orders_classified');
+      if (!viewMissing) {
+        const classified = classifySupabaseError(error);
+        console.error('[Supabase DAL] v_work_orders_classified query failed:', classified.message);
+      }
+    } catch {
+      // Fallback transparently to base table below
+    }
+  }
+
+  const baseRes = await getWorkOrdersFromSupabase(options);
+  if (!baseRes.success) return baseRes;
+
+  const enriched = (baseRes.data || [])
+    .map(t => attachClassificationMetadata(t, refDate))
+    .filter(t => (!options.classification ? true : classifyWorkOrderServer(t, refDate).classification === options.classification));
+
+  return { success: true, data: enriched };
 }
 
 /**
@@ -1850,6 +1949,8 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
     if (updates.workStartedBy !== undefined) mergedPayload.workStartedBy = updates.workStartedBy;
     if (updates.workStartedById !== undefined) mergedPayload.workStartedById = updates.workStartedById;
     if (updates.approvalStatus !== undefined) mergedPayload.approvalStatus = updates.approvalStatus;
+    if (updates.dispatchApprovalStatus !== undefined) mergedPayload.dispatchApprovalStatus = updates.dispatchApprovalStatus;
+    if (updates.ticketResult !== undefined) mergedPayload.ticketResult = updates.ticketResult;
     if (updates.approvalNotes !== undefined) mergedPayload.approvalNotes = updates.approvalNotes;
     if (updates.approvedAt !== undefined) mergedPayload.approvedAt = updates.approvedAt;
     if (updates.approvedBy !== undefined) mergedPayload.approvedBy = updates.approvedBy;

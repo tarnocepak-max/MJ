@@ -26,9 +26,16 @@ import {
   HierarchicalReason,
   HierarchicalRemark,
   WOApprovalStatus,
+  DispatchApprovalWoAgentStatus,
   WOKpiSummary,
-  WOKpiFilterKey
+  WOKpiFilterKey,
+  OverdueSummaryMetrics,
+  WoClassificationSummary
 } from '../types/index.ts';
+import {
+  classifyWorkOrder,
+  summarizeWorkOrderClassifications
+} from '../services/woClassificationService';
 
 import {
   INITIAL_SAMPLE_TICKETS,
@@ -116,6 +123,12 @@ import {
   validateAndDeduplicateImportBatch,
   deduplicateTicketsInMemory
 } from '../services/woDeduplicationService';
+import {
+  getDispatchApprovalOutcomeLabel,
+  getRecommendedDispatchWoAgentStatus,
+  isTicketClosed,
+  normalizeDispatchWoAgentStatus
+} from '../services/woLifecycleService';
 
 interface AppContextType {
   // Current user & RBAC
@@ -266,7 +279,11 @@ interface AppContextType {
     offline?: boolean;
   }>;
   startWorkOnTicket: (ticketId: string) => Promise<{ success: boolean; error?: string; ticket?: Ticket }>;
-  approveProgressReport: (ticketId: string, notes?: string) => Promise<{ success: boolean; error?: string }>;
+  approveProgressReport: (
+    ticketId: string,
+    notes?: string,
+    options?: { woAgentStatus?: DispatchApprovalWoAgentStatus; remarksAgent?: string }
+  ) => Promise<{ success: boolean; error?: string }>;
   rejectProgressReport: (ticketId: string, reason: string) => Promise<{ success: boolean; error?: string }>;
 
   // Report Dropdown Categories (Report Status, Reason Report, Rootcause)
@@ -283,6 +300,11 @@ interface AppContextType {
   scopedTickets: Ticket[];
   activeTodayTickets: Ticket[];
   scopedActiveTickets: Ticket[];
+  overdueTickets: Ticket[];
+  exceptionTickets: Ticket[];
+  overdueSummary: OverdueSummaryMetrics;
+  classificationSummary: WoClassificationSummary;
+  refreshOverdueTickets: () => Promise<void>;
   refreshActiveTickets: () => Promise<void>;
   getTicketById: (id: string) => Ticket | undefined;
   createTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>) => Ticket;
@@ -291,7 +313,6 @@ interface AppContextType {
   bulkAssignPersonnel: (ticketIds: string[], leaderName?: string, installerName?: string, slotTime?: string, remarks?: string) => { success: boolean; count: number };
   reassignTicketPersonnel: (ticketId: string, newInstallerName: string, reason: string) => { success: boolean; error?: string; historyEntry?: WOAssignmentHistory };
   updateTicketStatus: (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => void;
-  closeTicket: (ticketId: string, closeNotes: string) => { success: boolean; error?: string };
   reopenTicket: (ticketId: string, reason: string) => { success: boolean; error?: string };
   archiveTicket: (ticketId: string) => void;
   restoreTicket: (ticketId: string) => void;
@@ -1831,21 +1852,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   };
 
-  // Multi-layer 00:00 WIB Midnight Auto-Reset Watcher (Exact Midnight Timeout + 15s Drift Check + Focus/Visibility)
+  // Multi-layer 00:00 WIB Midnight Auto-Reset Watcher (Exact Midnight Timeout + 15s Drift Check + Focus/Visibility Return Refresh)
+  const lastVisibilityRefreshAtRef = useRef<number>(Date.now());
   useEffect(() => {
     let cancelled = false;
     let midnightTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const checkAndApplyJakartaRollover = () => {
+    const checkAndApplyJakartaRollover = (forceActiveRefresh = false) => {
       if (cancelled) return;
       const liveNowWIB = getJakartaDateString(0);
+      let rolledOver = false;
       setTodayWIB(prev => {
         if (prev !== liveNowWIB) {
+          rolledOver = true;
           setOperationalDateState(liveNowWIB);
           try {
             localStorage.setItem('morajaws_operational_date', liveNowWIB);
           } catch {}
           if (navigator.onLine) {
+            lastVisibilityRefreshAtRef.current = Date.now();
             refreshActiveTickets().catch(() => {});
           }
           toast.info(`Tanggal berganti ke ${liveNowWIB} (00:00 WIB). Daftar WO aktif diperbarui otomatis.`, 'Auto Reset 00:00 WIB');
@@ -1853,6 +1878,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return prev;
       });
+
+      if (!rolledOver && forceActiveRefresh && navigator.onLine) {
+        const elapsed = Date.now() - lastVisibilityRefreshAtRef.current;
+        if (elapsed >= 45_000) {
+          lastVisibilityRefreshAtRef.current = Date.now();
+          refreshActiveTickets().catch(() => {});
+          refreshKpiSummary().catch(() => {});
+        }
+      }
     };
 
     const scheduleMidnightTimeout = () => {
@@ -1866,10 +1900,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     scheduleMidnightTimeout();
 
-    const driftInterval = setInterval(checkAndApplyJakartaRollover, 15000);
+    const driftInterval = setInterval(() => checkAndApplyJakartaRollover(false), 15000);
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
-        checkAndApplyJakartaRollover();
+        checkAndApplyJakartaRollover(true);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -2171,6 +2205,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return getTicketAppointmentDate(t) === todayWIB;
     });
   }, [scopedTickets, todayWIB]);
+
+  // Centralized WO Classification Engine (TODAY | UPCOMING | OVERDUE | COMPLETED | EXCEPTION)
+  const overdueTickets = React.useMemo(() => {
+    return (scopedTickets || [])
+      .filter(t => {
+        if (!t || t.isArchived || t.isDeleted) return false;
+        return classifyWorkOrder(t, todayWIB).classification === 'OVERDUE';
+      })
+      .map(t => {
+        const meta = classifyWorkOrder(t, todayWIB);
+        return {
+          ...t,
+          woClassification: meta.classification,
+          overdueDays: meta.overdueDays,
+          overdueDurationBucket: meta.overdueDurationBucket
+        };
+      });
+  }, [scopedTickets, todayWIB]);
+
+  const exceptionTickets = React.useMemo(() => {
+    if (currentUser?.role !== 'super_admin' && currentUser?.role !== 'management_data') {
+      return [];
+    }
+    return (scopedTickets || [])
+      .filter(t => {
+        if (!t || t.isArchived || t.isDeleted) return false;
+        return classifyWorkOrder(t, todayWIB).classification === 'EXCEPTION';
+      })
+      .map(t => ({
+        ...t,
+        woClassification: 'EXCEPTION' as const,
+        overdueDays: 0,
+        overdueDurationBucket: null
+      }));
+  }, [scopedTickets, todayWIB, currentUser?.role]);
+
+  const { overdueSummary, classificationSummary } = React.useMemo(() => {
+    const activePool = (scopedTickets || []).filter(t => t && !t.isArchived && !t.isDeleted);
+    const summary = summarizeWorkOrderClassifications(activePool, todayWIB);
+    return {
+      overdueSummary: summary.overdueBreakdown,
+      classificationSummary: summary
+    };
+  }, [scopedTickets, todayWIB]);
+
+  const refreshOverdueTickets = async () => {
+    await refreshActiveTickets();
+  };
 
 
 
@@ -3163,7 +3245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date().toISOString();
     const workStartUpdates: Partial<Ticket> = {
       statusWOInstaller: 'On Site',
-      statusWOAgent: ticket.statusWOAgent === 'Closed' || ticket.statusWOAgent === 'Resolved' ? ticket.statusWOAgent : 'In Progress',
+      statusWOAgent: isTicketClosed(ticket) || ticket.statusWOAgent === 'Resolved' ? ticket.statusWOAgent : 'In Progress',
       workStartedAt: now,
       workStartedBy: currentUser.name,
       workStartedById: currentUser.id,
@@ -3735,7 +3817,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const approveProgressReport = async (
     ticketId: string,
-    notes?: string
+    notes?: string,
+    options?: {
+      woAgentStatus?: DispatchApprovalWoAgentStatus;
+      remarksAgent?: string;
+    }
   ): Promise<{ success: boolean; error?: string }> => {
     if (currentUser.role !== 'dispatch' && currentUser.role !== 'super_admin') {
       return { success: false, error: 'Akses Ditolak: Hanya Dispatch dan Super Admin yang berwenang menyetujui laporan.' };
@@ -3744,11 +3830,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
-    // 1. Validasi: Tombol APPROVE hanya dapat diproses jika WO benar-benar dalam status BUTUH APPROVAL
+    // 1. Validasi: Dispatch Approval hanya dapat diproses jika WO benar-benar dalam status BUTUH APPROVAL
+    if (ticket.approvalStatus === 'APPROVED') {
+      return {
+        success: false,
+        error: `WO ${ticket.woNumber} sudah diverifikasi (${ticket.dispatchApprovalStatus || 'APPROVED'}) dengan hasil Ticket Closed.`
+      };
+    }
     if (ticket.approvalStatus !== 'BUTUH APPROVAL') {
       return {
         success: false,
-        error: 'Validasi Gagal: Tombol APPROVE hanya dapat diproses jika tiket berstatus BUTUH APPROVAL.'
+        error: 'Validasi Gagal: Dispatch Approval hanya dapat diproses jika tiket berstatus BUTUH APPROVAL.'
       };
     }
 
@@ -3761,8 +3853,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
+    // 3. Validasi status akhir WO Agent (Done | Pending | Reschedule | Cancel)
+    const explicitRaw = options?.woAgentStatus;
+    let finalWoAgentStatus = normalizeDispatchWoAgentStatus(explicitRaw);
+    if (explicitRaw !== undefined && String(explicitRaw).trim() !== '' && !finalWoAgentStatus) {
+      return {
+        success: false,
+        error: 'Status WO Agent wajib dipilih dari: Done, Pending, Reschedule, atau Cancel.'
+      };
+    }
+    if (!finalWoAgentStatus) {
+      finalWoAgentStatus = getRecommendedDispatchWoAgentStatus(ticket);
+    }
+
+    const dispatchApprovalLabel = getDispatchApprovalOutcomeLabel(finalWoAgentStatus);
     const now = new Date().toISOString();
-    const statusName = (ticket.reportStatusLabel || ticket.statusWOInstaller || '').toUpperCase();
     const dispatchUid = currentUser.id || (currentUser as any).userId || '';
 
     // Perbarui status approval pada progress report terakhir tanpa merusak histori
@@ -3771,38 +3876,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? {
             ...p,
             approvalStatus: 'APPROVED' as WOApprovalStatus,
+            dispatchApprovalStatus: dispatchApprovalLabel,
+            ticketResult: 'Closed',
+            finalWoStatus: finalWoAgentStatus,
             approvedAt: now,
             approvedBy: currentUser.name,
-            approvedById: dispatchUid
+            approvedById: dispatchUid,
+            approvalNotes: notes || p.approvalNotes || ''
           }
         : p
     );
 
-    // Update atomik: Status Approval APPROVED dan Status Ticket WO CLOSED tersimpan bersamaan
+    // Update atomik: Dispatch Approval -> Status WO Agent final + Ticket Result Closed
     const updatedTicket: Ticket = {
       ...ticket,
       approvalStatus: 'APPROVED',
+      dispatchApprovalStatus: dispatchApprovalLabel,
+      ticketResult: 'Closed',
       approvalNotes: notes || '',
       approvedAt: now,
       approvedBy: currentUser.name,
       approvedById: dispatchUid,
+      ...(options?.remarksAgent !== undefined ? { remarksAgent: options.remarksAgent } : {}),
       progressReports: updatedReports,
-      technicalReport: ticket.technicalReport ? {
-        ...ticket.technicalReport,
-        verifiedByDispatch: true,
-        verifiedAt: now,
-        verifiedBy: currentUser.name
-      } : undefined,
-      // Status agen resmi CLOSED saat diapprove Dispatch
-      statusWOAgent: 'Closed',
+      technicalReport: ticket.technicalReport
+        ? {
+            ...ticket.technicalReport,
+            verifiedByDispatch: true,
+            verifiedAt: now,
+            verifiedBy: currentUser.name
+          }
+        : undefined,
+      statusWOAgent: finalWoAgentStatus,
       closedAt: now,
       closedBy: currentUser.name,
       closedById: dispatchUid,
-      closeNotes: notes || 'Laporan teknisi disetujui (APPROVED) dan WO otomatis resmi ditutup (CLOSED) oleh Dispatch',
-      // Jika status teknisi masih aktif, tandai Completed
-      statusWOInstaller: (ticket.statusWOInstaller === 'Assigned' || ticket.statusWOInstaller === 'En Route' || ticket.statusWOInstaller === 'On Site')
-        ? 'Completed'
-        : ticket.statusWOInstaller,
+      closeNotes:
+        notes ||
+        `${dispatchApprovalLabel} — Status WO Agent: ${finalWoAgentStatus}, Ticket Result: Closed (Diverifikasi Dispatch ${currentUser.name}).`,
+      statusWOInstaller:
+        finalWoAgentStatus === 'Done' &&
+        (ticket.statusWOInstaller === 'Assigned' ||
+          ticket.statusWOInstaller === 'En Route' ||
+          ticket.statusWOInstaller === 'On Site')
+          ? 'Completed'
+          : ticket.statusWOInstaller,
       updatedAt: now,
       updatedBy: currentUser.name
     };
@@ -3813,8 +3931,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: 'act-' + Date.now(),
       ticketId,
       woNumber: ticket.woNumber,
-      action: 'Laporan Disetujui (Approved) & WO Resmi Closed',
-      description: `Dispatch ${currentUser.name} (UID: ${dispatchUid}) menyetujui laporan teknisi dan otomatis menutup tiket WO. Catatan: ${notes || '-'}`,
+      action: `${dispatchApprovalLabel} (Ticket Closed)`,
+      description: `Dispatch ${currentUser.name} menyelesaikan verifikasi WO Agent -> ${finalWoAgentStatus} & Ticket Result -> Closed. Catatan: ${notes || '-'}`,
       performedBy: currentUser.name,
       userRole: currentUser.role,
       timestamp: now
@@ -3822,16 +3940,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTicketActivities(prev => [activity, ...prev]);
 
     addAuditLog(
-      'Report Approved & Closed',
+      'Dispatch Approval & Ticket Closed',
       'ticket',
       ticketId,
-      `Dispatch ${currentUser.name} (UID: ${dispatchUid}) menyetujui laporan dan otomatis menutup tiket WO ${ticket.woNumber} (Status: ${statusName} -> CLOSED)`
+      `Dispatch ${currentUser.name} menetapkan ${dispatchApprovalLabel} untuk WO ${ticket.woNumber} (WO Agent: ${finalWoAgentStatus}, Ticket Result: Closed)`
     );
 
-    // Persist ke Backend Transactional Approve Endpoint (APPROVED + Auto CLOSED + Immutable History)
+    // Persist ke Backend Transactional Approve Endpoint
     try {
       setSyncStatus('SYNCING');
-      const res = await supabaseDb.approveWorkOrderReport(updatedTicket.id, notes);
+      const res = await supabaseDb.approveWorkOrderReport(updatedTicket.id, notes, {
+        woAgentStatus: finalWoAgentStatus,
+        remarksAgent: options?.remarksAgent
+      });
       if (!res.success) {
         throw new Error(res.error?.message || 'Gagal menyimpan status approval ke Supabase PostgreSQL.');
       }
@@ -3842,8 +3963,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLastSyncTime(new Date().toISOString());
       scheduleKpiRefreshRef.current?.();
       toast.success(
-        'Ticket WO berhasil di-approve dan otomatis ditutup (CLOSED).',
-        'Approval Berhasil'
+        `${dispatchApprovalLabel} tersimpan. Status WO Agent: ${finalWoAgentStatus}, Ticket Result: Closed.`,
+        'Verifikasi Dispatch Selesai'
       );
     } catch (err: any) {
       console.error('[Supabase] Error saving approved report:', err);
@@ -4099,82 +4220,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return updateReportDropdownCategory(id, { isActive: !existing.isActive });
   };
 
-  // Close Ticket Workflow
-
-  const closeTicket = (ticketId: string, closeNotes: string) => {
-    // Only Dispatch and Super Admin can close tickets!
-    if (currentUser.role !== 'dispatch' && currentUser.role !== 'super_admin') {
-      toast.error('Hanya Agent Dispatch yang memiliki hak akses menutup (Close) tiket.', 'Akses Ditolak');
-      return { success: false, error: 'Hanya Agent Dispatch yang memiliki hak akses menutup (Close) tiket.' };
-    }
-
-    const ticket = getTicketById(ticketId);
-    if (!ticket) {
-      toast.error('Tiket tidak ditemukan.', 'Error');
-      return { success: false, error: 'Tiket tidak ditemukan.' };
-    }
-
-    if (!closeNotes || closeNotes.trim().length < 5) {
-      toast.error('Catatan penutupan tiket wajib diisi minimal 5 karakter.', 'Validasi Gagal');
-      return { success: false, error: 'Catatan penutupan tiket wajib diisi minimal 5 karakter.' };
-    }
-
-    const now = new Date().toISOString();
-    const closedTicket: Ticket = {
-      ...ticket,
-      statusWOAgent: 'Closed',
-      closedAt: now,
-      closedBy: currentUser.name,
-      closeNotes: closeNotes.trim(),
-      updatedAt: now,
-      updatedBy: currentUser.name
-    };
-
-    setTickets(prev =>
-      prev.map(t => (t.id === ticketId ? closedTicket : t))
-    );
-
-    const activity: TicketActivity = {
-      id: 'act-' + Date.now(),
-      ticketId,
-      woNumber: ticket.woNumber,
-      action: 'Tiket Resmi Ditutup (Closed)',
-      description: `Closed by Dispatch: ${closeNotes.trim()}`,
-      performedBy: currentUser.name,
-      userRole: currentUser.role,
-      timestamp: now
-    };
-    setTicketActivities(prev => [activity, ...prev]);
-
-    fetch(`/api/tickets/${ticketId}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        statusWOAgent: 'Closed',
-        closedAt: now,
-        closedBy: currentUser.name,
-        closeNotes: closeNotes.trim()
-      })
-    }).catch(e => console.error('Error syncing close ticket to server:', e));
-
-    addAuditLog('Ticket Closed', 'ticket', ticketId, `Dispatch ${currentUser.name} officially closed WO ${ticket.woNumber}`);
-
-    setSyncStatus('SYNCING');
-    supabaseDb.updateWorkOrder(closedTicket.id, closedTicket)
-      .then((res) => {
-        if (!res.success) throw new Error(res.error?.message || 'Gagal menutup tiket');
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        toast.success(`Tiket WO ${ticket.woNumber} resmi ditutup (Closed) oleh Dispatch.`, 'Tiket Ditutup');
-      })
-      .catch(err => {
-        setSyncStatus('ERROR');
-        toast.error('Gagal menyimpan status penutupan di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
-      });
-
-    return { success: true };
-  };
-
   const reopenTicket = (ticketId: string, reason: string) => {
     if (currentUser.role !== 'dispatch' && currentUser.role !== 'super_admin') {
       toast.error('Hanya Dispatch atau Super Admin yang dapat membuka kembali tiket.', 'Akses Ditolak');
@@ -4190,9 +4235,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const reopenedTicket: Ticket = {
       ...ticket,
       statusWOAgent: 'In Progress',
+      ticketResult: 'Open',
+      dispatchApprovalStatus: undefined,
+      approvalStatus: (ticket.progressReports && ticket.progressReports.length > 0) ? 'BUTUH APPROVAL' : 'NONE',
       reopenReason: reason,
       closedAt: undefined,
       closedBy: undefined,
+      closedById: undefined,
+      closeNotes: undefined,
       updatedAt: now,
       updatedBy: currentUser.name
     };
@@ -4209,6 +4259,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!res.success) throw new Error(res.error?.message || 'Gagal membuka tiket');
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
         toast.info(`Tiket WO ${ticket.woNumber} berhasil dibuka kembali (Reopened).`, 'Tiket Dibuka Kembali');
       })
       .catch(err => {
@@ -6485,6 +6536,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         scopedTickets,
         activeTodayTickets,
         scopedActiveTickets,
+        overdueTickets,
+        exceptionTickets,
+        overdueSummary,
+        classificationSummary,
+        refreshOverdueTickets,
         refreshActiveTickets,
         getTicketById,
         createTicket,
@@ -6493,7 +6549,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bulkAssignPersonnel,
         reassignTicketPersonnel,
         updateTicketStatus,
-        closeTicket,
         reopenTicket,
         archiveTicket,
         restoreTicket,

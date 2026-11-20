@@ -51,68 +51,68 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
   if (!isOpen || !vendor) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] flex items-center justify-between gap-4">
-          <div>
-            <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
+    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#0B1220]/70 backdrop-blur-sm sm:p-4">
+      <div className="bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#0B1220] flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="font-display font-bold text-base text-[#0F172A] dark:text-white truncate">
               Detail Work Order — {vendor.contractorName}
             </h3>
-            <p className="text-xs text-[#766B83] dark:text-[#A78BFA]">
+            <p className="text-xs text-slate-500 dark:text-[#38BDF8] truncate">
               Area: {vendor.primaryArea} • Korlap: {vendor.leaderName} • {filteredTickets.length} Work Order ditemukan
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-[#766B83] hover:bg-white dark:hover:bg-[#35105E]"
+            className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg text-slate-500 hover:bg-white dark:hover:bg-[#1E293B] flex items-center justify-center shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-6 py-3 border-b border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238]">
+        <div className="px-4 sm:px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F172A]">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Cari No. WO, nama pelanggan, area, atau teknisi..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white"
+              className="w-full pl-9 pr-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-800">
           {filteredTickets.length === 0 ? (
-            <div className="py-12 text-center text-xs text-[#766B83]">
+            <div className="py-12 text-center text-xs text-slate-500">
               Tidak ada Work Order yang cocok untuk filter saat ini.
             </div>
           ) : (
             filteredTickets.map(ticket => (
               <div
                 key={ticket.id}
-                className="px-6 py-3.5 hover:bg-[#F7F6FA] dark:hover:bg-[#160D29]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+                className="px-4 sm:px-6 py-3.5 hover:bg-slate-50 dark:hover:bg-[#1E293B]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-[#431599] dark:text-[#D8B4FE]">
+                    <span className="font-mono text-xs font-bold text-[#2563EB] dark:text-[#38BDF8]">
                       {ticket.woNumber}
                     </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-[#35105E] text-[#211A2E] dark:text-white">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1E293B] text-[#0F172A] dark:text-white">
                       {ticket.statusWOInstaller || 'Unassigned'}
                     </span>
                     {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8]">
                         {ticket.approvalStatus}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs font-semibold text-[#211A2E] dark:text-white mt-0.5 truncate">
-                    {ticket.customerName} • <span className="font-normal text-[#766B83]">{ticket.area}</span>
+                  <p className="text-xs font-semibold text-[#0F172A] dark:text-white mt-0.5 truncate">
+                    {ticket.customerName} • <span className="font-normal text-slate-500">{ticket.area}</span>
                   </p>
-                  <p className="text-[11px] text-[#766B83] mt-0.5">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     Slot: {ticket.slotTime || '-'} • Teknisi: {ticket.installerName || ticket.assignedTo || 'Belum Ditugaskan'}
                   </p>
                 </div>
@@ -124,9 +124,9 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
                       onClose();
                       onSelectTicket(ticket, 'chat');
                     }}
-                    className="px-2.5 py-1.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] text-[11px] font-semibold text-[#211A2E] dark:text-white hover:bg-slate-50 dark:hover:bg-[#35105E] flex items-center gap-1"
+                    className="px-3 py-1.5 min-h-[40px] sm:min-h-0 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-[#0F172A] dark:text-white hover:bg-slate-50 dark:hover:bg-[#1E293B] flex items-center gap-1 cursor-pointer"
                   >
-                    <MessageSquare className="w-3.5 h-3.5 text-[#7135B5]" />
+                    <MessageSquare className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
                     LiveChat
                   </button>
                   <button
@@ -135,7 +135,7 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
                       onClose();
                       onSelectTicket(ticket, 'overview');
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[#431599] hover:bg-[#35105E] text-white text-[11px] font-bold flex items-center gap-1"
+                    className="px-3 py-1.5 min-h-[40px] sm:min-h-0 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     Buka Fullview
@@ -247,19 +247,19 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden">
-        <div className={`px-4 sm:px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 shrink-0 ${isCriticalStyle ? 'bg-rose-50 dark:bg-rose-950/30' : 'bg-[#F7F6FA] dark:bg-[#160D29]'}`}>
+    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#0B1220]/70 backdrop-blur-sm sm:p-4">
+      <div className="bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden">
+        <div className={`px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 ${isCriticalStyle ? 'bg-rose-50 dark:bg-rose-950/30' : 'bg-[#F8FAFC] dark:bg-[#0B1220]'}`}>
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCriticalStyle ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300' : 'bg-[#431599]/10 text-[#431599] dark:text-[#D8B4FE]'}`}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCriticalStyle ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300' : 'bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8]'}`}>
               {context.actionType === 'ISSUE_SP1' ? <FileWarning className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
             </div>
             <div className="min-w-0">
-              <h3 className="font-display font-bold text-sm text-[#211A2E] dark:text-white truncate">{context.title}</h3>
-              <p className="text-[11px] text-[#766B83] dark:text-[#A78BFA] truncate">{context.subtitle}</p>
+              <h3 className="font-display font-bold text-sm text-[#0F172A] dark:text-white truncate">{context.title}</h3>
+              <p className="text-[11px] text-slate-500 dark:text-[#38BDF8] truncate">{context.subtitle}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-[#766B83] hover:bg-white/70 shrink-0 cursor-pointer">
+          <button type="button" onClick={onClose} className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white/70 shrink-0 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -272,35 +272,35 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#F7F6FA] dark:bg-[#140827] p-3 rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 dark:bg-[#0B1220] p-3 rounded-xl border border-slate-200 dark:border-slate-800">
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#8B8495] block">Vendor / Mitra</span>
-              <span className="font-semibold text-[#211A2E] dark:text-white">{context.contractorName || 'Semua Vendor Aktif'}</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Vendor / Mitra</span>
+              <span className="font-semibold text-[#0F172A] dark:text-white">{context.contractorName || 'Semua Vendor Aktif'}</span>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-[#8B8495] block">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">
                 {context.woNumber ? 'No. Work Order' : 'Target Korlap'}
               </span>
-              <span className="font-semibold font-mono text-[#211A2E] dark:text-white">
+              <span className="font-semibold font-mono text-[#0F172A] dark:text-white">
                 {context.woNumber || context.leaderName || 'Semua Korlap'}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Instruksi / Pesan Resmi
             </label>
             <textarea
               rows={4}
               value={message}
               onChange={e => setMessage(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#140827] text-[#211A2E] dark:text-white"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Alasan / Referensi Audit (Opsional)
             </label>
             <input
@@ -308,29 +308,29 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder="Contoh: Breach SLA > 15 menit pada Slot 3"
-              className="w-full px-3 py-2 text-xs rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#140827] text-[#211A2E] dark:text-white"
+              className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             />
           </div>
 
           {context.ticketId && (
-            <label className="flex items-center gap-2 text-xs text-[#211A2E] dark:text-slate-200 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-[#0F172A] dark:text-slate-200 cursor-pointer">
               <input
                 type="checkbox"
                 checked={postToLiveChat}
                 onChange={e => setPostToLiveChat(e.target.checked)}
-                className="w-4 h-4 accent-[#431599]"
+                className="w-4 h-4 accent-[#2563EB]"
               />
               <span>Lampirkan catatan koordinasi ke LiveChat WO (Kategori ISSUE/GENERAL, tidak memicu Check-in)</span>
             </label>
           )}
 
-          <div className="pt-2 flex items-center justify-between gap-2">
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
             {waHref ? (
               <a
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 flex items-center gap-1.5"
+                className="px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 flex items-center gap-1.5"
               >
                 <PhoneCall className="w-3.5 h-3.5" />
                 Buka WhatsApp Korlap
@@ -339,19 +339,19 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
               <div />
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl border border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold text-[#766B83] hover:text-[#211A2E]"
+                className="px-4 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#0F172A] cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 ${
-                  isCriticalStyle ? 'bg-[#DC4C5A] hover:bg-rose-700' : 'bg-[#431599] hover:bg-[#35105E]'
+                className={`px-4 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                  isCriticalStyle ? 'bg-[#DC4C5A] hover:bg-rose-700' : 'bg-[#2563EB] hover:bg-[#1D4ED8]'
                 }`}
               >
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}

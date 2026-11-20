@@ -1894,7 +1894,12 @@ export function reassignWOTechnician(
     };
   }
 
-  if (ticket.statusWOInstaller === 'Completed' || ticket.statusWOAgent === 'Closed') {
+  if (
+    ticket.statusWOInstaller === 'Completed' ||
+    ticket.statusWOAgent === 'Done' ||
+    ticket.statusWOAgent === 'Closed' ||
+    ticket.ticketResult === 'Closed'
+  ) {
     return {
       success: false,
       error: `WO ${ticket.woNumber} telah selesai atau ditutup. WO yang sudah selesai tidak dapat di-reassign.`

@@ -12,8 +12,8 @@ export const OfflineBanner: React.FC = () => {
       <div
         className={`px-3.5 py-2.5 rounded-2xl border flex items-center justify-between gap-3 text-xs backdrop-blur-xl transition-all ${
           !isOnline
-            ? 'bg-[#FFFBEB]/95 dark:bg-[#291C0B]/95 text-amber-950 dark:text-amber-100 border-amber-300 dark:border-amber-500/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_4px_0_rgba(217,119,6,0.25),0_12px_24px_rgba(31,22,56,0.16)]'
-            : 'bg-[#F3EAFF]/98 dark:bg-[#1E1238]/98 text-[#1F1638] dark:text-white border-[#DAB9FF] dark:border-[#7135B5]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_0_#CEC3D4,0_12px_24px_rgba(88,20,156,0.16)] dark:shadow-[0_10px_28px_rgba(22,13,41,0.7)]'
+            ? 'bg-[#FFFBEB]/95 dark:bg-[#291C0B]/95 text-amber-950 dark:text-amber-100 border-amber-300 dark:border-amber-500/50 shadow-lg'
+            : 'bg-white/95 dark:bg-[#0F172A]/95 text-[#0F172A] dark:text-white border-slate-200 dark:border-slate-700 shadow-lg'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
@@ -21,11 +21,11 @@ export const OfflineBanner: React.FC = () => {
             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
               !isOnline
                 ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                : 'bg-white dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border-[#E8DDFF] dark:border-[#7135B5]'
+                : 'bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] border-blue-200 dark:border-slate-700'
             }`}
           >
             {!isOnline ? (
-              <WifiOff className="w-4 h-4 animate-pulse" />
+              <WifiOff className="w-4 h-4" />
             ) : (
               <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
             )}
@@ -40,7 +40,7 @@ export const OfflineBanner: React.FC = () => {
                   : 'Tersambung Ulang'}
               </span>
               {pendingCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#58149C] text-white tabular-nums">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#2563EB] text-white tabular-nums">
                   {pendingCount} antrean
                 </span>
               )}
@@ -59,7 +59,7 @@ export const OfflineBanner: React.FC = () => {
               type="button"
               onClick={() => syncNow()}
               disabled={isSyncing}
-              className="tactile-pill-btn flex items-center gap-1 px-3 py-1.5 bg-[#58149C] hover:bg-[#7135B5] text-white font-bold rounded-xl cursor-pointer disabled:opacity-60"
+              className="flex items-center gap-1 px-3 py-1.5 min-h-[40px] sm:min-h-[34px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-xl cursor-pointer disabled:opacity-60"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
               <span>{isSyncing ? 'Sync...' : 'Sync'}</span>
@@ -69,7 +69,7 @@ export const OfflineBanner: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsOfflineModalOpen(true)}
-            className="tactile-btn-secondary flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-[#261942] text-[#4B4452] dark:text-[#E9D5FF] border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl font-bold cursor-pointer"
+            className="flex items-center gap-1 px-3 py-1.5 min-h-[40px] sm:min-h-[34px] bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
           >
             <span className="hidden xs:inline">Detail</span>
             <ChevronRight className="w-3.5 h-3.5" />

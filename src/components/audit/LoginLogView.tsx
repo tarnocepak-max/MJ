@@ -69,7 +69,7 @@ export const LoginLogView: React.FC = () => {
         sortable: true,
         priority: 'secondary',
         numeric: true,
-        tdClassName: 'text-[#7D7484] dark:text-[#CEC0E8] whitespace-nowrap',
+        tdClassName: 'text-slate-500 dark:text-slate-300 whitespace-nowrap',
         render: log => new Date(log.timestamp).toLocaleString('id-ID')
       },
       {
@@ -98,7 +98,7 @@ export const LoginLogView: React.FC = () => {
         label: 'Pengguna',
         sortable: true,
         priority: 'hidden_mobile',
-        tdClassName: 'font-semibold text-[#1F1638] dark:text-white whitespace-nowrap',
+        tdClassName: 'font-semibold text-[#0F172A] dark:text-white whitespace-nowrap',
         render: log => log.performedBy
       },
       {
@@ -106,7 +106,7 @@ export const LoginLogView: React.FC = () => {
         label: 'Peran / Role',
         sortable: true,
         priority: 'secondary',
-        tdClassName: 'capitalize font-mono text-[#7D7484] dark:text-[#CEC0E8] whitespace-nowrap',
+        tdClassName: 'capitalize font-mono text-slate-500 dark:text-slate-300 whitespace-nowrap',
         render: log => String(log.userRole || '').replace('_', ' ')
       },
       {
@@ -114,7 +114,7 @@ export const LoginLogView: React.FC = () => {
         label: 'Detail & Aktivitas',
         sortable: true,
         priority: 'primary',
-        tdClassName: 'text-[#4B4452] dark:text-[#CEC0E8] max-w-md break-words',
+        tdClassName: 'text-slate-600 dark:text-slate-300 max-w-md break-words',
         render: log => <span className="break-words">{log.details}</span>
       }
     ],
@@ -124,19 +124,19 @@ export const LoginLogView: React.FC = () => {
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Header */}
-      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#35105E] p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-            <KeyRound className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-[#0F172A] dark:bg-[#1E293B] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+            <KeyRound className="w-5 h-5 text-[#38BDF8]" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-display font-bold text-[#1F1638] dark:text-white flex flex-wrap items-center gap-2">
+            <h2 className="text-sm sm:text-base font-display font-bold text-[#0F172A] dark:text-white flex flex-wrap items-center gap-2">
               <span>Log Aktivitas Login Staf (Login Log)</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]">
                 Keamanan &amp; Deteksi Anomali
               </span>
             </h2>
-            <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8] mt-0.5 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-300 mt-0.5 leading-relaxed">
               Jejak audit seluruh autentikasi pengguna, percobaan gagal, pemblokiran brute-force, dan waktu login.
             </p>
           </div>
@@ -158,13 +158,13 @@ export const LoginLogView: React.FC = () => {
           setCurrentPage(1);
         }}
         actions={
-          <span className="text-[#7D7484] dark:text-[#CEC0E8] font-mono text-[11px] font-bold px-2 tabular-nums">
+          <span className="text-slate-500 dark:text-slate-300 font-mono text-[11px] font-bold px-2 tabular-nums">
             {filteredLogs.length} Catatan
           </span>
         }
       >
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8] shrink-0">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 shrink-0">
             Hasil:
           </label>
           <select
@@ -173,7 +173,7 @@ export const LoginLogView: React.FC = () => {
               setStatusFilter(e.target.value as any);
               setCurrentPage(1);
             }}
-            className="flex-1 sm:w-52 px-3 py-2 min-h-[38px] bg-[#F8F1FF] dark:bg-[#160D29] border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl text-xs font-medium text-[#1F1638] dark:text-white"
+            className="flex-1 sm:w-52 px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
           >
             <option value="ALL">Semua Hasil Login</option>
             <option value="success">Login Berhasil</option>

@@ -49,6 +49,7 @@ const TAB_TITLES: Record<string, string> = {
   verification_desk: 'Antrean Verifikasi & QC Desk',
   monitoring_maps: 'Monitoring Maps',
   tickets: 'Ticket MyRepublic',
+  overdue_wo: 'Overdue WO',
   form_sameday: 'Form Sameday Express',
   report_data_wo: 'Report Data WO',
   schedule: 'Schedule',

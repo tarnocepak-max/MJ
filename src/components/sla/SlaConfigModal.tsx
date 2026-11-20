@@ -84,19 +84,19 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#0B1220]/70 backdrop-blur-sm sm:p-4">
+      <div className="bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2 bg-[#F7F6FA] dark:bg-[#160D29]">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 bg-[#F8FAFC] dark:bg-[#0B1220]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#431599]/10 dark:bg-[#7135B5]/25 text-[#431599] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center shrink-0">
               <Sliders className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-display font-bold text-sm sm:text-base text-[#211A2E] dark:text-white truncate">
+              <h3 className="font-display font-bold text-sm sm:text-base text-[#0F172A] dark:text-white truncate">
                 Ambang Batas SLA &amp; Klausul PKS Vendor
               </h3>
-              <p className="text-[11px] text-[#766B83] dark:text-[#A78BFA] truncate">
+              <p className="text-[11px] text-slate-500 dark:text-[#38BDF8] truncate">
                 Versi Konfigurasi: v{configVersion} • {isConfigPersistedInDb ? 'Tersimpan di Database Pusat' : 'Baseline Default Sistem'}
               </p>
             </div>
@@ -104,21 +104,21 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-[#766B83] hover:bg-white dark:hover:bg-[#35105E] transition-colors shrink-0 cursor-pointer"
+            className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg text-slate-500 hover:bg-white dark:hover:bg-[#1E293B] flex items-center justify-center transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-4 sm:px-6 pt-3 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2 bg-white dark:bg-[#1E1238] overflow-x-auto no-scrollbar shrink-0">
+        <div className="px-4 sm:px-6 pt-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 bg-white dark:bg-[#0F172A] overflow-x-auto no-scrollbar shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('thresholds')}
-            className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+            className={`px-3.5 py-2 min-h-[42px] text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'thresholds'
-                ? 'border-[#431599] text-[#431599] dark:text-[#D8B4FE] dark:border-[#A78BFA]'
-                : 'border-transparent text-[#766B83] hover:text-[#211A2E] dark:hover:text-white'
+                ? 'border-[#2563EB] text-[#2563EB] dark:text-[#38BDF8] dark:border-[#38BDF8]'
+                : 'border-transparent text-slate-500 hover:text-[#0F172A] dark:hover:text-white'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -127,10 +127,10 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('pks')}
-            className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+            className={`px-3.5 py-2 min-h-[42px] text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'pks'
-                ? 'border-[#431599] text-[#431599] dark:text-[#D8B4FE] dark:border-[#A78BFA]'
-                : 'border-transparent text-[#766B83] hover:text-[#211A2E] dark:hover:text-white'
+                ? 'border-[#2563EB] text-[#2563EB] dark:text-[#38BDF8] dark:border-[#38BDF8]'
+                : 'border-transparent text-slate-500 hover:text-[#0F172A] dark:hover:text-white'
             }`}
           >
             <Scale className="w-3.5 h-3.5" />
@@ -159,7 +159,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Target SLA Global (%)
                   </label>
                   <input
@@ -170,11 +170,11 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.globalSlaTarget}
                     onChange={e => setDraft({ ...draft, globalSlaTarget: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Target First-Time-Right (%)
                   </label>
                   <input
@@ -185,7 +185,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.ftrTarget}
                     onChange={e => setDraft({ ...draft, ftrTarget: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -203,7 +203,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.excellentMin}
                     onChange={e => setDraft({ ...draft, excellentMin: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
@@ -218,7 +218,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.goodMin}
                     onChange={e => setDraft({ ...draft, goodMin: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
@@ -233,14 +233,14 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.warningMin}
                     onChange={e => setDraft({ ...draft, warningMin: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Batas Respon Dispatch (Menit)
                   </label>
                   <input
@@ -250,11 +250,11 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.maxDispatchResponseMinutes}
                     onChange={e => setDraft({ ...draft, maxDispatchResponseMinutes: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Ambang Alert Kritis (Sisa Menit)
                   </label>
                   <input
@@ -264,11 +264,11 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.criticalRemainingMinutes}
                     onChange={e => setDraft({ ...draft, criticalRemainingMinutes: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Batas Redaman OPM Min (dBm)
                   </label>
                   <input
@@ -279,12 +279,12 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                     disabled={!canEdit}
                     value={draft.opmMaxLossDbm}
                     onChange={e => setDraft({ ...draft, opmMaxLossDbm: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
-                  <span className="text-[10px] text-[#766B83] mt-0.5 block">Contoh: -22.0 berarti daya terima ≥ -22.00 dBm valid.</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Contoh: -22.0 berarti daya terima ≥ -22.00 dBm valid.</span>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Minimum Foto Eviden &amp; Kuota / Teknisi
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -296,7 +296,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                       value={draft.requiredPhotoCount}
                       onChange={e => setDraft({ ...draft, requiredPhotoCount: Number(e.target.value) })}
                       title="Minimal Foto Eviden"
-                      className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                      className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                     />
                     <input
                       type="number"
@@ -306,15 +306,15 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                       value={draft.defaultDailyQuotaPerTech}
                       onChange={e => setDraft({ ...draft, defaultDailyQuotaPerTech: Number(e.target.value) })}
                       title="Kuota Harian Default per Teknisi"
-                      className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                      className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                     />
                   </div>
-                  <span className="text-[10px] text-[#766B83] mt-0.5 block">Kiri: Min. Foto • Kanan: Kuota WO/Teknisi/Hari</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Kiri: Min. Foto • Kanan: Kuota WO/Teknisi/Hari</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                   Label Versi Aturan SLA
                 </label>
                 <input
@@ -322,7 +322,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                   disabled={!canEdit}
                   value={draft.ruleVersionLabel}
                   onChange={e => setDraft({ ...draft, ruleVersionLabel: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                  className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                 />
               </div>
             </div>
@@ -335,7 +335,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
               )}
 
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                   Referensi Dokumen / Klausul PKS
                 </label>
                 <input
@@ -348,14 +348,14 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                       pksRules: { ...draft.pksRules, clauseReference: e.target.value }
                     })
                   }
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                  className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827]">
+              <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B1220]">
                 <div>
-                  <p className="text-xs font-bold text-[#211A2E] dark:text-white">Aktifkan Skema Bonus Pencapaian Target</p>
-                  <p className="text-[11px] text-[#766B83]">Vendor dengan SLA ≥ {draft.globalSlaTarget}% mendapat bonus per WO patuh.</p>
+                  <p className="text-xs font-bold text-[#0F172A] dark:text-white">Aktifkan Skema Bonus Pencapaian Target</p>
+                  <p className="text-[11px] text-slate-500">Vendor dengan SLA ≥ {draft.globalSlaTarget}% mendapat bonus per WO patuh.</p>
                 </div>
                 <input
                   type="checkbox"
@@ -367,7 +367,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                       pksRules: { ...draft.pksRules, bonusEnabled: e.target.checked }
                     })
                   }
-                  className="w-4 h-4 accent-[#431599]"
+                  className="w-4 h-4 accent-[#2563EB]"
                 />
               </div>
 
@@ -388,11 +388,11 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                         pksRules: { ...draft.pksRules, bonusRatePerCompliantWo: Number(e.target.value) }
                       })
                     }
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Batas Toleransi Netral (%)
                   </label>
                   <input
@@ -408,7 +408,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                         pksRules: { ...draft.pksRules, toleranceMinRate: Number(e.target.value) }
                       })
                     }
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
@@ -427,7 +427,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                         pksRules: { ...draft.pksRules, penaltyRatePerBreachWo: Number(e.target.value) }
                       })
                     }
-                    className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white disabled:opacity-60"
+                    className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -436,7 +436,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
 
           {canEdit && (
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#766B83] mb-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                 Catatan Perubahan (Audit Trail)
               </label>
               <input
@@ -444,19 +444,19 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                 placeholder="Misal: Penyesuaian target Q4 2026 sesuai addendum PKS"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#140827] text-[#211A2E] dark:text-white"
+                className="w-full px-3 py-2 min-h-[44px] sm:min-h-[38px] text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white"
               />
             </div>
           )}
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA] dark:bg-[#160D29] flex items-center justify-between gap-3">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#0B1220] flex flex-wrap items-center justify-between gap-3">
           {canEdit ? (
             <button
               type="button"
               onClick={() => setDraft({ ...DEFAULT_FALLBACK, pksRules: { ...DEFAULT_FALLBACK.pksRules } })}
-              className="px-3 py-2 text-xs font-semibold text-[#766B83] hover:text-[#211A2E] dark:hover:text-white flex items-center gap-1.5"
+              className="px-3 py-2 min-h-[44px] sm:min-h-[38px] text-xs font-semibold text-slate-500 hover:text-[#0F172A] dark:hover:text-white flex items-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Reset Default
@@ -464,11 +464,11 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           ) : (
             <div />
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238] text-[#211A2E] dark:text-white hover:bg-slate-50"
+              className="px-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] text-[#0F172A] dark:text-white hover:bg-slate-50 cursor-pointer"
             >
               Tutup
             </button>
@@ -477,7 +477,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
                 type="button"
                 disabled={isSaving}
                 onClick={handleSubmit}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-[#431599] hover:bg-[#35105E] text-white flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+                className="px-4 py-2 min-h-[44px] sm:min-h-[38px] text-xs font-bold rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center gap-1.5 disabled:opacity-50 shadow-sm cursor-pointer"
               >
                 {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Simpan Konfigurasi

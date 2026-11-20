@@ -195,7 +195,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
       case 'Success':
         return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800';
       case 'Syncing':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300 dark:border-blue-800 animate-pulse';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300 dark:border-blue-800';
       case 'Partial Success':
         return 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800';
       case 'Failed':
@@ -211,17 +211,17 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner & Title */}
-      <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E9E1FF] dark:bg-[#3B1D78]/60 border border-[#D8CCF3] dark:border-[#5B35B1]/50 rounded-full text-[#3B1D78] dark:text-[#E9E1FF] text-xs font-semibold mb-2">
-            <Radio className="w-3.5 h-3.5 text-[#5B35B1] animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded-full text-[#1D4ED8] dark:text-[#38BDF8] text-xs font-semibold mb-2">
+            <Radio className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
             <span>MoraJaws Sync Engine & Pipeline Health</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-[#21183A] dark:text-white tracking-tight flex items-center gap-2">
-            <Database className="w-6 h-6 text-[#5B35B1] dark:text-[#B19CF0]" />
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F172A] dark:text-white tracking-tight flex items-center gap-2">
+            <Database className="w-6 h-6 text-[#2563EB] dark:text-[#38BDF8]" />
             <span>Monitoring Sinkronisasi Database</span>
           </h2>
-          <p className="text-xs sm:text-sm text-[#756B8D] dark:text-[#D8CCF3] mt-1 max-w-2xl">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-300 mt-1 max-w-2xl">
             Pantau status koneksi, latensi, transaksi dua arah antara Database Aplikasi MoraJaws dan Google Sheets terhubung secara real-time.
           </p>
         </div>
@@ -232,10 +232,10 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             type="button"
             onClick={handleCheckConnection}
             disabled={isCheckingConnection}
-            className="px-3.5 py-2 text-xs font-semibold text-[#3B1D78] dark:text-[#E9E1FF] bg-[#E9E1FF] dark:bg-[#3B1D78]/60 hover:bg-[#D8CCF3] dark:hover:bg-[#3B1D78] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-xl flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+            className="px-3.5 py-2 min-h-[44px] sm:min-h-[38px] text-xs font-semibold text-[#1D4ED8] dark:text-[#38BDF8] bg-blue-50 dark:bg-[#1E293B] hover:bg-blue-100 dark:hover:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
             title="Uji koneksi ke database aplikasi dan Google Sheets"
           >
-            <Activity className={`w-4 h-4 text-[#5B35B1] ${isCheckingConnection ? 'animate-spin' : ''}`} />
+            <Activity className={`w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] ${isCheckingConnection ? 'animate-spin' : ''}`} />
             <span>{isCheckingConnection ? 'Memeriksa...' : 'Periksa Koneksi'}</span>
           </button>
 
@@ -243,7 +243,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             type="button"
             onClick={fetchStatusAndHistory}
             disabled={isLoading}
-            className="p-2 text-[#756B8D] hover:text-[#21183A] dark:text-[#D8CCF3] dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer"
+            className="p-2.5 min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] flex items-center justify-center text-slate-500 hover:text-[#0F172A] dark:text-slate-300 dark:hover:text-white bg-slate-100 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer"
             title="Muat Ulang Status"
           >
             <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -254,7 +254,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               type="button"
               onClick={handleSyncNow}
               disabled={isSyncingNow || monitoringStatus.isSyncing}
-              className="px-4 py-2 bg-gradient-to-r from-[#5B35B1] to-[#3B1D78] hover:from-[#6A3ECC] hover:to-[#4A2494] active:scale-98 text-white rounded-xl font-bold text-xs shadow-md shadow-[#3B1D78]/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 min-h-[44px] sm:min-h-[38px] bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-98 text-white rounded-xl font-bold text-xs shadow-sm flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Eksekusi proses sinkronisasi transaksional sekarang"
             >
               <RefreshCw className={`w-4 h-4 ${isSyncingNow || monitoringStatus.isSyncing ? 'animate-spin' : ''}`} />
@@ -267,9 +267,9 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
       {/* 4 Health Cards Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: App Database Connection */}
-        <div className="p-5 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs space-y-2">
+        <div className="p-5 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">
               Database Aplikasi
             </span>
             <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center">
@@ -280,20 +280,20 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getStatusBadge(monitoringStatus.appDbStatus)}`}>
               {monitoringStatus.appDbStatus}
             </span>
-            <span className="text-[11px] text-[#756B8D] dark:text-[#9A8FB3]">Indexed Storage</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Indexed Storage</span>
           </div>
-          <p className="text-[11px] text-[#756B8D] dark:text-[#D8CCF3] pt-1">
+          <p className="text-[11px] text-slate-500 dark:text-slate-300 pt-1">
             Latensi: <strong className="text-emerald-600">8 ms</strong> · Penyimpanan master lokal & persistensi sinkron
           </p>
         </div>
 
         {/* Card 2: Google Sheets Connection */}
-        <div className="p-5 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs space-y-2">
+        <div className="p-5 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">
               Google Sheets Terhubung
             </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center">
               <FileSpreadsheet className="w-4 h-4" />
             </div>
           </div>
@@ -301,22 +301,22 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getStatusBadge(monitoringStatus.sheetsStatus)}`}>
               {monitoringStatus.sheetsStatus}
             </span>
-            <span className="text-[11px] text-[#756B8D] dark:text-[#9A8FB3]">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
               {googleSheetsConfig.sheetName || 'Work_Orders'}
             </span>
           </div>
-          <p className="text-[11px] text-[#756B8D] dark:text-[#D8CCF3] pt-1 truncate" title={googleSheetsConfig.spreadsheetTitle || googleSheetsConfig.spreadsheetId || 'Belum dihubungkan'}>
+          <p className="text-[11px] text-slate-500 dark:text-slate-300 pt-1 truncate" title={googleSheetsConfig.spreadsheetTitle || googleSheetsConfig.spreadsheetId || 'Belum dihubungkan'}>
             Sumber: {googleSheetsConfig.spreadsheetTitle || googleSheetsConfig.spreadsheetId || 'Belum dikonfigurasi'}
           </p>
         </div>
 
         {/* Card 3: Last Sync Status */}
-        <div className="p-5 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs space-y-2">
+        <div className="p-5 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">
               Status Terakhir
             </span>
-            <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
           </div>
@@ -325,7 +325,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               {monitoringStatus.lastSyncStatus}
             </span>
           </div>
-          <p className="text-[11px] text-[#756B8D] dark:text-[#D8CCF3] pt-1">
+          <p className="text-[11px] text-slate-500 dark:text-slate-300 pt-1">
             {monitoringStatus.lastSyncAt
               ? `Waktu: ${new Date(monitoringStatus.lastSyncAt).toLocaleTimeString('id-ID')} WIB`
               : 'Belum pernah disinkronkan'}
@@ -333,19 +333,19 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
         </div>
 
         {/* Card 4: Record Statistics */}
-        <div className="p-5 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs space-y-2">
+        <div className="p-5 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">
               Total Record Diproses
             </span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-[#38BDF8] flex items-center justify-center">
               <Layers className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-[#21183A] dark:text-white pt-1">
+          <div className="text-2xl font-extrabold text-[#0F172A] dark:text-white pt-1">
             {monitoringStatus.totalRecordsProcessed}
           </div>
-          <div className="text-[11px] text-[#756B8D] dark:text-[#D8CCF3] flex items-center gap-3">
+          <div className="text-[11px] text-slate-500 dark:text-slate-300 flex items-center gap-3">
             <span className="text-emerald-600 font-semibold">Sukses: {monitoringStatus.totalRecordsProcessed}</span>
             <span className="text-rose-600 font-semibold">Gagal: {monitoringStatus.totalRecordsFailed}</span>
           </div>
@@ -353,14 +353,14 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
       </div>
 
       {/* Sync History Table */}
-      <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E9E1FF] dark:border-[#3B1D78]/60 pb-4">
+      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
           <div>
-            <h3 className="text-sm font-bold text-[#21183A] dark:text-white flex items-center gap-2">
-              <History className="w-4 h-4 text-[#5B35B1]" />
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+              <History className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
               <span>Riwayat & Log Transaksi Sinkronisasi</span>
             </h3>
-            <p className="text-xs text-[#756B8D] dark:text-[#D8CCF3] mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">
               Setiap proses mencatat Job ID unik, durasi eksekusi, volume data, dan operator inisiator.
             </p>
           </div>
@@ -374,13 +374,13 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
                 placeholder="Cari Job ID / Operator..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 min-h-[38px] text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-[#5B35B1]"
+                className="w-full pl-8 pr-3 py-1.5 min-h-[44px] sm:min-h-[38px] text-xs bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-[#0F172A] dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#2563EB]"
               />
             </div>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="py-1.5 px-3 min-h-[38px] text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium focus:outline-hidden"
+              className="py-1.5 px-3 min-h-[44px] sm:min-h-[38px] text-xs bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-hidden focus:ring-1 focus:ring-[#2563EB]"
             >
               <option value="ALL">Semua Status</option>
               <option value="Success">Success</option>
@@ -400,7 +400,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             description: 'Tekan tombol "Sinkronkan Sekarang" di atas untuk menjalankan sinkronisasi pertama.'
           }}
           mobileTitle={item => (
-            <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">{item.jobId}</span>
+            <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{item.jobId}</span>
           )}
           mobileSubtitle={item => (
             <span className="capitalize">
@@ -418,7 +418,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               label: 'Job ID',
               priority: 'hidden_mobile',
               render: item => (
-                <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">{item.jobId}</span>
+                <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{item.jobId}</span>
               )
             },
             {
@@ -503,7 +503,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             <button
               type="button"
               onClick={() => setSelectedHistoryItem(item)}
-              className="px-2.5 py-1 text-[11px] font-semibold text-[#5B35B1] hover:text-[#3B1D78] bg-[#E9E1FF] dark:bg-[#3B1D78]/60 hover:bg-[#D8CCF3] rounded-lg transition-colors cursor-pointer"
+              className="px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] dark:text-[#38BDF8] hover:text-[#1D4ED8] bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
             >
               Detail
             </button>
@@ -524,17 +524,17 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedHistoryItem(null)}
-            className="px-4 py-2 min-h-[40px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
+            className="px-4 py-2 min-h-[44px] sm:min-h-[40px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
           >
             Tutup
           </button>
         }
       >
         {selectedHistoryItem && (
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 font-mono text-xs">
+          <div className="p-3.5 bg-slate-50 dark:bg-[#0B1220] rounded-xl space-y-2 font-mono text-xs">
             <div className="flex justify-between gap-3">
               <span className="text-slate-500 font-sans">Job ID:</span>
-              <span className="font-bold text-[#5B35B1] dark:text-[#DAB9FF] text-right">{selectedHistoryItem.jobId}</span>
+              <span className="font-bold text-[#2563EB] dark:text-[#38BDF8] text-right">{selectedHistoryItem.jobId}</span>
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-slate-500 font-sans">Sumber Data:</span>

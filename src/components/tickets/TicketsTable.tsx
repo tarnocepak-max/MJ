@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import * as XLSX from 'xlsx';
-import { Ticket } from '../../types/index.ts';
+import { Ticket, DispatchApprovalWoAgentStatus } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { CANONICAL_COLUMN_GROUPS } from '../../constants/defaultConfig';
@@ -10,7 +10,13 @@ import {
   StatusWhatsAppBadge,
   StatusApprovalBadge
 } from '../common/Badge';
-import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
+import {
+  DISPATCH_APPROVAL_OPTIONS,
+  getRecommendedDispatchWoAgentStatus,
+  isTicketClosed,
+  matchesKpiFilter,
+  KPI_FILTER_LABELS
+} from '../../services/woLifecycleService';
 import { TicketMobileCard } from './TicketMobileCard';
 import { WorkOrderFilterSheet } from './WorkOrderFilterSheet';
 import { WorkOrderQuickUpdateSheet } from './WorkOrderQuickUpdateSheet';
@@ -258,6 +264,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const [inlineRejectReason, setInlineRejectReason] = useState('');
   const [showInlineRejectBox, setShowInlineRejectBox] = useState(false);
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
+  const [inlineWoAgentStatus, setInlineWoAgentStatus] = useState<DispatchApprovalWoAgentStatus>('Done');
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [copiedWoId, setCopiedWoId] = useState<string | null>(null);
 
@@ -377,7 +384,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       if (t.approvalStatus === 'BUTUH APPROVAL') butuhApproval++;
       if (t.approvalStatus === 'APPROVED') approved++;
       if (t.approvalStatus === 'REJECTED' || t.approvalStatus === 'REVISI') rejected++;
-      if (t.statusWOAgent === 'Closed') closed++;
+      if (isTicketClosed(t)) closed++;
       if (
         ['En Route', 'On Site', 'In Progress', 'PROGRESS'].includes(String(t.statusWOInstaller)) ||
         ['In Progress', 'PROGRESS'].includes(String(t.statusWOAgent))
@@ -467,7 +474,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       if (selectedCategory !== 'ALL' && t.ticketCategory !== selectedCategory) return false;
       if (selectedApprovalStatus !== 'ALL') {
         if (selectedApprovalStatus === 'CLOSED') {
-          if (t.statusWOAgent !== 'Closed') return false;
+          if (!isTicketClosed(t)) return false;
         } else if (selectedApprovalStatus === 'REJECTED') {
           if (t.approvalStatus !== 'REJECTED' && t.approvalStatus !== 'REVISI') return false;
         } else if (t.approvalStatus !== selectedApprovalStatus) {
@@ -740,7 +747,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     let successCount = 0;
     let failCount = 0;
     for (const t of targets) {
-      const res = await approveProgressReport(t.id, 'Bulk Approve via Dispatch Command');
+      const outcome = getRecommendedDispatchWoAgentStatus(t);
+      const res = await approveProgressReport(t.id, 'Bulk Approve via Dispatch Command', {
+        woAgentStatus: outcome
+      });
       if (res.success) successCount++;
       else failCount++;
     }
@@ -749,7 +759,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     setSelectedIds(new Set());
     if (successCount > 0) {
       toast.success(
-        `${successCount} Work Order berhasil di-approve dan ditutup (CLOSED).${
+        `${successCount} Work Order berhasil di-approve Dispatch dan status tiket otomatis Closed.${
           failCount > 0 ? ` (${failCount} gagal)` : ''
         }`,
         'Bulk Approval Selesai'
@@ -781,13 +791,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       setExpandedDrawerTicketId(ticket.id);
       setShowInlineRejectBox(false);
       setInlineNotes(ticket.approvalNotes || ticket.remarksAgent || '');
+      setInlineWoAgentStatus(getRecommendedDispatchWoAgentStatus(ticket));
       setInlineRejectReason('');
     }
   };
 
   const handleInlineApprove = async (ticket: Ticket) => {
     setInlineSubmitting(true);
-    const res = await approveProgressReport(ticket.id, inlineNotes.trim() || undefined);
+    const res = await approveProgressReport(ticket.id, inlineNotes.trim() || undefined, {
+      woAgentStatus: inlineWoAgentStatus,
+      remarksAgent: inlineNotes.trim() || undefined
+    });
     setInlineSubmitting(false);
     if (!res.success) {
       toast.error(res.error || 'Gagal menyetujui laporan.');
@@ -995,6 +1009,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
                   <>
+                    <select
+                      aria-label="Final Status WO Agent"
+                      value={inlineWoAgentStatus}
+                      onChange={e => setInlineWoAgentStatus(e.target.value as DispatchApprovalWoAgentStatus)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#5B35B1] text-[11px] font-bold text-[#211A2E] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#7135B5]"
+                    >
+                      {DISPATCH_APPROVAL_OPTIONS.map(opt => (
+                        <option key={opt.woAgentStatus} value={opt.woAgentStatus}>
+                          {opt.dispatchApprovalLabel} (Ticket: Closed)
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       disabled={inlineSubmitting}
@@ -1011,7 +1037,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       className="btn-3d-success px-3.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap disabled:opacity-50"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{inlineSubmitting ? 'Memproses...' : 'Setujui (Approve)'}</span>
+                      <span>
+                        {inlineSubmitting ? 'Memproses...' : `Approve (${inlineWoAgentStatus})`}
+                      </span>
                     </button>
                   </>
                 )}
@@ -1747,6 +1775,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 <option value="Pending">Pending</option>
                 <option value="Assigned">Assigned</option>
                 <option value="In Progress">In Progress</option>
+                <option value="Done">Done</option>
+                <option value="Reschedule">Reschedule</option>
+                <option value="Cancel">Cancel</option>
                 <option value="Resolved">Resolved</option>
                 <option value="Closed">Closed</option>
                 <option value="Cancelled">Cancelled</option>
@@ -2217,7 +2248,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>
                 Konfirmasi Bulk Approve: <strong>{selectedButuhApprovalTickets.length}</strong> Work Order
-                berstatus <strong>BUTUH APPROVAL</strong> akan disetujui dan otomatis ditutup (CLOSED).
+                berstatus <strong>BUTUH APPROVAL</strong> akan diverifikasi dengan status WO Agent sesuai laporan aktual dan Ticket Result <strong>Closed</strong>.
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -2709,11 +2740,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 <div className="flex flex-wrap items-center gap-1">
                                   <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
                                 </div>
-                                <div>
+                                <div className="flex flex-wrap items-center gap-1">
                                   {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' ? (
                                     <StatusApprovalBadge status={ticket.approvalStatus} />
                                   ) : (
                                     <span className="text-[11px] text-[#8B8495]">-</span>
+                                  )}
+                                  {isTicketClosed(ticket) && ticket.statusWOAgent !== 'Closed' && (
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase tracking-wide">
+                                      Closed
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -2991,7 +3027,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               if (col.key === 'statusWOAgent') {
                                 return (
                                   <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
-                                    <StatusAgentBadge status={ticket.statusWOAgent} />
+                                    <div className="inline-flex items-center gap-1 flex-wrap">
+                                      <StatusAgentBadge status={ticket.statusWOAgent} />
+                                      {isTicketClosed(ticket) && ticket.statusWOAgent !== 'Closed' && (
+                                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase">
+                                          Closed
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                 );
                               }

@@ -40,6 +40,17 @@ export function normalizeNavigationConfig(raw: any): NavigationConfig {
     badgeColor: m.badgeColor
   }));
 
+  if (!standaloneMenus.some(m => m.id === 'overdue_wo')) {
+    const ticketsMenu = standaloneMenus.find(m => m.id === 'tickets');
+    const overdueDefault = DEFAULT_NAVIGATION_CONFIG.standaloneMenus.find(m => m.id === 'overdue_wo');
+    if (overdueDefault) {
+      standaloneMenus.push({
+        ...overdueDefault,
+        order: ticketsMenu ? Number(ticketsMenu.order || 2) + 0.5 : 2.5
+      });
+    }
+  }
+
   const rawSubmenus = Array.isArray(raw.submenuItems) ? raw.submenuItems : DEFAULT_NAVIGATION_CONFIG.submenuItems;
   const submenuItems: NavigationSubmenuItem[] = rawSubmenus.map((s: any, idx: number) => ({
     id: s.id,

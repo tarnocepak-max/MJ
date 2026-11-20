@@ -277,12 +277,27 @@ export type WhatsAppConfirmationStatus =
   | 'invalid_number'
   | 'cancelled';
 
+export type DispatchApprovalWoAgentStatus =
+  | 'Done'
+  | 'Pending'
+  | 'Reschedule'
+  | 'Cancel';
+
+export type DispatchApprovalOutcome =
+  | 'Approved - Done'
+  | 'Approved - Pending'
+  | 'Approved - Reschedule'
+  | 'Approved - Cancel';
+
 export type TicketStatusWOAgent =
   | 'Pending'
   | 'Assigned'
   | 'In Progress'
   | 'PROGRESS'
   | 'Resolved'
+  | 'Done'
+  | 'Reschedule'
+  | 'Cancel'
   | 'Cancelled'
   | 'Closed';
 
@@ -457,6 +472,8 @@ export interface Ticket {
 
   // --- H.2 Dispatch Approval Flow (Status Approval) ---
   approvalStatus?: WOApprovalStatus;
+  dispatchApprovalStatus?: DispatchApprovalOutcome | string;
+  ticketResult?: 'Closed' | 'Open' | string;
   approvalNotes?: string;
   approvedAt?: string;
   approvedBy?: string;
@@ -528,6 +545,12 @@ export interface Ticket {
   // --- O. Offline Database Synchronization Status ---
   _offlineSyncStatus?: 'synced' | 'pending' | 'conflict';
   _offlineLastModified?: string;
+
+  // --- P. Centralized WO Classification Metadata (Display/Query Only) ---
+  woClassification?: WoClassification;
+  overdueDays?: number;
+  overdueDurationBucket?: OverdueDurationBucket | null;
+  classificationDateWIB?: string;
 }
 
 export interface WOAssignmentHistory {
@@ -1158,6 +1181,10 @@ export type WOKpiFilterKey =
   | 'report_cancel'
   | 'butuh_approval'
   | 'approved'
+  | 'approved_done'
+  | 'approved_pending'
+  | 'approved_reschedule'
+  | 'approved_cancel'
   | 'revision_rejected'
   | 'closed'
   | 'unmapped_distribution'
@@ -1182,6 +1209,10 @@ export interface WOKpiVendorBreakdown {
   reportCancel: number;
   butuhApproval: number;
   approved: number;
+  approvedDone?: number;
+  approvedPending?: number;
+  approvedReschedule?: number;
+  approvedCancel?: number;
   revisionRejected: number;
   closed: number;
   unmapped: number;
@@ -1194,6 +1225,10 @@ export interface WOKpiAreaBreakdown {
   checkedInProgress: number;
   butuhApproval: number;
   approved: number;
+  approvedDone?: number;
+  approvedPending?: number;
+  approvedReschedule?: number;
+  approvedCancel?: number;
   closed: number;
 }
 
@@ -1216,6 +1251,7 @@ export interface WOKpiInstallerBreakdown {
   checkedInProgress: number;
   butuhApproval: number;
   approved: number;
+  approvedDone?: number;
   revisionRejected: number;
   closed: number;
 }
@@ -1247,6 +1283,12 @@ export interface WOKpiSummary {
     reportCancel: number;
     butuhApproval: number;
     approved: number;
+    approvedDone: number;
+    approvedPending: number;
+    approvedReschedule: number;
+    approvedCancel: number;
+    approvalRatePct: number;
+    completionRatePct: number;
     revisionRejected: number;
     closed: number;
     unmappedDistribution: number;
@@ -1278,6 +1320,8 @@ export interface ProgressReportHistoryItem {
   submittedAt: string;
   submittedBy: string;
   approvalStatus: WOApprovalStatus | 'WAITING APPROVAL' | 'REVISION / REJECTED' | string;
+  dispatchApprovalStatus?: string;
+  ticketResult?: string;
   dispatchApprover?: string;
   dispatchApproverId?: string;
   approvalTimestamp?: string;
@@ -1286,6 +1330,26 @@ export interface ProgressReportHistoryItem {
   finalWoStatus: string;
 }
 
+export type WoClassification = 'TODAY' | 'UPCOMING' | 'OVERDUE' | 'COMPLETED' | 'EXCEPTION';
+export type OverdueDurationBucket = '1_day' | '2_3_days' | '4_7_days' | 'gt_7_days';
 
+export interface OverdueSummaryMetrics {
+  totalOverdue: number;
+  overdue1Day: number;
+  overdue2To3Days: number;
+  overdue4To7Days: number;
+  criticalOverdueGt7Days: number;
+  maxOverdueDays: number;
+  avgOverdueDays: number;
+}
 
-
+export interface WoClassificationSummary {
+  total: number;
+  today: number;
+  upcoming: number;
+  overdue: number;
+  completed: number;
+  exception: number;
+  todayTotalAllStatuses: number;
+  overdueBreakdown: OverdueSummaryMetrics;
+}

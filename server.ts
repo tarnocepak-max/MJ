@@ -41,6 +41,7 @@ import {
   updateUserInSupabase,
   deleteUserInSupabase,
   getWorkOrdersFromSupabase,
+  getClassifiedWorkOrdersFromSupabase,
   getWorkOrderByIdFromSupabase,
   getWorkOrderByWoNumberFromSupabase,
   getWorkOrderByIdOrWoNumberFromSupabase,
@@ -100,8 +101,18 @@ import {
   computeKpiSummary,
   extractProgressReportHistoryFromTickets,
   normalizeCanonicalReportStatus,
-  getTicketCanonicalApprovalStatus
+  getTicketCanonicalApprovalStatus,
+  normalizeDispatchWoAgentStatus,
+  getDispatchApprovalOutcomeLabel,
+  isTicketClosed
 } from './server/woLifecycleService.ts';
+import {
+  attachClassificationMetadata,
+  classifyWorkOrderServer,
+  getStrictAppointmentDateServer,
+  summarizeWorkOrderClassificationsServer,
+  WoClassification
+} from './server/woClassificationService.ts';
 import {
   DEFAULT_SLA_THRESHOLD_CONFIG,
   normalizeSlaConfig,
@@ -2418,24 +2429,7 @@ export function scopeTicketsForUser(tickets: any[], user: ServerUser): any[] {
 }
 
 export function getBackendTicketWODate(t: any): string | null {
-  if (!t || typeof t !== 'object') return null;
-  // Strict Appointment Date extraction candidate list (Requirement: Appointment Date is the SOLE date reference, NO fallback to date, createdAt)
-  const candidates = [
-    t.appointmentDate,
-    t.scheduleAppointment,
-    t.scheduleAppointmentDate,
-    t.scheduleDate,
-    t.scheduledDate,
-    t.appointment_date,
-    t.schedule_date
-  ];
-  for (const c of candidates) {
-    if (c !== undefined && c !== null && c !== '') {
-      const parsed = normalizeAppointmentDate(c);
-      if (parsed) return parsed;
-    }
-  }
-  return null;
+  return getStrictAppointmentDateServer(t);
 }
 
 export function isTicketActiveForJakartaDate(ticket: any, targetDateWIB: string): boolean {
@@ -2811,9 +2805,12 @@ export async function createExpressApp(options?: {
           code: 'SUPABASE_NOT_CONFIGURED'
         });
       }
-      const scopedTickets = user ? scopeTicketsForUser(db.tickets, user) : [];
       const todayWIB = getJakartaDateStringServer(getNow());
+      const scopedTickets = user
+        ? scopeTicketsForUser(db.tickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
+        : [];
       const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
+      const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
       const scopedTicketIds = new Set(scopedTickets.map((t: any) => String(t.id || '')));
       const scopedWoNumbers = new Set(scopedTickets.map((t: any) => String(t.woNumber || '').trim().toUpperCase()));
       const scopedMessages = user
@@ -2841,6 +2838,8 @@ export async function createExpressApp(options?: {
         } : null,
         tickets: scopedTickets,
         activeTickets: activeTodayTickets,
+        classificationSummary,
+        overdueSummary: classificationSummary.overdueBreakdown,
         ticketMessages: scopedMessages,
         unreadSummary,
         contractors: db.contractors,
@@ -2923,9 +2922,12 @@ export async function createExpressApp(options?: {
       templatesList = db.templates;
     }
 
-    const scopedTickets = user ? scopeTicketsForUser(baseTickets, user) : [];
     const todayWIB = getJakartaDateStringServer(getNow());
+    const scopedTickets = user
+      ? scopeTicketsForUser(baseTickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
+      : [];
     const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
+    const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
     let scopedMessages: any[] = [];
     if (user && scopedTickets.length > 0) {
       const msgRes = await getTicketMessagesForTicketsFromSupabase(scopedTickets.map((t: any) => t.id));
@@ -2975,6 +2977,8 @@ export async function createExpressApp(options?: {
       } : null,
       tickets: scopedTickets,
       activeTickets: activeTodayTickets,
+      classificationSummary,
+      overdueSummary: classificationSummary.overdueBreakdown,
       ticketMessages: scopedMessages,
       unreadSummary,
       contractors: safeContractors,
@@ -3909,12 +3913,16 @@ export async function createExpressApp(options?: {
     }
 
     const todayWIB = getJakartaDateStringServer(getNow());
-    const scopedTickets = scopeActiveTicketsForUser(ticketsToScope, user, todayWIB);
+    const roleScopedAll = scopeTicketsForUser(ticketsToScope, user).map((t: any) => attachClassificationMetadata(t, todayWIB));
+    const scopedTickets = filterActiveTicketsForDate(roleScopedAll, todayWIB);
+    const classificationSummary = summarizeWorkOrderClassificationsServer(roleScopedAll, todayWIB);
 
     res.json({
       success: true,
       tickets: scopedTickets,
       count: scopedTickets.length,
+      classificationSummary,
+      overdueSummary: classificationSummary.overdueBreakdown,
       operationalDateWIB: todayWIB,
       timezone: 'Asia/Jakarta',
       activeOnly: true,
@@ -4431,6 +4439,27 @@ export async function createExpressApp(options?: {
       });
     }
 
+    // Separate manual Close Ticket workflow is removed: closure occurs strictly through Dispatch Approval
+    const isManualCloseAttempt =
+      (updates.statusWOAgent !== undefined &&
+        String(updates.statusWOAgent).trim().toLowerCase() === 'closed' &&
+        String(currentTicket.statusWOAgent || '').trim().toLowerCase() !== 'closed') ||
+      (updates.ticketResult !== undefined &&
+        String(updates.ticketResult).trim().toLowerCase() === 'closed' &&
+        String(currentTicket.ticketResult || '').trim().toLowerCase() !== 'closed') ||
+      (updates.closedAt !== undefined &&
+        updates.closedAt !== null &&
+        String(updates.closedAt).trim() !== '' &&
+        updates.closedAt !== currentTicket.closedAt);
+
+    if (isManualCloseAttempt) {
+      return res.status(400).json({
+        error:
+          'Proses Close Ticket terpisah telah dihapus. Penutupan tiket dilakukan melalui Dispatch Approval dengan memilih status WO Agent (Done, Pending, Reschedule, atau Cancel).',
+        code: 'USE_DISPATCH_APPROVAL_WORKFLOW'
+      });
+    }
+
     if (updates.appointmentDate !== undefined && updates.appointmentDate !== null && String(updates.appointmentDate).trim() !== '') {
       const normalized = normalizeAppointmentDate(updates.appointmentDate);
       if (!normalized) {
@@ -4468,10 +4497,12 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
-    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: currentTicket });
+    const todayWIB = getJakartaDateStringServer(getNow());
+    const enrichedUpdated = attachClassificationMetadata(updatedTicket, todayWIB);
+    broadcastSupabaseChange('work_orders', 'UPDATE', enrichedUpdated, { previousRecord: currentTicket });
     await logServerAuditAsync('Work Order Updated', 'work_order', currentTicket.woNumber, `WO ${currentTicket.woNumber} diperbarui oleh ${req.user!.name}`, req.user);
 
-    res.json({ success: true, ticket: updatedTicket });
+    res.json({ success: true, ticket: enrichedUpdated });
   };
   app.put('/api/tickets/:id', requireAuth, handleUpdateTicket);
   app.patch('/api/tickets/:id', requireAuth, handleUpdateTicket);
@@ -5160,7 +5191,7 @@ export async function createExpressApp(options?: {
       });
     }
 
-    if (ticket.statusWOAgent === 'Closed' && req.user!.role === 'installer') {
+    if (isTicketClosed(ticket) && req.user!.role === 'installer') {
       return res.status(409).json({
         success: false,
         code: 'WO_CLOSED',
@@ -5632,7 +5663,7 @@ export async function createExpressApp(options?: {
     const updates: Record<string, any> = {
       progressReports: existingReports,
       statusWOInstaller: status || mappedInstallerStatus,
-      statusWOAgent: ticket.statusWOAgent === 'Closed' ? 'Closed' : 'In Progress',
+      statusWOAgent: isTicketClosed(ticket) ? (ticket.statusWOAgent || 'Done') : 'In Progress',
       approvalStatus: 'BUTUH APPROVAL',
       reportStatusId: reportStatusId || reportEntry.reportStatusId,
       reportStatusLabel: finalReportStatusLabel,
@@ -5877,6 +5908,10 @@ export async function createExpressApp(options?: {
 
     const cleanId = (req.params.id || '').trim();
     const notes = typeof req.body?.notes === 'string' ? req.body.notes.trim() : '';
+    const remarksAgentInput =
+      typeof req.body?.remarksAgent === 'string' ? req.body.remarksAgent.trim() : undefined;
+    const rawWoAgentStatus =
+      req.body?.woAgentStatus ?? req.body?.statusWOAgent ?? req.body?.wo_agent_status;
 
     if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
       return res.status(403).json({
@@ -5915,14 +5950,14 @@ export async function createExpressApp(options?: {
       return res.status(409).json({
         success: false,
         code: 'ALREADY_APPROVED',
-        error: `WO ${ticket.woNumber} sudah berstatus APPROVED dan CLOSED. Approval ganda dicegah.`
+        error: `WO ${ticket.woNumber} sudah selesai diverifikasi (${ticket.dispatchApprovalStatus || 'APPROVED'}) dengan hasil Ticket Closed. Approval ganda dicegah.`
       });
     }
     if (currentApproval !== 'BUTUH APPROVAL') {
       return res.status(400).json({
         success: false,
         code: 'APPROVAL_STATE_INVALID',
-        error: 'Validasi Gagal: Tombol APPROVE hanya dapat diproses ketika laporan berstatus BUTUH APPROVAL / WAITING APPROVAL.'
+        error: 'Validasi Gagal: Dispatch Approval hanya dapat diproses ketika laporan berstatus BUTUH APPROVAL / WAITING APPROVAL.'
       });
     }
 
@@ -5946,11 +5981,31 @@ export async function createExpressApp(options?: {
         ? preservedReportStatus
         : String(ticket.reportStatusLabel || latestReport.reportStatus || 'COMPLETE').toUpperCase();
 
+    let resolvedWoAgentStatus = normalizeDispatchWoAgentStatus(rawWoAgentStatus);
+    if (rawWoAgentStatus !== undefined && String(rawWoAgentStatus).trim() !== '' && !resolvedWoAgentStatus) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_WO_AGENT_STATUS',
+        error: 'Status WO Agent untuk Dispatch Approval wajib dipilih dari: Done, Pending, Reschedule, atau Cancel.'
+      });
+    }
+    if (!resolvedWoAgentStatus) {
+      if (preservedReportStatus === 'PENDING') resolvedWoAgentStatus = 'Pending';
+      else if (preservedReportStatus === 'RESCHEDULE') resolvedWoAgentStatus = 'Reschedule';
+      else if (preservedReportStatus === 'CANCEL') resolvedWoAgentStatus = 'Cancel';
+      else resolvedWoAgentStatus = 'Done';
+    }
+
+    const dispatchApprovalLabel = getDispatchApprovalOutcomeLabel(resolvedWoAgentStatus);
+
     const updatedReports = existingReports.map((p: any, idx: number) =>
       idx === 0
         ? {
             ...p,
             approvalStatus: 'APPROVED',
+            dispatchApprovalStatus: dispatchApprovalLabel,
+            ticketResult: 'Closed',
+            finalWoStatus: resolvedWoAgentStatus,
             approvedAt: now,
             approvedBy: user.name,
             approvedById: user.id,
@@ -5961,21 +6016,24 @@ export async function createExpressApp(options?: {
 
     const approvalUpdates: Record<string, any> = {
       approvalStatus: 'APPROVED',
+      dispatchApprovalStatus: dispatchApprovalLabel,
+      ticketResult: 'Closed',
       approvalNotes: notes,
       approvedAt: now,
       approvedBy: user.name,
       approvedById: user.id,
+      ...(remarksAgentInput !== undefined ? { remarksAgent: remarksAgentInput } : {}),
       progressReports: updatedReports,
       // Pertahankan Report Status asli (PENDING / COMPLETE / RESCHEDULE / CANCEL) sebagai catatan historis
       reportStatusLabel: ticket.reportStatusLabel || displayReportStatus,
-      // Otomatis menutup WO menjadi Closed saat disetujui Dispatch (sesuai Keputusan 2)
-      statusWOAgent: 'Closed',
+      // Status WO Agent akhir mengikuti keputusan Dispatch Approval (Done / Pending / Reschedule / Cancel), sedangkan Ticket Result = Closed
+      statusWOAgent: resolvedWoAgentStatus,
       closedAt: now,
       closedBy: user.name,
       closedById: user.id,
       closeNotes:
         notes ||
-        `Laporan ${displayReportStatus} disetujui (APPROVED) dan Work Order otomatis ditutup (CLOSED) oleh Dispatch ${user.name}.`,
+        `${dispatchApprovalLabel} — Status WO Agent: ${resolvedWoAgentStatus}, Ticket Result: Closed (Diverifikasi oleh ${user.name}).`,
       technicalReport: ticket.technicalReport
         ? {
             ...ticket.technicalReport,
@@ -6025,9 +6083,13 @@ export async function createExpressApp(options?: {
         dispatchApproverId: user.id,
         dispatchApproverName: user.name,
         approvalNotes: notes,
-        finalWoStatus: 'CLOSED',
+        finalWoStatus: resolvedWoAgentStatus,
         isCheckOutTriggered: Boolean(ticket.checkOutAt),
-        payload: { preservedReportStatus: displayReportStatus }
+        payload: {
+          preservedReportStatus: displayReportStatus,
+          dispatchApprovalStatus: dispatchApprovalLabel,
+          ticketResult: 'Closed'
+        }
       });
     }
 
@@ -6040,13 +6102,25 @@ export async function createExpressApp(options?: {
     }
 
     broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
-    broadcastSupabaseChange('progress_reports', 'UPDATE', { ticketId: ticket.id, woNumber: ticket.woNumber, approvalStatus: 'APPROVED' }, { scopeTicket: updatedTicket });
+    broadcastSupabaseChange(
+      'progress_reports',
+      'UPDATE',
+      {
+        ticketId: ticket.id,
+        woNumber: ticket.woNumber,
+        approvalStatus: 'APPROVED',
+        dispatchApprovalStatus: dispatchApprovalLabel,
+        statusWOAgent: resolvedWoAgentStatus,
+        ticketResult: 'Closed'
+      },
+      { scopeTicket: updatedTicket }
+    );
 
     await logServerAuditAsync(
-      'Report Approved & Closed',
+      'Dispatch Approval & Ticket Closed',
       'work_order',
       ticket.woNumber,
-      `Dispatch ${user.name} menyetujui laporan (${displayReportStatus}) dan otomatis menutup WO ${ticket.woNumber} -> CLOSED.`,
+      `Dispatch ${user.name} menyelesaikan verifikasi WO ${ticket.woNumber}: ${dispatchApprovalLabel} (WO Agent: ${resolvedWoAgentStatus}, Ticket Result: Closed).`,
       user,
       { level: 'critical' }
     );
@@ -6054,7 +6128,7 @@ export async function createExpressApp(options?: {
     return res.json({
       success: true,
       ticket: updatedTicket,
-      message: `Laporan ${displayReportStatus} WO ${ticket.woNumber} berhasil disetujui (APPROVED) dan status WO otomatis ditutup (CLOSED).`
+      message: `${dispatchApprovalLabel} tersimpan untuk WO ${ticket.woNumber}. Status WO Agent: ${resolvedWoAgentStatus}, Ticket Result: Closed.`
     });
   });
 
@@ -6266,6 +6340,226 @@ export async function createExpressApp(options?: {
       return res.status(500).json({
         success: false,
         error: err?.message || 'Gagal memproses ringkasan KPI Dashboard.'
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // AUTOMATIC WO EXPIRY & OVERDUE MANAGEMENT ENDPOINTS (Asia/Jakarta UTC+7)
+  // ---------------------------------------------------------------------------
+  const loadScopedClassifiedPool = async (user: ServerUser, referenceDateWIB: string, classificationFilter?: WoClassification) => {
+    let rawTickets: any[] = [];
+    if (isSupabaseMode()) {
+      const sbResult = await getClassifiedWorkOrdersFromSupabase({
+        classification: classificationFilter,
+        referenceDateWIB,
+        includeArchived: false,
+        includeDeleted: false
+      });
+      if (!sbResult.success) {
+        if (!isLocalJsonModeAllowed()) {
+          return { errorStatus: 503, errorCode: 'SUPABASE_UNAVAILABLE', errorMessage: 'Database Supabase tidak dapat diakses.' };
+        }
+        rawTickets = db.tickets || [];
+      } else {
+        rawTickets = sbResult.data || [];
+      }
+    } else {
+      if (!isLocalJsonModeAllowed()) {
+        return { errorStatus: 503, errorCode: 'SUPABASE_NOT_CONFIGURED', errorMessage: 'Supabase belum dikonfigurasi pada mode produksi.' };
+      }
+      rawTickets = db.tickets || [];
+    }
+
+    const activePool = rawTickets.filter((t: any) => t && !t.isDeleted && !t.isArchived);
+    const roleScoped = scopeTicketsForUser(activePool, user).map((t: any) => attachClassificationMetadata(t, referenceDateWIB));
+    return { tickets: roleScoped };
+  };
+
+  app.get('/api/work-orders/overdue', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role === 'it_support') {
+        await logServerAuditAsync(
+          'Access Denied (Overdue Monitoring Restricted)',
+          'rbac',
+          req.originalUrl,
+          `User ${user.name} (${user.role}) ditolak mengakses daftar Overdue WO`,
+          user
+        );
+        return res.status(403).json({
+          success: false,
+          code: 'REQUIRE_OPERATIONAL_ROLE',
+          error: 'Akses Ditolak: Monitoring Overdue WO hanya tersedia untuk role operasional (Super Admin, Dispatch, Leader, Management Data, Installer).'
+        });
+      }
+
+      const todayWIB = getJakartaDateStringServer(getNow());
+      const poolRes = await loadScopedClassifiedPool(user, todayWIB, 'OVERDUE');
+      if ('errorStatus' in poolRes) {
+        return res.status(poolRes.errorStatus).json({
+          success: false,
+          code: poolRes.errorCode,
+          error: poolRes.errorMessage
+        });
+      }
+
+      const allOverdue = poolRes.tickets.filter(
+        (t: any) => classifyWorkOrderServer(t, todayWIB).classification === 'OVERDUE'
+      );
+
+      // Build unfiltered summary + available filter options across user's authorized overdue scope
+      const summary = summarizeWorkOrderClassificationsServer(allOverdue, todayWIB).overdueBreakdown;
+      const contractorsSet = new Set<string>();
+      const areasSet = new Set<string>();
+      const leadersSet = new Set<string>();
+      const installersSet = new Set<string>();
+      const agentStatusSet = new Set<string>();
+      const installerStatusSet = new Set<string>();
+
+      for (const t of allOverdue) {
+        const c = String(t.contactorName || t.contractorName || '').trim();
+        if (c) contractorsSet.add(c);
+        if (t.area) areasSet.add(String(t.area).trim());
+        if (t.leaderName) leadersSet.add(String(t.leaderName).trim());
+        if (t.installerName) installersSet.add(String(t.installerName).trim());
+        if (t.statusWOAgent) agentStatusSet.add(String(t.statusWOAgent).trim());
+        if (t.statusWOInstaller) installerStatusSet.add(String(t.statusWOInstaller).trim());
+      }
+
+      const search = String(req.query.search || '').trim().toLowerCase();
+      const contractor = String(req.query.contractor || 'ALL').trim();
+      const area = String(req.query.area || 'ALL').trim();
+      const leader = String(req.query.leader || 'ALL').trim();
+      const installer = String(req.query.installer || 'ALL').trim();
+      const durationBucket = String(req.query.durationBucket || 'ALL').trim();
+      const statusWOAgent = String(req.query.statusWOAgent || 'ALL').trim();
+      const statusWOInstaller = String(req.query.statusWOInstaller || 'ALL').trim();
+      const sortOrder = String(req.query.sort || 'asc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
+
+      const filtered = allOverdue.filter((t: any) => {
+        if (search) {
+          const mWo = String(t.woNumber || '').toLowerCase().includes(search);
+          const mCid = String(t.idCustomer || t.customerId || '').toLowerCase().includes(search);
+          const mCust = String(t.customerName || '').toLowerCase().includes(search);
+          const mInst = String(t.installerName || '').toLowerCase().includes(search);
+          if (!mWo && !mCid && !mCust && !mInst) return false;
+        }
+        if (contractor !== 'ALL') {
+          const tc = String(t.contactorName || t.contractorName || '').trim();
+          if (!isContractorMatch(tc, contractor)) return false;
+        }
+        if (area !== 'ALL') {
+          if (!isAreaMatch(String(t.area || ''), area)) return false;
+        }
+        if (leader !== 'ALL') {
+          if (String(t.leaderName || '').trim().toLowerCase() !== leader.toLowerCase()) return false;
+        }
+        if (installer !== 'ALL') {
+          if (String(t.installerName || '').trim().toLowerCase() !== installer.toLowerCase()) return false;
+        }
+        if (durationBucket !== 'ALL') {
+          if (String(t.overdueDurationBucket || '') !== durationBucket) return false;
+        }
+        if (statusWOAgent !== 'ALL') {
+          if (String(t.statusWOAgent || '').trim().toLowerCase() !== statusWOAgent.toLowerCase()) return false;
+        }
+        if (statusWOInstaller !== 'ALL') {
+          if (String(t.statusWOInstaller || '').trim().toLowerCase() !== statusWOInstaller.toLowerCase()) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a: any, b: any) => {
+        const da = getStrictAppointmentDateServer(a) || '';
+        const dbDate = getStrictAppointmentDateServer(b) || '';
+        return sortOrder === 'desc' ? dbDate.localeCompare(da) : da.localeCompare(dbDate);
+      });
+
+      return res.json({
+        success: true,
+        tickets: filtered,
+        count: filtered.length,
+        totalAuthorizedOverdue: allOverdue.length,
+        summary,
+        filterOptions: {
+          contractors: Array.from(contractorsSet).sort(),
+          areas: Array.from(areasSet).sort(),
+          leaders: Array.from(leadersSet).sort(),
+          installers: Array.from(installersSet).sort(),
+          agentStatuses: Array.from(agentStatusSet).sort(),
+          installerStatuses: Array.from(installerStatusSet).sort()
+        },
+        operationalDateWIB: todayWIB,
+        timezone: 'Asia/Jakarta',
+        serverTime: getNow().toISOString()
+      });
+    } catch (err: any) {
+      console.error('[API /api/work-orders/overdue] Error:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal memuat daftar Overdue Work Orders.'
+      });
+    }
+  });
+
+  app.get('/api/work-orders/classifications', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role === 'it_support') {
+        return res.status(403).json({
+          success: false,
+          code: 'REQUIRE_OPERATIONAL_ROLE',
+          error: 'Akses Ditolak: Ringkasan klasifikasi WO hanya tersedia untuk role operasional.'
+        });
+      }
+
+      const todayWIB = getJakartaDateStringServer(getNow());
+      const poolRes = await loadScopedClassifiedPool(user, todayWIB);
+      if ('errorStatus' in poolRes) {
+        return res.status(poolRes.errorStatus).json({
+          success: false,
+          code: poolRes.errorCode,
+          error: poolRes.errorMessage
+        });
+      }
+
+      const summary = summarizeWorkOrderClassificationsServer(poolRes.tickets, todayWIB);
+      const canViewExceptions = user.role === 'super_admin' || user.role === 'management_data';
+      const exceptionTickets = canViewExceptions
+        ? poolRes.tickets.filter((t: any) => classifyWorkOrderServer(t, todayWIB).classification === 'EXCEPTION')
+        : [];
+
+      const categoryParam = String(req.query.category || '').trim().toUpperCase();
+      let filteredTickets: any[] | undefined = undefined;
+      if (categoryParam && ['TODAY', 'UPCOMING', 'OVERDUE', 'COMPLETED', 'EXCEPTION'].includes(categoryParam)) {
+        if (categoryParam === 'EXCEPTION' && !canViewExceptions) {
+          return res.status(403).json({
+            success: false,
+            code: 'REQUIRE_ADMIN_OR_MGMT_DATA',
+            error: 'Akses Ditolak: Antrean Exception Appointment Date hanya tersedia untuk Super Admin dan Management Data.'
+          });
+        }
+        filteredTickets = poolRes.tickets.filter(
+          (t: any) => classifyWorkOrderServer(t, todayWIB).classification === categoryParam
+        );
+      }
+
+      return res.json({
+        success: true,
+        summary,
+        overdueSummary: summary.overdueBreakdown,
+        ...(filteredTickets !== undefined ? { tickets: filteredTickets, count: filteredTickets.length } : {}),
+        ...(canViewExceptions ? { exceptionTickets } : {}),
+        operationalDateWIB: todayWIB,
+        timezone: 'Asia/Jakarta',
+        serverTime: getNow().toISOString()
+      });
+    } catch (err: any) {
+      console.error('[API /api/work-orders/classifications] Error:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal menghitung klasifikasi Work Orders.'
       });
     }
   });

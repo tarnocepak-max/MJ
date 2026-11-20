@@ -80,19 +80,19 @@ export const LocationBasecampView: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs">
-            <Building2 className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-[#0F172A] dark:bg-[#1E293B] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+            <Building2 className="w-5 h-5 text-[#38BDF8]" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex items-center gap-2">
+            <h2 className="text-base font-bold text-[#0F172A] dark:text-white flex flex-wrap items-center gap-2">
               <span>Location Basecamp & Hub Lapangan Mitra</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]">
                 Pusat Armada & Material
               </span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">
               Direktori titik kumpul armada teknisi, gudang dropcore/modem, dan kontak koordinasi basecamp mitra kontraktor.
             </p>
           </div>
@@ -104,15 +104,15 @@ export const LocationBasecampView: React.FC = () => {
         {basecamps.map(bc => (
           <div
             key={bc.id}
-            className="bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-[#D8CCF3] dark:border-purple-900/60 p-5 shadow-xs space-y-4 flex flex-col justify-between"
+            className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4 flex flex-col justify-between"
           >
             <div className="space-y-3">
-              <div className="flex items-start justify-between gap-2 border-b border-[#E9E1FF] dark:border-purple-900/40 pb-3">
+              <div className="flex items-start justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
                 <div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-950 dark:text-purple-300">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]">
                     {bc.area}
                   </span>
-                  <h3 className="font-bold text-sm text-[#21183A] dark:text-white mt-1">
+                  <h3 className="font-bold text-sm text-[#0F172A] dark:text-white mt-1">
                     {bc.name}
                   </h3>
                 </div>
@@ -142,15 +142,15 @@ export const LocationBasecampView: React.FC = () => {
 
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Kekuatan Armada:</span>
-                  <span className="font-bold text-[#5B35B1] dark:text-purple-300">{bc.installerCount} Teknisi Aktif</span>
+                  <span className="font-bold text-[#2563EB] dark:text-[#38BDF8]">{bc.installerCount} Teknisi Aktif</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#E9E1FF] dark:border-purple-900/40 flex items-center gap-2">
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2">
               <a
                 href={`tel:${bc.phone}`}
-                className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
+                className="flex-1 py-2 px-3 min-h-[44px] sm:min-h-[38px] rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>Hubungi</span>
@@ -158,7 +158,7 @@ export const LocationBasecampView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleOpenMaps(bc)}
-                className="flex-1 py-2 px-3 rounded-xl bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                className="flex-1 py-2 px-3 min-h-[44px] sm:min-h-[38px] rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <Navigation className="w-3.5 h-3.5" />
                 <span>Rute Maps</span>

@@ -57,7 +57,7 @@ function getInitials(name: string): string {
 }
 
 const AVATAR_TONES = [
-  'bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]',
+  'bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8]',
   'bg-[#e0f2fe] dark:bg-sky-950/70 text-[#0369a1] dark:text-sky-300',
   'bg-[#dcfce7] dark:bg-emerald-950/70 text-[#15803d] dark:text-emerald-300',
   'bg-[#fef3c7] dark:bg-amber-950/70 text-[#b45309] dark:text-amber-300'
@@ -245,14 +245,14 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
 
   return (
     <div className="space-y-4">
-      {/* HEADER BAR (Stitch Field Dispatch Unit) */}
+      {/* HEADER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff] block">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-[#38BDF8] block">
             FIELD DISPATCH UNIT · {displayContractor}
           </span>
           <h2
-            className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tracking-tight"
+            className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             Manajemen Teknisi
@@ -264,9 +264,9 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="btn-3d-secondary px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Live Sync</span>
           </button>
 
@@ -274,7 +274,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             <button
               type="button"
               onClick={() => setShowAddForm(prev => !prev)}
-              className="btn-3d-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>{showAddForm ? 'Tutup Form' : '+ Tambah Teknisi'}</span>
@@ -287,27 +287,27 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
       {showAddForm && isLeaderRole && (
         <form
           onSubmit={handleSubmitAddInstaller}
-          className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#d8ccf3] dark:border-[#4b386b] p-4 sm:p-5 shadow-sm space-y-4 animate-fadeIn"
+          className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-4 animate-fadeIn"
         >
-          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#e8ddff] dark:border-[#35105E]">
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center shrink-0">
                 <UserPlus className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-[#1f1638] dark:text-white">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                   Daftarkan Teknisi Lapangan Baru
                 </h3>
-                <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Terikat ke vendor <strong>{displayContractor}</strong> ({displayArea}). Password default:{' '}
-                  <code className="font-mono font-bold text-[#58149c] dark:text-[#dab9ff]">12345678</code>
+                  <code className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">12345678</code>
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="p-1.5 rounded-lg text-[#7d7484] hover:bg-[#f8f1ff] dark:hover:bg-[#261942] cursor-pointer"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -315,7 +315,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
 
           <div className={`grid gap-3 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
             <div>
-              <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+              <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
                 Nama Lengkap Teknisi *
               </label>
               <input
@@ -324,12 +324,12 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                 placeholder="Contoh: Budi Santoso"
                 value={instName}
                 onChange={e => setInstName(e.target.value)}
-                className="w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2563EB]"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+              <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
                 Username Login *
               </label>
               <input
@@ -338,12 +338,12 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                 placeholder="Contoh: budi_mjs"
                 value={instUsername}
                 onChange={e => setInstUsername(e.target.value)}
-                className="w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2563EB]"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+              <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
                 No. Telepon WhatsApp *
               </label>
               <input
@@ -352,12 +352,12 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                 placeholder="Contoh: 081234567890"
                 value={instPhone}
                 onChange={e => setInstPhone(e.target.value)}
-                className="w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2563EB]"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+              <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
                 Email (Opsional)
               </label>
               <input
@@ -365,7 +365,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                 placeholder="teknisi@mitra.id"
                 value={instEmail}
                 onChange={e => setInstEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2563EB]"
               />
             </div>
           </div>
@@ -374,13 +374,13 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="btn-3d-secondary px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+              className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="min-h-[44px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Simpan Akun Teknisi</span>
@@ -389,27 +389,27 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
         </form>
       )}
 
-      {/* 3 PRIMARY KPI CARDS (Matching Stitch Screenshot 4) */}
+      {/* 3 PRIMARY KPI CARDS */}
       <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
         <button
           type="button"
           onClick={() => setStatusFilter('all')}
-          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_2px_8px_rgba(31,22,56,0.04)] transition-all cursor-pointer ${
+          className={`text-left bg-white dark:bg-[#0F172A] rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
             statusFilter === 'all'
-              ? 'border-[#58149c] ring-2 ring-[#dab9ff]/60 dark:border-[#a380fe]'
-              : 'border-[#e8ddff] dark:border-[#35105E] hover:border-[#cec3d4]'
+              ? 'border-[#2563EB] ring-2 ring-blue-500/20'
+              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
           }`}
         >
-          <div className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2E1B59] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center mb-2">
             <Users className="w-4 h-4" />
           </div>
           <div
-            className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums leading-none"
+            className="text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums leading-none"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             {String(metrics.total).padStart(2, '0')}
           </div>
-          <div className="text-[11px] font-semibold text-[#7d7484] dark:text-[#CEC0E8] mt-1 truncate">
+          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate">
             Total Teknisi
           </div>
         </button>
@@ -417,25 +417,25 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
         <button
           type="button"
           onClick={() => setStatusFilter(prev => (prev === 'field' ? 'all' : 'field'))}
-          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_2px_8px_rgba(31,22,56,0.04)] transition-all cursor-pointer ${
+          className={`text-left bg-white dark:bg-[#0F172A] rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
             statusFilter === 'field'
-              ? 'border-[#16A36A] ring-2 ring-emerald-300/60'
-              : 'border-[#e8ddff] dark:border-[#35105E] hover:border-emerald-300'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+              : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300'
           }`}
         >
-          <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#16A36A] dark:text-emerald-400 flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2">
             <Wrench className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-1.5">
             <span
-              className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums leading-none"
+              className="text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums leading-none"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {String(metrics.onField).padStart(2, '0')}
             </span>
-            <span className="w-2 h-2 rounded-full bg-[#16A36A]" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </div>
-          <div className="text-[11px] font-semibold text-[#7d7484] dark:text-[#CEC0E8] mt-1 truncate">
+          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate">
             Di Lapangan
           </div>
         </button>
@@ -443,48 +443,48 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
         <button
           type="button"
           onClick={() => setStatusFilter(prev => (prev === 'standby' ? 'all' : 'standby'))}
-          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_2px_8px_rgba(31,22,56,0.04)] transition-all cursor-pointer ${
+          className={`text-left bg-white dark:bg-[#0F172A] rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
             statusFilter === 'standby'
-              ? 'border-[#2563EB] ring-2 ring-blue-300/60'
-              : 'border-[#e8ddff] dark:border-[#35105E] hover:border-blue-300'
+              ? 'border-[#2563EB] ring-2 ring-blue-500/20'
+              : 'border-slate-200 dark:border-slate-800 hover:border-blue-300'
           }`}
         >
-          <div className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2E1B59] text-[#6a46c1] dark:text-[#d0bcff] flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#1E293B] text-sky-600 dark:text-[#38BDF8] flex items-center justify-center mb-2">
             <Clock className="w-4 h-4" />
           </div>
           <div
-            className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums leading-none"
+            className="text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums leading-none"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             {String(metrics.standby).padStart(2, '0')}
           </div>
-          <div className="text-[11px] font-semibold text-[#7d7484] dark:text-[#CEC0E8] mt-1 truncate">
+          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate">
             Standby Camp
           </div>
         </button>
       </div>
 
-      {/* AREA COVERAGE STRIP (Stitch Map Texture Card) */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#e8ddff] dark:border-[#35105E] bg-white dark:bg-[#1E1238] p-4 shadow-[0_2px_8px_rgba(31,22,56,0.04)]">
+      {/* AREA COVERAGE STRIP */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F172A] p-4 shadow-xs">
         <img
           src={gisMapStripImg}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover opacity-35 dark:opacity-15 pointer-events-none select-none"
+          className="absolute inset-0 w-full h-full object-cover opacity-30 dark:opacity-15 pointer-events-none select-none"
         />
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0 space-y-0.5">
-            <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+            <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-[#2563EB] dark:text-[#38BDF8]">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
               <span>AREA COVERAGE</span>
             </div>
             <div
-              className="font-extrabold text-[15px] sm:text-base text-[#1f1638] dark:text-white truncate"
+              className="font-extrabold text-[15px] sm:text-base text-slate-900 dark:text-white truncate"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {displayArea} · {displayContractor}
             </div>
-            <div className="text-[11.5px] text-[#4b4452] dark:text-[#CEC0E8] truncate">
+            <div className="text-[11.5px] text-slate-600 dark:text-slate-300 truncate">
               {clusterOptions.length > 0
                 ? `${clusterOptions.length} Cluster Aktif: ${clusterOptions.slice(0, 3).join(', ')}${clusterOptions.length > 3 ? '...' : ''}`
                 : `${todayTickets.length} Work Order terdaftar hari ini`}
@@ -494,7 +494,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
           <button
             type="button"
             onClick={handleOpenAreaMap}
-            className="btn-3d-secondary px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 text-[#58149c] dark:text-[#dab9ff] shrink-0 cursor-pointer"
+            className="min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl bg-white/95 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0 cursor-pointer shadow-xs"
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>GIS Map</span>
@@ -505,26 +505,26 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
       {/* SEARCH BAR + FILTER CHIPS */}
       <div className="space-y-2.5">
         <div className="relative">
-          <Search className="w-4 h-4 text-[#7d7484] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Cari nama teknisi, username, nomor WA, atau nomor WO..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] rounded-2xl text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] shadow-[0_2px_6px_rgba(31,22,56,0.03)] focus:outline-hidden focus:border-[#58149c]"
+            className="w-full min-h-[44px] pl-10 pr-10 py-2.5 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 shadow-2xs focus:outline-hidden focus:border-[#2563EB]"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
           {[
             { id: 'all' as TechFilterType, label: `Semua (${metrics.total})` },
             { id: 'field' as TechFilterType, label: `Di Lapangan (${metrics.onField})` },
@@ -538,10 +538,10 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                 key={chip.id}
                 type="button"
                 onClick={() => setStatusFilter(chip.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                className={`px-3.5 py-2 min-h-[40px] sm:min-h-0 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   active
-                    ? 'bg-[#58149c] text-white shadow-[0_2px_6px_rgba(88,20,156,0.25)]'
-                    : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-[#a380fe]'
+                    ? 'bg-[#2563EB] text-white shadow-xs'
+                    : 'bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#2563EB]/50'
                 }`}
               >
                 {chip.label}
@@ -553,14 +553,14 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
 
       {/* TECHNICIAN CARDS LIST / GRID */}
       {filteredTechs.length === 0 ? (
-        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#35105E] p-10 text-center space-y-2.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#f3eaff] dark:bg-[#2E1B59] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center mx-auto">
+        <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-10 text-center space-y-2.5">
+          <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center mx-auto">
             <Users className="w-5 h-5" />
           </div>
-          <h3 className="font-bold text-sm text-[#1f1638] dark:text-white">
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white">
             Tidak ada teknisi yang sesuai filter
           </h3>
-          <p className="text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {technicians.length === 0
               ? `Belum ada teknisi terdaftar pada vendor ${displayContractor}. Klik "+ Tambah Teknisi" untuk mendaftarkan teknisi.`
               : 'Ubah kata kunci pencarian atau filter status di atas.'}
@@ -581,54 +581,54 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             const statusBadge = issueTicket
               ? {
                   label: `Kendala (${issueTicket.woNumber})`,
-                  cls: 'bg-[#fef3c7] dark:bg-amber-950/70 text-[#b45309] dark:text-amber-300 border-[#fcd34d] dark:border-amber-700',
-                  dot: 'bg-[#d97706]'
+                  cls: 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700',
+                  dot: 'bg-amber-500'
                 }
               : activeTicket
               ? {
                   label: `On Job (${activeTicket.woNumber})`,
-                  cls: 'bg-[#dcfce7] dark:bg-emerald-950/70 text-[#15803d] dark:text-emerald-300 border-[#86efac] dark:border-emerald-700',
-                  dot: 'bg-[#16A36A]'
+                  cls: 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700',
+                  dot: 'bg-emerald-500'
                 }
               : summary.isFull
               ? {
                   label: 'Kuota Harian Penuh',
-                  cls: 'bg-[#ffdad6] dark:bg-rose-950/70 text-[#93000a] dark:text-rose-300 border-[#fca5a5] dark:border-rose-700',
-                  dot: 'bg-[#ba1a1a]'
+                  cls: 'bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-700',
+                  dot: 'bg-rose-600'
                 }
               : {
                   label: 'Standby Basecamp',
-                  cls: 'bg-[#e0f2fe] dark:bg-sky-950/70 text-[#1d4ed8] dark:text-sky-300 border-[#bae6fd] dark:border-sky-800',
+                  cls: 'bg-blue-50 dark:bg-sky-950/70 text-[#2563EB] dark:text-[#38BDF8] border-blue-200 dark:border-sky-800',
                   dot: 'bg-[#2563EB]'
                 };
 
             return (
               <div
                 key={inst.id}
-                className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#35105E] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] flex flex-col justify-between gap-3.5"
+                className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs flex flex-col justify-between gap-3.5"
               >
                 {/* Header: Avatar + Name + Live Status Pill */}
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`relative w-11 h-11 rounded-2xl ${AVATAR_TONES[idx % AVATAR_TONES.length]} font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs`}
+                      className={`relative w-11 h-11 rounded-2xl ${AVATAR_TONES[idx % AVATAR_TONES.length]} font-extrabold text-sm flex items-center justify-center shrink-0 shadow-2xs`}
                     >
                       {getInitials(inst.name)}
                       <span
-                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#1E1238] ${statusBadge.dot}`}
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#0F172A] ${statusBadge.dot}`}
                       />
                     </div>
                     <div className="min-w-0">
                       <h3
-                        className="font-bold text-[14.5px] text-[#1f1638] dark:text-white truncate"
+                        className="font-bold text-[14.5px] text-slate-900 dark:text-white truncate"
                         style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                       >
                         {inst.name}
                       </h3>
-                      <div className="text-[11px] font-mono text-[#58149c] dark:text-[#dab9ff] truncate">
+                      <div className="text-[11px] font-mono text-[#2563EB] dark:text-[#38BDF8] truncate">
                         @{inst.username} · {inst.area || displayArea}
                       </div>
-                      <div className="text-[10.5px] font-mono text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                      <div className="text-[10.5px] font-mono text-slate-500 dark:text-slate-400 truncate">
                         WA: {inst.phone || 'Belum diisi'}
                       </div>
                     </div>
@@ -644,38 +644,38 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
 
                 {/* 3 Compact Metric Wells */}
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#e8ddff]/80 dark:border-[#35105E]">
-                    <div className="text-[10px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]">Beban WO</div>
-                    <div className="mt-0.5 font-mono font-extrabold text-sm text-[#1f1638] dark:text-white tabular-nums">
+                  <div className="bg-slate-50 dark:bg-[#1E293B] rounded-xl p-2.5 border border-slate-200 dark:border-slate-700">
+                    <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Beban WO</div>
+                    <div className="mt-0.5 font-mono font-extrabold text-sm text-slate-900 dark:text-white tabular-nums">
                       {summary.assignedCount}
-                      <span className="text-[#7d7484] text-xs font-semibold"> / {summary.maxLimit}</span>
+                      <span className="text-slate-400 text-xs font-semibold"> / {summary.maxLimit}</span>
                     </div>
-                    <div className="mt-1.5 w-full h-1.5 bg-[#e8ddff] dark:bg-[#2E1B59] rounded-full overflow-hidden">
+                    <div className="mt-1.5 w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
-                          summary.isFull ? 'bg-[#ba1a1a]' : issueTicket ? 'bg-[#d97706]' : 'bg-[#58149c]'
+                          summary.isFull ? 'bg-rose-600' : issueTicket ? 'bg-amber-500' : 'bg-[#2563EB]'
                         }`}
                         style={{ width: `${Math.min(100, summary.utilizationPct)}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#e8ddff]/80 dark:border-[#35105E]">
-                    <div className="text-[10px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]">Selesai Hari Ini</div>
-                    <div className="mt-0.5 font-mono font-extrabold text-sm text-[#16A36A] dark:text-emerald-400 tabular-nums">
+                  <div className="bg-slate-50 dark:bg-[#1E293B] rounded-xl p-2.5 border border-slate-200 dark:border-slate-700">
+                    <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Selesai Hari Ini</div>
+                    <div className="mt-0.5 font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
                       {completedToday} <span className="text-[11px] font-semibold">WO</span>
                     </div>
-                    <div className="text-[10px] text-[#7d7484] dark:text-[#CEC0E8] truncate mt-0.5">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                       {latestActiveOverallCount} aktif total
                     </div>
                   </div>
 
-                  <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#e8ddff]/80 dark:border-[#35105E]">
-                    <div className="text-[10px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]">Sisa Kuota</div>
-                    <div className="mt-0.5 font-mono font-extrabold text-sm text-[#1f1638] dark:text-white tabular-nums">
+                  <div className="bg-slate-50 dark:bg-[#1E293B] rounded-xl p-2.5 border border-slate-200 dark:border-slate-700">
+                    <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Sisa Kuota</div>
+                    <div className="mt-0.5 font-mono font-extrabold text-sm text-slate-900 dark:text-white tabular-nums">
                       {summary.remainingSlots} <span className="text-[11px] font-semibold">Slot</span>
                     </div>
-                    <div className="text-[10px] font-semibold text-[#58149c] dark:text-[#dab9ff] truncate mt-0.5">
+                    <div className="text-[10px] font-semibold text-[#2563EB] dark:text-[#38BDF8] truncate mt-0.5">
                       {summary.hasCustomLimit ? 'Custom Limit' : 'Kuota Standar'}
                     </div>
                   </div>
@@ -689,14 +689,14 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                       type="button"
                       disabled={!cell.ticket}
                       onClick={() => cell.ticket && onSelectTicket(cell.ticket)}
-                      className={`py-1 px-1 rounded-lg font-mono text-[10px] font-bold text-center tabular-nums truncate transition-colors ${
+                      className={`py-1.5 px-1 rounded-lg font-mono text-[10px] font-bold text-center tabular-nums truncate transition-colors ${
                         cell.state === 'ok'
-                          ? 'bg-[#dcfce7] dark:bg-emerald-950/60 text-[#15803d] dark:text-emerald-300 border border-[#86efac] dark:border-emerald-800 cursor-pointer'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 cursor-pointer'
                           : cell.state === 'assigned'
-                          ? 'bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] border border-[#d0bcff] dark:border-[#5b35b1] cursor-pointer'
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] border border-blue-200 dark:border-blue-800 cursor-pointer'
                           : cell.state === 'locked'
-                          ? 'bg-[#f1f5f9] dark:bg-[#261942] text-[#7d7484] border border-[#e2e8f0] dark:border-[#35105E]'
-                          : 'bg-[#f8f1ff] dark:bg-[#160D29] text-[#16A36A] dark:text-emerald-400 border border-[#e8ddff] dark:border-[#35105E]'
+                          ? 'bg-slate-100 dark:bg-[#1E293B] text-slate-500 border border-slate-200 dark:border-slate-700'
+                          : 'bg-slate-50 dark:bg-[#0B1220] text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-800'
                       }`}
                     >
                       {cell.slotCode}: {cell.state === 'ok' ? 'OK' : cell.state === 'assigned' ? cell.shortWoCode : cell.state === 'locked' ? 'LOCK' : 'FREE'}
@@ -711,8 +711,8 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                     onClick={() => onSelectTicket(issueTicket)}
                     className="w-full text-left p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 flex items-start gap-2 cursor-pointer hover:bg-amber-100/70 transition-colors"
                   >
-                    <AlertTriangle className="w-4 h-4 text-[#d97706] shrink-0 mt-0.5" />
-                    <div className="min-w-0 text-[11px] text-[#78350f] dark:text-amber-200">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0 text-[11px] text-amber-900 dark:text-amber-200">
                       <span className="font-bold block">
                         Kendala pada {issueTicket.woNumber} ({issueTicket.statusWOInstaller})
                       </span>
@@ -725,21 +725,21 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                   <button
                     type="button"
                     onClick={() => onSelectTicket(activeTicket)}
-                    className="w-full text-left flex items-center justify-between gap-2 text-[11.5px] text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#58149c] dark:hover:text-[#dab9ff] cursor-pointer"
+                    className="w-full text-left flex items-center justify-between gap-2 text-[11.5px] text-slate-600 dark:text-slate-300 hover:text-[#2563EB] dark:hover:text-[#38BDF8] cursor-pointer"
                   >
                     <span className="flex items-center gap-1.5 min-w-0 truncate">
-                      <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
                       <span className="truncate">
                         {activeTicket.streetName || activeTicket.clusterName || activeTicket.customerName}
                       </span>
                     </span>
-                    <span className="font-bold text-[#58149c] dark:text-[#dab9ff] shrink-0">
+                    <span className="font-bold text-[#2563EB] dark:text-[#38BDF8] shrink-0">
                       {activeTicket.slotTime || activeTicket.statusWOInstaller}
                     </span>
                   </button>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-[11.5px] text-[#7d7484] dark:text-[#CEC0E8]">
-                    <ClipboardCheck className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+                  <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500 dark:text-slate-400">
+                    <ClipboardCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Siap menerima penugasan Work Order untuk {displayArea}.</span>
                   </div>
                 )}
@@ -749,9 +749,9 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                   <button
                     type="button"
                     onClick={() => onSelectTechnicianDetail(inst)}
-                    className="btn-3d-secondary flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <UserCheck className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                    <UserCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
                     <span>Detail Profil</span>
                   </button>
 
@@ -759,7 +759,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                     <button
                       type="button"
                       onClick={() => onAssignWorkOrderToTechnician(inst)}
-                      className="btn-3d-primary flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" />
                       <span>Tugaskan WO</span>
@@ -769,7 +769,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                       href={waUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-3d-success flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+                      className="flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <PhoneCall className="w-3.5 h-3.5" />
                       <span>Panggil WA</span>
@@ -779,7 +779,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                       type="button"
                       onClick={() => onAssignWorkOrderToTechnician(inst)}
                       disabled={!isLeaderRole || summary.isFull}
-                      className="btn-3d-primary flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-45 cursor-pointer"
+                      className="flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-45 cursor-pointer transition-colors"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" />
                       <span>Tugaskan WO</span>
@@ -797,12 +797,12 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
         <button
           type="button"
           onClick={() => setIsBroadcastOpen(true)}
-          className="btn-3d-primary w-full py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full min-h-[48px] py-3 px-4 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
         >
           <Radio className="w-4 h-4" />
           <span>Broadcast Pesan ke Seluruh Tim ({metrics.total} Teknisi)</span>
         </button>
-        <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
           Koordinasi cepat ke WhatsApp teknisi dalam cakupan {displayContractor}
         </p>
       </div>
@@ -821,7 +821,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
           <button
             type="button"
             onClick={() => setIsBroadcastOpen(false)}
-            className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+            className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold cursor-pointer"
           >
             Tutup
           </button>
@@ -829,7 +829,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
       >
         <div className="space-y-4 text-xs">
           <div>
-            <label className="block font-bold text-[#1f1638] dark:text-white mb-1.5">
+            <label className="block font-bold text-slate-900 dark:text-white mb-1.5">
               Target Penerima:
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -842,10 +842,10 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                   key={opt.id}
                   type="button"
                   onClick={() => setBroadcastAudience(opt.id)}
-                  className={`min-h-[38px] py-2 px-2 rounded-xl font-bold text-[11px] border cursor-pointer transition-colors ${
+                  className={`min-h-[42px] py-2 px-2 rounded-xl font-bold text-[11px] border cursor-pointer transition-colors ${
                     broadcastAudience === opt.id
-                      ? 'bg-[#eedbff] dark:bg-[#35105E] border-[#58149c] text-[#58149c] dark:text-[#dab9ff]'
-                      : 'bg-[#f8f1ff] dark:bg-[#160D29] border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8]'
+                      ? 'bg-[#2563EB] border-[#1D4ED8] text-white'
+                      : 'bg-slate-50 dark:bg-[#1E293B] border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   {opt.label}
@@ -856,15 +856,15 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="font-bold text-[#1f1638] dark:text-white">
+              <label className="font-bold text-slate-900 dark:text-white">
                 Isi Pesan Instruksi:
               </label>
               <button
                 type="button"
                 onClick={handleCopyBroadcast}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] hover:underline cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] hover:underline cursor-pointer"
               >
-                {copiedBroadcast ? <Check className="w-3.5 h-3.5 text-[#16A36A]" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedBroadcast ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedBroadcast ? 'Disalin' : 'Salin Teks'}</span>
               </button>
             </div>
@@ -872,17 +872,17 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
               rows={4}
               value={broadcastMessage}
               onChange={e => setBroadcastMessage(e.target.value)}
-              className="w-full p-3 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+              className="w-full p-3 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2563EB]"
             />
           </div>
 
           <div className="space-y-2">
-            <div className="font-bold text-[#1f1638] dark:text-white">
+            <div className="font-bold text-slate-900 dark:text-white">
               Kirim Langsung via WhatsApp ({broadcastRecipients.length} Teknisi):
             </div>
-            <div className="max-h-52 overflow-y-auto divide-y divide-[#e8ddff] dark:divide-[#35105E] rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
+            <div className="max-h-52 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800">
               {broadcastRecipients.length === 0 ? (
-                <div className="p-4 text-center text-[#7d7484]">
+                <div className="p-4 text-center text-slate-500 dark:text-slate-400">
                   Tidak ada teknisi pada kelompok penerima ini.
                 </div>
               ) : (
@@ -890,12 +890,12 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                   const phone = summary.installer.phone || '';
                   const valid = isValidPhoneNumber(phone);
                   return (
-                    <div key={summary.installer.id} className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white dark:bg-[#1E1238]">
+                    <div key={summary.installer.id} className="px-3 py-2.5 flex items-center justify-between gap-2 bg-white dark:bg-[#0F172A]">
                       <div className="min-w-0">
-                        <div className="font-bold text-[#1f1638] dark:text-white truncate">
+                        <div className="font-bold text-slate-900 dark:text-white truncate">
                           {summary.installer.name}
                         </div>
-                        <div className="text-[10.5px] font-mono text-[#7d7484]">
+                        <div className="text-[10.5px] font-mono text-slate-500 dark:text-slate-400">
                           {phone || 'No. WA belum terdaftar'}
                         </div>
                       </div>
@@ -904,13 +904,13 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                           href={buildWhatsAppClickToChatUrl(phone, broadcastMessage).url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn-3d-success min-h-[36px] px-3 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 shrink-0"
+                          className="min-h-[40px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold inline-flex items-center gap-1 shrink-0"
                         >
                           <Send className="w-3 h-3" />
                           <span>Kirim WA</span>
                         </a>
                       ) : (
-                        <span className="text-[10.5px] text-[#7d7484] italic shrink-0">No WA N/A</span>
+                        <span className="text-[10.5px] text-slate-400 italic shrink-0">No WA N/A</span>
                       )}
                     </div>
                   );

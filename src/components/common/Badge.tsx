@@ -53,9 +53,24 @@ function resolveBadgeStyle(rawStatus: string, variant: StatusBadgeVariant): { la
     return { label: 'CLOSED', style: BADGE_TONES.slateDark, dot: 'bg-white/80' };
   }
 
-  // COMPLETE / APPROVED
+  // COMPLETE / DONE / APPROVED
+  if (u === 'APPROVED - DONE') {
+    return { label: 'APPROVED - DONE', style: BADGE_TONES.green, dot: 'bg-[#15803D]' };
+  }
+  if (u === 'APPROVED - PENDING') {
+    return { label: 'APPROVED - PENDING', style: BADGE_TONES.amber, dot: 'bg-[#B45309]' };
+  }
+  if (u === 'APPROVED - RESCHEDULE') {
+    return { label: 'APPROVED - RESCHEDULE', style: BADGE_TONES.violet, dot: 'bg-[#6D28D9]' };
+  }
+  if (u === 'APPROVED - CANCEL') {
+    return { label: 'APPROVED - CANCEL', style: BADGE_TONES.red, dot: 'bg-[#B91C1C]' };
+  }
   if (u === 'APPROVED') {
     return { label: 'APPROVED', style: BADGE_TONES.green, dot: 'bg-[#15803D]' };
+  }
+  if (u === 'DONE') {
+    return { label: 'DONE', style: BADGE_TONES.green, dot: 'bg-[#15803D]' };
   }
   if (u === 'COMPLETE' || u === 'COMPLETED' || u === 'INSTALLED' || u === 'RESOLVED') {
     return { label: u === 'RESOLVED' ? 'RESOLVED' : 'COMPLETE', style: BADGE_TONES.green, dot: 'bg-[#15803D]' };
@@ -140,7 +155,7 @@ export const StatusAgentBadge: React.FC<{ status: TicketStatusWOAgent | string }
   let tone = BADGE_TONES.amber;
   if (upper === 'CLOSED') tone = BADGE_TONES.slateDark;
   else if (upper === 'ASSIGNED' || upper === 'IN PROGRESS' || upper === 'PROGRESS') tone = BADGE_TONES.blue;
-  else if (upper === 'RESOLVED' || upper === 'COMPLETE' || upper === 'COMPLETED') tone = BADGE_TONES.green;
+  else if (upper === 'DONE' || upper === 'RESOLVED' || upper === 'COMPLETE' || upper === 'COMPLETED') tone = BADGE_TONES.green;
   else if (upper === 'CANCELLED' || upper === 'CANCEL') tone = BADGE_TONES.red;
   else if (upper === 'RESCHEDULE') tone = BADGE_TONES.violet;
 

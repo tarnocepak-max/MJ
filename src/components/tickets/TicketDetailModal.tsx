@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Ticket, GeotagStatus, TechnicalPhotoSlotKey } from '../../types/index.ts';
+import { Ticket, GeotagStatus, TechnicalPhotoSlotKey, DispatchApprovalWoAgentStatus } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
-import { StatusApprovalBadge } from '../common/Badge';
+import { StatusAgentBadge, StatusApprovalBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
 import { HistoryProgressReportView } from '../reports/HistoryProgressReportView';
@@ -11,7 +11,11 @@ import {
   isTicketCheckedIn,
   getTicketCanonicalReportStatus,
   getTicketCanonicalApprovalStatus,
-  isTicketClosed as isLifecycleClosed
+  isTicketClosed as isLifecycleClosed,
+  DISPATCH_APPROVAL_OPTIONS,
+  getDispatchApprovalOutcomeLabel,
+  getRecommendedDispatchWoAgentStatus,
+  getTicketDispatchWoAgentOutcome
 } from '../../services/woLifecycleService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
@@ -96,7 +100,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     syncStatus,
     updateTicket,
     assignTicketPersonnel,
-    closeTicket,
     reopenTicket,
     archiveTicket,
     restoreTicket,
@@ -112,16 +115,12 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const { isCompactUI } = useResponsiveViewport();
 
   // Dispatcher verification & decision state
+  const [selectedWoAgentStatus, setSelectedWoAgentStatus] = useState<DispatchApprovalWoAgentStatus>('Done');
   const [decisionNotes, setDecisionNotes] = useState('');
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
-
-  // Close ticket banner state
-  const [showCloseModal, setShowCloseModal] = useState(false);
-  const [closeNotes, setCloseNotes] = useState('');
-  const [closeError, setCloseError] = useState<string | null>(null);
 
   // Reopen ticket banner state
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -145,10 +144,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   useEffect(() => {
     if (!isOpen || !ticket) return;
-    setShowCloseModal(false);
     setShowReopenModal(false);
     setDecisionError(null);
-    setDecisionNotes(ticket.remarksAgent || '');
+    setSelectedWoAgentStatus(getRecommendedDispatchWoAgentStatus(ticket));
+    setDecisionNotes(ticket.approvalNotes || ticket.remarksAgent || '');
     setShowReportEditor(defaultTab === 'report');
     setChatInitialCategory(undefined);
     setZoomPhoto(null);
@@ -304,17 +303,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     }
   };
 
-  const handleConfirmCloseTicket = () => {
-    setCloseError(null);
-    const result = closeTicket(ticket.id, closeNotes);
-    if (result.success) {
-      setShowCloseModal(false);
-      setCloseNotes('');
-    } else {
-      setCloseError(result.error || 'Gagal menutup tiket.');
-    }
-  };
-
   const handleConfirmReopen = () => {
     if (!reopenReason.trim()) return;
     reopenTicket(ticket.id, reopenReason.trim());
@@ -326,7 +314,11 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     if (isApproving || ticket.approvalStatus !== 'BUTUH APPROVAL') return;
     setDecisionError(null);
     setIsApproving(true);
-    const result = await approveProgressReport(ticket.id, decisionNotes.trim() || undefined);
+    const trimmedNotes = decisionNotes.trim();
+    const result = await approveProgressReport(ticket.id, trimmedNotes || undefined, {
+      woAgentStatus: selectedWoAgentStatus,
+      remarksAgent: trimmedNotes || undefined
+    });
     setIsApproving(false);
     if (result && result.success) {
       setDecisionNotes('');
@@ -334,7 +326,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       onApprovedAndClosed?.();
     } else if (result?.error) {
       setDecisionError(result.error);
-      toast.error(result.error, 'Gagal Approve & Close');
+      toast.error(result.error, 'Gagal Dispatch Approval');
     }
   };
 
@@ -367,8 +359,14 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   };
 
   const canManageApproval = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
-  const canCloseTicket = canManageApproval && ticket.statusWOAgent !== 'Closed';
-  const isTicketClosed = ticket.statusWOAgent === 'Closed';
+  const isTicketClosed = isLifecycleClosed(ticket);
+  const approvedOutcome = getTicketDispatchWoAgentOutcome(ticket);
+  const dispatchApprovalLabel =
+    ticket.dispatchApprovalStatus ||
+    (approvedOutcome ? getDispatchApprovalOutcomeLabel(approvedOutcome) : undefined);
+  const selectedApprovalOption =
+    DISPATCH_APPROVAL_OPTIONS.find(opt => opt.woAgentStatus === selectedWoAgentStatus) ||
+    DISPATCH_APPROVAL_OPTIONS[0];
 
   // Lifecycle steps (preserved 7-step MoraJaws contract)
   const lifecycleSteps = [
@@ -629,46 +627,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             )}
           </div>
         </div>
-
-        {/* Close Ticket Inline Banner */}
-        {showCloseModal && (
-          <div className="p-4 bg-[#F5F1FF] dark:bg-[#261942] border-b border-[#D8CCF3] dark:border-[#4B386B] text-xs space-y-2.5 shrink-0">
-            <div className="font-bold text-[#35105E] dark:text-[#E9D5FF] flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-[#7135B5]" />
-              <span>Verifikasi & Penyelesaian Resmi Tiket (Close Ticket WO: {ticket.woNumber})</span>
-            </div>
-            {closeError && (
-              <div className="p-2 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-semibold">
-                {closeError}
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row items-center gap-2">
-              <input
-                type="text"
-                placeholder="Catatan penutupan (contoh: Redaman -18 dBm baik, internet aktif, pelanggan puas)..."
-                value={closeNotes}
-                onChange={e => setCloseNotes(e.target.value)}
-                className="w-full sm:flex-1 px-3 py-2 border border-[#D8CCF3] dark:border-[#4B386B] rounded-lg bg-white dark:bg-[#160D29] text-[#211A2E] dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
-              />
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowCloseModal(false)}
-                  className="btn-3d-ceramic px-3 py-2 rounded-lg font-bold text-xs cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmCloseTicket}
-                  className="btn-3d-primary px-4 py-2 rounded-lg font-bold text-xs cursor-pointer"
-                >
-                  Konfirmasi Close Ticket
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Reopen Ticket Inline Banner */}
         {showReopenModal && (
@@ -986,12 +944,24 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
             {/* Approved / Rejected Historical Banners */}
             {ticket.approvalStatus === 'APPROVED' && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5 text-xs text-emerald-900 dark:text-emerald-200">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  Laporan telah <strong>DISETUJUI (APPROVED)</strong> oleh <strong>{ticket.approvedBy || 'Dispatch'}</strong>
-                  {ticket.approvedAt && ` pada ${new Date(ticket.approvedAt).toLocaleString('id-ID')}`}, dan status WO <strong>RESMI CLOSED</strong>.
-                  {ticket.approvalNotes && <div className="mt-1 italic">Catatan: "{ticket.approvalNotes}"</div>}
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-200">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div>
+                      <strong>{dispatchApprovalLabel || `Approved - ${approvedOutcome || 'Done'}`}</strong> oleh{' '}
+                      <strong>{ticket.approvedBy || 'Dispatch'}</strong>
+                      {ticket.approvedAt && ` pada ${new Date(ticket.approvedAt).toLocaleString('id-ID')}`}.
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-semibold">Status WO Agent:</span>
+                      <StatusAgentBadge status={approvedOutcome || ticket.statusWOAgent} />
+                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wide">
+                        Ticket Result: Closed
+                      </span>
+                    </div>
+                    {ticket.approvalNotes && <div className="italic">Catatan Verifikasi: "{ticket.approvalNotes}"</div>}
+                  </div>
                 </div>
               </div>
             )}
@@ -1007,9 +977,58 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
             )}
 
-            {/* Dispatcher Verification Control Block (RBAC: Dispatch & Super Admin when BUTUH APPROVAL or active notes) */}
+            {/* Integrated Dispatch Approval & Verification Control Block */}
             {canManageApproval && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-              <div className="bg-[#F5F1FF] dark:bg-[#261942] rounded-xl p-4 border border-[#D8CCF3] dark:border-[#4B386B] space-y-3">
+              <div className="bg-[#F5F1FF] dark:bg-[#261942] rounded-xl p-4 border border-[#D8CCF3] dark:border-[#4B386B] space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#D8CCF3]/80 dark:border-[#4B386B]">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <span className="font-bold text-[13.5px] text-[#160D29] dark:text-white">
+                      Dispatch Approval &amp; Penentuan Status WO Agent
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                    <span className="px-2 py-0.5 rounded-md bg-white dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[#35105E] dark:text-[#DAB9FF]">
+                      {selectedApprovalOption.dispatchApprovalLabel}
+                    </span>
+                    <span className="text-[#8B8495]">&rarr;</span>
+                    <StatusAgentBadge status={selectedWoAgentStatus} />
+                    <span className="text-[#8B8495]">&rarr;</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wide">
+                      Ticket: Closed
+                    </span>
+                  </div>
+                </div>
+
+                {/* Ringkasan Laporan Installer & Agent sebagai dasar verifikasi Dispatch */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Laporan Pengerjaan Installer
+                    </div>
+                    <div className="text-[11.5px] font-semibold text-[#211A2E] dark:text-white">
+                      {tier1Label} {tier2Label !== '-' ? `· ${tier2Label}` : ''} {tier3Label !== '-' ? `· ${tier3Label}` : ''}
+                    </div>
+                    <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] line-clamp-2">
+                      {latestProgress?.remarksReport || ticket.remarksWOInstaller || 'Tidak ada catatan tambahan dari teknisi.'}
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#5B35B1] dark:text-[#DAB9FF]">
+                      Laporan / Catatan Agent &amp; Status Saat Ini
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StatusAgentBadge status={ticket.statusWOAgent} />
+                      <span className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8]">
+                        Installer: <strong className="text-[#211A2E] dark:text-white">{ticket.statusWOInstaller}</strong>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] line-clamp-2">
+                      {ticket.remarksAgent || ticket.remarks || 'Belum ada catatan agent sebelumnya.'}
+                    </p>
+                  </div>
+                </div>
+
                 {decisionError && (
                   <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200 font-semibold flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1017,12 +1036,38 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   </div>
                 )}
 
-                <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-end">
-                  <div className="flex-1 space-y-1.5">
+                {/* Dropdown Hierarki Status WO Agent */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+                  <div className="lg:col-span-4 space-y-1.5">
+                    <label
+                      htmlFor="dispatch-wo-agent-status"
+                      className="text-[12.5px] font-bold text-[#160D29] dark:text-white flex items-center gap-1"
+                    >
+                      <span>Final Status WO Agent</span>
+                      <span className="text-[#DC4C5A]">*</span>
+                    </label>
+                    <select
+                      id="dispatch-wo-agent-status"
+                      value={selectedWoAgentStatus}
+                      onChange={e => setSelectedWoAgentStatus(e.target.value as DispatchApprovalWoAgentStatus)}
+                      disabled={isApproving || isRejecting}
+                      className="w-full px-3 py-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs font-bold text-[#211A2E] dark:text-white border border-[#D8CCF3] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#7135B5] shadow-sm cursor-pointer"
+                    >
+                      {DISPATCH_APPROVAL_OPTIONS.map(opt => (
+                        <option key={opt.woAgentStatus} value={opt.woAgentStatus}>
+                          {opt.dispatchApprovalLabel} (WO: {opt.woAgentStatus} → Ticket: {opt.ticketResult})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8] leading-snug">
+                      {selectedApprovalOption.description}
+                    </p>
+                  </div>
+
+                  <div className="lg:col-span-8 space-y-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <label htmlFor="dispatcher-review-note" className="text-[13px] font-bold text-[#160D29] dark:text-white flex items-center gap-1">
-                        <span>Catatan Pemeriksaan Dispatcher</span>
-                        <span className="text-[#DC4C5A]">*</span>
+                      <label htmlFor="dispatcher-review-note" className="text-[12.5px] font-bold text-[#160D29] dark:text-white flex items-center gap-1">
+                        <span>Catatan Verifikasi Dispatch</span>
                         <span className="text-[11px] font-normal text-[#8B8495]">(Wajib min. 3 karakter jika minta revisi)</span>
                       </label>
 
@@ -1030,7 +1075,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         <span className="text-[10.5px] font-bold uppercase text-[#8B8495]">Template Cepat:</span>
                         <button
                           type="button"
-                          onClick={() => setDecisionNotes('Redaman optik sesuai standar, foto bukti lengkap dan sesuai SOP. Disetujui.')}
+                          onClick={() => setDecisionNotes('Redaman optik sesuai standar, foto bukti lengkap dan sesuai SOP. Disetujui Done.')}
                           className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
                         >
                           Acc Redaman Normal
@@ -1060,42 +1105,46 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         setDecisionNotes(e.target.value);
                         if (decisionError) setDecisionError(null);
                       }}
-                      placeholder="Tuliskan catatan verifikasi hasil teknisi di sini..."
+                      placeholder="Tuliskan catatan verifikasi hasil teknisi / tindak lanjut WO di sini..."
                       className="w-full p-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#D8CCF3] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#7135B5] shadow-sm"
                     />
                   </div>
+                </div>
 
-                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleConfirmReject}
-                      disabled={isRejecting || isApproving}
-                      className="btn-3d-danger flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <ThumbsDown className="w-3.5 h-3.5" />
-                      <span>{isRejecting ? 'Memproses...' : 'Tolak / Minta Revisi'}</span>
-                    </button>
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleConfirmReject}
+                    disabled={isRejecting || isApproving}
+                    className="btn-3d-danger flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                    <span>{isRejecting ? 'Memproses...' : 'Tolak / Minta Revisi'}</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={handleSaveInternalNote}
-                      disabled={isSavingNote || isApproving || isRejecting}
-                      className="btn-3d-ceramic flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <Save className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
-                      <span>{isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}</span>
-                    </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveInternalNote}
+                    disabled={isSavingNote || isApproving || isRejecting}
+                    className="btn-3d-ceramic flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <span>{isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={handleConfirmApprove}
-                      disabled={isApproving || isRejecting}
-                      className="btn-3d-success flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>{isApproving ? 'Menyetujui...' : 'Setujui & Selesaikan WO'}</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConfirmApprove}
+                    disabled={isApproving || isRejecting}
+                    className="btn-3d-success flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    <span>
+                      {isApproving
+                        ? 'Menyimpan Approval...'
+                        : `Approve (${selectedWoAgentStatus}) & Close Ticket`}
+                    </span>
+                  </button>
                 </div>
               </div>
             )}
@@ -1563,20 +1612,15 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 onClick={() => {
                   if (ticket.approvalStatus === 'BUTUH APPROVAL') {
                     void handleConfirmApprove();
-                  } else if (canCloseTicket) {
-                    if (!closeNotes.trim() && decisionNotes.trim()) {
-                      setCloseNotes(decisionNotes.trim());
-                    }
-                    setShowCloseModal(v => !v);
                   }
                 }}
-                disabled={isApproving || isRejecting || isTicketClosed}
+                disabled={isApproving || isRejecting || isTicketClosed || ticket.approvalStatus !== 'BUTUH APPROVAL'}
                 title={
                   isTicketClosed
-                    ? 'Work Order sudah berstatus Closed'
+                    ? `${dispatchApprovalLabel || 'Approved'} (Ticket Closed)`
                     : ticket.approvalStatus === 'BUTUH APPROVAL'
-                    ? 'Setujui laporan teknisi (APPROVED) dan tutup WO (CLOSED)'
-                    : 'Tutup Work Order (Close WO)'
+                    ? `Simpan Dispatch Approval (${selectedWoAgentStatus}) dan selesaikan tiket`
+                    : 'Menunggu laporan teknisi masuk antrean BUTUH APPROVAL'
                 }
                 className="btn-3d-success flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
@@ -1585,8 +1629,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   {isApproving
                     ? 'Memproses...'
                     : isTicketClosed
-                    ? 'Approved & Closed'
-                    : 'Approved & Close'}
+                    ? `${dispatchApprovalLabel || `Approved - ${approvedOutcome || 'Done'}`} · Closed`
+                    : ticket.approvalStatus === 'BUTUH APPROVAL'
+                    ? `Approve (${selectedWoAgentStatus}) & Close Ticket`
+                    : 'Menunggu Laporan Teknisi'}
                 </span>
               </button>
             ) : (

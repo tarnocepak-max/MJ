@@ -39,7 +39,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       allowMultipleOpen: true
     }
   ],
-  // Exact 7 Menu Mandiri (Standalone Menu)
+  // Menu Mandiri (Standalone Menu)
   standaloneMenus: [
     {
       id: 'dashboard',
@@ -60,10 +60,20 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       badgeColor: 'purple'
     },
     {
+      id: 'overdue_wo',
+      name: 'OVERDUE WO',
+      icon: 'AlertTriangle',
+      order: 3,
+      visible: true,
+      roles: ['super_admin', 'dispatch', 'leader', 'management_data'],
+      badgeKey: 'overdueTickets',
+      badgeColor: 'rose'
+    },
+    {
       id: 'report_data_wo',
       name: 'Report Data WO',
       icon: 'BarChart3',
-      order: 3,
+      order: 4,
       visible: true,
       roles: ['super_admin', 'dispatch']
     },
@@ -71,7 +81,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       id: 'import',
       name: 'Import Data WO',
       icon: 'FileSpreadsheet',
-      order: 4,
+      order: 5,
       visible: true,
       roles: ['super_admin', 'management_data']
     },
@@ -79,7 +89,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       id: 'contact_centre',
       name: 'Contact Centre',
       icon: 'MessageSquare',
-      order: 5,
+      order: 6,
       visible: true,
       roles: ['super_admin', 'dispatch', 'leader', 'installer']
     },
@@ -87,7 +97,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       id: 'schedule',
       name: 'Schedule',
       icon: 'Calendar',
-      order: 6,
+      order: 7,
       visible: true,
       roles: ['super_admin', 'dispatch', 'leader']
     },
@@ -95,7 +105,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       id: 'users',
       name: 'Management User',
       icon: 'Users',
-      order: 7,
+      order: 8,
       visible: true,
       roles: ['super_admin']
     }

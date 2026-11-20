@@ -225,30 +225,30 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   }, [filteredTickets, safeWoPage, woPageSize]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Banner */}
-      <div className={`bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-4 ${isCompactUI ? '' : 'md:flex-row md:items-center'}`}>
+      <div className={`bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-4 ${isCompactUI ? '' : 'md:flex-row md:items-center'}`}>
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E9E1FF] dark:bg-[#3B1D78]/60 border border-[#D8CCF3] dark:border-[#5B35B1]/50 rounded-full text-[#3B1D78] dark:text-[#E9E1FF] text-xs font-semibold mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#5B35B1]" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-sky-950/50 border border-blue-200 dark:border-sky-800/60 rounded-full text-[#2563EB] dark:text-[#38BDF8] text-[11px] font-bold mb-2">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
             <span>Portal Khusus Role Management Data</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-[#21183A] dark:text-white tracking-tight flex items-center gap-2">
-            <FileCheck className="w-6 h-6 text-[#5B35B1] dark:text-[#B19CF0]" />
-            <span>Manajemen & Validasi Data Operasional</span>
+          <h2 className="text-lg sm:text-2xl font-extrabold text-[#0F172A] dark:text-white tracking-tight flex items-center gap-2">
+            <FileCheck className="w-5 h-5 sm:w-6 sm:h-6 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+            <span>Manajemen &amp; Validasi Data Operasional</span>
           </h2>
-          <p className="text-xs sm:text-sm text-[#756B8D] dark:text-[#D8CCF3] mt-1 max-w-2xl">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
             Pusat kendali kualitas data, validasi ID 7-digit, audit duplikasi, verifikasi jadwal appointment, dan audit impor Work Order.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 min-w-0">
           {(currentUser.role === 'super_admin' || currentUser.role === 'management_data') && (
             <button
               type="button"
               onClick={handleDownloadBackup}
               disabled={isDownloadingBackup}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md border border-emerald-400/50 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-[1.02] active:scale-95 shrink-0"
+              className="min-h-[44px] sm:min-h-[38px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.98] shrink-0"
               title="Unduh arsip cadangan produksi historis (JSON)"
             >
               {isDownloadingBackup ? (
@@ -266,122 +266,122 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
           )}
 
           {/* Tab Switcher */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1 bg-slate-100 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
             <button
               type="button"
               onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`shrink-0 min-h-[40px] sm:min-h-[34px] px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                 activeTab === 'dashboard'
-                  ? 'bg-white dark:bg-[#3B1D78] text-[#5B35B1] dark:text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  ? 'bg-white dark:bg-[#0F172A] text-[#2563EB] dark:text-[#38BDF8] shadow-xs font-bold border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Dashboard Data
             </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('wo_data')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'wo_data'
-                ? 'bg-white dark:bg-[#3B1D78] text-[#5B35B1] dark:text-white shadow-xs font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            Data WO ({filteredTickets.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('import_validation')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'import_validation'
-                ? 'bg-white dark:bg-[#3B1D78] text-[#5B35B1] dark:text-white shadow-xs font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            Import & Validasi
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('quality_monitoring')}
-            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'quality_monitoring'
-                ? 'bg-white dark:bg-[#3B1D78] text-[#5B35B1] dark:text-white shadow-xs font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            Kualitas Data
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('wo_data')}
+              className={`shrink-0 min-h-[40px] sm:min-h-[34px] px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'wo_data'
+                  ? 'bg-white dark:bg-[#0F172A] text-[#2563EB] dark:text-[#38BDF8] shadow-xs font-bold border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Data WO ({filteredTickets.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('import_validation')}
+              className={`shrink-0 min-h-[40px] sm:min-h-[34px] px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'import_validation'
+                  ? 'bg-white dark:bg-[#0F172A] text-[#2563EB] dark:text-[#38BDF8] shadow-xs font-bold border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Import &amp; Validasi
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('quality_monitoring')}
+              className={`shrink-0 min-h-[40px] sm:min-h-[34px] px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'quality_monitoring'
+                  ? 'bg-white dark:bg-[#0F172A] text-[#2563EB] dark:text-[#38BDF8] shadow-xs font-bold border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Kualitas Data
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
       {/* 1. TAB: DASHBOARD DATA */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Metrics Grid */}
-          <div className={`grid gap-3.5 ${isCompactUI ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
-            <div className="p-4 bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] shadow-xs">
-              <div className="text-[11px] font-bold text-[#756B8D] dark:text-[#D8CCF3] uppercase">Total WO</div>
-              <div className="text-2xl font-extrabold text-[#21183A] dark:text-white mt-1">{metrics.total}</div>
+          <div className={`grid gap-3 sm:gap-3.5 ${isCompactUI ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
+            <div className="p-3.5 sm:p-4 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Total WO</div>
+              <div className="text-2xl font-extrabold font-mono tabular-nums text-[#0F172A] dark:text-white mt-1">{metrics.total}</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Seluruh master record</div>
             </div>
 
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-xs">
+            <div className="p-3.5 sm:p-4 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800/70 shadow-xs">
               <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">Data Valid</div>
-              <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300 mt-1">{metrics.validCount}</div>
-              <div className="text-[10px] text-emerald-600/80 mt-0.5">Sesuai aturan data</div>
+              <div className="text-2xl font-extrabold font-mono tabular-nums text-emerald-700 dark:text-emerald-300 mt-1">{metrics.validCount}</div>
+              <div className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Sesuai aturan data</div>
             </div>
 
-            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 shadow-xs">
+            <div className="p-3.5 sm:p-4 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800/70 shadow-xs">
               <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase">Bermasalah</div>
-              <div className="text-2xl font-extrabold text-amber-700 dark:text-amber-300 mt-1">{metrics.problematicCount}</div>
-              <div className="text-[10px] text-amber-600/80 mt-0.5">Perlu koreksi staf</div>
+              <div className="text-2xl font-extrabold font-mono tabular-nums text-amber-700 dark:text-amber-300 mt-1">{metrics.problematicCount}</div>
+              <div className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Perlu koreksi staf</div>
             </div>
 
-            <div className="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-800 shadow-xs">
+            <div className="p-3.5 sm:p-4 bg-rose-50/70 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-800/70 shadow-xs">
               <div className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase">Duplikat WO</div>
-              <div className="text-2xl font-extrabold text-rose-700 dark:text-rose-300 mt-1">{metrics.duplicateCount}</div>
-              <div className="text-[10px] text-rose-600/80 mt-0.5">Nomor WO ganda</div>
+              <div className="text-2xl font-extrabold font-mono tabular-nums text-rose-700 dark:text-rose-300 mt-1">{metrics.duplicateCount}</div>
+              <div className="text-[10px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">Nomor WO ganda</div>
             </div>
 
-            <div className="p-4 bg-purple-50 dark:bg-purple-950/40 rounded-2xl border border-purple-200 dark:border-purple-800 shadow-xs">
-              <div className="text-[11px] font-bold text-purple-700 dark:text-purple-300 uppercase">Tanpa Jadwal</div>
-              <div className="text-2xl font-extrabold text-purple-700 dark:text-purple-300 mt-1">{metrics.missingAppointmentDateCount}</div>
-              <div className="text-[10px] text-purple-600/80 mt-0.5">Appointment kosong</div>
+            <div className="p-3.5 sm:p-4 bg-sky-50/70 dark:bg-sky-950/30 rounded-2xl border border-sky-200 dark:border-sky-800/70 shadow-xs">
+              <div className="text-[11px] font-bold text-sky-700 dark:text-sky-300 uppercase">Tanpa Jadwal</div>
+              <div className="text-2xl font-extrabold font-mono tabular-nums text-sky-700 dark:text-sky-300 mt-1">{metrics.missingAppointmentDateCount}</div>
+              <div className="text-[10px] text-sky-600/80 dark:text-sky-400/80 mt-0.5">Appointment kosong</div>
             </div>
 
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-xs">
-              <div className="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase">Menunggu Validasi</div>
-              <div className="text-2xl font-extrabold text-blue-700 dark:text-blue-300 mt-1">{metrics.awaitingValidationCount}</div>
-              <div className="text-[10px] text-blue-600/80 mt-0.5">Pending penugasan</div>
+            <div className="p-3.5 sm:p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800/70 shadow-xs">
+              <div className="text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] uppercase">Menunggu Validasi</div>
+              <div className="text-2xl font-extrabold font-mono tabular-nums text-[#2563EB] dark:text-[#38BDF8] mt-1">{metrics.awaitingValidationCount}</div>
+              <div className="text-[10px] text-blue-600/80 dark:text-sky-400/80 mt-0.5">Pending penugasan</div>
             </div>
           </div>
 
           {/* Quick Quality Summary & Instructions */}
-          <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-[#21183A] dark:text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-[#5B35B1]" />
+          <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
               <span>Standar Kebijakan Integritas Data MoraJaws</span>
             </h3>
 
-            <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
-                <div className="font-bold text-indigo-600 dark:text-indigo-400">1. Customer ID 7 Digit Murni</div>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+            <div className={`grid gap-3.5 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
+              <div className="p-4 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="font-bold text-[#2563EB] dark:text-[#38BDF8]">1. Customer ID 7 Digit Murni</div>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   Customer ID wajib tepat 7 digit numerik tanpa pembulatan ilmiah, prefix, atau sufiks.
                 </p>
               </div>
 
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
-                <div className="font-bold text-indigo-600 dark:text-indigo-400">2. Appointment Date Presisi</div>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+              <div className="p-4 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="font-bold text-[#2563EB] dark:text-[#38BDF8]">2. Appointment Date Presisi</div>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   Tidak pernah mengasumsikan hari ini atau tanggal upload bila kosong. Format ditampilkan dalam zona waktu Indonesia (WIB).
                 </p>
               </div>
 
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
-                <div className="font-bold text-indigo-600 dark:text-indigo-400">3. WO Number Unik (Zero Duplicate)</div>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+              <div className="p-4 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="font-bold text-[#2563EB] dark:text-[#38BDF8]">3. WO Number Unik (Zero Duplicate)</div>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   Satu nomor WO merepresentasikan satu pekerjaan tunggal. Duplikasi tidak diizinkan menimpa tanpa persetujuan khusus.
                 </p>
               </div>
@@ -392,9 +392,9 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
       {/* 2. TAB: DATA WO */}
       {activeTab === 'wo_data' && (
-        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
           {/* Search Filters Row */}
-          <div className={`grid gap-3 text-xs ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
+          <div className={`grid gap-2.5 sm:gap-3 text-xs ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -402,7 +402,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 placeholder="Cari WO Number..."
                 value={searchWo}
                 onChange={e => setSearchWo(e.target.value)}
-                className="w-full min-h-[42px] sm:min-h-[36px] pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[44px] sm:min-h-[38px] pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
               />
             </div>
 
@@ -412,7 +412,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 placeholder="Cari Customer ID (7 digit)..."
                 value={searchCustomerId}
                 onChange={e => setSearchCustomerId(e.target.value)}
-                className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
               />
             </div>
 
@@ -422,14 +422,14 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 placeholder="Cari Nama Pelanggan..."
                 value={searchCustomerName}
                 onChange={e => setSearchCustomerName(e.target.value)}
-                className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
               />
             </div>
 
             <select
               value={selectedContractor}
               onChange={e => setSelectedContractor(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               <option value="ALL">Semua Mitra Kontraktor</option>
               {contractors.map((c, cIdx) => (
@@ -440,7 +440,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             <select
               value={dateFilterMode}
               onChange={e => setDateFilterMode(e.target.value as ScheduleDateFilterMode)}
-              className="w-full min-h-[42px] sm:min-h-[36px] px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               <option value="all">Semua Tanggal Appointment</option>
               <option value="today">Hari Ini ({operationalDate})</option>
@@ -452,24 +452,24 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
           {/* Custom Date Range if mode is custom */}
           {dateFilterMode === 'custom' && (
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-              <Calendar className="w-4 h-4 text-[#5B35B1] shrink-0" />
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <Calendar className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
               <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                <span className="shrink-0">Mulai:</span>
+                <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">Mulai:</span>
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={e => setCustomStartDate(e.target.value)}
-                  className="w-full min-h-[38px] px-2.5 py-1 bg-white dark:bg-slate-800 border rounded-lg"
+                  className="w-full min-h-[44px] sm:min-h-[38px] px-2.5 py-1 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                 />
               </div>
               <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                <span className="shrink-0">Sampai:</span>
+                <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">Sampai:</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={e => setCustomEndDate(e.target.value)}
-                  className="w-full min-h-[38px] px-2.5 py-1 bg-white dark:bg-slate-800 border rounded-lg"
+                  className="w-full min-h-[44px] sm:min-h-[38px] px-2.5 py-1 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -485,7 +485,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsBulkDeleteModalOpen(true)}
-                  className="min-h-[38px] px-3.5 py-1.5 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Hapus {selectedIds.size} WO Terpilih</span>
@@ -493,7 +493,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="min-h-[38px] px-2.5 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-lg cursor-pointer"
+                  className="min-h-[44px] sm:min-h-[38px] px-3 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-lg cursor-pointer"
                 >
                   Batal
                 </button>
@@ -528,8 +528,8 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
               });
             }}
             mobileTitle={t => (
-              <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">
-                {t.woNumber} — <span className="font-sans text-slate-900 dark:text-white">{t.customerName}</span>
+              <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">
+                {t.woNumber} — <span className="font-sans text-[#0F172A] dark:text-white">{t.customerName}</span>
               </span>
             )}
             mobileSubtitle={t => {
@@ -572,7 +572,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 key: 'woNumber',
                 label: 'WO Number',
                 priority: 'hidden_mobile',
-                render: t => <span className="font-mono font-bold text-[#5B35B1] dark:text-[#B19CF0]">{t.woNumber}</span>
+                render: t => <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{t.woNumber}</span>
               },
               {
                 key: 'customerId',
@@ -711,13 +711,13 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
       {/* 3. TAB: IMPORT & VALIDASI */}
       {activeTab === 'import_validation' && (
-        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-4 sm:p-6 shadow-xs space-y-4">
-          <div className="border-b border-[#E9E1FF] dark:border-[#3B1D78]/60 pb-3">
-            <h3 className="text-sm font-bold text-[#21183A] dark:text-white flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-[#5B35B1]" />
+        <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
               <span>Pemeriksaan Mapping Header &amp; Kolom Terdaftar</span>
             </h3>
-            <p className="text-xs text-[#756B8D] dark:text-[#D8CCF3] mt-0.5">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
               Daftar canonical field standard MoraJaws ({canonicalFields.length} field) yang digunakan untuk memvalidasi setiap baris impor.
             </p>
           </div>
@@ -726,7 +726,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             data={canonicalFields}
             getRowKey={f => f.canonicalField}
             maxTableHeightClass="max-h-96"
-            mobileTitle={f => <span className="font-mono font-bold text-[#5B35B1] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
+            mobileTitle={f => <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{f.canonicalField}</span>}
             mobileSubtitle={f => f.displayLabel}
             mobileStatus={f =>
               f.required ? (
@@ -744,7 +744,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 key: 'canonicalField',
                 label: 'Field Canonical',
                 priority: 'hidden_mobile',
-                render: f => <span className="font-mono font-bold text-[#5B35B1] dark:text-[#DAB9FF]">{f.canonicalField}</span>
+                render: f => <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{f.canonicalField}</span>
               },
               {
                 key: 'displayLabel',
@@ -797,13 +797,13 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
       {/* 4. TAB: MONITORING KUALITAS DATA */}
       {activeTab === 'quality_monitoring' && (
-        <div className="bg-white dark:bg-[#1E1138] rounded-2xl border border-[#D8CCF3] dark:border-[#3B1D78] p-6 shadow-xs space-y-4">
-          <div className="border-b border-[#E9E1FF] dark:border-[#3B1D78]/60 pb-3">
-            <h3 className="text-sm font-bold text-[#21183A] dark:text-white flex items-center gap-2">
+        <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               <span>Antrean Peninjauan Data Bermasalah ({metrics.problematicCount})</span>
             </h3>
-            <p className="text-xs text-[#756B8D] dark:text-[#D8CCF3] mt-0.5">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
               Daftar tiket yang terdeteksi memiliki ketidaklengkapan field, nomor Customer ID non-7 digit, atau tanggal appointment bermasalah.
             </p>
           </div>
@@ -826,14 +826,14 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 const appDate = parseAppointmentDate(t.appointmentDate);
 
                 return (
-                  <div key={t.id} className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div key={t.id} className="p-3.5 sm:p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 font-mono font-bold text-slate-900 dark:text-white">
                         <span>{t.woNumber}</span>
                         <span className="text-slate-400">·</span>
                         <span className="font-sans font-semibold text-slate-700 dark:text-slate-300">{t.customerName}</span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
                         <span>ID Customer: <strong className={isCid7 ? 'text-emerald-600' : 'text-rose-600 font-bold'}>{cid || 'KOSONG'}</strong> ({isCid7 ? 'Valid' : 'Bukan 7 digit'})</span>
                         <span>Appointment Date: <strong className="text-slate-700 dark:text-slate-300">{t.appointmentDate || 'Belum diisi'}</strong> {appDate.error && `(${appDate.error})`}</span>
                       </div>
@@ -849,7 +849,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                             updateTicket(t.id, { idCustomer: digits, customerId: digits });
                             toast.success(`Customer ID diperbaiki menjadi ${digits}`, 'ID Disesuaikan');
                           }}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs"
+                          className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
                         >
                           Auto-Fix 7 Digit
                         </button>

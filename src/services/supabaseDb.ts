@@ -1,4 +1,4 @@
-import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem } from '../types';
+import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem, OverdueSummaryMetrics, WoClassificationSummary } from '../types';
 import { getAuthHeaders } from './authService';
 
 // ==============================================================================
@@ -820,12 +820,29 @@ export class SupabaseRepository {
     }
   }
 
-  async approveWorkOrderReport(ticketId: string, notes?: string): Promise<SupabaseResponse<Ticket>> {
+  async approveWorkOrderReport(
+    ticketId: string,
+    notes?: string,
+    options?: {
+      woAgentStatus?: 'Done' | 'Pending' | 'Reschedule' | 'Cancel';
+      remarksAgent?: string;
+    }
+  ): Promise<SupabaseResponse<Ticket>> {
     try {
+      const payload: Record<string, any> = {
+        notes: notes || ''
+      };
+      if (options?.woAgentStatus) {
+        payload.woAgentStatus = options.woAgentStatus;
+        payload.statusWOAgent = options.woAgentStatus;
+      }
+      if (options?.remarksAgent !== undefined) {
+        payload.remarksAgent = options.remarksAgent;
+      }
       const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/approve-report`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ notes: notes || '' })
+        body: JSON.stringify(payload)
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || json.success !== true) {
@@ -902,6 +919,102 @@ export class SupabaseRepository {
       return {
         success: false,
         error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat History Progress Report' }
+      };
+    }
+  }
+
+  async fetchOverdueWorkOrders(params?: {
+    search?: string;
+    contractor?: string;
+    area?: string;
+    leader?: string;
+    installer?: string;
+    durationBucket?: string;
+    statusWOAgent?: string;
+    statusWOInstaller?: string;
+    sort?: 'asc' | 'desc';
+  }): Promise<
+    SupabaseResponse<{
+      tickets: Ticket[];
+      summary: OverdueSummaryMetrics;
+      todayWIB: string;
+      total: number;
+    }>
+  > {
+    try {
+      const search = new URLSearchParams();
+      if (params?.search) search.set('search', params.search);
+      if (params?.contractor && params.contractor !== 'ALL') search.set('contractor', params.contractor);
+      if (params?.area && params.area !== 'ALL') search.set('area', params.area);
+      if (params?.leader && params.leader !== 'ALL') search.set('leader', params.leader);
+      if (params?.installer && params.installer !== 'ALL') search.set('installer', params.installer);
+      if (params?.durationBucket && params.durationBucket !== 'ALL') search.set('durationBucket', params.durationBucket);
+      if (params?.statusWOAgent && params.statusWOAgent !== 'ALL') search.set('statusWOAgent', params.statusWOAgent);
+      if (params?.statusWOInstaller && params.statusWOInstaller !== 'ALL') search.set('statusWOInstaller', params.statusWOInstaller);
+      if (params?.sort) search.set('sort', params.sort);
+      const qs = search.toString();
+      const res = await fetch(`/api/work-orders/overdue${qs ? `?${qs}` : ''}`, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(res.status, json, 'SELECT', 'work_orders', 'Gagal memuat daftar Overdue WO')
+        };
+      }
+      return {
+        success: true,
+        data: {
+          tickets: Array.isArray(json.tickets) ? json.tickets : [],
+          summary: json.summary,
+          todayWIB: json.todayWIB,
+          total: Number(json.total || 0)
+        }
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menghubungi endpoint Overdue WO' }
+      };
+    }
+  }
+
+  async fetchWoClassifications(category?: string): Promise<
+    SupabaseResponse<{
+      todayWIB: string;
+      summary: WoClassificationSummary;
+      overdueSummary: OverdueSummaryMetrics;
+      exceptionTickets: Ticket[];
+      tickets: Ticket[];
+    }>
+  > {
+    try {
+      const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+      const res = await fetch(`/api/work-orders/classifications${qs}`, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(res.status, json, 'SELECT', 'work_orders', 'Gagal memuat klasifikasi WO')
+        };
+      }
+      return {
+        success: true,
+        data: {
+          todayWIB: json.todayWIB,
+          summary: json.summary,
+          overdueSummary: json.overdueSummary,
+          exceptionTickets: Array.isArray(json.exceptionTickets) ? json.exceptionTickets : [],
+          tickets: Array.isArray(json.tickets) ? json.tickets : []
+        }
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menghubungi endpoint klasifikasi WO' }
       };
     }
   }

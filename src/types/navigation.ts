@@ -24,8 +24,8 @@ export interface NavigationStandaloneMenu {
   visible: boolean;
   active?: boolean; // Legacy alias for visible
   roles?: UserRole[]; // Roles allowed to access
-  badgeKey?: 'totalTickets' | 'unassignedTickets' | 'live' | 'auto';
-  badgeColor?: 'purple' | 'amber' | 'emerald';
+  badgeKey?: 'totalTickets' | 'unassignedTickets' | 'overdueTickets' | 'live' | 'auto';
+  badgeColor?: 'purple' | 'amber' | 'emerald' | 'rose';
 }
 
 export interface NavigationSubmenuItem {
@@ -39,8 +39,8 @@ export interface NavigationSubmenuItem {
   visible: boolean;
   active?: boolean; // Legacy alias for visible
   roles?: UserRole[]; // Roles allowed to access
-  badgeKey?: 'totalTickets' | 'unassignedTickets' | 'express' | 'live' | 'auto';
-  badgeColor?: 'purple' | 'amber' | 'emerald';
+  badgeKey?: 'totalTickets' | 'unassignedTickets' | 'overdueTickets' | 'express' | 'live' | 'auto';
+  badgeColor?: 'purple' | 'amber' | 'emerald' | 'rose';
   highlight?: boolean;
 }
 

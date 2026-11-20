@@ -135,8 +135,7 @@ export function getTicketWODate(ticket: unknown): string | null {
     t.scheduleDate,
     t.scheduledDate,
     t.appointment_date,
-    t.schedule_date,
-    t.date
+    t.schedule_date
   ];
 
   for (const candidate of candidates) {

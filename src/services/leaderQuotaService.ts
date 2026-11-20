@@ -277,7 +277,11 @@ export function buildTechnicianCapacitySummaries(params: {
 
     const assignedCount = instTickets.length;
     const completedCount = instTickets.filter(
-      t => t.statusWOInstaller === 'Completed' || t.statusWOInstaller === 'Installed' || t.statusWOAgent === 'Closed'
+      t =>
+        t.statusWOInstaller === 'Completed' ||
+        t.statusWOInstaller === 'Installed' ||
+        t.statusWOAgent === 'Done' ||
+        t.statusWOAgent === 'Closed'
     ).length;
 
     const remainingSlots = Math.max(0, maxLimit - assignedCount);

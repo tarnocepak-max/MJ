@@ -111,7 +111,7 @@ export const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'customerPhone', label: 'No. Telepon / WhatsApp', visible: true, order: 5, width: 150, format: 'phone', categoryGroup: 'A', mandatory: true, badgeHint: 'wa.me Action', description: 'Format MSISDN (+628xxx) link langsung kirim template' },
 
   // B. 4-Dimensi Status & Governance (4 Kolom)
-  { key: 'statusWOAgent', label: 'Status WO Agent', visible: true, order: 6, width: 130, format: 'status_agent', sortable: true, filterable: true, categoryGroup: 'B', description: 'Workflow tahapan: Pending, Assigned, In Progress, Resolved, Closed' },
+  { key: 'statusWOAgent', label: 'Status WO Agent', visible: true, order: 6, width: 130, format: 'status_agent', sortable: true, filterable: true, categoryGroup: 'B', description: 'Status akhir WO Agent hasil approval Dispatch: Done, Pending, Reschedule, Cancel' },
   { key: 'statusWOInstaller', label: 'Status WO Teknisi', visible: true, order: 7, width: 135, format: 'status_installer', sortable: true, filterable: true, categoryGroup: 'B', description: 'Progress fisik lapangan: En Route, On Site, Completed, Kendala' },
   { key: 'statusWhatsApp', label: 'Status WhatsApp Pelanggan', visible: true, order: 8, width: 145, format: 'status_wa', sortable: true, filterable: true, categoryGroup: 'B', description: 'Konfirmasi janji: Ready, Opened, Confirmed, Unreachable' },
   { key: 'approvalStatus', label: 'Status Approval Dispatch', visible: true, order: 9, width: 140, format: 'badge', sortable: true, filterable: true, categoryGroup: 'B', badgeHint: 'BUTUH APPROVAL', description: 'Gerbang verifikasi data: APPROVED, REJECTED, BUTUH APPROVAL' },

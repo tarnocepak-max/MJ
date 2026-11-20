@@ -313,8 +313,9 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
   const telemetry = useMemo(() => {
     const total = c.totalToday;
     const assignedPct = total > 0 ? Math.round((c.assigned / total) * 1000) / 10 : 0;
-    const completedCount = c.approved + c.closed;
-    const completionPct = total > 0 ? Math.round((completedCount / total) * 1000) / 10 : 0;
+    const completedCount = c.approvedDone ?? 0;
+    const approvalPct = total > 0 ? Math.round((c.approved / total) * 1000) / 10 : c.approvalRatePct || 0;
+    const completionPct = total > 0 ? Math.round((completedCount / total) * 1000) / 10 : c.completionRatePct || 0;
 
     // Geotag verified count among checked-in or reported tickets
     const checkedInTickets = filteredTodayTickets.filter(t => isTicketCheckedIn(t));
@@ -395,6 +396,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     return {
       assignedPct,
       completedCount,
+      approvalPct,
       completionPct,
       geotagVerifiedCount,
       geotagPct,
@@ -417,12 +419,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     const total = c.totalToday;
     const items = [
       { key: 'checkin', label: 'Check-In / Progress', count: c.checkedInProgress, color: '#0ea5e9' },
-      { key: 'complete', label: 'Approved & Closed', count: telemetry.completedCount, color: '#10b981' },
+      { key: 'complete', label: 'Approved - Done', count: c.approvedDone, color: '#10b981' },
       { key: 'approval', label: 'Butuh Approval', count: c.butuhApproval, color: '#58149c' },
       { key: 'revision', label: 'Revisi / Rejected', count: c.revisionRejected, color: '#f59e0b' },
-      { key: 'reschedule', label: 'Reschedule', count: c.reportReschedule, color: '#6a46c1' },
-      { key: 'pending', label: 'Pending', count: c.reportPending, color: '#eab308' },
-      { key: 'cancel', label: 'Cancel', count: c.reportCancel, color: '#f43f5e' }
+      { key: 'reschedule', label: 'Reschedule', count: c.approvedReschedule || c.reportReschedule, color: '#6a46c1' },
+      { key: 'pending', label: 'Pending', count: c.approvedPending || c.reportPending, color: '#eab308' },
+      { key: 'cancel', label: 'Cancel', count: c.approvedCancel || c.reportCancel, color: '#f43f5e' }
     ];
 
     const sumBuckets = items.reduce((acc, i) => acc + i.count, 0);
@@ -519,7 +521,13 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         { Metric: 'Unassigned Buffer', Value: c.unassigned },
         { Metric: 'Checked-In / Progress', Value: c.checkedInProgress },
         { Metric: 'Butuh Approval', Value: c.butuhApproval },
-        { Metric: 'Approved', Value: c.approved },
+        { Metric: 'Approved (Total)', Value: c.approved },
+        { Metric: 'Approved - Done', Value: c.approvedDone },
+        { Metric: 'Approved - Pending', Value: c.approvedPending },
+        { Metric: 'Approved - Reschedule', Value: c.approvedReschedule },
+        { Metric: 'Approved - Cancel', Value: c.approvedCancel },
+        { Metric: 'Approval Rate (%)', Value: telemetry.approvalPct },
+        { Metric: 'Completion Rate (%)', Value: telemetry.completionPct },
         { Metric: 'Closed', Value: c.closed },
         { Metric: 'Perlu Revisi', Value: c.revisionRejected },
         { Metric: 'Report Pending', Value: c.reportPending },
@@ -934,22 +942,22 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
         </button>
 
-        {/* Card 5: Complete Approved & Closed */}
+        {/* Card 5: Approved Done & Completion Rate */}
         <button
           type="button"
-          onClick={() => onDrillDown('approved')}
+          onClick={() => onDrillDown('approved_done')}
           className="relative group text-left bg-white dark:bg-[#1e1238] rounded-xl p-4 shadow-[0_4px_16px_rgba(53,16,94,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] border border-[#e8ddff]/80 dark:border-[#3b1d78] hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(53,16,94,0.12)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
-                COMPLETE (APPROVED)
+                DONE (APPROVED)
               </span>
               <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             </div>
             <div className="mt-3 flex items-baseline justify-between gap-2">
               <span className="font-display text-3xl font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                {telemetry.completedCount}
+                {c.approvedDone}
               </span>
               <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 dark:bg-emerald-950/70 dark:text-emerald-200 px-1.5 py-0.5 rounded tabular-nums">
                 Done {telemetry.completionPct}%
@@ -957,7 +965,9 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
             </div>
             <div className="mt-3 flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
               <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>Approved: {c.approved} · Closed: {c.closed}</span>
+              <span>
+                Approved: {c.approved} ({telemetry.approvalPct}%) · Closed: {c.closed}
+              </span>
             </div>
           </div>
           <div className="mt-2 text-[11.5px] text-[#4b4452] dark:text-[#cabde8] tabular-nums">
@@ -1014,6 +1024,79 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 p-3 bg-white dark:bg-[#1e1238] rounded-xl border border-[#e8ddff]/80 dark:border-[#3b1d78] shadow-[0_2px_8px_rgba(53,16,94,0.04),inset_0_1px_0_rgba(255,255,255,0.85)]">
         <button
           type="button"
+          onClick={() => onDrillDown('approved')}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-lg bg-[#58149c]/15 flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+              APPROVAL RATE
+            </div>
+            <div className="font-display text-base font-extrabold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+              {telemetry.approvalPct}%{' '}
+              <span className="text-[11px] font-normal text-[#7d7484]">({c.approved})</span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onDrillDown('approved_reschedule')}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-lg bg-[#6a46c1]/15 flex items-center justify-center text-[#6a46c1] dark:text-[#dab9ff] shrink-0">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+              RESCHEDULE
+            </div>
+            <div className="font-display text-base font-extrabold text-[#6a46c1] dark:text-[#dab9ff] tabular-nums">
+              {c.approvedReschedule} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onDrillDown('approved_pending')}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+            <Hourglass className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+              PENDING
+            </div>
+            <div className="font-display text-base font-extrabold text-amber-900 dark:text-amber-200 tabular-nums">
+              {c.approvedPending} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onDrillDown('approved_cancel')}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-700 dark:text-rose-300 shrink-0">
+            <XCircle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+              CANCEL
+            </div>
+            <div className="font-display text-base font-extrabold text-rose-800 dark:text-rose-300 tabular-nums">
+              {c.approvedCancel} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
           onClick={() => onDrillDown('revision_rejected')}
           className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
         >
@@ -1032,80 +1115,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
 
         <button
           type="button"
-          onClick={() => onDrillDown('report_reschedule')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#6a46c1]/15 flex items-center justify-center text-[#6a46c1] dark:text-[#dab9ff] shrink-0">
-            <Calendar className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
-              RESCHEDULE
-            </div>
-            <div className="font-display text-base font-extrabold text-[#6a46c1] dark:text-[#dab9ff] tabular-nums">
-              {c.reportReschedule} <span className="text-xs font-normal text-[#7d7484]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('report_pending')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
-            <Hourglass className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
-              PENDING
-            </div>
-            <div className="font-display text-base font-extrabold text-amber-900 dark:text-amber-200 tabular-nums">
-              {c.reportPending} <span className="text-xs font-normal text-[#7d7484]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('report_cancel')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-700 dark:text-rose-300 shrink-0">
-            <XCircle className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
-              CANCEL
-            </div>
-            <div className="font-display text-base font-extrabold text-rose-800 dark:text-rose-300 tabular-nums">
-              {c.reportCancel} <span className="text-xs font-normal text-[#7d7484]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate(currentUser.role === 'leader' ? 'wo_assignment' : 'tickets')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#7135b5]/15 flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
-            <Wrench className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
-              TEKNISI AKTIF
-            </div>
-            <div className="font-display text-base font-extrabold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
-              {telemetry.activeInstallers}
-              <span className="text-xs font-normal text-[#7d7484]">/{telemetry.totalInstallers}</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('closed')}
+          onClick={() => onDrillDown('approved_done')}
           className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
         >
           <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
@@ -1306,7 +1316,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   7. Terminal State
                 </span>
                 <span className="text-xs text-[#58149c] dark:text-[#dab9ff] font-bold tabular-nums">
-                  {telemetry.completedCount} Selesai
+                  {c.approvedDone} Done
                 </span>
                 <span className="text-[10.5px] text-[#7d7484] mt-0.5">Closed: {c.closed}</span>
               </button>
@@ -1384,12 +1394,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 filter: 'checked_in_progress' as WOKpiFilterKey
               },
               {
-                label: 'Approved & Closed',
-                count: telemetry.completedCount,
+                label: 'Approved - Done',
+                count: c.approvedDone,
                 dotClass: 'bg-emerald-500',
                 barClass: 'bg-emerald-500',
                 textClass: 'text-emerald-700 dark:text-emerald-300',
-                filter: 'closed' as WOKpiFilterKey
+                filter: 'approved_done' as WOKpiFilterKey
               },
               {
                 label: 'Butuh Approval',
@@ -1631,8 +1641,15 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                             ) : (
                               <StatusInstallerBadge status={ticket.statusWOInstaller} />
                             )}
-                            {ticket.statusWOAgent === 'Closed' && (
-                              <StatusAgentBadge status={ticket.statusWOAgent} />
+                            {isTicketClosed(ticket) && (
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <StatusAgentBadge status={ticket.statusWOAgent} />
+                                {ticket.statusWOAgent !== 'Closed' && (
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase">
+                                    Closed
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>

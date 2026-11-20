@@ -1,6 +1,8 @@
 import {
   Ticket,
   User,
+  DispatchApprovalWoAgentStatus,
+  DispatchApprovalOutcome,
   WOKpiFilterKey,
   WOKpiSummary,
   FieldDispatchKpiCounts,
@@ -10,6 +12,77 @@ import { getTicketAppointmentDate, getJakartaDateString } from './appointmentDat
 
 export type CanonicalReportStatus = 'PENDING' | 'COMPLETE' | 'RESCHEDULE' | 'CANCEL' | 'NONE';
 export type CanonicalApprovalStatus = 'NONE' | 'BUTUH APPROVAL' | 'APPROVED' | 'REVISION';
+
+export interface DispatchApprovalOption {
+  woAgentStatus: DispatchApprovalWoAgentStatus;
+  dispatchApprovalLabel: DispatchApprovalOutcome;
+  ticketResult: 'Closed';
+  shortLabel: string;
+  description: string;
+}
+
+export const DISPATCH_APPROVAL_OPTIONS: DispatchApprovalOption[] = [
+  {
+    woAgentStatus: 'Done',
+    dispatchApprovalLabel: 'Approved - Done',
+    ticketResult: 'Closed',
+    shortLabel: 'Done',
+    description: 'WO telah selesai dan hasil pekerjaan disetujui Dispatch (Ticket Closed)'
+  },
+  {
+    woAgentStatus: 'Pending',
+    dispatchApprovalLabel: 'Approved - Pending',
+    ticketResult: 'Closed',
+    shortLabel: 'Pending',
+    description: 'WO belum dapat diselesaikan dan membutuhkan tindak lanjut (Ticket Closed)'
+  },
+  {
+    woAgentStatus: 'Reschedule',
+    dispatchApprovalLabel: 'Approved - Reschedule',
+    ticketResult: 'Closed',
+    shortLabel: 'Reschedule',
+    description: 'WO harus dijadwalkan ulang sesuai hasil verifikasi (Ticket Closed)'
+  },
+  {
+    woAgentStatus: 'Cancel',
+    dispatchApprovalLabel: 'Approved - Cancel',
+    ticketResult: 'Closed',
+    shortLabel: 'Cancel',
+    description: 'WO dibatalkan berdasarkan hasil verifikasi Dispatch (Ticket Closed)'
+  }
+];
+
+export function normalizeDispatchWoAgentStatus(rawValue: unknown): DispatchApprovalWoAgentStatus | null {
+  const s = String(rawValue || '').trim().toUpperCase();
+  if (!s) return null;
+  if (s === 'APPROVED - DONE' || s === 'DONE' || s === 'COMPLETE' || s === 'COMPLETED' || s === 'RESOLVED') {
+    return 'Done';
+  }
+  if (s === 'APPROVED - PENDING' || s === 'PENDING' || s === 'PENDING TECHNICAL' || s === 'TERTUNDA') {
+    return 'Pending';
+  }
+  if (s === 'APPROVED - RESCHEDULE' || s === 'RESCHEDULE' || s === 'RESCHEDULED') {
+    return 'Reschedule';
+  }
+  if (s === 'APPROVED - CANCEL' || s === 'CANCEL' || s === 'CANCELLED' || s === 'CANCELED' || s === 'BATAL') {
+    return 'Cancel';
+  }
+  return null;
+}
+
+export function getDispatchApprovalOutcomeLabel(status: DispatchApprovalWoAgentStatus): DispatchApprovalOutcome {
+  switch (status) {
+    case 'Pending':
+      return 'Approved - Pending';
+    case 'Reschedule':
+      return 'Approved - Reschedule';
+    case 'Cancel':
+      return 'Approved - Cancel';
+    case 'Done':
+    default:
+      return 'Approved - Done';
+  }
+}
 
 export function isValidGeoCoordPair(lat: unknown, lng: unknown): boolean {
   const nLat = Number(lat);
@@ -138,10 +211,43 @@ export function getTicketCanonicalApprovalStatus(ticket: Ticket): CanonicalAppro
   return 'NONE';
 }
 
+export function getTicketDispatchWoAgentOutcome(ticket: Ticket): DispatchApprovalWoAgentStatus | null {
+  if (!ticket) return null;
+  if (getTicketCanonicalApprovalStatus(ticket) !== 'APPROVED') return null;
+
+  const fromAgent = normalizeDispatchWoAgentStatus(ticket.statusWOAgent);
+  if (fromAgent) return fromAgent;
+
+  const fromDispatchLabel = normalizeDispatchWoAgentStatus(ticket.dispatchApprovalStatus);
+  if (fromDispatchLabel) return fromDispatchLabel;
+
+  // Legacy fallback for records stored prior to decoupling Ticket Closed vs WO Agent Done
+  const repStatus = getTicketCanonicalReportStatus(ticket);
+  if (repStatus === 'PENDING') return 'Pending';
+  if (repStatus === 'RESCHEDULE') return 'Reschedule';
+  if (repStatus === 'CANCEL') return 'Cancel';
+  return 'Done';
+}
+
+export function getRecommendedDispatchWoAgentStatus(ticket: Ticket): DispatchApprovalWoAgentStatus {
+  if (!ticket) return 'Done';
+  const existingApproved = getTicketDispatchWoAgentOutcome(ticket);
+  if (existingApproved) return existingApproved;
+
+  const repStatus = getTicketCanonicalReportStatus(ticket);
+  if (repStatus === 'PENDING') return 'Pending';
+  if (repStatus === 'RESCHEDULE') return 'Reschedule';
+  if (repStatus === 'CANCEL') return 'Cancel';
+  if (repStatus === 'COMPLETE') return 'Done';
+
+  return normalizeDispatchWoAgentStatus(ticket.dispatchApprovalStatus) || 'Done';
+}
+
 export function isTicketClosed(ticket: Ticket): boolean {
   if (!ticket) return false;
+  if (String(ticket.ticketResult || '').trim().toLowerCase() === 'closed') return true;
   if (String(ticket.statusWOAgent || '').trim().toLowerCase() === 'closed') return true;
-  if (getTicketCanonicalApprovalStatus(ticket) === 'APPROVED' && Boolean(ticket.closedAt)) return true;
+  if (getTicketCanonicalApprovalStatus(ticket) === 'APPROVED') return true;
   return false;
 }
 
@@ -206,6 +312,7 @@ export function matchesKpiFilter(ticket: Ticket, filterKey: WOKpiFilterKey): boo
   const validHouseCheckIn = hasValidHousePhotoCheckIn(ticket);
   const reportStatus = getTicketCanonicalReportStatus(ticket);
   const approvalStatus = getTicketCanonicalApprovalStatus(ticket);
+  const approvedOutcome = getTicketDispatchWoAgentOutcome(ticket);
   const closed = isTicketClosed(ticket);
 
   switch (filterKey) {
@@ -239,6 +346,14 @@ export function matchesKpiFilter(ticket: Ticket, filterKey: WOKpiFilterKey): boo
       return approvalStatus === 'BUTUH APPROVAL';
     case 'approved':
       return approvalStatus === 'APPROVED';
+    case 'approved_done':
+      return approvedOutcome === 'Done';
+    case 'approved_pending':
+      return approvedOutcome === 'Pending';
+    case 'approved_reschedule':
+      return approvedOutcome === 'Reschedule';
+    case 'approved_cancel':
+      return approvedOutcome === 'Cancel';
     case 'revision_rejected':
       return approvalStatus === 'REVISION';
     case 'closed':
@@ -325,6 +440,12 @@ export function computeClientKpiSummary(
     reportCancel: 0,
     butuhApproval: 0,
     approved: 0,
+    approvedDone: 0,
+    approvedPending: 0,
+    approvedReschedule: 0,
+    approvedCancel: 0,
+    approvalRatePct: 0,
+    completionRatePct: 0,
     revisionRejected: 0,
     closed: 0,
     unmappedDistribution: 0
@@ -342,6 +463,7 @@ export function computeClientKpiSummary(
     const checkedIn = isTicketCheckedIn(t);
     const reportStatus = getTicketCanonicalReportStatus(t);
     const approvalStatus = getTicketCanonicalApprovalStatus(t);
+    const approvedOutcome = getTicketDispatchWoAgentOutcome(t);
     const closed = isTicketClosed(t);
     const unmapped = isTicketUnmappedDistribution(t);
 
@@ -353,7 +475,13 @@ export function computeClientKpiSummary(
     else if (reportStatus === 'RESCHEDULE') counts.reportReschedule++;
     else if (reportStatus === 'CANCEL') counts.reportCancel++;
     if (approvalStatus === 'BUTUH APPROVAL') counts.butuhApproval++;
-    else if (approvalStatus === 'APPROVED') counts.approved++;
+    else if (approvalStatus === 'APPROVED') {
+      counts.approved++;
+      if (approvedOutcome === 'Done') counts.approvedDone++;
+      else if (approvedOutcome === 'Pending') counts.approvedPending++;
+      else if (approvedOutcome === 'Reschedule') counts.approvedReschedule++;
+      else if (approvedOutcome === 'Cancel') counts.approvedCancel++;
+    }
     else if (approvalStatus === 'REVISION') counts.revisionRejected++;
     if (closed) counts.closed++;
     if (unmapped) counts.unmappedDistribution++;
@@ -374,6 +502,10 @@ export function computeClientKpiSummary(
         reportCancel: 0,
         butuhApproval: 0,
         approved: 0,
+        approvedDone: 0,
+        approvedPending: 0,
+        approvedReschedule: 0,
+        approvedCancel: 0,
         revisionRejected: 0,
         closed: 0,
         unmapped: 0
@@ -389,21 +521,45 @@ export function computeClientKpiSummary(
     if (reportStatus === 'RESCHEDULE') vb.reportReschedule++;
     if (reportStatus === 'CANCEL') vb.reportCancel++;
     if (approvalStatus === 'BUTUH APPROVAL') vb.butuhApproval++;
-    if (approvalStatus === 'APPROVED') vb.approved++;
+    if (approvalStatus === 'APPROVED') {
+      vb.approved++;
+      if (approvedOutcome === 'Done') vb.approvedDone++;
+      else if (approvedOutcome === 'Pending') vb.approvedPending++;
+      else if (approvedOutcome === 'Reschedule') vb.approvedReschedule++;
+      else if (approvedOutcome === 'Cancel') vb.approvedCancel++;
+    }
     if (approvalStatus === 'REVISION') vb.revisionRejected++;
     if (closed) vb.closed++;
     if (unmapped) vb.unmapped++;
 
     const areaName = String(t.area || 'Tanpa Area').trim() || 'Tanpa Area';
     if (!areaMap.has(areaName)) {
-      areaMap.set(areaName, { area: areaName, total: 0, unassigned: 0, checkedInProgress: 0, butuhApproval: 0, approved: 0, closed: 0 });
+      areaMap.set(areaName, {
+        area: areaName,
+        total: 0,
+        unassigned: 0,
+        checkedInProgress: 0,
+        butuhApproval: 0,
+        approved: 0,
+        approvedDone: 0,
+        approvedPending: 0,
+        approvedReschedule: 0,
+        approvedCancel: 0,
+        closed: 0
+      });
     }
     const ab = areaMap.get(areaName);
     ab.total++;
     if (!assigned) ab.unassigned++;
     if (checkedIn && !closed && approvalStatus !== 'APPROVED') ab.checkedInProgress++;
     if (approvalStatus === 'BUTUH APPROVAL') ab.butuhApproval++;
-    if (approvalStatus === 'APPROVED') ab.approved++;
+    if (approvalStatus === 'APPROVED') {
+      ab.approved++;
+      if (approvedOutcome === 'Done') ab.approvedDone++;
+      else if (approvedOutcome === 'Pending') ab.approvedPending++;
+      else if (approvedOutcome === 'Reschedule') ab.approvedReschedule++;
+      else if (approvedOutcome === 'Cancel') ab.approvedCancel++;
+    }
     if (closed) ab.closed++;
 
     const leaderName = String(t.leaderName || 'Belum Terdistribusi').trim() || 'Belum Terdistribusi';
@@ -422,17 +578,25 @@ export function computeClientKpiSummary(
       const installerName = String(t.installerName || t.assignedTo || 'Teknisi').trim() || 'Teknisi';
       const iKey = `${installerName}::${vendorName}`;
       if (!installerMap.has(iKey)) {
-        installerMap.set(iKey, { installerName, contractorName: vendorName, area: areaName, total: 0, checkedInProgress: 0, butuhApproval: 0, approved: 0, revisionRejected: 0, closed: 0 });
+        installerMap.set(iKey, { installerName, contractorName: vendorName, area: areaName, total: 0, checkedInProgress: 0, butuhApproval: 0, approved: 0, approvedDone: 0, revisionRejected: 0, closed: 0 });
       }
       const ib = installerMap.get(iKey);
       ib.total++;
       if (checkedIn && !closed && approvalStatus !== 'APPROVED') ib.checkedInProgress++;
       if (approvalStatus === 'BUTUH APPROVAL') ib.butuhApproval++;
-      if (approvalStatus === 'APPROVED') ib.approved++;
+      if (approvalStatus === 'APPROVED') {
+        ib.approved++;
+        if (approvedOutcome === 'Done') ib.approvedDone++;
+      }
       if (approvalStatus === 'REVISION') ib.revisionRejected++;
       if (closed) ib.closed++;
     }
   });
+
+  counts.approvalRatePct =
+    counts.totalToday > 0 ? Math.min(100, Math.round((counts.approved / counts.totalToday) * 1000) / 10) : 0;
+  counts.completionRatePct =
+    counts.totalToday > 0 ? Math.min(100, Math.round((counts.approvedDone / counts.totalToday) * 1000) / 10) : 0;
 
   return {
     dateWIB,
@@ -460,10 +624,19 @@ export function extractProgressReportHistoryClient(tickets: Ticket[]): ProgressR
       if (!rep) return;
       const versionNumber = totalVersions - idx;
       const isLatest = idx === 0;
-      const repApproval = rep.approvalStatus || (isLatest ? t.approvalStatus : undefined) || 'BUTUH APPROVAL';
+      const repApproval =
+        isLatest && t.approvalStatus === 'APPROVED'
+          ? 'APPROVED'
+          : rep.approvalStatus || (isLatest ? t.approvalStatus : undefined) || 'BUTUH APPROVAL';
       const canonicalReport = normalizeCanonicalReportStatus(
         rep.reportStatusLabel || rep.reportStatus || t.reportStatusLabel
       );
+
+      const approvedOutcome = getTicketDispatchWoAgentOutcome(t);
+      const repOutcome =
+        normalizeDispatchWoAgentStatus(rep.finalWoStatus) ||
+        normalizeDispatchWoAgentStatus(rep.dispatchApprovalStatus) ||
+        (repApproval === 'APPROVED' ? approvedOutcome || 'Done' : null);
 
       items.push({
         id: rep.id || `${t.id}_v${versionNumber}`,
@@ -489,6 +662,11 @@ export function extractProgressReportHistoryClient(tickets: Ticket[]): ProgressR
             : repApproval === 'REJECTED' || repApproval === 'REVISI'
             ? 'REVISION / REJECTED'
             : 'WAITING APPROVAL',
+        dispatchApprovalStatus:
+          rep.dispatchApprovalStatus ||
+          (repApproval === 'APPROVED' && repOutcome ? getDispatchApprovalOutcomeLabel(repOutcome) : undefined),
+        ticketResult:
+          rep.ticketResult || (repApproval === 'APPROVED' ? 'Closed' : undefined),
         dispatchApprover:
           rep.approvedBy ||
           rep.rejectedBy ||
@@ -511,7 +689,10 @@ export function extractProgressReportHistoryClient(tickets: Ticket[]): ProgressR
             : undefined),
         approvalNotes: rep.approvalNotes || (isLatest ? t.approvalNotes : undefined),
         revisionReason: rep.revisionReason || rep.rejectionReason || (isLatest ? t.rejectionReason : undefined),
-        finalWoStatus: isTicketClosed(t) && repApproval === 'APPROVED' ? 'CLOSED' : (t.statusWOAgent || 'In Progress')
+        finalWoStatus:
+          repApproval === 'APPROVED'
+            ? repOutcome || 'Done'
+            : normalizeDispatchWoAgentStatus(rep.finalWoStatus) || t.statusWOAgent || 'In Progress'
       });
     });
   });
@@ -529,10 +710,14 @@ export const KPI_FILTER_LABELS: Record<WOKpiFilterKey, string> = {
   report_complete: 'Report Complete',
   report_reschedule: 'Report Reschedule',
   report_cancel: 'Report Cancel',
-  butuh_approval: 'Butuh Approval',
+  butuh_approval: 'Waiting Verification',
   approved: 'Disetujui (Approved)',
+  approved_done: 'Approved - Done',
+  approved_pending: 'Approved - Pending',
+  approved_reschedule: 'Approved - Reschedule',
+  approved_cancel: 'Approved - Cancel',
   revision_rejected: 'Perlu Revisi',
-  closed: 'WO Closed',
+  closed: 'Ticket Closed (Verified)',
   unmapped_distribution: 'Belum Terdistribusi',
   field_checkin: 'Check-in (Foto Rumah Valid)',
   field_complete: 'Complete (Report Done)',

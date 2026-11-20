@@ -20,6 +20,7 @@ import {
   computeFieldDispatchCounts
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
+import { classifyWorkOrder } from '../../services/woClassificationService';
 import { openCustomerAddressInGoogleMaps, openCoordinatesInGoogleMaps, isValidCoordinatePair } from '../../services/mapsService';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { PHOTO_SLOT_DEFINITIONS } from './fullview/types';
@@ -155,13 +156,19 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     });
   }, [tickets, currentUser]);
 
-  // Today's appointments + any active Dalam Proses / Revision work orders
+  // Today's appointments only (past unfinished WOs are strictly surfaced as Overdue, never leaked into Today)
   const todayTickets = useMemo(() => {
     return myAllAssignedTickets.filter(t => {
       const appDate = getTicketAppointmentDate(t);
-      const bucket = classifyInstallerWoBucket(t);
-      return !appDate || appDate === todayWIB || bucket === 'dalam_proses';
+      return appDate === todayWIB;
     });
+  }, [myAllAssignedTickets, todayWIB]);
+
+  // Overdue WOs strictly assigned to this technician
+  const overdueAssignedTickets = useMemo(() => {
+    return myAllAssignedTickets.filter(
+      t => classifyWorkOrder(t, todayWIB).classification === 'OVERDUE'
+    );
   }, [myAllAssignedTickets, todayWIB]);
 
   // Realtime synced ticket for FullView
@@ -264,7 +271,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     const bucketOrder: Record<InstallerWoBucket, number> = {
       dalam_proses: 0,
       tugas_baru: 1,
-      selesai: 2
+      selesai: 2,
+      overdue: 3
     };
 
     return [...filtered].sort((a, b) => {
@@ -408,7 +416,11 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
   }
 
   const hasImportantNotifications =
-    summary.revisionList.length > 0 || summary.highAttenuationList.length > 0 || !isOnline || pendingCount > 0;
+    overdueAssignedTickets.length > 0 ||
+    summary.revisionList.length > 0 ||
+    summary.highAttenuationList.length > 0 ||
+    !isOnline ||
+    pendingCount > 0;
 
   return (
     <div className="max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto space-y-3.5 pb-20 sm:pb-6">
@@ -725,6 +737,25 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           </div>
 
           <div className="space-y-2">
+            {overdueAssignedTickets.length > 0 && (
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] px-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <span className="font-bold text-[#B91C1C] block truncate">
+                    {overdueAssignedTickets.length} WO Overdue Belum Selesai
+                  </span>
+                  <span className="text-[11px] text-[#B91C1C] block truncate">
+                    Jadwal appointment sebelumnya belum diselesaikan. Buka tab Overdue untuk tindak lanjut.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('installer_tasks', 'overdue')}
+                  className="mj-btn-secondary px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#B91C1C] border-[#FCA5A5] shrink-0 cursor-pointer"
+                >
+                  Lihat Overdue
+                </button>
+              </div>
+            )}
             {summary.revisionList.map(t => (
               <div
                 key={`rev_${t.id}`}

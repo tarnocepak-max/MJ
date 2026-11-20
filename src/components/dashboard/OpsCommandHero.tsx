@@ -28,6 +28,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Ticket, WOKpiFilterKey, WOKpiSummary } from '../../types/index.ts';
 import { computeClientKpiSummary } from '../../services/woLifecycleService';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
@@ -100,9 +101,11 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
   }, [kpiSummary, scopedTickets, currentUser, todayWIB, kpiContractorFilter, kpiAreaFilter]);
 
   const counts = effectiveSummary.counts;
-  const completedCount = counts.approved + counts.closed;
+  const completedCount = counts.approvedDone ?? 0;
+  const approvalPct =
+    counts.totalToday > 0 ? Math.min(100, Math.round((counts.approved / counts.totalToday) * 100)) : counts.approvalRatePct || 0;
   const completionPct =
-    counts.totalToday > 0 ? Math.min(100, Math.round((completedCount / counts.totalToday) * 100)) : 0;
+    counts.totalToday > 0 ? Math.min(100, Math.round((completedCount / counts.totalToday) * 100)) : counts.completionRatePct || 0;
 
   // Build real 7-point hourly/status distribution curve from scopedTickets (zero fabricated metrics)
   const sparklineData = useMemo(() => {
@@ -131,10 +134,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
     return { pts, linePath, areaPath };
   }, [counts]);
 
-  // Active priority Work Orders from scopedTickets (top 6 actionable today/active)
+  // Active priority Work Orders from scopedTickets (strictly Today WIB — overdue WOs live in OVERDUE WO menu)
   const priorityQueueTickets = useMemo(() => {
     return scopedTickets
-      .filter(t => !t.isArchived && !t.isDeleted)
+      .filter(t => !t.isArchived && !t.isDeleted && getTicketAppointmentDate(t) === todayWIB)
       .slice()
       .sort((a, b) => {
         const aNeed = a.approvalStatus === 'BUTUH APPROVAL' ? 0 : 1;
@@ -143,7 +146,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
         return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
       })
       .slice(0, 6);
-  }, [scopedTickets]);
+  }, [scopedTickets, todayWIB]);
 
   // Real combined telemetry feed: recent local click feedback + live auditLogs from AppContext
   const consoleFeed = useMemo<TactileLogEntry[]>(() => {
@@ -385,7 +388,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                   </h2>
                 </div>
                 <span className="px-2 py-0.5 rounded-md bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300 font-mono text-[10px] font-bold tabular-nums">
-                  {completionPct}% Selesai
+                  {completionPct}% Done
                 </span>
               </div>
 
@@ -427,9 +430,9 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] font-semibold">
-                  <span className="text-[#4b4452] dark:text-[#cabde8]">Progres Approved + Closed</span>
+                  <span className="text-[#4b4452] dark:text-[#cabde8]">Done / Closed Dispatch</span>
                   <span className="font-mono font-bold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
-                    {completedCount} / {counts.totalToday}
+                    {completedCount} Done · {counts.closed} Closed / {counts.totalToday}
                   </span>
                 </div>
                 <div className="mj-tactile-well h-2.5 w-full overflow-hidden p-0.5">
@@ -441,7 +444,9 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-[11px] font-mono text-[#4b4452] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#f3eaff] dark:border-[#35105e]">
-                <span className="text-[#15803D] dark:text-emerald-300">Approved: {counts.approved}</span>
+                <span className="text-[#15803D] dark:text-emerald-300">
+                  Approved: {counts.approved} ({approvalPct}%)
+                </span>
                 <span className="text-[#ba1a1a] dark:text-rose-300">Revisi: {counts.revisionRejected}</span>
               </div>
             </div>

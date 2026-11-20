@@ -45,17 +45,21 @@ import {
   Zap
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { TechnicalPhotoSlot, Ticket, WOKpiSummary } from '../../types/index.ts';
+import { DispatchApprovalWoAgentStatus, TechnicalPhotoSlot, Ticket, WOKpiSummary } from '../../types/index.ts';
 import {
+  DISPATCH_APPROVAL_OPTIONS,
   computeClientKpiSummary,
+  getDispatchApprovalOutcomeLabel,
+  getRecommendedDispatchWoAgentStatus,
   getTicketCanonicalApprovalStatus,
-  isTicketCheckedIn
+  isTicketCheckedIn,
+  isTicketClosed
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { buildGoogleMapsCoordinateUrl, buildGoogleMapsSearchUrl, formatCoordinates, isValidCoordinatePair } from '../../services/mapsService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
-import { StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
+import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 
 interface DispatchVerificationDeskProps {
   onNavigate: (tab: string) => void;
@@ -219,6 +223,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [isRefreshingNow, setIsRefreshingNow] = useState(false);
   const [decisionNotes, setDecisionNotes] = useState('');
+  const [selectedWoAgentStatus, setSelectedWoAgentStatus] = useState<DispatchApprovalWoAgentStatus>('Done');
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -390,13 +395,13 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
 
     const totalPendingCount = queueBuckets.pendingList.length;
     const targetMetPct =
-      totalPendingCount > 0 ? Math.round((optimalUnder15 / totalPendingCount) * 1000) / 10 : 100;
+      totalPendingCount > 0 ? Math.round((optimalUnder15 / totalPendingCount) * 1000) / 10 : 0;
 
     const approvedToday = todayTickets.filter(t => getTicketCanonicalApprovalStatus(t) === 'APPROVED').length;
     const revisionToday = todayTickets.filter(t => getTicketCanonicalApprovalStatus(t) === 'REVISION').length;
     const verifiedTodayTotal = approvedToday + revisionToday;
     const approvedSharePct =
-      verifiedTodayTotal > 0 ? Math.round((approvedToday / verifiedTodayTotal) * 100) : 100;
+      verifiedTodayTotal > 0 ? Math.round((approvedToday / verifiedTodayTotal) * 100) : 0;
 
     const checkedInToday = todayTickets.filter(t => isTicketCheckedIn(t));
     const geotagValidToday = todayTickets.filter(t => {
@@ -427,7 +432,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
     });
     const approvedPool = decidedPool.filter(t => getTicketCanonicalApprovalStatus(t) === 'APPROVED').length;
     const ftrRatePct =
-      decidedPool.length > 0 ? Math.round((approvedPool / decidedPool.length) * 1000) / 10 : 100;
+      decidedPool.length > 0 ? Math.round((approvedPool / decidedPool.length) * 1000) / 10 : 0;
 
     const completeProofPool = submittedPool.filter(t => getTicketProofStats(t).verifiedPointsCount === 3).length;
     const proofCompletePct =
@@ -508,6 +513,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
 
     setDecisionError(null);
     setDecisionNotes(selectedTicket.remarksAgent || '');
+    setSelectedWoAgentStatus(getRecommendedDispatchWoAgentStatus(selectedTicket));
     setFailedImages({});
     setShowReschedulePanel(false);
     setRescheduleDate(getTicketAppointmentDate(selectedTicket) || todayWIB);
@@ -599,7 +605,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
       : todayTickets;
 
     const completedInCluster = clusterTickets.filter(
-      t => getTicketCanonicalApprovalStatus(t) === 'APPROVED' || t.statusWOAgent === 'Closed'
+      t => getTicketCanonicalApprovalStatus(t) === 'APPROVED' || isTicketClosed(t)
     ).length;
 
     const opmReadings = clusterTickets
@@ -673,7 +679,10 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
     setDecisionError(null);
     setIsApproving(true);
     const currentId = selectedTicket.id;
-    const res = await approveProgressReport(currentId, decisionNotes.trim() || undefined);
+    const res = await approveProgressReport(currentId, decisionNotes.trim() || undefined, {
+      woAgentStatus: selectedWoAgentStatus,
+      remarksAgent: decisionNotes.trim() || undefined
+    });
     setIsApproving(false);
 
     if (res.success) {
@@ -738,7 +747,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
       {
         appointmentDate: rescheduleDate,
         slotTime: rescheduleSlot,
-        statusWOAgent: 'Pending',
+        statusWOAgent: 'Reschedule',
         statusWhatsApp: 'reschedule_requested',
         remarksAgent: combinedNote
       },
@@ -1022,6 +1031,35 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             <span>Dispatched for re-proof</span>
           </div>
         </button>
+      </div>
+
+      {/* 2B. Role Dispatch Canonical KPI Breakdown Strip (8 Live KPIs) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5 p-3 rounded-xl bg-white dark:bg-[#1e1238] border border-[#e8ddff]/80 dark:border-[#3b1d78] shadow-sm">
+        {[
+          { label: 'Total Ticket', value: `${counts.totalToday}`, sub: `WIB ${todayWIB}`, tone: 'text-[#1f1638] dark:text-white' },
+          { label: 'Waiting Verification', value: `${counts.butuhApproval}`, sub: 'Butuh Approval', tone: 'text-amber-700 dark:text-amber-300' },
+          { label: 'Done', value: `${counts.approvedDone}`, sub: 'Approved - Done', tone: 'text-emerald-700 dark:text-emerald-300' },
+          { label: 'Pending', value: `${counts.approvedPending}`, sub: 'Approved - Pending', tone: 'text-amber-800 dark:text-amber-200' },
+          { label: 'Reschedule', value: `${counts.approvedReschedule}`, sub: 'Approved - Resched', tone: 'text-[#6a46c1] dark:text-[#dab9ff]' },
+          { label: 'Cancel', value: `${counts.approvedCancel}`, sub: 'Approved - Cancel', tone: 'text-rose-700 dark:text-rose-300' },
+          { label: 'Approval Rate', value: `${counts.approvalRatePct}%`, sub: `${counts.approved}/${counts.totalToday} Closed`, tone: 'text-[#58149c] dark:text-[#dab9ff]' },
+          { label: 'Completion Rate', value: `${counts.completionRatePct}%`, sub: `${counts.approvedDone}/${counts.totalToday} Done`, tone: 'text-emerald-700 dark:text-emerald-300' }
+        ].map(item => (
+          <div
+            key={item.label}
+            className="px-3 py-2 rounded-lg bg-[#f8f1ff]/80 dark:bg-[#160d29] border border-[#e8ddff]/60 dark:border-[#35105e]"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8] truncate">
+              {item.label}
+            </div>
+            <div className={`font-display text-xl font-extrabold tabular-nums mt-0.5 ${item.tone}`}>
+              {item.value}
+            </div>
+            <div className="text-[10px] text-[#7d7484] dark:text-[#cabde8]/80 truncate">
+              {item.sub}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* 3. Dedicated Verification Queue Hot Desk Workbench */}
@@ -1425,6 +1463,12 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
 
                     <StatusApprovalBadge status={selectedTicket.approvalStatus} />
                     <StatusInstallerBadge status={selectedTicket.statusWOInstaller} />
+                    <StatusAgentBadge status={selectedTicket.statusWOAgent} />
+                    {isTicketClosed(selectedTicket) && (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 text-[10px] font-bold">
+                        Ticket: Closed
+                      </span>
+                    )}
                   </div>
 
                   <div>
@@ -1885,8 +1929,85 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
 
               {/* Verification Dispatch Action Bar */}
               <div className="pt-2 border-t border-[#e8ddff] dark:border-[#35105e] space-y-3">
+                {/* Ringkasan Laporan Installer & Agent untuk Verifikasi */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 p-3 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff]/80 dark:border-[#35105e] text-xs">
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                      Laporan Installer
+                    </span>
+                    <div className="font-semibold text-[#1f1638] dark:text-white truncate">
+                      {selectedTicket.progressReports?.[0]?.reportStatus ||
+                        selectedTicket.technicalReport?.workResult ||
+                        selectedTicket.statusWOInstaller}
+                      {selectedTicket.progressReports?.[0]?.reasonReport
+                        ? ` · ${selectedTicket.progressReports[0].reasonReport}`
+                        : ''}
+                    </div>
+                    <div className="text-[11px] text-[#4b4452] dark:text-[#cabde8] line-clamp-2">
+                      {selectedTicket.progressReports?.[0]?.remarksReport ||
+                        selectedTicket.technicalReport?.technicalDescription ||
+                        selectedTicket.remarksWOInstaller ||
+                        'Belum ada catatan installer.'}
+                    </div>
+                  </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                      Laporan / Catatan Agent
+                    </span>
+                    <div className="font-semibold text-[#1f1638] dark:text-white truncate">
+                      WO Agent: {selectedTicket.statusWOAgent} • WA: {selectedTicket.statusWhatsApp}
+                    </div>
+                    <div className="text-[11px] text-[#4b4452] dark:text-[#cabde8] line-clamp-2">
+                      {selectedTicket.remarksAgent || 'Belum ada catatan agent.'}
+                    </div>
+                  </div>
+                </div>
+
                 {canManageApproval ? (
                   <>
+                    <div className="p-3 rounded-lg bg-[#fdf7ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-center">
+                        <div>
+                          <label
+                            htmlFor="qc-desk-wo-agent-status"
+                            className="block text-xs font-bold text-[#1f1638] dark:text-white mb-1"
+                          >
+                            Dispatch Approval — Final Status WO Agent
+                          </label>
+                          <select
+                            id="qc-desk-wo-agent-status"
+                            value={selectedWoAgentStatus}
+                            disabled={selectedTicket.approvalStatus !== 'BUTUH APPROVAL'}
+                            onChange={e => {
+                              setSelectedWoAgentStatus(e.target.value as DispatchApprovalWoAgentStatus);
+                              if (decisionError) setDecisionError(null);
+                            }}
+                            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#22123f] border border-[#d8ccf3] dark:border-[#5b35b1] text-xs font-bold text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#58149c]/40 disabled:opacity-60"
+                          >
+                            {DISPATCH_APPROVAL_OPTIONS.map(opt => (
+                              <option key={opt.woAgentStatus} value={opt.woAgentStatus}>
+                                {opt.dispatchApprovalLabel} → WO: {opt.woAgentStatus} (Ticket: Closed)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="text-[11px] text-[#4b4452] dark:text-[#cabde8] space-y-0.5">
+                          <div className="font-bold text-[#58149c] dark:text-[#dab9ff]">
+                            Mapping Hasil: {getDispatchApprovalOutcomeLabel(selectedWoAgentStatus)}
+                          </div>
+                          <div>
+                            WO Agent: <strong>{selectedWoAgentStatus}</strong> • Ticket Result:{' '}
+                            <strong>Closed</strong>
+                          </div>
+                          {selectedTicket.approvedAt && (
+                            <div className="font-mono text-[10px]">
+                              Disetujui: {selectedTicket.approvedBy || 'Dispatch'} ({formatJakartaTimeOnly(selectedTicket.approvedAt)})
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <label
@@ -1958,7 +2079,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                         <button
                           type="button"
                           onClick={handleRequestRevisionSelected}
-                          disabled={isRejecting || isApproving}
+                          disabled={isRejecting || isApproving || selectedTicket.approvalStatus !== 'BUTUH APPROVAL'}
                           className="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg bg-white dark:bg-[#22123f] border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs font-bold shadow-sm hover:shadow-md active:translate-y-0.5 transition-all inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                         >
                           {isRejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4 text-amber-600" />}
@@ -1998,7 +2119,9 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                         )}
                         <span>
                           {selectedTicket.approvalStatus === 'BUTUH APPROVAL'
-                            ? '✓ SETUJUI & SELESAIKAN WO (COMPLETE)'
+                            ? `Approve (${selectedWoAgentStatus}) & Close Ticket`
+                            : selectedTicket.approvalStatus === 'APPROVED'
+                            ? `${selectedTicket.dispatchApprovalStatus || getDispatchApprovalOutcomeLabel(getRecommendedDispatchWoAgentStatus(selectedTicket))} (Closed)`
                             : `STATUS: ${selectedTicket.approvalStatus || 'BELUM SUBMIT'}`}
                         </span>
                       </button>
@@ -2824,8 +2947,39 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                     </label>
                   </div>
 
-                  {/* DISPATCHER NOTES & QUICK SNIPPETS */}
+                  {/* DISPATCH APPROVAL FINAL WO AGENT STATUS & NOTES */}
                   <div className="bg-white dark:bg-[#160d29] p-4 rounded-xl border border-[#e8ddff]/80 dark:border-[#35105e] shadow-[0_2px_8px_rgba(53,16,94,0.06)] flex flex-col gap-2.5">
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="hotdesk-wo-agent-status"
+                        className="text-xs font-bold text-[#1f1638] dark:text-white flex items-center justify-between gap-2"
+                      >
+                        <span>Status Akhir WO Agent (Dispatch Approval)</span>
+                        <span className="text-[10px] font-mono text-[#58149c] dark:text-[#dab9ff]">
+                          Ticket → Closed
+                        </span>
+                      </label>
+                      <select
+                        id="hotdesk-wo-agent-status"
+                        value={selectedWoAgentStatus}
+                        disabled={!canManageApproval || selectedTicket.approvalStatus !== 'BUTUH APPROVAL'}
+                        onChange={e => {
+                          setSelectedWoAgentStatus(e.target.value as DispatchApprovalWoAgentStatus);
+                          if (decisionError) setDecisionError(null);
+                        }}
+                        className="w-full px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#22123f] border border-[#d8ccf3] dark:border-[#5b35b1] text-xs font-bold text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#58149c] disabled:opacity-60"
+                      >
+                        {DISPATCH_APPROVAL_OPTIONS.map(opt => (
+                          <option key={opt.woAgentStatus} value={opt.woAgentStatus}>
+                            {opt.dispatchApprovalLabel} (WO: {opt.woAgentStatus} · Ticket: Closed)
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10.5px] text-[#4b4452] dark:text-[#cabde8]">
+                        Agent Note: {selectedTicket.remarksAgent || '-'}
+                      </p>
+                    </div>
+
                     <label
                       htmlFor="hotdesk-dispatcher-notes"
                       className="text-sm font-bold text-[#1f1638] dark:text-white flex items-center justify-between gap-2"
@@ -3049,7 +3203,9 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                       )}
                       <span>
                         {selectedTicket.approvalStatus === 'BUTUH APPROVAL'
-                          ? 'SETUJUI & SELESAIKAN (COMPLETE)'
+                          ? `Approve (${selectedWoAgentStatus}) & Close Ticket`
+                          : selectedTicket.approvalStatus === 'APPROVED'
+                          ? `${selectedTicket.dispatchApprovalStatus || getDispatchApprovalOutcomeLabel(getRecommendedDispatchWoAgentStatus(selectedTicket))} (Closed)`
                           : `STATUS: ${selectedTicket.approvalStatus || 'BELUM SUBMIT'}`}
                       </span>
                     </button>

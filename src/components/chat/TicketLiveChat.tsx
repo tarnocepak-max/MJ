@@ -71,8 +71,8 @@ const renderHighlightedText = (text: string, isMe: boolean): React.ReactNode => 
             isMe
               ? 'bg-white/20 text-white'
               : isCritical
-              ? 'bg-[#ffdad6] text-[#93000a] dark:bg-rose-950/80 dark:text-rose-200'
-              : 'bg-[#e7eeff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
+              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-200'
+              : 'bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]'
           }`}
         >
           {part}
@@ -86,7 +86,7 @@ const renderHighlightedText = (text: string, isMe: boolean): React.ReactNode => 
           className={`inline-block px-1.5 py-0.5 rounded font-mono text-[11.5px] font-bold mx-0.5 ${
             isMe
               ? 'bg-white/20 text-white'
-              : 'bg-[#f0f3ff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
+              : 'bg-slate-100 text-[#2563EB] dark:bg-[#1E293B] dark:text-[#38BDF8]'
           }`}
         >
           {part}
@@ -332,7 +332,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
     switch (role) {
       case 'dispatch':
         return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#dbe1ff] text-[#004b73] dark:bg-sky-950/80 dark:text-sky-200 text-[9.5px] font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-[#2563EB] dark:bg-blue-950/70 dark:text-[#38BDF8] text-[9.5px] font-bold uppercase tracking-wide">
             DISPATCH
           </span>
         );
@@ -350,7 +350,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
         );
       default:
         return (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#f0dbff] text-[#58149c] dark:bg-purple-950/80 dark:text-purple-200 text-[9.5px] font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 dark:bg-[#1E293B] dark:text-slate-200 text-[9.5px] font-bold uppercase tracking-wide">
             SUPER ADMIN
           </span>
         );
@@ -377,16 +377,16 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
   );
 
   return (
-    <div className={`flex flex-col ${heightClass} bg-[#f9f9ff] dark:bg-[#140827] overflow-hidden`}>
-      {/* STITCH SCREEN 4: TOP WAR ROOM CONTEXT HEADER */}
-      <div className="bg-white dark:bg-[#1A0E2E] px-3.5 py-2.5 border-b border-[#d8e3fb] dark:border-[#35105E] shrink-0 space-y-2 shadow-2xs">
+    <div className={`flex flex-col ${heightClass} bg-[#F8FAFC] dark:bg-[#0B1220] overflow-hidden`}>
+      {/* TOP WAR ROOM CONTEXT HEADER */}
+      <div className="bg-white dark:bg-[#0F172A] px-3.5 py-2.5 border-b border-slate-200 dark:border-slate-800 shrink-0 space-y-2 shadow-2xs">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             {onBack && (
               <button
                 type="button"
                 onClick={onBack}
-                className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#111c2d] dark:text-white transition-colors shrink-0 cursor-pointer"
+                className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-900 dark:text-white transition-colors shrink-0 cursor-pointer"
                 aria-label="Kembali"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -394,11 +394,11 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             )}
 
             <div className="relative shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#e7eeff] dark:bg-[#261942] text-[#006194] dark:text-sky-300 font-display font-bold text-xs flex items-center justify-center border border-[#d8e3fb] dark:border-[#4B386B]">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] font-display font-bold text-xs flex items-center justify-center border border-slate-200 dark:border-slate-700">
                 {getInitials(ticket.installerName || ticket.customerName)}
               </div>
               <span
-                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-[#1A0E2E] ${
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#0F172A] ${
                   databaseStatus === 'connected' ? 'bg-[#16A36A]' : 'bg-amber-500'
                 }`}
               />
@@ -406,20 +406,20 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-display font-bold text-[14px] text-[#111c2d] dark:text-white leading-tight truncate">
+                <span className="font-display font-bold text-[14px] text-slate-900 dark:text-white leading-tight truncate">
                   Dispatch War Room Chat
                 </span>
-                <BadgeCheck className="w-4 h-4 text-[#006194] dark:text-sky-400 shrink-0" />
+                <BadgeCheck className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#3f4850] dark:text-[#CEC0E8] truncate mt-0.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    databaseStatus === 'connected' ? 'bg-[#006194]' : 'bg-amber-500'
+                    databaseStatus === 'connected' ? 'bg-[#2563EB] dark:bg-[#38BDF8]' : 'bg-amber-500'
                   }`}
                 />
                 <span className="truncate">
                   {databaseStatus === 'connected' ? 'Radio & Dispatch Active' : 'Sinkronisasi Lokal'} ·{' '}
-                  <span className="font-mono font-bold text-[#006194] dark:text-sky-300">{ticket.woNumber}</span>
+                  <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{ticket.woNumber}</span>
                 </span>
               </div>
             </div>
@@ -429,7 +429,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             {contactPhone && (
               <a
                 href={`tel:${contactPhone.replace(/[^\d+]/g, '')}`}
-                className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#111c2d] dark:text-[#E9D5FF] transition-colors"
+                className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-700 dark:text-slate-200 transition-colors"
                 title={`Hubungi ${contactPhone}`}
                 aria-label="Hubungi Kontak WO"
               >
@@ -439,7 +439,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             <button
               type="button"
               onClick={() => (onOpenTicketDetail ? onOpenTicketDetail(ticket) : setShowContextSummary(prev => !prev))}
-              className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#111c2d] dark:text-[#E9D5FF] transition-colors cursor-pointer"
+              className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
               title="Info & Telemetri Work Order"
               aria-label="Info Work Order"
             >
@@ -449,7 +449,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               <button
                 type="button"
                 onClick={onCollapse}
-                className="w-9 h-9 rounded-full hover:bg-[#f0f3ff] dark:hover:bg-[#261942] flex items-center justify-center text-[#707881] dark:text-[#CEC0E8] transition-colors cursor-pointer"
+                className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
                 title="Lipat Panel LiveChat"
                 aria-label="Tutup Panel LiveChat"
               >
@@ -461,14 +461,14 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
         {/* FLOATING OPERATIONAL CONTEXT STRIP (Real WO Scope & Status) */}
         {showContextSummary && (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#f0f3ff] dark:bg-[#160D29] border border-[#d8e3fb]/80 dark:border-[#35105E] text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-[11px]">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${hasCheckIn ? 'text-[#16A36A]' : 'text-[#006194]'}`} />
-              <span className="font-semibold text-[#111c2d] dark:text-white truncate">
+              <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${hasCheckIn ? 'text-[#16A36A]' : 'text-[#2563EB] dark:text-[#38BDF8]'}`} />
+              <span className="font-semibold text-slate-900 dark:text-white truncate">
                 {ticket.customerName}
               </span>
               {ticket.fatCode && (
-                <span className="font-mono text-[10px] font-bold text-[#006194] dark:text-sky-300 bg-white dark:bg-[#22123F] px-1.5 py-0.5 rounded shrink-0">
+                <span className="font-mono text-[10px] font-bold text-[#2563EB] dark:text-[#38BDF8] bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shrink-0">
                   {ticket.fatCode}
                 </span>
               )}
@@ -479,7 +479,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenWhatsApp(ticket)}
-                  className="px-2 py-0.5 rounded-md bg-white dark:bg-[#22123F] border border-[#d8e3fb] dark:border-[#4B386B] text-[#006194] dark:text-sky-300 font-bold text-[10px] flex items-center gap-1 hover:bg-[#e7eeff] cursor-pointer"
+                  className="min-h-[32px] px-2.5 py-1 rounded-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] font-bold text-[10.5px] flex items-center gap-1 hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   <MessageSquare className="w-3 h-3" />
                   <span>WA</span>
@@ -490,8 +490,8 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                   hasCheckIn
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
                     : isCriticalPriority
-                    ? 'bg-[#ba1a1a] text-white'
-                    : 'bg-[#dbe1ff] text-[#004b73] dark:bg-[#35105E] dark:text-[#E9D5FF]'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]'
                 }`}
               >
                 {hasCheckIn ? 'Check-in Valid' : ticket.statusWOInstaller || 'Menunggu Check-in'}
@@ -502,12 +502,12 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
       </div>
 
       {/* MESSAGES TIMELINE STREAM */}
-      <div className="flex-1 px-3.5 py-4 overflow-y-auto space-y-3.5 bg-[#f9f9ff] dark:bg-[#140827]">
+      <div className="flex-1 px-3.5 py-4 overflow-y-auto space-y-3.5 bg-[#F8FAFC] dark:bg-[#0B1220]">
         {/* Real System Checkpoint Pill (derived strictly from real WO timestamps) */}
         {(ticket.checkInAt || ticket.workStartedAt || ticket.assignedAt) && (
           <div className="flex justify-center">
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#e7eeff] dark:bg-[#22123F] text-[#3f4850] dark:text-[#D8B4FE] text-[11px] font-semibold shadow-2xs max-w-full">
-              <MapPin className="w-3.5 h-3.5 text-[#006194] dark:text-sky-400 shrink-0" />
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-semibold shadow-2xs max-w-full">
+              <MapPin className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
               <span className="truncate">
                 {ticket.checkInAt
                   ? `${ticket.installerName || 'Teknisi'} Check-in #PROGRESS (${formatJakartaTimeOnly(ticket.checkInAt)} WIB)`
@@ -520,14 +520,14 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
         )}
 
         {messages.length === 0 ? (
-          <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center p-6 text-[#707881] space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#e7eeff] dark:bg-[#261942] text-[#006194] dark:text-sky-300 flex items-center justify-center shadow-xs">
+          <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-700">
               <MessageSquare className="w-6 h-6" />
             </div>
-            <h4 className="font-display font-bold text-[#111c2d] dark:text-white text-sm">
+            <h4 className="font-display font-bold text-slate-900 dark:text-white text-sm">
               Belum Ada Percakapan pada Work Order Ini
             </h4>
-            <p className="text-xs max-w-sm text-[#3f4850] dark:text-[#CEC0E8] leading-relaxed">
+            <p className="text-xs max-w-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               {isInstaller
                 ? 'Pilih kategori PROGRESS dan kirim pesan pertama untuk mencatat Check-in lapangan otomatis sebelum mengisi laporan checkout.'
                 : `Mulai koordinasi lapangan bersama ${ticket.installerName || 'Teknisi Lapangan'} untuk redaman OPM, perangkat ONT, atau kendala lokasi.`}
@@ -549,10 +549,10 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               >
                 {!isMe && (
                   <div className="relative shrink-0 mt-1">
-                    <div className="w-8 h-8 rounded-full bg-[#dee8ff] dark:bg-[#261942] text-[#006194] dark:text-sky-300 font-display font-bold text-[11px] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] font-display font-bold text-[11px] flex items-center justify-center border border-slate-200 dark:border-slate-700">
                       {getInitials(msg.senderName)}
                     </div>
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A36A] border-2 border-[#f9f9ff] dark:border-[#140827]" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A36A] border-2 border-[#F8FAFC] dark:border-[#0B1220]" />
                   </div>
                 )}
 
@@ -561,18 +561,18 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                   <div className="flex items-center gap-1.5 text-[11px] flex-wrap px-0.5">
                     {isMe ? (
                       <>
-                        <span className="font-mono text-[10.5px] text-[#707881] dark:text-[#A78BFA] tabular-nums">
+                        <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500 tabular-nums">
                           {timeLabel}
                         </span>
-                        <span className="font-bold text-[#006194] dark:text-sky-300">
+                        <span className="font-bold text-[#2563EB] dark:text-[#38BDF8]">
                           Anda ({msg.senderName?.split(' ')[0] || 'User'})
                         </span>
                       </>
                     ) : (
                       <>
-                        <span className="font-bold text-[#111c2d] dark:text-white">{msg.senderName}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{msg.senderName}</span>
                         {getRoleBadge(msg.senderRole)}
-                        <span className="font-mono text-[10.5px] text-[#707881] dark:text-[#A78BFA] tabular-nums">
+                        <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500 tabular-nums">
                           {timeLabel}
                         </span>
                       </>
@@ -583,8 +583,8 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                   <div
                     className={`rounded-2xl px-3.5 py-2.5 space-y-2 ${
                       isMe
-                        ? 'bg-[#006194] text-white rounded-tr-sm shadow-md'
-                        : 'bg-white dark:bg-[#1E1238] text-[#111c2d] dark:text-slate-100 rounded-tl-sm shadow-xs border border-[#d8e3fb]/80 dark:border-[#35105E]'
+                        ? 'bg-[#2563EB] text-white rounded-tr-sm shadow-sm'
+                        : 'bg-white dark:bg-[#0F172A] text-slate-900 dark:text-slate-100 rounded-tl-sm shadow-2xs border border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     {msg.category && String(msg.category).toUpperCase() !== 'UNCLASSIFIED' && (
@@ -594,8 +594,8 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                             isMe
                               ? 'bg-white/20 text-white'
                               : msg.isCheckIn || String(msg.category).toUpperCase() === 'PROGRESS'
-                              ? 'bg-[#e7eeff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
-                              : 'bg-[#f0f3ff] text-[#3f4850] dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                              ? 'bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]'
+                              : 'bg-slate-100 text-slate-600 dark:bg-[#1E293B] dark:text-slate-300'
                           }`}
                         >
                           <Tag className="w-2.5 h-2.5" />
@@ -665,8 +665,8 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
         {/* Real Optical & Device Telemetry Terminal Block (only rendered when WO has real metrics) */}
         {hasRealTelemetry && (
-          <div className="rounded-xl bg-[#263143] text-[#ecf1ff] p-3 font-mono text-[11px] space-y-1.5 shadow-sm border border-[#3f4850]/50">
-            <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-[#93ccff]">
+          <div className="rounded-xl bg-[#0F172A] dark:bg-[#1E293B] text-slate-100 p-3 font-mono text-[11px] space-y-1.5 shadow-sm border border-slate-700/80">
+            <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-[#38BDF8]">
               <span className="flex items-center gap-1.5 font-bold">
                 <Router className="w-3.5 h-3.5" />
                 <span>Telemetry Perangkat WO</span>
@@ -706,7 +706,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
       {/* Error Alert */}
       {errorMessage && (
-        <div className="mx-3.5 my-2 p-2.5 rounded-xl bg-[#ffdad6] dark:bg-rose-950/60 border border-[#ba1a1a]/30 text-[#93000a] dark:text-rose-200 text-xs flex items-center gap-2 shrink-0">
+        <div className="mx-3.5 my-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-200 text-xs flex items-center gap-2 shrink-0">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
@@ -719,8 +719,8 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
           <span>Mode Pantau: Leader hanya dapat membaca riwayat LiveChat (monitoring-only).</span>
         </div>
       ) : (
-        <div className="bg-white/90 dark:bg-[#1A0E2E] border-t border-[#d8e3fb] dark:border-[#35105E] shrink-0">
-          {/* Mandatory Category Pills + Quick Action Chips (Stitch Screen 4 Style) */}
+        <div className="bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-slate-800 shrink-0">
+          {/* Mandatory Category Pills + Quick Action Chips */}
           <div className="px-3 pt-2.5 pb-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {activeCategories.map(cat => {
               const isActive = selectedCategory.toUpperCase() === String(cat.name).toUpperCase();
@@ -732,10 +732,10 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                     handleSelectCategory(cat.name);
                     toast.success(`Kategori #${cat.name} aktif.`);
                   }}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
+                  className={`inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
                     isActive
-                      ? 'bg-[#006194] text-white shadow-xs'
-                      : 'bg-[#f0f3ff] dark:bg-[#261942] text-[#004b73] dark:text-[#E9D5FF] hover:bg-[#e7eeff]'
+                      ? 'bg-[#2563EB] text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
                   {isActive && <Check className="w-3 h-3" />}
@@ -744,13 +744,13 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               );
             })}
 
-            <span className="h-4 w-px bg-[#d8e3fb] dark:bg-[#35105E] shrink-0 mx-0.5" />
+            <span className="h-4 w-px bg-slate-200 dark:bg-slate-700 shrink-0 mx-0.5" />
 
             <button
               type="button"
               onClick={handleShareGps}
               disabled={isLocating}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0f3ff] dark:bg-[#261942] hover:bg-[#e7eeff] text-[#006194] dark:text-sky-300 text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full bg-blue-50 dark:bg-[#1E293B] hover:bg-blue-100 dark:hover:bg-slate-700 text-[#2563EB] dark:text-[#38BDF8] text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
             >
               {isLocating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crosshair className="w-3 h-3" />}
               <span>Share GPS</span>
@@ -759,7 +759,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             <button
               type="button"
               onClick={handleInsertTelemetry}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffddb8]/70 dark:bg-amber-950/60 hover:bg-[#ffddb8] text-[#653e00] dark:text-amber-300 text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 text-amber-800 dark:text-amber-300 text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
             >
               <Gauge className="w-3 h-3" />
               <span>Telemetri OPM</span>
@@ -768,7 +768,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0f3ff] dark:bg-[#261942] hover:bg-[#e7eeff] text-[#006194] dark:text-sky-300 text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full bg-blue-50 dark:bg-[#1E293B] hover:bg-blue-100 dark:hover:bg-slate-700 text-[#2563EB] dark:text-[#38BDF8] text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
             >
               <ImageIcon className="w-3 h-3" />
               <span>Foto Bukti</span>
@@ -777,7 +777,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             <button
               type="button"
               onClick={handleTriggerIssue}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffdad6] dark:bg-rose-950/70 hover:brightness-95 text-[#93000a] dark:text-rose-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full bg-rose-100 dark:bg-rose-950/70 hover:brightness-95 text-rose-800 dark:text-rose-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer shrink-0"
             >
               <AlertTriangle className="w-3 h-3" />
               <span>Kendala</span>
@@ -786,21 +786,21 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
           {/* Pending Photo Upload Previews */}
           {pendingAttachments.length > 0 && (
-            <div className="px-3 py-2 bg-[#f0f3ff] dark:bg-[#261942] border-t border-[#d8e3fb] dark:border-[#4B386B] flex items-center gap-2.5 overflow-x-auto">
+            <div className="px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border-t border-slate-200 dark:border-slate-700 flex items-center gap-2.5 overflow-x-auto">
               {pendingAttachments.map(att => (
-                <div key={att.id} className="relative group shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 border-[#006194] shadow-sm">
+                <div key={att.id} className="relative group shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 border-[#2563EB] shadow-sm">
                   <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemovePendingAttachment(att.id)}
-                    className="absolute top-0.5 right-0.5 p-0.5 bg-[#ba1a1a] text-white rounded-full cursor-pointer"
+                    className="absolute top-0.5 right-0.5 p-0.5 bg-rose-600 text-white rounded-full cursor-pointer"
                     title="Hapus foto"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ))}
-              <span className="text-xs font-semibold text-[#004b73] dark:text-[#E9D5FF]">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                 {pendingAttachments.length} foto siap dikirim
               </span>
             </div>
@@ -808,8 +808,8 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
           {/* Mandatory Category Warning for Installer */}
           {isInstaller && !hasValidCategory && (
-            <div className="mx-3 mb-1.5 px-3 py-1.5 rounded-xl bg-[#ffddb8]/60 dark:bg-amber-950/70 border border-[#825100]/20 flex items-center gap-2 text-[11px] text-[#653e00] dark:text-amber-200 font-semibold">
-              <AlertCircle className="w-3.5 h-3.5 text-[#825100] shrink-0" />
+            <div className="mx-3 mb-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 flex items-center gap-2 text-[11px] text-amber-800 dark:text-amber-200 font-semibold">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Pilih kategori (#PROGRESS untuk Check-in lokasi) sebelum mengirim pesan.</span>
             </div>
           )}
@@ -830,11 +830,11 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               multiple
               className="hidden"
             />
-            <div className="flex items-center gap-1.5 bg-[#f0f3ff] dark:bg-[#160D29] rounded-2xl p-1.5 border border-[#d8e3fb] dark:border-[#4B386B] shadow-inner">
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#1E293B] rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700 shadow-inner">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#006194] dark:text-[#DAB9FF] hover:bg-[#e7eeff] flex items-center justify-center shrink-0 cursor-pointer shadow-2xs transition-colors"
+                className="w-11 h-11 rounded-xl bg-white dark:bg-[#0F172A] text-[#2563EB] dark:text-[#38BDF8] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 cursor-pointer shadow-2xs transition-colors"
                 title="Lampirkan Foto Lapangan"
                 aria-label="Lampirkan Foto"
               >
@@ -851,13 +851,13 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                     ? 'Pilih tag #PROGRESS atau kategori di atas...'
                     : 'Ketik pesan koordinasi operasional...'
                 }
-                className="flex-1 min-w-0 bg-transparent px-2 py-1.5 text-xs sm:text-[13px] text-[#111c2d] dark:text-white placeholder:text-[#707881] focus:outline-none"
+                className="flex-1 min-w-0 bg-transparent px-2 py-2 text-xs sm:text-[13px] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
               />
 
               <button
                 type="submit"
                 disabled={isSubmitting || (isInstaller && !hasValidCategory) || (!inputText.trim() && pendingAttachments.length === 0)}
-                className="w-10 h-10 rounded-xl bg-[#006194] hover:bg-[#004b73] text-white flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm transition-colors"
+                className="w-11 h-11 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm transition-colors"
                 title="Kirim Pesan"
                 aria-label="Kirim Pesan"
               >

@@ -156,7 +156,9 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
       'Dispatch Approver',
       'Waktu Approval',
       'Catatan / Alasan Revisi',
-      'Status Akhir WO'
+      'Status Akhir WO Agent',
+      'Dispatch Approval Outcome',
+      'Ticket Result'
     ];
     const escapeCsv = (val: unknown) => {
       const str = String(val ?? '').replace(/"/g, '""');
@@ -180,7 +182,9 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
       r.dispatchApprover || '-',
       r.approvalTimestamp ? formatJakartaTimestamp(r.approvalTimestamp) : '-',
       r.revisionReason || r.approvalNotes || '-',
-      r.finalWoStatus
+      r.finalWoStatus,
+      r.dispatchApprovalStatus || '-',
+      r.ticketResult || (r.approvalStatus === 'APPROVED' ? 'Closed' : 'Open')
     ]);
 
     const csv = '\uFEFF' + [headers.map(escapeCsv).join(','), ...rows.map(row => row.map(escapeCsv).join(','))].join('\n');
@@ -233,12 +237,12 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               <button
                 type="button"
                 onClick={() => onSelectTicket(item.ticketId)}
-                className="font-mono font-bold text-[#7135B5] hover:underline tabular-nums block cursor-pointer"
+                className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8] hover:underline tabular-nums block cursor-pointer"
               >
                 {item.woNumber}
               </button>
             ) : (
-              <span className="font-mono font-bold text-[#160D29] dark:text-white tabular-nums block">
+              <span className="font-mono font-bold text-[#0F172A] dark:text-white tabular-nums block">
                 {item.woNumber}
               </span>
             )}
@@ -255,7 +259,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         tdClassName: 'whitespace-nowrap tabular-nums',
         render: item => (
           <>
-            <div className="font-semibold text-[#160D29] dark:text-white">
+            <div className="font-semibold text-[#0F172A] dark:text-white">
               {item.appointmentDate || '-'}
             </div>
             <div className="text-[11px] text-slate-500">{item.slotTime || '-'}</div>
@@ -277,8 +281,8 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         widthClass: 'min-w-[150px]',
         render: item => (
           <>
-            <div className="font-semibold text-[#160D29] dark:text-white flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5 text-[#7135B5] shrink-0" />
+            <div className="font-semibold text-[#0F172A] dark:text-white flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
               <span>{item.installerName}</span>
             </div>
             <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1 mt-0.5">
@@ -312,7 +316,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         render: item => (
           <div className="space-y-0.5">
             {item.reasonReport && (
-              <div className="font-semibold text-[#160D29] dark:text-white">{item.reasonReport}</div>
+              <div className="font-semibold text-[#0F172A] dark:text-white">{item.reasonReport}</div>
             )}
             {item.rootCause && (
               <div className="text-[11px] text-[#475569] dark:text-slate-300">
@@ -352,7 +356,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         render: item =>
           item.dispatchApprover ? (
             <div className="space-y-0.5">
-              <div className="font-semibold text-[#160D29] dark:text-white">{item.dispatchApprover}</div>
+              <div className="font-semibold text-[#0F172A] dark:text-white">{item.dispatchApprover}</div>
               {item.approvalTimestamp && (
                 <div className="text-[10px] font-mono tabular-nums text-slate-500">
                   {formatJakartaTimestamp(item.approvalTimestamp)}
@@ -377,7 +381,16 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         label: 'Status Akhir WO',
         priority: 'hidden_mobile',
         tdClassName: 'whitespace-nowrap',
-        render: item => <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
+        render: item => (
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
+            {(item.ticketResult === 'Closed' || item.approvalStatus === 'APPROVED') && (
+              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase tracking-wide">
+                {item.dispatchApprovalStatus || 'Ticket: Closed'}
+              </span>
+            )}
+          </div>
+        )
       }
     ],
     [onSelectTicket]
@@ -386,16 +399,16 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
   return (
     <div className="space-y-4">
       {!compact && (
-        <div className="rounded-2xl bg-[#160D29] text-white p-4 sm:p-5 border border-[#3E246F] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="rounded-2xl bg-[#0F172A] dark:bg-[#0B1220] text-white p-4 sm:p-5 border border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#7135B5]/40 text-[#E9D5FF] border border-[#9F67EA]/40">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#2563EB]/25 text-[#38BDF8] border border-[#38BDF8]/30">
               <History className="w-3.5 h-3.5" />
               <span>Append-Only Audit Trail</span>
             </div>
             <h2 className="text-base sm:text-lg font-bold tracking-tight">
               History Progress Report & Dispatch Approval
             </h2>
-            <p className="text-xs text-purple-200/80">
+            <p className="text-xs text-slate-300">
               Menyimpan seluruh versi laporan teknisi (PENDING, COMPLETE, RESCHEDULE, CANCEL), alasan revisi, dan jejak approval Dispatch secara permanen.
             </p>
           </div>
@@ -404,7 +417,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               type="button"
               onClick={loadHistory}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] sm:min-h-[36px] rounded-xl bg-[#241442] hover:bg-[#311C59] border border-[#4E2F8A] text-xs font-semibold text-purple-100 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[#1E293B] hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-100 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -412,7 +425,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
             <button
               type="button"
               onClick={handleExportCsv}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] sm:min-h-[36px] rounded-xl bg-[#7135B5] hover:bg-[#8244CB] text-xs font-semibold text-white cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-xs font-semibold text-white cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
@@ -423,7 +436,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
 
       {/* Filter Bar */}
       {!ticketId && (
-        <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-3.5 space-y-3">
+        <div className="rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 p-3.5 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
             <div className="lg:col-span-2 relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -432,7 +445,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Cari WO Number, Customer, Teknisi, Reason, Approver..."
-                className="w-full pl-9 pr-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+                className="w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
               />
             </div>
 
@@ -440,7 +453,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Report Status"
               value={reportStatusFilter}
               onChange={(e) => setReportStatusFilter(e.target.value)}
-              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               <option value="ALL">Semua Report Status</option>
               <option value="PENDING">PENDING</option>
@@ -453,7 +466,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Approval Status"
               value={approvalFilter}
               onChange={(e) => setApprovalFilter(e.target.value)}
-              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               <option value="ALL">Semua Approval Status</option>
               <option value="WAITING APPROVAL">WAITING APPROVAL</option>
@@ -465,7 +478,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Vendor"
               value={vendorFilter}
               onChange={(e) => setVendorFilter(e.target.value)}
-              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               <option value="ALL">Semua Vendor</option>
               {contractorsList.map(v => (
@@ -479,7 +492,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Area"
               value={areaFilter}
               onChange={(e) => setAreaFilter(e.target.value)}
-              className="px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-xl border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               <option value="ALL">Semua Area</option>
               {areasList.map(a => (
@@ -500,27 +513,27 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-2.5 py-1.5 min-h-[38px] sm:min-h-[34px] rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs tabular-nums"
+                className="px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs tabular-nums"
               />
               <span className="text-slate-400">s/d</span>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-2.5 py-1.5 min-h-[38px] sm:min-h-[34px] rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-xs tabular-nums"
+                className="px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs tabular-nums"
               />
               {(searchTerm || reportStatusFilter !== 'ALL' || approvalFilter !== 'ALL' || vendorFilter !== 'ALL' || areaFilter !== 'ALL' || dateFrom || dateTo) && (
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold text-[#7135B5] bg-[#F5F1FF] hover:bg-[#E9E1FF] cursor-pointer"
+                  className="px-3 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs font-semibold text-[#2563EB] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 cursor-pointer"
                 >
                   Reset Filter
                 </button>
               )}
             </div>
             <div className="text-[11px] font-semibold text-slate-500 tabular-nums">
-              Menampilkan <span className="text-[#160D29] dark:text-white font-bold">{filteredItems.length}</span> riwayat laporan
+              Menampilkan <span className="text-[#0F172A] dark:text-white font-bold">{filteredItems.length}</span> riwayat laporan
             </div>
           </div>
         </div>
@@ -545,7 +558,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         }}
         mobileTitle={item => (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+            <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">
               {item.woNumber}
             </span>
             <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-300">
@@ -559,6 +572,11 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
             <StatusBadge status={item.reportStatus} variant="report" size="xs" />
             <StatusBadge status={item.approvalStatus} variant="approval" size="xs" />
             <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
+            {(item.ticketResult === 'Closed' || item.approvalStatus === 'APPROVED') && (
+              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase">
+                Closed
+              </span>
+            )}
           </>
         )}
         getRowActions={

@@ -198,60 +198,56 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
   };
 
   return (
-    <div className="min-h-screen bg-[#160D29] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors selection:bg-[#7135B5] selection:text-white">
-      {/* Background ambient lighting in MoraJaws Dark Purple Gloss + Lilac palette */}
-      <div className="absolute inset-0 bg-radial from-[#35105E]/60 via-[#160D29] to-[#0D0719] pointer-events-none" />
-      <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#7135B5]/25 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '6s' }} />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#A855F7]/20 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Glossy light diagonal sweep */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-[#D8B4FE]/5 to-transparent pointer-events-none" />
+    <div className="min-h-screen bg-[#0B1220] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors selection:bg-[#2563EB] selection:text-white pt-safe pb-safe">
+      {/* Subtle Business Tech navy radial backdrop */}
+      <div className="absolute inset-0 bg-radial from-[#1E3A8A]/30 via-[#0B1220] to-[#070C16] pointer-events-none" />
+      <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#2563EB]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#0284C7]/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md flex flex-col items-center">
-        {/* Brand Header with Custom MoraJaws 3D Glossy Logo */}
+        {/* Brand Header */}
         <div className="text-center mb-6 flex flex-col items-center">
           <div className="mb-4 transform hover:scale-105 transition-transform duration-300">
             <MoraJawsLogo size="lg" showText={true} animated={true} />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#35105E]/70 border border-[#D8B4FE]/30 rounded-full text-[#E9D5FF] text-xs font-semibold shadow-[0_0_15px_rgba(113,53,181,0.3)]">
-            <Server className="w-3.5 h-3.5 text-[#D8B4FE]" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#0F172A] border border-slate-700/80 rounded-full text-sky-300 text-xs font-semibold shadow-sm">
+            <Server className="w-3.5 h-3.5 text-sky-400" />
             <span>Dispatch & Work Order Management System</span>
           </div>
 
-          <p className="text-xs sm:text-sm text-[#D8B4FE]/80 mt-2.5 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-400 mt-2.5 max-w-sm mx-auto leading-relaxed">
             Masukkan identitas akun resmi MoraJaws. Hak akses dan peran staf diverifikasi melalui Supabase Auth.
           </p>
         </div>
 
-        {/* Login Card with Dark Purple Gloss + Lilac Glowing Border */}
-        <div className="w-full bg-[#160D29]/90 border border-[#D8B4FE]/35 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-6 sm:p-8 backdrop-blur-2xl relative overflow-hidden">
-          {/* Top gloss highlight */}
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE]/80 to-transparent" />
+        {/* Login Card: Dark Navy + Charcoal + Tech Blue Accent */}
+        <div className="w-full bg-[#0F172A]/95 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] p-5 sm:p-8 backdrop-blur-2xl relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#38BDF8]/60 to-transparent" />
           {error && (
-            <div className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-xl flex items-start gap-3 text-xs text-rose-800 dark:text-rose-200 animate-in fade-in duration-200">
-              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="mb-5 p-3.5 bg-rose-950/60 border border-rose-800/80 rounded-xl flex items-start gap-3 text-xs text-rose-200 animate-in fade-in duration-200">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1 leading-relaxed">{error}</div>
             </div>
           )}
 
-          {/* Supabase Auth Production Gateway Notice */}
-          <div className="mb-5 p-3.5 bg-[#35105E]/50 border border-[#D8B4FE]/30 rounded-xl flex items-center gap-3 text-xs text-[#E9D5FF] shadow-inner">
-            <ShieldCheck className="w-5 h-5 text-[#D8B4FE] shrink-0" />
+          {/* Supabase Auth Gateway Notice */}
+          <div className="mb-5 p-3.5 bg-[#1E293B]/80 border border-slate-700/80 rounded-xl flex items-center gap-3 text-xs text-slate-200">
+            <ShieldCheck className="w-5 h-5 text-sky-400 shrink-0" />
             <div className="leading-snug">
               <span className="font-bold text-white block">Portal Autentikasi Staf MoraJaws</span>
-              <span className="text-[#D8B4FE]/80 text-[11px]">MoraJaws Custom Authentication &amp; Supabase PostgreSQL</span>
+              <span className="text-slate-400 text-[11px]">MoraJaws Custom Authentication &amp; Supabase PostgreSQL</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username / Email field */}
             <div>
-              <label className="block text-xs font-bold text-[#E9D5FF] mb-1.5">
+              <label className="block text-xs font-bold text-slate-200 mb-1.5">
                 Nama Pengguna atau Email
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#D8B4FE]/70">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <User className="w-4 h-4" />
                 </div>
                 <input
@@ -262,18 +258,18 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                   placeholder="Masukkan nama pengguna atau email"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-[#0f081e]/85 border border-[#D8B4FE]/30 rounded-xl text-xs font-medium text-white placeholder-[#D8B4FE]/40 shadow-inner focus:outline-hidden focus:ring-2 focus:ring-[#A380FE] focus:border-[#D8B4FE] transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 min-h-[44px] bg-[#0B1220] border border-slate-700 rounded-xl text-sm sm:text-xs font-medium text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] focus:border-[#38BDF8] transition-all"
                 />
               </div>
             </div>
 
             {/* Password field with show/hide toggle */}
             <div>
-              <label className="block text-xs font-bold text-[#E9D5FF] mb-1.5">
+              <label className="block text-xs font-bold text-slate-200 mb-1.5">
                 Kata Sandi
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#D8B4FE]/70">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -283,12 +279,12 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                   placeholder="Masukkan kata sandi akun"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 bg-[#0f081e]/85 border border-[#D8B4FE]/30 rounded-xl text-xs font-medium text-white placeholder-[#D8B4FE]/40 shadow-inner focus:outline-hidden focus:ring-2 focus:ring-[#A380FE] focus:border-[#D8B4FE] transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 min-h-[44px] bg-[#0B1220] border border-slate-700 rounded-xl text-sm sm:text-xs font-medium text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] focus:border-[#38BDF8] transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#D8B4FE]/70 hover:text-white transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3 min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
                   title={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
                   tabIndex={-1}
                 >
@@ -299,12 +295,12 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
 
             {/* Remember session checkbox */}
             <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-[#D8B4FE]/80">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-300 min-h-[36px]">
                 <input
                   type="checkbox"
                   checked={rememberSession}
                   onChange={e => setRememberSession(e.target.checked)}
-                  className="rounded border-[#D8CCF3] dark:border-[#3B1D78] text-[#7135B5] focus:ring-[#7135B5]"
+                  className="w-4 h-4 rounded border-slate-600 bg-[#0B1220] text-[#2563EB] focus:ring-[#2563EB]"
                 />
                 <span>Simpan sesi aktif terproteksi</span>
               </label>
@@ -314,7 +310,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
             <button
               type="submit"
               disabled={loading}
-              className="mj-tactile-btn-primary w-full mt-2 py-3 px-4 rounded-xl text-xs border border-[#D8B4FE]/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+              className="w-full mt-2 min-h-[48px] py-3 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] border border-blue-400/30 shadow-[0_4px_14px_rgba(37,99,235,0.35)] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading ? (
                 <>
@@ -331,9 +327,9 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
           </form>
 
           {/* Security footnote */}
-          <div className="mt-6 pt-5 border-t border-[#E9E1FF] dark:border-[#3B1D78]/50 text-center">
-            <div className="inline-flex items-center gap-1.5 text-[11px] text-[#756B8D] dark:text-[#9A8FB3]">
-              <Lock className="w-3.5 h-3.5 text-[#5B35B1] dark:text-[#8064D9]" />
+          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
+            <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+              <Lock className="w-3.5 h-3.5 text-sky-400" />
               <span>Akses dibatasi hanya untuk staf berwenang. Semua aktivitas diaudit.</span>
             </div>
           </div>
