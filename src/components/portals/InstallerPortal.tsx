@@ -871,10 +871,19 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   ? ticket.technicalReport!.photos.length
                   : 0);
 
+              const ticketBorderTone =
+                canonicalApproval === 'REVISION'
+                  ? 'border-rose-300 hover:border-rose-400 ring-2 ring-rose-100/80 dark:border-rose-500/70 dark:hover:border-rose-400 dark:ring-rose-950/50'
+                  : isLiveJob
+                  ? 'border-[#8B5CF6]/70 hover:border-[#7135B5] ring-2 ring-purple-200/70 dark:border-[#9F7AEA]/75 dark:hover:border-[#B794F4] dark:ring-purple-900/40'
+                  : ticketClosed
+                  ? 'border-emerald-300/90 hover:border-emerald-400 dark:border-emerald-600/70 dark:hover:border-emerald-500'
+                  : 'border-[#CFC0EC] hover:border-[#9F7AEA] dark:border-[#4F2D8C] dark:hover:border-[#7C4DFF]';
+
               return (
                 <article
                   key={ticket.id}
-                  className="bg-[#fcf8ff] dark:bg-[#1E1238] rounded-2xl border border-purple-100 dark:border-[#35105E] p-3.5 sm:p-4 shadow-tactile-card space-y-3.5 relative overflow-hidden transition-all"
+                  className={`bg-white/95 dark:bg-[#1E1238] rounded-[20px] border-2 ${ticketBorderTone} p-4 sm:p-5 shadow-[0_6px_22px_-4px_rgba(99,74,140,0.14),0_2px_0_rgba(167,139,250,0.2)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5),0_2px_0_rgba(113,53,181,0.3)] space-y-3.5 relative overflow-hidden transition-all`}
                 >
                   {/* 1. Compact Header Row: WO Number + Metadata + Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-100 dark:border-[#35105E]">
