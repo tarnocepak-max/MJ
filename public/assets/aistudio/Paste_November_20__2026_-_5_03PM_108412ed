@@ -1,0 +1,371 @@
+Bertindak sebagai Senior Full-Stack Engineer, Enterprise UI/UX Architect, React Developer, Backend Integration Engineer, dan Database Integration Specialist.
+Tugas utama adalah mengimplementasikan desain frontend MoraJaws berdasarkan:
+Screenshot desain visual dari Stitch AI sebagai acuan utama tampilan.
+Source code HTML hasil Stitch AI sebagai referensi struktur layout, komponen, warna, tipografi, spacing, dan visual hierarchy.
+Repository MoraJaws yang sudah berjalan sebagai sumber utama arsitektur, AppFlow, backend, API, database, autentikasi, dan seluruh business logic.
+Hasil akhir harus berupa halaman frontend MoraJaws yang benar-benar terintegrasi dengan sistem produksi, bukan sekadar HTML statis atau prototype dengan data dummy.
+code html :
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_blank" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;min-height:100vh;margin:0;padding:0;background-color:#141121;color:#e6dff7;overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary": "#d0bcff", "on-secondary-fixed": "#002116", "surface-variant": "#363244", "surface-container-highest": "#363244", "surface-tint": "#d0bcff", "on-tertiary-fixed": "#21005e", "surface": "#141121", "on-tertiary": "#381385", "inverse-primary": "#6d3bd7", "secondary-container": "#00d29c", "surface-container-high": "#2b2839", "on-primary-fixed-variant": "#5516be", "surface-container-lowest": "#0f0c1c", "outline": "#958ea0", "inverse-surface": "#e6dff7", "secondary": "#40efb7", "surface-container": "#211d2e", "on-error-container": "#ffdad6", "on-primary-container": "#340080", "inverse-on-surface": "#322e40", "surface-bright": "#3a3749", "on-secondary-container": "#00543d", "primary-fixed": "#e9ddff", "tertiary": "#cebdff", "on-primary-fixed": "#23005c", "error-container": "#93000a", "primary-fixed-dim": "#d0bcff", "tertiary-fixed": "#e8ddff", "surface-dim": "#141121", "error": "#ffb4ab", "primary-container": "#a078ff", "tertiary-fixed-dim": "#cebdff", "on-secondary": "#003827", "on-surface": "#e6dff7", "secondary-fixed": "#54fdc4", "surface-container-low": "#1c192a", "on-tertiary-fixed-variant": "#4f319c", "on-error": "#690005", "on-secondary-fixed-variant": "#00513b", "on-background": "#e6dff7", "on-primary": "#3c0091", "background": "#141121", "secondary-fixed-dim": "#27e0a9", "on-tertiary-container": "#31057e", "on-surface-variant": "#cbc3d7", "tertiary-container": "#9b7fed", "outline-variant": "#494454" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin-sm": "0.75rem", "space-md": "1rem", "space-sm": "0.5rem", "margin-lg": "1.5rem", "space-xl": "2rem", "gutter-sm": "0.75rem", "gutter": "1rem", "space-lg": "1.5rem", "space-xs": "0.25rem", "margin": "1rem" }, "fontFamily": { "headline-md": ["Space Grotesk"], "headline-lg": ["Space Grotesk"], "body-md": ["Geist"], "body-sm": ["Geist"], "headline-sm": ["Space Grotesk"], "label-sm": ["JetBrains Mono"], "body-lg": ["Geist"], "label-md": ["JetBrains Mono"], "display-lg-mobile": ["Space Grotesk"], "display-lg": ["Space Grotesk"], "label-lg": ["JetBrains Mono"] }, "fontSize": { "headline-md": ["22px", { "lineHeight": "30px", "letterSpacing": "0em", "fontWeight": "600" }], "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }], "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }], "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400" }], "headline-sm": ["18px", { "lineHeight": "26px", "letterSpacing": "0em", "fontWeight": "600" }], "label-sm": ["10px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "500" }], "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }], "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "label-lg": ["14px", { "lineHeight": "18px", "letterSpacing": "0.04em", "fontWeight": "600" }] } } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface select-none relative min-h-screen w-full"><div class="fixed top-0 inset-x-0 z-50 pt-safe pointer-events-none"><div class="h-8 px-margin flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant/90"><div class="flex items-center gap-space-xs"><span class="text-secondary font-semibold tracking-wider">MORAJAWS</span><span class="opacity-40">/</span><span>SYS-ACTV</span></div><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[14px]">wifi</span><span class="material-symbols-outlined text-[14px]">signal_cellular_alt</span><span class="tracking-normal">98%</span><span class="material-symbols-outlined text-[14px] text-secondary">battery_charging_full</span></div></div></div><main class="relative w-full min-h-screen bg-surface"><div class="flex flex-col w-full relative select-none overflow-hidden" id="camera-root">
+<!-- 1. FULLSCREEN LIVE CAMERA FEED BACKGROUND -->
+<div class="relative w-full h-[780px] overflow-hidden flex flex-col justify-between">
+<!-- Camera Viewfinder Background Image with Vignette -->
+<div class="absolute inset-0 bg-cover bg-center transition-all duration-300 transform scale-100" data-alt="Realistic outdoor view from a technician mobile camera looking at an Indonesian suburban two-story residential house with modern black steel gate, small tropical front garden, clear daylight, showing high voltage utility pole with fiber optic cable drop and cylindrical ODP distribution box mounted on the pole near the driveway. Crisp photography, cinematic lens perspective." id="camera-viewport" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBjyOPAye4yZX3Vc_5VtcH8_2HQy-IhjvWXV_YP-8_zInZR7o6PdNq9E9w5VHAADAATb2Iw11slVZRValnI4_bndlfNxjNL_8z-jRUtQfuVHMJN-VZeAfCjxAJcpHyGtO-FoXbR_jXmc1TbzHS_c3MMvLcaJQ4o7mrP_k76aCY2GLQaPulYd4z1YkiL6p04ELRU8O139HpRz_sXuvY7-hA52WPwuqZIUfuZuoUSuazk')">
+</div>
+<!-- Ambient Cyberpunk Shadow Scrims (Ensures Contrast without solid blocks) -->
+<div class="absolute inset-0 bg-gradient-to-b from-surface/80 via-transparent to-surface pointer-events-none"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent pointer-events-none"></div>
+<!-- Rule of Thirds Grid Overlay (Toggleable) -->
+<div class="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none transition-opacity duration-300 opacity-60" id="rule-grid">
+<div class="border-r border-b border-primary/15"></div>
+<div class="border-r border-b border-primary/15"></div>
+<div class="border-b border-primary/15"></div>
+<div class="border-r border-b border-primary/15"></div>
+<div class="border-r border-b border-primary/15"></div>
+<div class="border-b border-primary/15"></div>
+<div class="border-r border-primary/15"></div>
+<div class="border-r border-primary/15"></div>
+<div></div>
+</div>
+<!-- Anti-Gallery LiveSecure Watermark Stamp -->
+<div class="absolute top-24 right-4 pointer-events-none flex items-center gap-space-xs px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span>
+<span class="font-label-sm text-label-sm text-secondary tracking-widest uppercase">MoraJaws LiveSecure™ v4.2</span>
+</div>
+<!-- Holographic Center AR Target Reticle -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="relative w-56 h-56 flex items-center justify-center">
+<!-- Corner Brackets in Mint and Violet -->
+<div class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-secondary rounded-tl-sm shadow-[0_0_8px_rgba(64,239,183,0.5)]"></div>
+<div class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-secondary rounded-tr-sm shadow-[0_0_8px_rgba(64,239,183,0.5)]"></div>
+<div class="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-secondary rounded-bl-sm shadow-[0_0_8px_rgba(64,239,183,0.5)]"></div>
+<div class="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-secondary rounded-br-sm shadow-[0_0_8px_rgba(64,239,183,0.5)]"></div>
+<!-- Center Crosshair Target -->
+<div class="w-12 h-12 rounded-full border border-primary/40 flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_10px_#40efb7]"></div>
+</div>
+<!-- Live AR Optical Target Readouts -->
+<div class="absolute -top-7 flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-lowest/70 backdrop-blur-md">
+<span class="material-symbols-outlined text-[12px] text-secondary">center_focus_strong</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">ODP LOCK: 98.4%</span>
+</div>
+<div class="absolute -bottom-7 flex items-center justify-between w-full px-2 font-label-sm text-label-sm text-primary/80">
+<span>DIST: 6.8m</span>
+<span>ELEV: +4.2°</span>
+</div>
+</div>
+</div>
+<!-- 2. FLOATING MINIMALIST TOP HEADER -->
+<div class="relative z-20 pt-2 px-margin flex flex-col gap-space-sm">
+<div class="flex items-center justify-between gap-space-sm">
+<!-- Back Button -->
+<button class="w-11 h-11 rounded-full bg-surface-container-high/70 backdrop-blur-xl flex items-center justify-center text-on-surface shadow-md active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
+</button>
+<!-- Customer & WO Core Metadata Card -->
+<div class="flex-1 px-3 py-1.5 rounded-xl bg-surface-container-high/75 backdrop-blur-xl flex flex-col justify-center shadow-md">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_#40efb7]"></span>
+<span class="font-label-md text-label-md text-primary font-bold tracking-wider">WO-2025-08942</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface leading-tight truncate">Hendra Wijaya</p>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Pasang Baru FTTH • 100 Mbps</span>
+</div>
+<!-- Header Actions: Flash & Grid Toggles -->
+<div class="flex items-center gap-1.5 bg-surface-container-high/70 backdrop-blur-xl p-1 rounded-full shadow-md">
+<button class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface hover:text-secondary active:scale-95 transition-all" id="toggle-flash-btn" type="button">
+<span class="material-symbols-outlined text-[18px]" id="flash-icon">flash_auto</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary active:scale-95 transition-all" id="toggle-grid-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">grid_4x4</span>
+</button>
+</div>
+</div>
+<!-- 3. FLOATING COMPACT TELEMETRY BADGES -->
+<div class="flex items-center justify-between gap-space-xs mt-1">
+<!-- Left Chip: GPS Telemetry Trigger -->
+<button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-lg shadow-sm active:bg-surface-container-high transition-colors" id="telemetry-trigger" type="button">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-secondary font-semibold tracking-wider">GPS LOCKED</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">±4m</span>
+<span class="text-on-surface-variant/40 font-label-sm">|</span>
+<span class="font-label-sm text-label-sm text-on-surface">16:54 WIB</span>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">expand_more</span>
+</button>
+<!-- Right Chip: SOP Validation Pill -->
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary-container/20 backdrop-blur-lg shadow-sm">
+<span class="material-symbols-outlined text-[14px] text-secondary font-bold">verified</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold tracking-wider">3/3 SOP READY</span>
+</div>
+</div>
+</div>
+<!-- Middle Spacer to guarantee 85% Camera Dominance -->
+<div class="flex-1"></div>
+<!-- 5. ERGONOMIC BOTTOM CAMERA CONTROLS (Within Thumb Arc) -->
+<div class="relative z-20 flex flex-col items-center gap-space-md px-margin pb-6">
+<!-- Zoom Preset Pill Strip -->
+<div class="flex items-center p-1 rounded-full bg-surface-container-lowest/85 backdrop-blur-xl shadow-lg">
+<button class="zoom-btn px-3 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant transition-all hover:text-on-surface" data-zoom="0.5" type="button">0.5x</button>
+<button class="zoom-btn px-3 py-1 rounded-full font-label-sm text-label-sm bg-primary text-on-primary font-bold shadow-md transition-all" data-zoom="1.0" type="button">1.0x</button>
+<button class="zoom-btn px-3 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant transition-all hover:text-on-surface" data-zoom="2.0" type="button">2.0x</button>
+<button class="zoom-btn px-3 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant transition-all hover:text-on-surface" data-zoom="3.0" type="button">3.0x</button>
+</div>
+<!-- Main Action Floating Command Bar -->
+<div class="w-full flex items-center justify-between px-4">
+<!-- Left Thumb Button: Field Notes Trigger -->
+<button class="relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-surface-container-high/80 backdrop-blur-xl shadow-md active:scale-95 transition-transform" id="open-notes-btn" type="button">
+<span class="material-symbols-outlined text-primary text-[24px]">edit_note</span>
+<span class="font-label-sm text-[9px] text-on-surface-variant mt-0.5">Catatan</span>
+<span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-secondary border-2 border-surface"></span>
+</button>
+<!-- Center Shutter Button: Futuristic Concentric Core -->
+<button class="group relative flex items-center justify-center w-20 h-20 rounded-full bg-surface-container-highest/60 backdrop-blur-xl shadow-[0_0_30px_rgba(208,188,255,0.3)] active:scale-90 transition-transform" id="shutter-btn" type="button">
+<!-- Outer Neon Glass Ring -->
+<div class="absolute inset-1 rounded-full border-2 border-primary/50 group-hover:border-secondary transition-colors"></div>
+<!-- Shutter Solid Inner Core -->
+<div class="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center shadow-lg group-hover:opacity-90">
+<span class="material-symbols-outlined text-surface text-[28px]">photo_camera</span>
+</div>
+</button>
+<!-- Right Thumb Button: Lens Switch / Recalibrate -->
+<button class="flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-surface-container-high/80 backdrop-blur-xl shadow-md active:scale-95 transition-transform text-on-surface" id="flip-camera-btn" type="button">
+<span class="material-symbols-outlined text-[24px]">flip_camera_ios</span>
+<span class="font-label-sm text-[9px] text-on-surface-variant mt-0.5">Lensa</span>
+</button>
+</div>
+<!-- Quick Safety SOP Micro-Audit Legend -->
+<div class="flex items-center justify-center gap-3 text-on-surface-variant font-label-sm text-label-sm opacity-80">
+<span class="flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-secondary"></span> Geofence 12m ≤ 50m</span>
+<span>•</span>
+<span class="flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-secondary"></span> Hardware Sensor Ready</span>
+</div>
+</div>
+</div>
+<!-- 4. INTERACTIVE EXPANDABLE BOTTOM SHEET: Field Notes & Telemetry Drawer -->
+<div class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 ease-out flex flex-col bg-surface-container-high/95 backdrop-blur-2xl rounded-t-3xl shadow-2xl" id="notes-sheet">
+<!-- Drag Handle Area -->
+<div class="w-full flex flex-col items-center pt-3 pb-2 cursor-pointer" id="sheet-handle">
+<div class="w-10 h-1 rounded-full bg-outline-variant/60"></div>
+</div>
+<!-- Sheet Content Container -->
+<div class="px-margin pb-8 flex flex-col gap-space-md max-h-[618px] overflow-y-auto">
+<!-- Header Row with Dismiss -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">domain_verification</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Catatan Lapangan &amp; Posisi ODP</h3>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant active:scale-95" id="close-notes-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Telemetry Diagnostics Readout Box -->
+<div class="p-3 rounded-xl bg-surface-container-lowest/80 flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-primary tracking-wider font-semibold">SENSOR TELEMETRY</span>
+<span class="font-label-sm text-label-sm text-secondary bg-secondary-container/20 px-2 py-0.5 rounded-full">CHECK-IN VALID</span>
+</div>
+<div class="grid grid-cols-2 gap-2 text-on-surface font-label-md text-label-md">
+<div class="flex flex-col">
+<span class="text-on-surface-variant font-label-sm text-label-sm">Latitude / Longitude</span>
+<span class="font-mono text-xs text-on-surface mt-0.5">-6.21462, 106.84513</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface-variant font-label-sm text-label-sm">Radius Check-In</span>
+<span class="font-mono text-xs text-secondary mt-0.5">12 m (Maks 50m)</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface-variant font-label-sm text-label-sm">Elevasi / Alt</span>
+<span class="font-mono text-xs text-on-surface mt-0.5">24.2 m ASL</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface-variant font-label-sm text-label-sm">Bearing &amp; Tilt</span>
+<span class="font-mono text-xs text-on-surface mt-0.5">142° SE / +4.2°</span>
+</div>
+</div>
+</div>
+<!-- Quick ODP Identification Form Field -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface-variant" for="odp-notes-input">Deskripsi Fisik &amp; ODP Induk</label>
+<span class="font-label-sm text-label-sm text-primary font-mono" id="char-counter">58 / 120</span>
+</div>
+<div class="relative">
+<textarea class="w-full bg-surface-container-lowest text-on-surface p-3 rounded-xl font-body-md text-body-md placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary resize-none transition-all shadow-inner" id="odp-notes-input" maxlength="120" placeholder="Contoh: Pagar hitam No. 42B, ODP-KBU-04 tiang depan kiri..." rows="3">Pagar hitam No. 42B, ODP-KBU-04 tiang depan kiri rumah</textarea>
+</div>
+</div>
+<!-- Fast Tag Suggestions -->
+<div class="flex flex-wrap gap-1.5">
+<button class="tag-chip px-2.5 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-sm text-label-sm active:bg-primary active:text-on-primary transition-colors" type="button">+ Tiang Depan</button>
+<button class="tag-chip px-2.5 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-sm text-label-sm active:bg-primary active:text-on-primary transition-colors" type="button">+ Drop Cable 45m</button>
+<button class="tag-chip px-2.5 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-sm text-label-sm active:bg-primary active:text-on-primary transition-colors" type="button">+ Rumah Hook</button>
+<button class="tag-chip px-2.5 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-sm text-label-sm active:bg-primary active:text-on-primary transition-colors" type="button">+ Pagar Dikunci</button>
+</div>
+<!-- Action Confirmation Button -->
+<button class="w-full py-3.5 rounded-xl bg-primary text-on-primary font-headline-sm text-headline-sm font-semibold flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-transform" id="save-notes-btn" type="button">
+<span class="material-symbols-outlined text-[20px]">save</span>
+<span>Simpan Catatan Check-In</span>
+</button>
+</div>
+</div>
+<!-- Capture Flash Micro-Interaction Overlay -->
+<div class="absolute inset-0 bg-white pointer-events-none opacity-0 transition-opacity duration-150 z-40" id="capture-flash"></div>
+<!-- Capture Toast Confirmation Notice -->
+<div class="fixed top-12 left-1/2 -translate-x-1/2 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2 px-4 py-2.5 rounded-full bg-secondary-container text-on-secondary-container shadow-xl" id="capture-toast">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span class="font-label-md text-label-md font-bold tracking-wide">FOTO RUMAH TERSIMPAN</span>
+</div>
+</div>
+<script>
+  (function () {
+    // 1. Grid Composition Toggle
+    const gridToggleBtn = document.getElementById('toggle-grid-btn');
+    const ruleGrid = document.getElementById('rule-grid');
+    let gridVisible = true;
+
+    if (gridToggleBtn && ruleGrid) {
+      gridToggleBtn.addEventListener('click', () => {
+        gridVisible = !gridVisible;
+        ruleGrid.classList.toggle('opacity-0', !gridVisible);
+        ruleGrid.classList.toggle('opacity-60', gridVisible);
+        gridToggleBtn.classList.toggle('bg-primary/20', gridVisible);
+        gridToggleBtn.classList.toggle('text-primary', gridVisible);
+        gridToggleBtn.classList.toggle('text-on-surface-variant', !gridVisible);
+      });
+    }
+
+    // 2. Flash Modes Toggle
+    const flashBtn = document.getElementById('toggle-flash-btn');
+    const flashIcon = document.getElementById('flash-icon');
+    const flashStates = ['flash_auto', 'flash_on', 'flash_off'];
+    let flashIdx = 0;
+
+    if (flashBtn && flashIcon) {
+      flashBtn.addEventListener('click', () => {
+        flashIdx = (flashIdx + 1) % flashStates.length;
+        flashIcon.textContent = flashStates[flashIdx];
+        if (flashIdx === 1) {
+          flashBtn.classList.add('text-secondary');
+        } else {
+          flashBtn.classList.remove('text-secondary');
+        }
+      });
+    }
+
+    // 3. Zoom Factor Switcher
+    const zoomButtons = document.querySelectorAll('.zoom-btn');
+    const cameraViewport = document.getElementById('camera-viewport');
+
+    zoomButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        zoomButtons.forEach((b) => {
+          b.className = 'zoom-btn px-3 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant transition-all hover:text-on-surface';
+        });
+        btn.className = 'zoom-btn px-3 py-1 rounded-full font-label-sm text-label-sm bg-primary text-on-primary font-bold shadow-md transition-all';
+        
+        const zoom = parseFloat(btn.getAttribute('data-zoom') || '1.0');
+        if (cameraViewport) {
+          cameraViewport.style.transform = `scale(${zoom})`;
+        }
+      });
+    });
+
+    // 4. Notes & Telemetry Drawer Bottom Sheet Management
+    const notesSheet = document.getElementById('notes-sheet');
+    const openNotesBtn = document.getElementById('open-notes-btn');
+    const telemetryTrigger = document.getElementById('telemetry-trigger');
+    const closeNotesBtn = document.getElementById('close-notes-btn');
+    const sheetHandle = document.getElementById('sheet-handle');
+    const saveNotesBtn = document.getElementById('save-notes-btn');
+
+    function openSheet() {
+      if (notesSheet) {
+        notesSheet.classList.remove('translate-y-full');
+        notesSheet.classList.add('translate-y-0');
+      }
+    }
+
+    function closeSheet() {
+      if (notesSheet) {
+        notesSheet.classList.add('translate-y-full');
+        notesSheet.classList.remove('translate-y-0');
+      }
+    }
+
+    if (openNotesBtn) openNotesBtn.addEventListener('click', openSheet);
+    if (telemetryTrigger) telemetryTrigger.addEventListener('click', openSheet);
+    if (closeNotesBtn) closeNotesBtn.addEventListener('click', closeSheet);
+    if (sheetHandle) sheetHandle.addEventListener('click', closeSheet);
+    if (saveNotesBtn) saveNotesBtn.addEventListener('click', closeSheet);
+
+    // 5. Notes Character Count & Quick Chips
+    const notesInput = document.getElementById('odp-notes-input');
+    const charCounter = document.getElementById('char-counter');
+    const tagChips = document.querySelectorAll('.tag-chip');
+
+    if (notesInput && charCounter) {
+      notesInput.addEventListener('input', () => {
+        const len = notesInput.value.length;
+        charCounter.textContent = `${len} / 120`;
+      });
+    }
+
+    tagChips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        if (!notesInput) return;
+        const textToAdd = chip.textContent ? chip.textContent.replace('+ ', '').trim() : '';
+        if (notesInput.value.length + textToAdd.length + 2 <= 120) {
+          notesInput.value += (notesInput.value ? ', ' : '') + textToAdd;
+          if (charCounter) {
+            charCounter.textContent = `${notesInput.value.length} / 120`;
+          }
+        }
+      });
+    });
+
+    // 6. Realistic Shutter Capture Actuation
+    const shutterBtn = document.getElementById('shutter-btn');
+    const flashOverlay = document.getElementById('capture-flash');
+    const captureToast = document.getElementById('capture-toast');
+
+    if (shutterBtn && flashOverlay && captureToast) {
+      shutterBtn.addEventListener('click', () => {
+        // Visual Shutter Flash
+        flashOverlay.style.opacity = '0.85';
+        setTimeout(() => {
+          flashOverlay.style.opacity = '0';
+        }, 120);
+
+        // Toast feedback
+        captureToast.classList.remove('-translate-y-20', 'opacity-0');
+        captureToast.classList.add('translate-y-0', 'opacity-100');
+
+        setTimeout(() => {
+          captureToast.classList.add('-translate-y-20', 'opacity-0');
+          captureToast.classList.remove('translate-y-0', 'opacity-100');
+        }, 2200);
+      });
+    }
+
+    // 7. Lens Flip Switch Micro-Interaction
+    const flipBtn = document.getElementById('flip-camera-btn');
+    if (flipBtn && cameraViewport) {
+      let isMirrored = false;
+      flipBtn.addEventListener('click', () => {
+        isMirrored = !isMirrored;
+        cameraViewport.style.filter = 'blur(4px)';
+        setTimeout(() => {
+          cameraViewport.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
+          cameraViewport.style.filter = 'none';
+        }, 150);
+      });
+    }
+  })();
+</script></main></body></html>
