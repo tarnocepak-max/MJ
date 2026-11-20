@@ -26,7 +26,21 @@ export type WOKpiFilterKey =
   | 'approved'
   | 'revision_rejected'
   | 'closed'
-  | 'unmapped_distribution';
+  | 'unmapped_distribution'
+  | 'field_checkin'
+  | 'field_complete'
+  | 'field_requested'
+  | 'field_reschedule'
+  | 'field_pending'
+  | 'field_cancel';
+
+export function isValidGeoCoordPairServer(lat: unknown, lng: unknown): boolean {
+  const nLat = Number(lat);
+  const nLng = Number(lng);
+  if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return false;
+  if (Math.abs(nLat) < 0.0001 && Math.abs(nLng) < 0.0001) return false;
+  return Math.abs(nLat) <= 90 && Math.abs(nLng) <= 180;
+}
 
 export function getTicketAppointmentDateServer(ticket: any): string {
   if (!ticket) return '';
@@ -75,6 +89,35 @@ export function isTicketCheckedIn(ticket: any): boolean {
   return inst === 'PROGRESS' || inst === 'ON SITE' || inst === 'EN ROUTE' || inst === 'IN PROGRESS';
 }
 
+export function hasValidHousePhotoCheckIn(ticket: any): boolean {
+  if (!ticket) return false;
+  const hasCheckInTs = Boolean(ticket.checkInAt && String(ticket.checkInAt).trim());
+  if (!hasCheckInTs) return false;
+
+  const slots = Array.isArray(ticket.technicalReport?.photoSlots)
+    ? ticket.technicalReport.photoSlots
+    : [];
+  const houseSlot = slots.find(
+    (s: any) =>
+      s &&
+      s.slotKey === 'customer_house' &&
+      Boolean(String(s.url || '').trim()) &&
+      s.uploadStatus !== 'failed'
+  );
+  const houseLoc = ticket.houseLocation;
+  const hasSavedHousePhoto = Boolean(houseSlot?.url || String(houseLoc?.photoUrl || '').trim());
+  if (!hasSavedHousePhoto) return false;
+
+  const slotGpsOk = Boolean(
+    houseSlot &&
+      houseSlot.geotagStatus !== 'missing' &&
+      isValidGeoCoordPairServer(houseSlot.latitude, houseSlot.longitude)
+  );
+  const locGpsOk = Boolean(houseLoc && isValidGeoCoordPairServer(houseLoc.latitude, houseLoc.longitude));
+
+  return slotGpsOk || locGpsOk;
+}
+
 export function normalizeCanonicalReportStatus(rawValue: any): CanonicalReportStatus {
   const s = String(rawValue || '').trim().toUpperCase();
   if (!s) return 'NONE';
@@ -93,11 +136,21 @@ export function getTicketCanonicalReportStatus(ticket: any): CanonicalReportStat
     ? ticket.progressReports[0]
     : null;
 
+  const tr = ticket.technicalReport;
+  const hasActualTechReport = Boolean(
+    tr &&
+      (String(tr.submittedAt || '').trim() ||
+        String(tr.mainCategory || '').trim() ||
+        String(tr.workResult || '').trim())
+  );
+
+  const hasExplicitReportSignal = Boolean(
+    latestReport || hasActualTechReport || String(ticket.reportStatusLabel || '').trim()
+  );
+
   const hasSubmittedReport = Boolean(
-    latestReport ||
-      ticket.technicalReport ||
-      String(ticket.reportStatusLabel || '').trim() ||
-      ['BUTUH APPROVAL', 'WAITING APPROVAL', 'APPROVED', 'REJECTED', 'REVISI'].includes(
+    hasExplicitReportSignal ||
+      ['BUTUH APPROVAL', 'WAITING APPROVAL', 'APPROVED', 'REJECTED', 'REVISI', 'REVISION'].includes(
         String(ticket.approvalStatus || '').trim().toUpperCase()
       )
   );
@@ -105,13 +158,12 @@ export function getTicketCanonicalReportStatus(ticket: any): CanonicalReportStat
   if (!hasSubmittedReport) return 'NONE';
 
   const candidates = [
-    ticket.reportStatusLabel,
     latestReport?.reportStatusLabel,
     latestReport?.reportStatus,
-    ticket.statusWOInstaller,
-    ticket.technicalReport?.mainCategory,
-    ticket.technicalReport?.workResult,
-    ticket.statusWOAgent
+    ticket.reportStatusLabel,
+    tr?.mainCategory,
+    tr?.workResult,
+    ...(hasExplicitReportSignal ? [ticket.statusWOInstaller, ticket.statusWOAgent] : [])
   ];
 
   for (const c of candidates) {
@@ -143,6 +195,15 @@ export function isTicketClosed(ticket: any): boolean {
   return false;
 }
 
+export function isFieldRequestedWo(ticket: any): boolean {
+  if (!ticket || ticket.isDeleted || ticket.isArchived) return false;
+  if (!isTicketAssigned(ticket)) return false;
+  if (isTicketClosed(ticket)) return false;
+  if (getTicketCanonicalReportStatus(ticket) !== 'NONE') return false;
+  if (isTicketCheckedIn(ticket) || Boolean(ticket.workStartedAt)) return false;
+  return true;
+}
+
 export function isTicketUnmappedDistribution(ticket: any): boolean {
   if (!ticket) return false;
   const ds = String(ticket.distributionStatus || '').trim().toLowerCase();
@@ -155,6 +216,7 @@ export function isTicketUnmappedDistribution(ticket: any): boolean {
 export function matchesKpiFilter(ticket: any, filterKey: WOKpiFilterKey): boolean {
   const assigned = isTicketAssigned(ticket);
   const checkedIn = isTicketCheckedIn(ticket);
+  const validHouseCheckIn = hasValidHousePhotoCheckIn(ticket);
   const reportStatus = getTicketCanonicalReportStatus(ticket);
   const approvalStatus = getTicketCanonicalApprovalStatus(ticket);
   const closed = isTicketClosed(ticket);
@@ -171,13 +233,21 @@ export function matchesKpiFilter(ticket: any, filterKey: WOKpiFilterKey): boolea
     case 'checked_in_progress':
       return checkedIn && !closed && approvalStatus !== 'APPROVED';
     case 'report_pending':
+    case 'field_pending':
       return reportStatus === 'PENDING';
     case 'report_complete':
+    case 'field_complete':
       return reportStatus === 'COMPLETE';
     case 'report_reschedule':
+    case 'field_reschedule':
       return reportStatus === 'RESCHEDULE';
     case 'report_cancel':
+    case 'field_cancel':
       return reportStatus === 'CANCEL';
+    case 'field_checkin':
+      return validHouseCheckIn;
+    case 'field_requested':
+      return isFieldRequestedWo(ticket);
     case 'butuh_approval':
       return approvalStatus === 'BUTUH APPROVAL';
     case 'approved':
@@ -204,8 +274,15 @@ export function computeKpiSummary(
 ) {
   const { dateWIB, scopeRole, contractorFilter = 'ALL', areaFilter = 'ALL' } = options;
 
-  const activeTodayTickets = (scopedTickets || []).filter(t => {
-    if (!t || t.isDeleted || t.isArchived) return false;
+  const dedupedMap = new Map<string, any>();
+  (scopedTickets || []).forEach(t => {
+    if (!t || t.isDeleted || t.isArchived) return;
+    const key = String(t.id || t.woNumber || '').trim();
+    if (!key) return;
+    dedupedMap.set(key, t);
+  });
+
+  const activeTodayTickets = Array.from(dedupedMap.values()).filter(t => {
     const appDate = getTicketAppointmentDateServer(t);
     if (!appDate || appDate !== dateWIB) return false;
 
@@ -237,6 +314,15 @@ export function computeKpiSummary(
     unmappedDistribution: 0
   };
 
+  const fieldDispatchCounts = {
+    checkIn: 0,
+    complete: 0,
+    requested: 0,
+    reschedule: 0,
+    pending: 0,
+    cancel: 0
+  };
+
   const vendorMap = new Map<string, any>();
   const areaMap = new Map<string, any>();
   const leaderMap = new Map<string, any>();
@@ -249,6 +335,13 @@ export function computeKpiSummary(
     const approvalStatus = getTicketCanonicalApprovalStatus(t);
     const closed = isTicketClosed(t);
     const unmapped = isTicketUnmappedDistribution(t);
+
+    if (hasValidHousePhotoCheckIn(t)) fieldDispatchCounts.checkIn++;
+    if (reportStatus === 'COMPLETE') fieldDispatchCounts.complete++;
+    if (isFieldRequestedWo(t)) fieldDispatchCounts.requested++;
+    if (reportStatus === 'RESCHEDULE') fieldDispatchCounts.reschedule++;
+    if (reportStatus === 'PENDING') fieldDispatchCounts.pending++;
+    if (reportStatus === 'CANCEL') fieldDispatchCounts.cancel++;
 
     if (assigned) counts.assigned++;
     else counts.unassigned++;
@@ -382,6 +475,7 @@ export function computeKpiSummary(
     contractorFilter: contractorFilter || 'ALL',
     areaFilter: areaFilter || 'ALL',
     counts,
+    fieldDispatchCounts,
     byVendor: Array.from(vendorMap.values()).sort((a, b) => b.total - a.total),
     byArea: Array.from(areaMap.values()).sort((a, b) => b.total - a.total),
     byLeader: Array.from(leaderMap.values()).sort((a, b) => b.total - a.total),

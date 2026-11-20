@@ -811,7 +811,7 @@ export class SupabaseRepository {
           error: normalizeProxyError(res.status, json, 'SELECT', 'work_orders', 'Gagal memuat ringkasan KPI dashboard')
         };
       }
-      return { success: true, data: json.data };
+      return { success: true, data: json.summary || json.data };
     } catch (err: any) {
       return {
         success: false,

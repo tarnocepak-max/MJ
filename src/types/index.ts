@@ -105,6 +105,7 @@ export type TechnicalPhotoSlotKey =
   | 'opm'
   | 'barcode_sn'
   | 'fat_pole'
+  | 'fat_port'
   | 'customer_install'
   | 'customer_house'
   | 'fat_attenuation';
@@ -1159,7 +1160,13 @@ export type WOKpiFilterKey =
   | 'approved'
   | 'revision_rejected'
   | 'closed'
-  | 'unmapped_distribution';
+  | 'unmapped_distribution'
+  | 'field_checkin'
+  | 'field_complete'
+  | 'field_requested'
+  | 'field_reschedule'
+  | 'field_pending'
+  | 'field_cancel';
 
 export interface WOKpiVendorBreakdown {
   contractorId?: string;
@@ -1213,6 +1220,15 @@ export interface WOKpiInstallerBreakdown {
   closed: number;
 }
 
+export interface FieldDispatchKpiCounts {
+  checkIn: number;
+  complete: number;
+  requested: number;
+  reschedule: number;
+  pending: number;
+  cancel: number;
+}
+
 export interface WOKpiSummary {
   dateWIB: string;
   generatedAt: string;
@@ -1235,6 +1251,7 @@ export interface WOKpiSummary {
     closed: number;
     unmappedDistribution: number;
   };
+  fieldDispatchCounts: FieldDispatchKpiCounts;
   byVendor: WOKpiVendorBreakdown[];
   byArea: WOKpiAreaBreakdown[];
   byLeader: WOKpiLeaderBreakdown[];

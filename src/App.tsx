@@ -67,7 +67,8 @@ const MainLayout: React.FC = () => {
     hasPermission,
     globalConflict,
     resolveGlobalConflict,
-    clearGlobalConflict
+    clearGlobalConflict,
+    setActiveKpiDrilldown
   } = useApp();
   const { config, setSidebarState, isMobileView, uiConflict, resolveUiConflict, clearUiConflict } = useUIConfig();
   const { soundConflict, resolveSoundConflict, clearSoundConflict } = useMoraJawsSound();
@@ -407,14 +408,39 @@ const MainLayout: React.FC = () => {
   // Render view based on active tab with fallback
   const renderContent = () => {
     const handleInstallerNavigateTab = (tab: string, filter?: string) => {
-      if (filter && ['all', 'pending', 'butuh_approval', 'done', 'reschedule', 'cancel'].includes(filter)) {
+      if (filter === 'field_requested') {
+        setInstallerTaskFilter('tugas_baru');
+      } else if (filter === 'field_checkin') {
+        setInstallerTaskFilter('dalam_proses');
+      } else if (
+        filter === 'field_complete' ||
+        filter === 'field_reschedule' ||
+        filter === 'field_pending' ||
+        filter === 'field_cancel'
+      ) {
+        setInstallerTaskFilter('selesai');
+      } else if (
+        filter &&
+        [
+          'tugas_baru',
+          'dalam_proses',
+          'selesai',
+          'all',
+          'pending',
+          'butuh_approval',
+          'revision',
+          'done',
+          'reschedule',
+          'cancel'
+        ].includes(filter)
+      ) {
         setInstallerTaskFilter(filter as StatusFilterCategory);
       } else if (tab === 'installer_tasks') {
-        setInstallerTaskFilter('pending');
+        setInstallerTaskFilter('tugas_baru');
       } else if (tab === 'installer_history') {
-        setInstallerTaskFilter('done');
+        setInstallerTaskFilter('selesai');
       } else {
-        setInstallerTaskFilter('all');
+        setInstallerTaskFilter('tugas_baru');
       }
       navigateTo(tab);
     };
@@ -436,7 +462,13 @@ const MainLayout: React.FC = () => {
         case 'installer_history':
           return (
             <InstallerPortal
-              initialFilter={activeTab === 'installer_history' ? 'done' : installerTaskFilter}
+              initialFilter={
+                activeTab === 'installer_history'
+                  ? 'selesai'
+                  : installerTaskFilter === 'all' && activeTab === 'installer_tasks'
+                  ? 'tugas_baru'
+                  : installerTaskFilter
+              }
               onSelectTicket={handleOpenTicketDetail}
               onOpenWhatsApp={handleOpenWhatsAppModal}
             />
@@ -736,7 +768,13 @@ const MainLayout: React.FC = () => {
 
         return (
           <InstallerPortal
-            initialFilter={activeTab === 'installer_tasks' ? 'pending' : activeTab === 'installer_history' ? 'done' : 'all'}
+            initialFilter={
+              activeTab === 'installer_tasks'
+                ? 'tugas_baru'
+                : activeTab === 'installer_history'
+                ? 'selesai'
+                : 'all'
+            }
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
           />
@@ -1043,7 +1081,10 @@ const MainLayout: React.FC = () => {
         <InstallerBottomNav
           activeTab={activeTab}
           onTabChange={tab => {
-            if (tab === 'installer_tasks') setInstallerTaskFilter('pending');
+            if (tab === 'installer_tasks') {
+              setActiveKpiDrilldown(null);
+              setInstallerTaskFilter('tugas_baru');
+            }
             navigateTo(tab);
           }}
           pendingTasksCount={installerPendingCount}

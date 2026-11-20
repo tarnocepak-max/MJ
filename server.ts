@@ -5046,23 +5046,25 @@ export async function createExpressApp(options?: {
     res.json({ success: true, technicalReport, ticket: updatedTicket });
   });
 
-  // Upload & Attach Geo-Tagged Field Photo Evidence (6 SOP Categories + Auto Rumah / FAT WO Location)
+  // Upload & Attach Geo-Tagged Field Photo Evidence (7 SOP Categories + Auto Rumah / FAT WO Location)
   const ALLOWED_PHOTO_SLOT_KEYS = new Set([
     'opm',
     'barcode_sn',
     'fat_pole',
+    'fat_port',
     'customer_install',
     'customer_house',
     'fat_attenuation'
   ]);
 
   const SLOT_TITLES_MAP: Record<string, string> = {
-    opm: '1. Foto Redaman OPM',
-    barcode_sn: '2. Foto SN & MAC ONT',
-    fat_pole: '3. Foto FAT & Port Lapangan',
-    customer_install: '4. Foto Instalasi Pelanggan',
-    customer_house: '5. Foto Rumah',
-    fat_attenuation: '6. Foto Redaman FAT'
+    customer_house: 'Fasad Depan Rumah',
+    fat_pole: 'Posisi Tiang FAT',
+    fat_attenuation: 'Signal Core FAT',
+    fat_port: 'Terminasi Drop Cable',
+    customer_install: 'Jalur Kabel Pelanggan',
+    barcode_sn: 'Barcode & SN ONT',
+    opm: 'Redaman OPM'
   };
 
   function isValidServerGeoCoord(lat: unknown, lng: unknown): boolean {
@@ -6258,7 +6260,7 @@ export async function createExpressApp(options?: {
         areaFilter
       });
 
-      return res.json({ success: true, summary });
+      return res.json({ success: true, summary, data: summary });
     } catch (err: any) {
       console.error('[API /api/dashboard/kpi-summary] Error:', err);
       return res.status(500).json({

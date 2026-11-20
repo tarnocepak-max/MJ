@@ -3326,9 +3326,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!data.reasonReport?.trim()) {
       return { success: false, error: 'Reason Report (Level 2) wajib dipilih.' };
     }
-    if (!data.rootCause?.trim()) {
-      return { success: false, error: 'Rootcause (Level 3 - Remarks) wajib dipilih.' };
-    }
 
     // 3. Strict 3-Tier Hierarchical Droplist Validation against Supabase app_settings/hierarchical_droplists
     let matchedStatus: HierarchicalStatus | undefined;
@@ -3377,28 +3374,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
-      // Level 3 Rootcause / Remarks Validation (Must strictly be sub-child of matchedReason)
-      const normRootcause = data.rootCause.trim().toLowerCase();
-      matchedRemark = (matchedReason.remarks || []).find(
-        rm => rm.id === data.rootcauseId ||
-              rm.name.trim().toLowerCase() === normRootcause ||
-              (rm.text && rm.text.trim().toLowerCase() === normRootcause)
+      // Level 3 Rootcause / Remarks Validation (Must strictly be sub-child of matchedReason when remarks exist)
+      const activeRemarksForReason = (matchedReason.remarks || []).filter(
+        rm => rm.active !== false && (rm as any).isActive !== false
       );
+      if (activeRemarksForReason.length > 0) {
+        if (!data.rootCause?.trim()) {
+          return { success: false, error: 'Rootcause (Level 3 - Remarks) wajib dipilih.' };
+        }
+        const normRootcause = data.rootCause.trim().toLowerCase();
+        matchedRemark = (matchedReason.remarks || []).find(
+          rm => rm.id === data.rootcauseId ||
+                rm.name.trim().toLowerCase() === normRootcause ||
+                (rm.text && rm.text.trim().toLowerCase() === normRootcause)
+        );
 
-      if (!matchedRemark) {
-        return {
-          success: false,
-          error: `Validasi Gagal: Rootcause "${data.rootCause}" bukan merupakan pilihan turunan (sub-child) yang sah dari Reason "${matchedReason.name}".`
-        };
-      }
+        if (!matchedRemark) {
+          return {
+            success: false,
+            error: `Validasi Gagal: Rootcause "${data.rootCause}" bukan merupakan pilihan turunan (sub-child) yang sah dari Reason "${matchedReason.name}".`
+          };
+        }
 
-      const isRemarkActive = matchedRemark.active !== false && (matchedRemark as any).isActive !== false;
-      if (!isRemarkActive) {
-        return {
-          success: false,
-          error: `Validasi Gagal: Rootcause "${matchedRemark.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
-        };
+        const isRemarkActive = matchedRemark.active !== false && (matchedRemark as any).isActive !== false;
+        if (!isRemarkActive) {
+          return {
+            success: false,
+            error: `Validasi Gagal: Rootcause "${matchedRemark.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
+          };
+        }
       }
+    } else if (!data.rootCause?.trim()) {
+      return { success: false, error: 'Rootcause (Level 3 - Remarks) wajib dipilih.' };
     }
 
     const finalStatusName = matchedStatus ? matchedStatus.name : data.reportStatus.trim();
@@ -3680,6 +3687,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
       }
       setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
       return {
         success: true,
         photoSlot: json.photoSlot,
@@ -4338,6 +4346,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       }
 
+      if (isStrictProgressCategory) {
+        scheduleKpiRefreshRef.current?.();
+      }
+
       if (attachments.length > 0) {
         addAuditLog('Chat Attachment Uploaded', 'ticket', ticketId, `${currentUser.name} uploaded ${attachments.length} photo(s) in ticket chat`);
       }
@@ -4855,6 +4867,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .then(() => {
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
         toast.success(`Berhasil memperbarui penugasan untuk ${updatedTicketsList.length} tiket.`, 'Penugasan Massal Sukses');
       })
       .catch(err => {
@@ -4941,6 +4954,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
         toast.success(`WO ${ticket.woNumber} berhasil dialihkan ke ${newInstallerName}!`, 'Reassign Berhasil');
       })
       .catch(err => {
@@ -4992,6 +5006,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (!res.success) throw new Error(res.error?.message || 'Gagal memperbarui status');
           setSyncStatus('SAVED');
           setLastSyncTime(new Date().toISOString());
+          scheduleKpiRefreshRef.current?.();
           toast.info(`Status WO ${target?.woNumber || ticketId} diperbarui (${statusInstaller || statusAgent || 'Updated'}).`, 'Status Berubah');
         })
         .catch(err => {
