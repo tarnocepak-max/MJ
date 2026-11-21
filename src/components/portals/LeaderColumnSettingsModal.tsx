@@ -127,7 +127,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
           <button
             type="button"
             onClick={onClose}
-            className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-4 py-2 font-bold rounded-xl cursor-pointer shrink-0"
+            className="mj-btn-leader-primary min-h-[44px] sm:min-h-[40px] px-4 py-2 font-bold rounded-xl cursor-pointer shrink-0"
           >
             Terapkan &amp; Simpan
           </button>
@@ -143,15 +143,14 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
             <button
               type="button"
               onClick={showAll}
-              className="text-[#58149C] dark:text-[#DAB9FF] hover:underline font-semibold cursor-pointer"
+              className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] cursor-pointer"
             >
               Tampilkan Semua
             </button>
-            <span className="text-[#B9A7DE]">•</span>
             <button
               type="button"
               onClick={onReset}
-              className="text-[#7D7484] dark:text-[#CEC0E8] hover:text-[#58149C] dark:hover:text-[#DAB9FF] hover:underline flex items-center gap-1 cursor-pointer"
+              className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] flex items-center gap-1 cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset Default</span>
@@ -213,12 +212,12 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
                 </div>
 
                 {/* Move Up / Down Buttons */}
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => moveColumn(index, 'up')}
                     disabled={isFirst}
-                    className="min-h-[40px] min-w-[40px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-[#7D7484] dark:text-[#CEC0E8] hover:text-[#58149C] dark:hover:text-[#DAB9FF] hover:bg-[#EEDBFF] dark:hover:bg-[#2E1B59] disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    className="mj-btn-icon-3d-leader w-9 h-9 sm:w-8 sm:h-8 cursor-pointer"
                     title="Pindahkan kolom ke atas / kiri"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -227,7 +226,7 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
                     type="button"
                     onClick={() => moveColumn(index, 'down')}
                     disabled={isLast}
-                    className="min-h-[40px] min-w-[40px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center rounded-lg text-[#7D7484] dark:text-[#CEC0E8] hover:text-[#58149C] dark:hover:text-[#DAB9FF] hover:bg-[#EEDBFF] dark:hover:bg-[#2E1B59] disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    className="mj-btn-icon-3d-leader w-9 h-9 sm:w-8 sm:h-8 cursor-pointer"
                     title="Pindahkan kolom ke bawah / kanan"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -236,6 +235,33 @@ export const LeaderColumnSettingsModal: React.FC<LeaderColumnSettingsModalProps>
               </div>
             );
           })}
+        </div>
+
+        {/* Stitch Live Preview: Urutan Kolom Aktif */}
+        <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+              PREVIEW URUTAN KOLOM AKTIF
+            </span>
+            <span className="font-mono text-[10px] font-bold text-[#7D7484] dark:text-[#CEC0E8]">
+              {visibleCount} Kolom
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {columns
+              .filter(c => c.visible)
+              .map((col, idx) => (
+                <span
+                  key={col.id}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-[#27104A] border border-[#DFC7FF] dark:border-[#5B35B1] text-[10.5px] font-semibold text-[#1F1638] dark:text-[#E8DDFF] shadow-2xs"
+                >
+                  <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                    {idx + 1}.
+                  </span>
+                  <span>{col.label}</span>
+                </span>
+              ))}
+          </div>
         </div>
       </div>
     </ResponsiveModal>

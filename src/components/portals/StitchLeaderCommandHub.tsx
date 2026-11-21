@@ -1107,7 +1107,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             <button
               type="button"
               onClick={() => openQuickAssignModal({ mode: metrics.unassignedTickets.length > 1 ? 'auto' : 'manual' })}
-              className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="mj-btn-leader-primary px-4 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Disposisi Instan WO</span>
@@ -1119,7 +1119,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('monitoring_maps')}
-              className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <MapIcon className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
               <span>Buka Monitoring Maps</span>
@@ -1128,7 +1128,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             <button
               type="button"
               onClick={handleExportDailyRecap}
-              className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <ExternalLink className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
               <span>Ekspor Rekap Harian</span>
@@ -1282,10 +1282,10 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 ? openQuickAssignModal({ mode: 'manual' })
                 : navigateWithDrilldown('assigned', 'assigned')
             }
-            className={`w-full py-1.5 rounded-lg text-[11px] font-bold text-center cursor-pointer ${
+            className={`w-full py-1.5 text-[11px] text-center cursor-pointer ${
               metrics.unassignedTickets.length > 0
-                ? 'btn-3d-amber'
-                : 'btn-3d-emerald'
+                ? 'mj-btn-leader-warning mj-btn-xs'
+                : 'mj-btn-leader-success mj-btn-xs'
             }`}
           >
             {metrics.unassignedTickets.length > 0 ? 'Assign Sekarang' : 'Lihat Penugasan'}
@@ -1617,7 +1617,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               <button
                 type="button"
                 onClick={() => (onSwitchLeaderTab ? onSwitchLeaderTab('installer_mgmt') : onNavigate('installer_mgmt'))}
-                className="px-2.5 py-1 rounded-full bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] text-[11px] font-bold hover:bg-[#e8ddff] transition cursor-pointer"
+                className="mj-btn-leader-neutral mj-btn-xs px-3 py-1 rounded-full text-[11px] cursor-pointer"
               >
                 Kelola Tim ({myInstallers.length})
               </button>
@@ -1632,7 +1632,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 <button
                   type="button"
                   onClick={() => (onSwitchLeaderTab ? onSwitchLeaderTab('installer_mgmt') : onNavigate('installer_mgmt'))}
-                  className="px-3 py-1.5 rounded-lg bg-[#58149c] text-white text-xs font-bold cursor-pointer"
+                  className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 text-xs cursor-pointer"
                 >
                   + Tambah Akun Teknisi
                 </button>
@@ -1756,7 +1756,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                           <button
                             type="button"
                             onClick={() => handleContactInstaller(inst, row.activeTickets[0])}
-                            className="btn-3d-amber px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                            className="mj-btn-leader-warning mj-btn-xs px-3 py-1.5 text-[11px] flex items-center gap-1 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5" />
                             <span>Kontak</span>
@@ -1765,7 +1765,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                           <button
                             type="button"
                             disabled
-                            className="px-3 py-1.5 rounded-lg bg-[#e8ddff] dark:bg-[#35105E] text-[#7d7484] dark:text-[#A78BFA] text-[11px] font-semibold cursor-not-allowed"
+                            className="mj-btn-leader-neutral mj-btn-xs px-3 py-1.5 text-[11px]"
                           >
                             Maksimal
                           </button>
@@ -1778,10 +1778,10 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                                 installerName: inst.name
                               })
                             }
-                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+                            className={`px-3 py-1.5 text-[11px] flex items-center gap-1 cursor-pointer ${
                               summary.assignedCount <= Math.floor(summary.maxLimit / 2)
-                                ? 'btn-3d-primary'
-                                : 'btn-3d-secondary text-[#58149c] dark:text-[#dab9ff]'
+                                ? 'mj-btn-leader-primary mj-btn-xs'
+                                : 'mj-btn-leader-neutral mj-btn-xs text-[#58149c] dark:text-[#dab9ff]'
                             }`}
                           >
                             <Send className="w-3 h-3" />
@@ -1825,7 +1825,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                             <button
                               type="button"
                               onClick={() => openQuickAssignModal({ mode: 'manual', installerName: s.installer.name })}
-                              className="btn-3d-primary px-2 py-0.5 rounded text-[10px] font-bold shrink-0 cursor-pointer"
+                              className="mj-btn-leader-primary mj-btn-xs px-2.5 py-0.5 text-[10px] shrink-0 cursor-pointer"
                             >
                               Assign
                             </button>
@@ -1888,10 +1888,10 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setFeedFilter(tab.id)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer ${
+                  className={`px-3 py-1 rounded-full text-[11px] cursor-pointer ${
                     feedFilter === tab.id
-                      ? 'bg-[#58149c] text-white shadow-xs'
-                      : 'bg-[#f8f1ff] dark:bg-[#22123F] text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff]'
+                      ? 'mj-btn-leader-secondary mj-btn-xs'
+                      : 'mj-btn-leader-neutral mj-btn-xs'
                   }`}
                 >
                   {tab.label}
@@ -2042,7 +2042,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                             <button
                               type="button"
                               onClick={() => openQuickAssignModal({ ticketId: t.id, mode: 'manual' })}
-                              className="px-2.5 py-1 rounded-lg bg-[#58149c] hover:bg-[#7135b5] text-white text-[11px] font-bold transition cursor-pointer"
+                              className="mj-btn-leader-primary mj-btn-xs px-2.5 py-1 text-[11px] cursor-pointer"
                             >
                               Assign
                             </button>
@@ -2051,7 +2051,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                             <button
                               type="button"
                               onClick={() => onSelectTicket(t, checkedIn || approval !== 'NONE' ? 'report' : 'overview')}
-                              className="px-2.5 py-1 rounded-lg bg-[#eee4ff] dark:bg-[#35105E] hover:bg-[#e1d4ff] text-[#1f1638] dark:text-white text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                              className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 text-[11px] flex items-center gap-1 cursor-pointer"
                             >
                               <Eye className="w-3 h-3" />
                               <span>{checkedIn || approval !== 'NONE' ? 'Lihat Bukti / WO' : 'Detail WO'}</span>
@@ -2123,7 +2123,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 onClick={() =>
                   onSwitchLeaderTab ? onSwitchLeaderTab('reassign_wo') : onNavigate('reassign_wo')
                 }
-                className="btn-3d-danger w-full py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer"
+                className="mj-btn-leader-danger w-full py-2.5 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ArrowRightLeft className="w-4 h-4" />
                 <span>Buka Reassign WO Sekarang</span>
@@ -2163,7 +2163,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('monitoring_maps')}
-                className="btn-3d-secondary w-full py-2.5 rounded-xl text-[#58149c] dark:text-[#dab9ff] text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                className="mj-btn-leader-neutral w-full py-2.5 text-[#58149c] dark:text-[#dab9ff] text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ArrowUpRight className="w-4 h-4" />
                 <span>Perbesar ke Monitoring Maps &amp; Cluster ODP</span>
@@ -2209,7 +2209,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     <button
                       type="button"
                       onClick={() => openQuickAssignModal({ ticketId: t.id, mode: 'manual' })}
-                      className="btn-3d-primary px-2.5 py-1 rounded-lg font-bold text-[10.5px] shrink-0 cursor-pointer"
+                      className="mj-btn-leader-primary mj-btn-xs px-2.5 py-1 text-[10.5px] shrink-0 cursor-pointer"
                     >
                       Disposisi
                     </button>
@@ -2227,7 +2227,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   ? onSwitchLeaderTab('wo_assignment', 'all')
                   : onNavigate('wo_assignment')
               }
-              className="btn-3d-primary mt-3 w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+              className="mj-btn-leader-primary mt-3 w-full py-2.5 text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <Bolt className="w-4 h-4" />
               <span>
@@ -2255,7 +2255,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               <button
                 type="button"
                 onClick={() => (onSwitchLeaderTab ? onSwitchLeaderTab('quota_settings') : onNavigate('quota_settings'))}
-                className="p-1.5 rounded-lg bg-[#f3eaff] dark:bg-[#35105E] text-[#6a46c1] dark:text-[#dab9ff] hover:bg-[#e8ddff] cursor-pointer"
+                className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer shrink-0"
                 title="Pengaturan Kuota Harian"
               >
                 <PieChart className="w-4 h-4" />
@@ -2395,7 +2395,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     if (onSwitchLeaderTab) onSwitchLeaderTab('wo_assignment', 'all');
                     else onNavigate('wo_assignment');
                   }}
-                  className="px-4 py-2 rounded-lg bg-[#58149c] text-white font-bold text-xs cursor-pointer"
+                  className="mj-btn-leader-primary mj-btn-compact px-4 py-2 text-xs cursor-pointer"
                 >
                   Buka Matriks Assign WO
                 </button>
@@ -2462,7 +2462,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   <button
                     type="button"
                     onClick={() => setAssignModalOpen(false)}
-                    className="btn-3d-secondary px-4 py-2 rounded-xl font-bold cursor-pointer"
+                    className="mj-btn-leader-neutral px-4 py-2 cursor-pointer"
                   >
                     Batal
                   </button>
@@ -2470,7 +2470,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     type="button"
                     disabled={isSubmittingAssign || !modalTicketId || !modalInstallerName}
                     onClick={handleConfirmManualAssign}
-                    className="btn-3d-primary px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    className={`mj-btn-leader-primary px-4 py-2 flex items-center gap-1.5 cursor-pointer ${
+                      isSubmittingAssign ? 'mj-btn-loading' : ''
+                    }`}
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Konfirmasi Disposisi</span>
@@ -2528,7 +2530,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 <button
                   type="button"
                   onClick={() => setAssignModalOpen(false)}
-                  className="btn-3d-secondary px-4 py-2 rounded-xl font-bold cursor-pointer"
+                  className="mj-btn-leader-neutral px-4 py-2 cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -2536,7 +2538,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   type="button"
                   disabled={isSubmittingAssign || autoBalancePlan.planned.length === 0}
                   onClick={handleExecuteAutoBalance}
-                  className="btn-3d-primary px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className={`mj-btn-leader-primary px-4 py-2 flex items-center gap-1.5 cursor-pointer ${
+                    isSubmittingAssign ? 'mj-btn-loading' : ''
+                  }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Eksekusi Auto-Balance ({autoBalancePlan.planned.length} WO)</span>

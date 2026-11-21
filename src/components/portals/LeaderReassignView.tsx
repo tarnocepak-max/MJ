@@ -579,10 +579,10 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     setCategoryFilter('ALL');
                     setCurrentPage(1);
                   }}
-                  className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer transition-all ${
+                  className={`px-3.5 py-2 rounded-full text-xs whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                     active
-                      ? 'bg-[#58149C] text-white shadow-xs'
-                      : 'bg-white dark:bg-[#1E1238] text-[#4B4452] dark:text-[#CEC0E8] border border-[#E8DDFF] dark:border-[#3E246F]'
+                      ? 'mj-btn-leader-secondary mj-btn-xs'
+                      : 'mj-btn-leader-neutral mj-btn-xs'
                   }`}
                 >
                   {chip.dot && <span className={`w-2 h-2 rounded-full ${chip.dot}`} />}
@@ -627,7 +627,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenAuditTrail}
-                className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <History className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                 <span>Riwayat Audit ({auditFeed.length})</span>
@@ -636,7 +636,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               <button
                 type="button"
                 onClick={onExportExcel}
-                className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                 <span>Ekspor Data</span>
@@ -646,7 +646,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 type="button"
                 disabled={!isLeaderRole || eligibleCount === 0}
                 onClick={onOpenBulkReassign}
-                className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 disabled:opacity-45 cursor-pointer"
+                className="mj-btn-leader-primary px-4 py-2 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
                 <span>Bulk Reassign</span>
@@ -968,7 +968,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="btn-3d-secondary px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    className="mj-btn-leader-neutral mj-btn-xs px-3 py-1.5 text-[11px] flex items-center gap-1 cursor-pointer"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span>Reset Filter</span>
@@ -1031,7 +1031,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 <button
                   type="button"
                   onClick={handleResetFilters}
-                  className="btn-3d-primary px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 cursor-pointer"
+                  className="mj-btn-leader-primary px-5 py-2.5 text-xs font-extrabold flex items-center gap-2 cursor-pointer"
                 >
                   <Filter className="w-3.5 h-3.5" />
                   <span>Reset Semua Filter</span>
@@ -1042,7 +1042,9 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 type="button"
                 disabled={isRefreshing}
                 onClick={handleTriggerRefresh}
-                className="btn-3d-secondary px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                className={`mj-btn-leader-neutral px-5 py-2.5 text-xs flex items-center gap-2 cursor-pointer ${
+                  isRefreshing ? 'mj-btn-loading' : ''
+                }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>{isRefreshing ? 'Menyegarkan...' : 'Segarkan Data WO'}</span>
@@ -1052,7 +1054,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 <button
                   type="button"
                   onClick={onJumpToAssignTab}
-                  className="btn-3d-secondary px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="mj-btn-leader-neutral px-4 py-2.5 text-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Assign {summaryMetrics.unassigned} WO Baru</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
@@ -1246,7 +1248,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                         type="button"
                         disabled={!isLeaderRole}
                         onClick={() => onOpenReassignModal(t)}
-                        className="btn-3d-primary flex-1 min-h-[44px] px-4 py-2.5 rounded-xl font-extrabold text-xs tracking-wide uppercase flex items-center justify-center gap-2 disabled:opacity-45 cursor-pointer"
+                        className="mj-btn-leader-primary flex-1 min-h-[44px] px-4 py-2.5 font-extrabold text-xs tracking-wide uppercase flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <ArrowRightLeft className="w-4 h-4" />
                         <span>Reassign WO</span>
@@ -1255,9 +1257,9 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       <button
                         type="button"
                         onClick={onJumpToAssignTab}
-                        className="btn-3d-secondary flex-1 min-h-[44px] px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                        className="mj-btn-leader-neutral flex-1 min-h-[44px] px-4 py-2.5 text-xs flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        <UserCheck className="w-4 h-4 text-[#58149C]" />
+                        <UserCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                         <span>Tugaskan di Assign WO</span>
                       </button>
                     ) : (
@@ -1270,7 +1272,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       type="button"
                       onClick={() => onSelectTicket(t)}
                       aria-label={`Detail ${t.woNumber}`}
-                      className="btn-3d-secondary min-w-[44px] min-h-[44px] px-3 rounded-xl flex items-center justify-center cursor-pointer"
+                      className="mj-btn-icon-3d-leader min-w-[44px] min-h-[44px] px-3 flex items-center justify-center cursor-pointer"
                     >
                       <Eye className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                     </button>
@@ -1466,7 +1468,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                             type="button"
                             onClick={() => onSelectTicket(t)}
                             title="Lihat 17-Section Fullview"
-                            className="btn-3d-secondary p-2 rounded-xl text-[#58149C] dark:text-[#DAB9FF] cursor-pointer"
+                            className="mj-btn-icon-3d-leader w-9 h-9 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -1476,7 +1478,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                               type="button"
                               disabled={!isLeaderRole}
                               onClick={() => onOpenReassignModal(t)}
-                              className="btn-3d-primary px-3.5 py-1.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 disabled:opacity-45 cursor-pointer"
+                              className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 text-xs inline-flex items-center gap-1.5 cursor-pointer"
                             >
                               <ArrowRightLeft className="w-3.5 h-3.5" />
                               <span>Reassign</span>
@@ -1485,7 +1487,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                             <button
                               type="button"
                               onClick={onJumpToAssignTab}
-                              className="btn-3d-secondary px-3 py-1.5 rounded-xl font-bold text-xs cursor-pointer"
+                              className="mj-btn-leader-neutral mj-btn-compact px-3 py-1.5 text-xs cursor-pointer"
                             >
                               Assign WO
                             </button>
@@ -1607,7 +1609,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       type="button"
                       disabled={!isLeaderRole}
                       onClick={() => onOpenReassignModal(selectedPreviewTicket)}
-                      className="btn-3d-primary w-full py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 disabled:opacity-45 cursor-pointer"
+                      className="mj-btn-leader-primary w-full py-2.5 px-4 text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <ArrowRightLeft className="w-4 h-4" />
                       <span>Buka Form Reassign 2-Langkah</span>
@@ -1616,7 +1618,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     <button
                       type="button"
                       onClick={onJumpToAssignTab}
-                      className="btn-3d-secondary w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                      className="mj-btn-leader-neutral w-full py-2.5 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <UserCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                       <span>Tugaskan di Assign WO</span>

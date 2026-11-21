@@ -233,7 +233,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                             type="button"
                             onClick={() => cell.ticket && onSelectTicket(cell.ticket)}
                             title={`${cell.slotLabel}: ${cell.woNumber} (${cell.customerName}) - Selesai`}
-                            className="py-1.5 px-1 rounded-md bg-[#16A36A] text-white font-mono font-bold text-[10px] text-center tabular-nums truncate shadow-[0_2px_0_#117A50] active:translate-y-[1px] active:shadow-none hover:brightness-110 cursor-pointer transition-all"
+                            className="mj-btn-leader-success mj-btn-xs py-1 px-1 rounded-lg font-mono font-bold text-[10px] text-center tabular-nums truncate cursor-pointer"
                           >
                             {cell.slotCode}: OK
                           </button>
@@ -246,7 +246,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                             type="button"
                             onClick={() => cell.ticket && onSelectTicket(cell.ticket)}
                             title={`${cell.slotLabel}: ${cell.woNumber} (${cell.customerName})`}
-                            className="py-1.5 px-1 rounded-md bg-[#58149C] hover:bg-[#7135B5] text-white font-mono font-bold text-[10px] text-center tabular-nums truncate shadow-[0_2px_0_#35105E] active:translate-y-[1px] active:shadow-none cursor-pointer transition-all"
+                            className="mj-btn-leader-secondary mj-btn-xs py-1 px-1 rounded-lg font-mono font-bold text-[10px] text-center tabular-nums truncate cursor-pointer"
                           >
                             {cell.slotCode}: {cell.shortWoCode}
                           </button>
@@ -280,7 +280,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                     <button
                       type="button"
                       onClick={() => onDirectAssignToTechnician(tech.installer)}
-                      className="btn-3d-secondary w-full min-h-[44px] sm:min-h-[36px] py-2 px-3 rounded-xl text-[#58149C] dark:text-[#DAB9FF] font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="mj-btn-leader-neutral mj-btn-compact w-full min-h-[44px] sm:min-h-[36px] py-2 px-3 rounded-xl text-[#58149C] dark:text-[#DAB9FF] font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <PlusCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>
@@ -307,7 +307,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
           <button
             type="button"
             onClick={onOpenAllAuditTrail}
-            className="text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer shrink-0 min-h-[32px] px-1"
+            className="mj-btn-leader-neutral mj-btn-xs text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] cursor-pointer shrink-0 px-2.5 py-1 rounded-lg"
           >
             Lihat Semua
           </button>

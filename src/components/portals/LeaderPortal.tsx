@@ -1923,7 +1923,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTicket(t)}
-                className="btn-3d-secondary px-2.5 py-1 rounded-lg font-semibold text-xs cursor-pointer"
+                className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-xs cursor-pointer"
               >
                 Detail
               </button>
@@ -1934,7 +1934,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenReassignModal(t)}
-                      className="btn-3d-amber px-2.5 py-1 rounded-lg font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                      className="mj-btn-leader-warning mj-btn-xs px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
                       title="Reassign / Alihkan penugasan WO ke teknisi lain"
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -1956,7 +1956,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                         });
                       }
                     }}
-                    className="btn-3d-icon-wa w-7 h-7 cursor-pointer"
+                    className="mj-btn-icon-3d-wa w-8 h-8 cursor-pointer"
                     title="Kirim pesan WhatsApp penugasan ke teknisi"
                   >
                     <Phone className="w-3.5 h-3.5" />
@@ -2072,7 +2072,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <button
                   type="button"
                   onClick={handleExecuteAutoBalance}
-                  className="btn-3d-primary px-4 py-2 rounded-2xl font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="mj-btn-leader-primary px-4 py-2 rounded-2xl text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Smart Dispatch: Distribusikan otomatis WO Unassigned sesuai slot waktu & kuota terendah"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -2084,7 +2084,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 type="button"
                 disabled={!isLeaderRole}
                 onClick={() => setIsUploadAssignModalOpen(true)}
-                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <FileUp className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                 <span className="hidden sm:inline">Upload Assign</span>
@@ -2095,7 +2095,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 type="button"
                 disabled={!isLeaderRole}
                 onClick={() => setIsBulkReassignModalOpen(true)}
-                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                 <span className="hidden sm:inline">Bulk Reassign</span>
@@ -2105,7 +2105,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsDailyLimitModalOpen(true)}
-                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <Sliders className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                 <span className="hidden sm:inline">Limit Harian</span>
@@ -2115,7 +2115,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                 <span>Export</span>
@@ -2434,7 +2434,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setActiveKpiDrilldown(null);
                   setCurrentPage(1);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#160D29] hover:bg-[#F5F1FF] text-xs font-bold cursor-pointer"
+                className="mj-btn-leader-neutral mj-btn-xs inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>Reset Filter KPI</span>
@@ -2686,32 +2686,39 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS (STITCH)         */}
       {/* ============================================================ */}
       {activeTab === 'quota_settings' && (
-        <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-          {/* Card 1: Batas Kuota Beban Teknisi */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-5">
-            <div className="flex items-center gap-3 pb-3 border-b border-[#f3eaff] dark:border-[#35105E]">
-              <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
-                <Sliders className="w-5 h-5" />
+        <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12 items-start'}`}>
+          {/* Card 1: Pengaturan Kuota Harian & Limit Teknisi */}
+          <div className="lg:col-span-7 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E8DDFF,0_6px_16px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] space-y-5">
+            <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#f3eaff] dark:border-[#35105E]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3
+                    className="font-bold text-sm sm:text-base text-[#1f1638] dark:text-white truncate"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    Pengaturan Kuota Harian &amp; Limit Teknisi
+                  </h3>
+                  <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                    Kontrol distribusi beban kerja harian {displayContractor} · {displayArea}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3
-                  className="font-bold text-sm text-[#1f1638] dark:text-white"
-                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                >
-                  Pengaturan Batas Kuota Beban Teknisi
-                </h3>
-                <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
-                  Kontrol limit maksimal penugasan Work Order per hari untuk {displayContractor}
-                </p>
-              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0 tabular-nums">
+                AKTIF: {summaryMetrics.assigned}/{totalMaxSlots} WO
+              </span>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1.5">
-                  Batas Default Maksimal WO per Hari:
-                </label>
-                <div className="flex items-center gap-3">
+            {/* 2-Column Numeric Limit & Capacity Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                  <span>Limit Maksimal per Teknisi</span>
+                  <Users2 className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex items-center gap-2.5">
                   <input
                     type="number"
                     min={1}
@@ -2719,83 +2726,216 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     disabled={!isLeaderRole || isSavingQuota}
                     value={quotaSettings.defaultMaxDailyQuota}
                     onChange={e => saveQuotaSettings({ defaultMaxDailyQuota: Number(e.target.value) })}
-                    className="w-24 px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl font-mono font-bold text-sm text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c]"
+                    className="tactile-debossed-input w-20 px-3 py-2 bg-white dark:bg-[#1E1238] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl font-mono font-extrabold text-base text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] tabular-nums"
                   />
-                  <span className="text-[#4b4452] dark:text-[#CEC0E8] font-medium">WO per hari per teknisi</span>
+                  <span className="text-[11px] font-bold text-[#4b4452] dark:text-[#CEC0E8]">
+                    WO / TEKNISI
+                  </span>
                 </div>
+                <p className="text-[10.5px] text-[#7d7484] dark:text-[#A493C2]">
+                  Kapasitas standar per teknisi sebelum status menjadi penuh.
+                </p>
               </div>
 
-              <div className="pt-3 border-t border-[#f3eaff] dark:border-[#35105E]">
-                <label className="flex items-center justify-between gap-3 cursor-pointer">
-                  <div>
-                    <span className="font-bold text-[#1f1638] dark:text-white block">
-                      Mode Pembatasan Ketat (Strict Limit Enforcement)
+              <div className="p-3.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                  <span>Kapasitas Sektor Hari Ini</span>
+                  <Gauge className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono font-extrabold text-xl text-[#1f1638] dark:text-white tabular-nums">
+                    {totalMaxSlots}
+                  </span>
+                  <span className="text-[11px] font-bold text-[#4b4452] dark:text-[#CEC0E8]">
+                    SLOT ({technicianSummaries.length} TEKNISI)
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-[#7d7484] dark:text-[#A493C2]">
+                  Total kapasitas aktif seluruh installer terdaftar hari ini.
+                </p>
+              </div>
+            </div>
+
+            {/* Utilisasi Kapasitas Tim Gauge */}
+            <div className="p-3.5 rounded-xl bg-[#FDF7FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="font-bold text-[#1f1638] dark:text-white">
+                  Utilisasi Kapasitas Tim ({technicianSummaries.length} Teknisi)
+                </span>
+                <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                  {summaryMetrics.assigned} WO / {totalMaxSlots} Slot Terpakai ({quotaUtilizationPct}%)
+                </span>
+              </div>
+              <div className="h-2.5 rounded-full bg-[#E8DDFF] dark:bg-[#2E1B59] overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    quotaUtilizationPct >= 90 ? 'bg-[#BA1A1A]' : 'bg-gradient-to-r from-[#58149C] to-[#A380FE]'
+                  }`}
+                  style={{ width: `${Math.min(100, quotaUtilizationPct)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Dark Purple-to-Maroon Strict Limit Enforcement Card */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#160D29] via-[#2D115B] to-[#480123] border border-[#58149C]/60 text-white p-4 space-y-3 shadow-md">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-[#DAB9FF] shrink-0">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-bold text-[13px] text-white block truncate">
+                      Strict Limit Enforcement
                     </span>
-                    <span className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] block mt-0.5">
-                      Jika aktif: sistem menolak penugasan jika kuota teknisi penuh. Jika mati: muncul konfirmasi peringatan.
+                    <span className="text-[11px] text-[#E8DDFF]/80 block truncate">
+                      Kunci penugasan otomatis jika teknisi mencapai kuota ({quotaSettings.defaultMaxDailyQuota}/{quotaSettings.defaultMaxDailyQuota})
                     </span>
                   </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
                   <input
                     type="checkbox"
                     disabled={!isLeaderRole || isSavingQuota}
                     checked={quotaSettings.enforceStrictLimit}
                     onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
-                    className="w-4 h-4 accent-[#58149c] rounded cursor-pointer shrink-0"
+                    className="sr-only peer"
                   />
+                  <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#16A36A]" />
                 </label>
               </div>
-
-              <div className="pt-3 border-t border-[#f3eaff] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
-                  Custom limit teknisi aktif:{' '}
-                  <strong className="text-[#1f1638] dark:text-white">
-                    {Object.keys(quotaSettings.customInstallerLimits || {}).length}
-                  </strong>{' '}
-                  override tersimpan.
+              <div className="rounded-xl bg-white/8 border border-white/12 px-3 py-2 text-[11px] text-[#E8DDFF] flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-[#DAB9FF] shrink-0 mt-0.5" />
+                <span>
+                  {quotaSettings.enforceStrictLimit
+                    ? 'Aktif: Sistem memblokir Assign/Reassign ke teknisi berkuota penuh kecuali diberi pengecualian manual di bawah ini.'
+                    : 'Nonaktif: Leader masih dapat menugaskan WO melebihi kuota dengan peringatan konfirmasi.'}
                 </span>
+              </div>
+            </div>
+
+            {/* Pengecualian & Custom Limit Per Teknisi */}
+            <div className="space-y-2.5 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-bold text-xs text-[#1f1638] dark:text-white">
+                    Pengecualian &amp; Penyesuaian Kapasitas Teknisi
+                  </h4>
+                  <span className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                    {Object.keys(quotaSettings.customInstallerLimits || {}).length} override kuota khusus tersimpan
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsDailyLimitModalOpen(true)}
-                  className="btn-3d-secondary px-3.5 py-2 rounded-xl text-[#58149c] dark:text-[#dab9ff] font-bold text-xs cursor-pointer shrink-0"
+                  className="mj-btn-leader-neutral mj-btn-compact px-3.5 py-2 text-[#58149c] dark:text-[#dab9ff] text-xs cursor-pointer shrink-0"
                 >
-                  Kelola Custom Limit per Teknisi
+                  Kelola Custom Limit
                 </button>
               </div>
+
+              {Object.keys(quotaSettings.customInstallerLimits || {}).length > 0 && (
+                <div className="rounded-xl border border-[#E8DDFF] dark:border-[#35105E] divide-y divide-[#F3EAFF] dark:divide-[#35105E] overflow-hidden">
+                  {Object.entries(quotaSettings.customInstallerLimits || {}).slice(0, 4).map(([instName, limitVal]) => (
+                    <div
+                      key={instName}
+                      className="px-3 py-2 bg-[#FDF7FF] dark:bg-[#160D29] flex items-center justify-between gap-2"
+                    >
+                      <span className="font-semibold text-[#1f1638] dark:text-white truncate">{instName}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] font-mono font-bold text-[10.5px] shrink-0">
+                        {limitVal} WO / Hari
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Card 2: Pengaturan Kolom Visibilitas Tabel */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-5 flex flex-col justify-between">
+          {/* Card 2: Visibilitas Kolom Tabel */}
+          <div className="lg:col-span-5 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E8DDFF,0_6px_16px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] space-y-4 flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="flex items-center gap-3 pb-3 border-b border-[#f3eaff] dark:border-[#35105E]">
-                <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
-                  <Table className="w-5 h-5" />
+              <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#f3eaff] dark:border-[#35105E]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
+                    <Table className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3
+                      className="font-bold text-sm sm:text-base text-[#1f1638] dark:text-white truncate"
+                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      Visibilitas Kolom Tabel
+                    </h3>
+                    <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                      Kustomisasi kolom tabel Assign WO &amp; ekspor data
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3
-                    className="font-bold text-sm text-[#1f1638] dark:text-white"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                  >
-                    Pengaturan Kolom Visibilitas Tabel
-                  </h3>
-                  <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
-                    Kustomisasi kolom yang tampil pada tabel Assign WO &amp; ekspor data
-                  </p>
-                </div>
+                <span className="px-2.5 py-1 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+                  {tableColumns.filter(c => c.visible).length}/{tableColumns.length} AKTIF
+                </span>
               </div>
 
-              <p className="text-[#4b4452] dark:text-[#CEC0E8] leading-relaxed">
-                Pilih dan urutkan kolom yang ingin ditampilkan pada mode Tabel Klasik: ID Customer, WO Number, Alamat, Status WO, Teknisi, Slot Time, Kontak Pelanggan, dan Tanggal Appointment.
-              </p>
+              {/* Quick Inline Checklist of Key Columns */}
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                {tableColumns.map(col => {
+                  const locked = col.canHide === false;
+                  return (
+                    <label
+                      key={col.id}
+                      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors ${
+                        col.visible
+                          ? 'bg-[#F8F1FF] dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E]'
+                          : 'bg-white dark:bg-[#1E1238]/60 border-[#F3EAFF] dark:border-[#2E1B59] opacity-70'
+                      } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <span className="font-semibold text-[#1f1638] dark:text-white truncate">{col.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={col.visible}
+                        disabled={locked}
+                        onChange={() => {
+                          if (locked) return;
+                          handleSaveColumns(
+                            tableColumns.map(c => (c.id === col.id ? { ...c, visible: !c.visible } : c))
+                          );
+                        }}
+                        className="w-4 h-4 accent-[#58149C] rounded cursor-pointer shrink-0"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Preview Urutan Kolom Aktif */}
+              <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-3 space-y-2">
+                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                  PREVIEW URUTAN KOLOM AKTIF
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {tableColumns
+                    .filter(c => c.visible)
+                    .slice(0, 8)
+                    .map((col, idx) => (
+                      <span
+                        key={col.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-[#27104A] border border-[#DFC7FF] dark:border-[#5B35B1] text-[10.5px] font-semibold text-[#1F1638] dark:text-[#E8DDFF]"
+                      >
+                        <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">{idx + 1}.</span>
+                        <span>{col.label}</span>
+                      </span>
+                    ))}
+                </div>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={() => setIsColumnModalOpen(true)}
-              className="btn-3d-primary w-full py-2.5 px-4 font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+              className="mj-btn-leader-primary w-full py-2.5 px-4 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Sliders className="w-4 h-4" />
-              <span>Buka Pengaturan Kolom Tabel</span>
+              <span>Atur Urutan &amp; Kolom Lengkap</span>
             </button>
           </div>
         </div>
@@ -2824,7 +2964,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsBulkAssignModalOpen(false)}
-                  className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl font-semibold text-xs flex items-center justify-center cursor-pointer"
+                  className="mj-btn-leader-neutral px-4 py-2 text-xs flex items-center justify-center cursor-pointer"
                 >
                   Batal
                 </button>
@@ -2832,7 +2972,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   type="button"
                   disabled={!bulkTargetInstaller}
                   onClick={handleExecuteBulkAssignModal}
-                  className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-5 py-2 font-bold rounded-xl text-xs disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="mj-btn-leader-primary px-5 py-2 text-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Konfirmasi Penugasan</span>
@@ -2956,7 +3096,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setAssignmentNoticeModal(null)}
-                className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                className="mj-btn-leader-neutral px-4 py-2 text-xs cursor-pointer"
               >
                 Lewati / Selesai
               </button>
@@ -2971,7 +3111,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   toast.success('Pesan WhatsApp dibuka di tab baru.', 'WhatsApp Terkirim');
                   setAssignmentNoticeModal(null);
                 }}
-                className="btn-3d-success min-h-[42px] sm:min-h-[38px] px-5 py-2 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+                className="mj-btn-leader-success px-5 py-2 text-xs flex items-center justify-center gap-1.5"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Kirim via WhatsApp</span>
@@ -3035,7 +3175,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setQuotaWarningModal(null)}
-                className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                className="mj-btn-leader-neutral px-4 py-2 text-xs cursor-pointer"
               >
                 Batal
               </button>
@@ -3046,7 +3186,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setQuotaWarningModal(null);
                   handleAssignTicket(ticket, installerName, slotTime, true);
                 }}
-                className="btn-3d-amber min-h-[42px] sm:min-h-[38px] px-4 py-2 font-bold rounded-xl text-xs cursor-pointer"
+                className="mj-btn-leader-warning px-4 py-2 text-xs cursor-pointer"
               >
                 Tetap Tugaskan
               </button>

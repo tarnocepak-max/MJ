@@ -156,7 +156,7 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl font-bold cursor-pointer"
+            className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl font-bold cursor-pointer"
           >
             Batal
           </button>
@@ -164,7 +164,9 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
             type="button"
             onClick={handleConfirm}
             disabled={!isLeaderRole || validCount === 0 || isProcessing}
-            className="btn-3d-primary min-h-[42px] sm:min-h-[38px] px-5 py-2 rounded-xl font-bold cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+            className={`mj-btn-leader-primary min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl font-bold cursor-pointer ${
+              isProcessing ? 'mj-btn-loading' : ''
+            }`}
           >
             {isProcessing ? 'Memproses...' : `Tugaskan ${validCount} WO Sekarang`}
           </button>

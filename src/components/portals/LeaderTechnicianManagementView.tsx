@@ -15,12 +15,15 @@ import {
   Send,
   ClipboardCheck,
   Wrench,
-  Clock
+  Clock,
+  Award,
+  TrendingUp
 } from 'lucide-react';
 import { Ticket, User } from '../../types/index.ts';
 import { TechnicianCapacitySummary } from '../../services/leaderQuotaService';
 import { buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
+import { formatWorkDuration } from '../../services/workSessionService';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { useToast } from '../../context/ToastContext';
@@ -152,11 +155,37 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
           t.statusWOInstaller !== 'Failed / Cancelled'
       ).length;
 
+      // Compute real completion rate & avg SLA duration across contractor history for leaderboard
+      const techHistoryTickets = allContractorTickets.filter(
+        t => (t.installerName || '').toLowerCase().trim() === techNameLower
+      );
+      const completedAllCount = techHistoryTickets.filter(
+        t =>
+          t.statusWOInstaller === 'Completed' ||
+          t.statusWOInstaller === 'Installed' ||
+          t.statusWOAgent === 'Resolved' ||
+          t.statusWOAgent === 'Closed'
+      ).length;
+      const completionRatePct =
+        techHistoryTickets.length > 0
+          ? Math.round((completedAllCount / techHistoryTickets.length) * 1000) / 10
+          : 0;
+      const slaDurations = techHistoryTickets
+        .map(t => Number(t.workDurationMinutes || 0))
+        .filter(m => Number.isFinite(m) && m > 0 && m <= 600);
+      const avgSlaMins =
+        slaDurations.length > 0
+          ? Math.round(slaDurations.reduce((a, b) => a + b, 0) / slaDurations.length)
+          : 0;
+
       return {
         summary,
         idx,
         myTodayTickets,
         completedToday,
+        completedAllCount,
+        completionRatePct,
+        avgSlaMins,
         activeTicket,
         issueTicket,
         isOnField,
@@ -172,8 +201,37 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
     const standby = enrichedTechs.filter(t => t.isStandby).length;
     const withIssues = enrichedTechs.filter(t => Boolean(t.issueTicket)).length;
     const fullQuota = enrichedTechs.filter(t => t.summary.isFull).length;
-    return { total, onField, standby, withIssues, fullQuota };
+    const activePct = total > 0 ? Math.round((onField / total) * 100) : 0;
+    return { total, onField, standby, withIssues, fullQuota, activePct };
   }, [enrichedTechs]);
+
+  const topPerformers = useMemo(() => {
+    return [...enrichedTechs]
+      .sort((a, b) => {
+        if (b.completedAllCount !== a.completedAllCount) return b.completedAllCount - a.completedAllCount;
+        return b.completionRatePct - a.completionRatePct;
+      })
+      .slice(0, 3);
+  }, [enrichedTechs]);
+
+  const avgTeamSlaLabel = useMemo(() => {
+    const valid = enrichedTechs.map(t => t.avgSlaMins).filter(m => m > 0);
+    if (valid.length === 0) return '—';
+    const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+    return formatWorkDuration(avg);
+  }, [enrichedTechs]);
+
+  const clusterBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    todayTickets.forEach(t => {
+      const label = String(t.clusterName || t.area || '').trim();
+      if (label) counts.set(label, (counts.get(label) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  }, [todayTickets]);
 
   const filteredTechs = useMemo(() => {
     return enrichedTechs.filter(item => {
@@ -264,7 +322,9 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className={`mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer ${
+              isRefreshing ? 'mj-btn-loading' : ''
+            }`}
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Live Sync</span>
@@ -274,7 +334,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             <button
               type="button"
               onClick={() => setShowAddForm(prev => !prev)}
-              className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="mj-btn-leader-primary px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>{showAddForm ? 'Tutup Form' : '+ Tambah Teknisi'}</span>
@@ -374,13 +434,13 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+              className="mj-btn-leader-neutral px-4 py-2 text-xs cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="mj-btn-leader-primary px-5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Simpan Akun Teknisi</span>
@@ -389,185 +449,208 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
         </form>
       )}
 
-      {/* 3 PRIMARY KPI CARDS */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+      {/* 4 TACTILE KPI CARDS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         <button
           type="button"
           onClick={() => setStatusFilter('all')}
-          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] transition-all cursor-pointer ${
+          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_3px_0_#E8DDFF,0_4px_12px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] transition-all cursor-pointer ${
             statusFilter === 'all'
               ? 'border-[#58149C] dark:border-[#A380FE] ring-2 ring-[#58149C]/20'
               : 'border-[#E8DDFF] dark:border-[#3E246F] hover:border-[#A380FE]'
           }`}
         >
-          <div className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center mb-2">
-            <Users className="w-4 h-4" />
-          </div>
-          <div
-            className="text-2xl font-extrabold text-[#1F1638] dark:text-white tabular-nums leading-none"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            {String(metrics.total).padStart(2, '0')}
-          </div>
-          <div className="text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] mt-1 truncate">
-            Total Teknisi
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8]">
+                Total Teknisi
+              </div>
+              <div
+                className="text-2xl font-extrabold text-[#1F1638] dark:text-white tabular-nums leading-none mt-1.5"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                {String(metrics.total).padStart(2, '0')}
+              </div>
+              <div className="text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] mt-1">
+                {metrics.total > 0 ? '100% Terdaftar' : 'Belum Ada Data'}
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(prev => (prev === 'field' ? 'all' : 'field'))}
-          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] transition-all cursor-pointer ${
+          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_3px_0_#E8DDFF,0_4px_12px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] transition-all cursor-pointer ${
             statusFilter === 'field'
               ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-              : 'border-[#E8DDFF] dark:border-[#3E246F] hover:border-emerald-300'
+              : 'border-[#E8DDFF] dark:border-[#3E246F] hover:border-emerald-400'
           }`}
         >
-          <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2">
-            <Wrench className="w-4 h-4" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="text-2xl font-extrabold text-[#1F1638] dark:text-white tabular-nums leading-none"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {String(metrics.onField).padStart(2, '0')}
-            </span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          </div>
-          <div className="text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] mt-1 truncate">
-            Di Lapangan
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8]">
+                Bertugas / Check-in
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span
+                  className="text-2xl font-extrabold text-[#1F1638] dark:text-white tabular-nums leading-none"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {String(metrics.onField).padStart(2, '0')}
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/70 text-[#16A36A] dark:text-emerald-300 font-mono text-[10px] font-bold">
+                  {metrics.activePct}% Aktif
+                </span>
+              </div>
+              <div className="text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] mt-1">
+                Aktif Di Lapangan
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#16A36A] dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Wrench className="w-4 h-4" />
+            </div>
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(prev => (prev === 'standby' ? 'all' : 'standby'))}
-          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] transition-all cursor-pointer ${
+          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_3px_0_#E8DDFF,0_4px_12px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] transition-all cursor-pointer ${
             statusFilter === 'standby'
               ? 'border-[#7135B5] dark:border-[#A380FE] ring-2 ring-[#7135B5]/20'
               : 'border-[#E8DDFF] dark:border-[#3E246F] hover:border-[#A380FE]'
           }`}
         >
-          <div className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#7135B5] dark:text-[#DAB9FF] flex items-center justify-center mb-2">
-            <Clock className="w-4 h-4" />
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8]">
+                Standby Basecamp
+              </div>
+              <div
+                className="text-2xl font-extrabold text-[#1F1638] dark:text-white tabular-nums leading-none mt-1.5"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                {String(metrics.standby).padStart(2, '0')}
+              </div>
+              <div className="text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] mt-1">
+                Siap Terima Dispatch
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#7135B5] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
           </div>
-          <div
-            className="text-2xl font-extrabold text-[#1F1638] dark:text-white tabular-nums leading-none"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            {String(metrics.standby).padStart(2, '0')}
-          </div>
-          <div className="text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] mt-1 truncate">
-            Standby Camp
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter(prev => (prev === 'issue' ? 'all' : 'issue'))}
+          className={`text-left bg-white dark:bg-[#1E1238] rounded-2xl border p-3.5 sm:p-4 shadow-[0_3px_0_#E8DDFF,0_4px_12px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] transition-all cursor-pointer ${
+            statusFilter === 'issue'
+              ? 'border-[#BA1A1A] ring-2 ring-[#BA1A1A]/20'
+              : 'border-[#E8DDFF] dark:border-[#3E246F] hover:border-[#BA1A1A]/50'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8]">
+                Kendala / Penuh
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span
+                  className="text-2xl font-extrabold text-[#93000A] dark:text-rose-300 tabular-nums leading-none"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {String(metrics.withIssues).padStart(2, '0')}
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-[#93000A] dark:text-rose-300 font-mono text-[10px] font-bold">
+                  {metrics.fullQuota} Penuh
+                </span>
+              </div>
+              <div className="text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8] mt-1">
+                Perlu Perhatian Leader
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-[#BA1A1A] dark:text-rose-300 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
           </div>
         </button>
       </div>
 
-      {/* AREA COVERAGE STRIP */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] bg-white dark:bg-[#1E1238] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)]">
-        <img
-          src={gisMapStripImg}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover opacity-30 dark:opacity-15 pointer-events-none select-none"
-        />
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          <div className="min-w-0 space-y-0.5">
-            <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span>AREA COVERAGE</span>
+      {/* DESKTOP 8/4 SPLIT: ROSTER (LEFT) + TOP PERFORMER & COVERAGE ANALYTICS (RIGHT) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+        <div className="xl:col-span-8 space-y-3.5">
+          {/* SEARCH BAR + FILTER CHIPS */}
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-2.5">
+            <div className="relative">
+              <Search className="w-4 h-4 text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Cari nama teknisi, username, nomor WA, atau nomor WO..."
+                className="tactile-debossed-input w-full min-h-[44px] pl-10 pr-10 py-2.5 bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3E246F] rounded-xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-hidden focus:border-[#58149C]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-            <div
-              className="font-extrabold text-[15px] sm:text-base text-[#1F1638] dark:text-white truncate"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {displayArea} · {displayContractor}
-            </div>
-            <div className="text-[11.5px] text-[#4B4452] dark:text-[#CEC0E8] truncate">
-              {clusterOptions.length > 0
-                ? `${clusterOptions.length} Cluster Aktif: ${clusterOptions.slice(0, 3).join(', ')}${clusterOptions.length > 3 ? '...' : ''}`
-                : `${todayTickets.length} Work Order terdaftar hari ini`}
+
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+              {[
+                { id: 'all' as TechFilterType, label: `Semua (${metrics.total})` },
+                { id: 'field' as TechFilterType, label: `Di Lapangan (${metrics.onField})` },
+                { id: 'standby' as TechFilterType, label: `Standby (${metrics.standby})` },
+                { id: 'issue' as TechFilterType, label: `Kendala (${metrics.withIssues})` },
+                { id: 'full' as TechFilterType, label: `Kuota Penuh (${metrics.fullQuota})` }
+              ].map(chip => {
+                const active = statusFilter === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setStatusFilter(chip.id)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap shrink-0 cursor-pointer ${
+                      active
+                        ? 'mj-btn-leader-secondary mj-btn-xs'
+                        : 'mj-btn-leader-neutral mj-btn-xs'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenAreaMap}
-            className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0 cursor-pointer"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>GIS Map</span>
-          </button>
-        </div>
-      </div>
-
-      {/* SEARCH BAR + FILTER CHIPS */}
-      <div className="space-y-2.5">
-        <div className="relative">
-          <Search className="w-4 h-4 text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Cari nama teknisi, username, nomor WA, atau nomor WO..."
-            className="tactile-debossed-input w-full min-h-[44px] pl-10 pr-10 py-2.5 bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] rounded-2xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-hidden focus:border-[#58149C]"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
-          {[
-            { id: 'all' as TechFilterType, label: `Semua (${metrics.total})` },
-            { id: 'field' as TechFilterType, label: `Di Lapangan (${metrics.onField})` },
-            { id: 'standby' as TechFilterType, label: `Standby (${metrics.standby})` },
-            { id: 'issue' as TechFilterType, label: `Kendala (${metrics.withIssues})` },
-            { id: 'full' as TechFilterType, label: `Kuota Penuh (${metrics.fullQuota})` }
-          ].map(chip => {
-            const active = statusFilter === chip.id;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => setStatusFilter(chip.id)}
-                className={`px-3.5 py-2 min-h-[40px] sm:min-h-0 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                  active
-                    ? 'tactile-chip-active bg-[#58149C] text-white'
-                    : 'tactile-chip bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[#4B4452] dark:text-[#CEC0E8] hover:border-[#58149C]/50'
-                }`}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* TECHNICIAN CARDS LIST / GRID */}
-      {filteredTechs.length === 0 ? (
-        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-10 text-center space-y-2.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center mx-auto">
-            <Users className="w-5 h-5" />
-          </div>
-          <h3 className="font-bold text-sm text-[#1F1638] dark:text-white">
-            Tidak ada teknisi yang sesuai filter
-          </h3>
-          <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8]">
-            {technicians.length === 0
-              ? `Belum ada teknisi terdaftar pada vendor ${displayContractor}. Klik "+ Tambah Teknisi" untuk mendaftarkan teknisi.`
-              : 'Ubah kata kunci pencarian atau filter status di atas.'}
-          </p>
-        </div>
-      ) : (
-        <div className={`grid gap-3.5 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+          {/* TECHNICIAN CARDS LIST / GRID */}
+          {filteredTechs.length === 0 ? (
+            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-10 text-center space-y-2.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center mx-auto">
+                <Users className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-sm text-[#1F1638] dark:text-white">
+                Tidak ada teknisi yang sesuai filter
+              </h3>
+              <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8]">
+                {technicians.length === 0
+                  ? `Belum ada teknisi terdaftar pada vendor ${displayContractor}. Klik "+ Tambah Teknisi" untuk mendaftarkan teknisi.`
+                  : 'Ubah kata kunci pencarian atau filter status di atas.'}
+              </p>
+            </div>
+          ) : (
+            <div className={`grid gap-3.5 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
           {filteredTechs.map(({ summary, idx, completedToday, activeTicket, issueTicket, isStandby, latestActiveOverallCount }) => {
             const inst = summary.installer;
             const hasValidPhone = isValidPhoneNumber(inst.phone || '');
@@ -749,7 +832,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                   <button
                     type="button"
                     onClick={() => onSelectTechnicianDetail(inst)}
-                    className="btn-3d-secondary flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="mj-btn-leader-neutral mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <UserCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                     <span>Detail Profil</span>
@@ -759,7 +842,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                     <button
                       type="button"
                       onClick={() => onAssignWorkOrderToTechnician(inst)}
-                      className="btn-3d-primary flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="mj-btn-leader-primary mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" />
                       <span>Tugaskan WO</span>
@@ -769,7 +852,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                       href={waUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-3d-emerald flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+                      className="mj-btn-leader-success mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1.5"
                     >
                       <PhoneCall className="w-3.5 h-3.5" />
                       <span>Panggil WA</span>
@@ -779,7 +862,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                       type="button"
                       onClick={() => onAssignWorkOrderToTechnician(inst)}
                       disabled={!isLeaderRole || summary.isFull}
-                      className="btn-3d-primary flex-1 min-h-[44px] sm:min-h-[38px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-45 cursor-pointer"
+                      className="mj-btn-leader-primary mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" />
                       <span>Tugaskan WO</span>
@@ -789,22 +872,167 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
               </div>
             );
           })}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* BOTTOM TEAM BROADCAST CTA */}
-      <div className="pt-1 space-y-1.5 text-center">
-        <button
-          type="button"
-          onClick={() => setIsBroadcastOpen(true)}
-          className="btn-3d-primary w-full min-h-[48px] py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <Radio className="w-4 h-4" />
-          <span>Broadcast Pesan ke Seluruh Tim ({metrics.total} Teknisi)</span>
-        </button>
-        <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
-          Koordinasi cepat ke WhatsApp teknisi dalam cakupan {displayContractor}
-        </p>
+        {/* RIGHT 4-COLUMN LEADERBOARD & COVERAGE PANEL */}
+        <aside className="xl:col-span-4 space-y-3.5">
+          {/* Dark Purple-to-Maroon Leaderboard Card: Top Performer */}
+          <div className="rounded-2xl bg-gradient-to-br from-[#160D29] via-[#2D115B] to-[#480123] border border-[#58149C]/50 text-white p-4 shadow-[0_10px_24px_rgba(22,13,41,0.32)] space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#DAB9FF]">
+                  TOP PERFORMER TIM
+                </span>
+                <h3
+                  className="text-base font-extrabold text-white tracking-tight mt-0.5"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {displayArea}
+                </h3>
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-[#DAB9FF] shrink-0">
+                <Award className="w-4 h-4" />
+              </div>
+            </div>
+
+            {topPerformers.length === 0 ? (
+              <div className="rounded-xl bg-white/8 border border-white/10 p-3 text-xs text-[#E8DDFF]/80">
+                Belum ada riwayat penyelesaian WO untuk peringkat teknisi.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {topPerformers.map((perf, rank) => (
+                  <button
+                    key={perf.summary.installer.id}
+                    type="button"
+                    onClick={() => onSelectTechnicianDetail(perf.summary.installer)}
+                    className="w-full text-left rounded-xl bg-white/10 hover:bg-white/15 border border-white/12 px-3 py-2.5 flex items-center justify-between gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="font-mono text-[11px] font-extrabold text-[#DAB9FF] w-5 shrink-0">
+                        #{rank + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded-lg bg-[#58149C] border border-[#A380FE]/40 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        {getInitials(perf.summary.installer.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">
+                          {perf.summary.installer.name}
+                        </div>
+                        <div className="text-[10.5px] text-[#E8DDFF]/80 truncate font-mono">
+                          {perf.summary.installer.area || displayArea} · {perf.completedAllCount} WO
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-mono text-xs font-extrabold text-emerald-300 tabular-nums">
+                        {perf.completionRatePct}%
+                      </div>
+                      {perf.avgSlaMins > 0 && (
+                        <div className="font-mono text-[9.5px] text-[#DAB9FF]">
+                          SLA {formatWorkDuration(perf.avgSlaMins)}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sebaran Sektor Aktif & Rata-rata SLA Tim Card */}
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_3px_0_#E8DDFF,0_4px_12px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                  SEBARAN SEKTOR AKTIF
+                </div>
+                <div className="text-sm font-extrabold text-[#1F1638] dark:text-white truncate">
+                  {displayArea} · {displayContractor}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenAreaMap}
+                className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1.5 text-[11px] flex items-center gap-1 text-[#58149C] dark:text-[#DAB9FF] cursor-pointer shrink-0"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>GIS Map</span>
+              </button>
+            </div>
+
+            <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8DDFF] dark:border-[#35105E]">
+              <img
+                src={gisMapStripImg}
+                alt="Peta cakupan area tim"
+                className="w-full h-full object-cover opacity-80 dark:opacity-50"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#160D29]/85 via-transparent to-transparent flex items-end p-2.5">
+                <div className="flex items-center justify-between w-full text-white text-[11px]">
+                  <span className="font-semibold truncate">
+                    {clusterOptions.length > 0 ? `${clusterOptions.length} Kluster Aktif` : `${todayTickets.length} WO Hari Ini`}
+                  </span>
+                  <span className="font-mono font-bold text-[#DAB9FF]">Live GIS</span>
+                </div>
+              </div>
+            </div>
+
+            {clusterBreakdown.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {clusterBreakdown.map(cluster => {
+                  const pct = todayTickets.length > 0 ? Math.round((cluster.count / todayTickets.length) * 100) : 0;
+                  return (
+                    <div key={cluster.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-[#1F1638] dark:text-[#E8DDFF] truncate">{cluster.name}</span>
+                        <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                          {cluster.count} WO ({pct}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#7135B5] dark:bg-[#A380FE]" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="pt-2.5 border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[#7D7484] dark:text-[#CEC0E8]">
+                  RATA-RATA SLA TIM
+                </div>
+                <div
+                  className="text-lg font-extrabold text-[#1F1638] dark:text-white font-mono tabular-nums"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {avgTeamSlaLabel}
+                </div>
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+
+          {/* BOTTOM TEAM BROADCAST CTA */}
+          <div className="space-y-1.5 text-center">
+            <button
+              type="button"
+              onClick={() => setIsBroadcastOpen(true)}
+              className="mj-btn-leader-primary w-full min-h-[48px] py-3 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Radio className="w-4 h-4" />
+              <span>Broadcast Pesan ke Tim ({metrics.total} Teknisi)</span>
+            </button>
+            <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
+              Koordinasi cepat via WhatsApp dalam cakupan {displayContractor}
+            </p>
+          </div>
+        </aside>
       </div>
 
       {/* BROADCAST COORDINATION MODAL */}
@@ -821,7 +1049,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
           <button
             type="button"
             onClick={() => setIsBroadcastOpen(false)}
-            className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+            className="mj-btn-leader-neutral px-4 py-2 text-xs cursor-pointer"
           >
             Tutup
           </button>
@@ -904,7 +1132,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                           href={buildWhatsAppClickToChatUrl(phone, broadcastMessage).url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn-3d-emerald min-h-[40px] px-3 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 shrink-0"
+                          className="mj-btn-leader-success mj-btn-compact px-3 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 shrink-0"
                         >
                           <Send className="w-3 h-3" />
                           <span>Kirim WA</span>

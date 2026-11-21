@@ -343,7 +343,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {/* 6. Notifikasi & Audio */}
         {currentTab === 'sound' && (
           <div className="space-y-4">
-            <SoundSettingsView />
+            <SoundSettingsView onNavigateTab={onNavigateTab} />
           </div>
         )}
 

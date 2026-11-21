@@ -95,7 +95,7 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
               onClose();
               onQuickAssign(installer.name);
             }}
-            className="btn-3d-primary min-h-[36px] px-3 py-1.5 font-bold rounded-lg text-xs whitespace-nowrap cursor-pointer"
+            className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 font-bold rounded-xl text-xs whitespace-nowrap cursor-pointer"
           >
             + Assign WO
           </button>
@@ -109,7 +109,7 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 font-bold rounded-xl cursor-pointer shrink-0"
+            className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 font-bold rounded-xl cursor-pointer shrink-0"
           >
             Tutup
           </button>

@@ -994,6 +994,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                       </>
                     )}
                   </div>
+
+                  {(currentUser.role === 'super_admin' || currentUser.role === 'dispatch') && (
+                    <div className="px-3 py-2.5 bg-[#F7F6FA] dark:bg-[#22123F] border-t border-[#E9E5F0] dark:border-[#35105E]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotifOpen(false);
+                          onNavigate('sound_settings');
+                        }}
+                        className="btn-3d-lilac w-full py-1.5 px-3 rounded-xl text-[11px] font-bold flex items-center justify-between gap-2 cursor-pointer"
+                      >
+                        <span>Buka 3D Alert &amp; Audio Engine</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}

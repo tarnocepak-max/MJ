@@ -210,6 +210,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
     users,
     contractors,
     coverageAreas,
+    auditLogs,
     updateUser,
     refreshDatabaseData
   } = useApp();
@@ -362,6 +363,73 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       vendors: Array.from(vendors).sort((a, b) => a.localeCompare(b))
     };
   }, [users, coverageAreas, contractors]);
+
+  // Real Sidebar Insights for Stitch 8/4 Directory Layout
+  const directoryInsights = useMemo(() => {
+    const activeTopOperators = [...users]
+      .filter(u => !u.isArchived && u.active)
+      .sort((a, b) => {
+        const ta = a.lastLoginAt ? new Date(a.lastLoginAt).getTime() : 0;
+        const tb = b.lastLoginAt ? new Date(b.lastLoginAt).getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, 4);
+
+    const areaMap = new Map<string, { total: number; active: number }>();
+    users
+      .filter(u => !u.isArchived)
+      .forEach(u => {
+        const areaName = (u.area || '').trim() || 'NOC Pusat';
+        const cur = areaMap.get(areaName) || { total: 0, active: 0 };
+        cur.total += 1;
+        if (u.active && !isUserLocked(u)) cur.active += 1;
+        areaMap.set(areaName, cur);
+      });
+
+    const topAreas = Array.from(areaMap.entries())
+      .map(([name, counts]) => ({
+        name,
+        total: counts.total,
+        active: counts.active,
+        pct: counts.total > 0 ? Math.round((counts.active / counts.total) * 100) : 0
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 4);
+
+    // Build 7-bucket real activity sparkline from lastLoginAt + auditLogs timestamps
+    const nowMs = Date.now();
+    const dayBuckets = [0, 0, 0, 0, 0, 0, 0];
+    const collectTs = (iso?: string | null) => {
+      if (!iso) return;
+      const t = new Date(iso).getTime();
+      if (!Number.isFinite(t)) return;
+      const daysAgo = Math.floor((nowMs - t) / 86400000);
+      if (daysAgo >= 0 && daysAgo < 7) {
+        dayBuckets[6 - daysAgo] += 1;
+      }
+    };
+    users.forEach(u => collectTs(u.lastLoginAt));
+    (auditLogs || []).slice(0, 200).forEach(log => collectTs(log.timestamp));
+
+    const maxBucket = Math.max(1, ...dayBuckets);
+    const activitySparkline = dayBuckets
+      .map((val, idx) => {
+        const x = Math.round((idx / 6) * 116) + 2;
+        const y = Math.round(30 - (val / maxBucket) * 24);
+        return `${x},${y}`;
+      })
+      .join(' ');
+
+    const activeLoginUsers = users.filter(u => u.active && Boolean(u.lastLoginAt)).length;
+
+    return {
+      activeTopOperators,
+      topAreas,
+      activitySparkline,
+      activeLoginUsers,
+      totalEvents7d: dayBuckets.reduce((acc, v) => acc + v, 0)
+    };
+  }, [users, auditLogs]);
 
   const handleOpenEdit = (user: UserType) => {
     setEditingUser(user);
@@ -1280,17 +1348,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             </div>
           </div>
 
-          {/* User Directory Table Card */}
-          <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className={`flex flex-col ${isCompactUI ? '' : 'sm:flex-row sm:items-center'} justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#3b1d78]`}>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4" />
+          {/* 8/4 Asymmetric Grid: User Directory Table (Left 8) + Live Operator & Area Insights (Right 4) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+            <div className="xl:col-span-8 card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4">
+              <div className={`flex flex-col ${isCompactUI ? '' : 'sm:flex-row sm:items-center'} justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#3b1d78]`}>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm">
+                    Daftar User Terdaftar
+                  </h4>
                 </div>
-                <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm">
-                  Daftar User Terdaftar
-                </h4>
-              </div>
 
               <span className="self-start sm:self-auto px-3 py-1 rounded-full text-[11px] font-bold font-mono tabular-nums bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#5b35b1]">
                 Menampilkan {paginatedUsers.length} dari {sortedUsers.length} User
@@ -1618,6 +1687,156 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 itemLabel: 'akun'
               }}
             />
+            </div>
+
+            {/* RIGHT 4-COLUMN COMMAND & COVERAGE INSIGHTS */}
+            <div className="xl:col-span-4 space-y-4">
+              {/* Card 1: Dark Purple-to-Maroon Active Operators & Role Breakdown */}
+              <div className="rounded-2xl p-5 bg-gradient-to-br from-[#160D29] via-[#27104A] to-[#480123] text-white border border-[#7135B5]/45 shadow-[0_12px_28px_-8px_rgba(35,9,59,0.5)] space-y-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#DAB9FF]">
+                      AKTIVITAS OPERATOR TERKINI
+                    </div>
+                    <h5 className="font-display font-extrabold text-sm text-white mt-0.5">
+                      Operator &amp; Teknisi Aktif
+                    </h5>
+                  </div>
+                  <BadgeCheck className="w-5 h-5 text-[#DAB9FF] shrink-0" />
+                </div>
+
+                <div className="space-y-2">
+                  {directoryInsights.activeTopOperators.length === 0 ? (
+                    <div className="p-3 rounded-xl bg-white/10 text-xs text-[#EEDBFF]">
+                      Belum ada akun aktif tercatat.
+                    </div>
+                  ) : (
+                    directoryInsights.activeTopOperators.map((op, idx) => (
+                      <div
+                        key={`top-op-${op.id}`}
+                        className="p-2.5 rounded-xl bg-white/10 border border-white/10 flex items-center justify-between gap-2.5"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-[10.5px] font-mono font-extrabold text-[#DAB9FF] shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <div className="w-8 h-8 rounded-full bg-[#58149C] border border-[#DAB9FF]/40 flex items-center justify-center text-[11px] font-extrabold text-white shrink-0">
+                            {getUserInitials(op.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{op.name}</div>
+                            <div className="text-[10.5px] text-[#EEDBFF]/80 truncate">
+                              {op.area || 'NOC Pusat'} · {op.role.replace('_', ' ')}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/15 text-[#DAB9FF] shrink-0">
+                          {op.lastLoginAt
+                            ? new Date(op.lastLoginAt).toLocaleTimeString('id-ID', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Aktif'}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Live Role Composition */}
+                <div className="pt-3 border-t border-white/15 space-y-2">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#DAB9FF]">
+                    KOMPOSISI PERAN RBAC ({userStats.total} AKUN)
+                  </div>
+                  {[
+                    { label: 'Installer', count: userStats.byRole.installer },
+                    { label: 'Leader Area', count: userStats.byRole.leader },
+                    { label: 'Dispatch', count: userStats.byRole.dispatch },
+                    { label: 'Superadmin', count: userStats.byRole.super_admin }
+                  ].map(item => {
+                    const ratio = userStats.total > 0 ? Math.round((item.count / userStats.total) * 100) : 0;
+                    return (
+                      <div key={item.label} className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[#EEDBFF] font-medium">{item.label}</span>
+                          <span className="font-mono font-bold text-white tabular-nums">
+                            {item.count} ({ratio}%)
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#DAB9FF] to-[#A855F7]"
+                            style={{ width: `${ratio}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Card 2: Sebaran Sektor Aktif + SVG Sparkline */}
+              <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+                      SEBARAN SEKTOR AKTIF
+                    </div>
+                    <h5 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
+                      Cakupan Area &amp; Basecamp
+                    </h5>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+                    {areaVendorOptions.areas.length} Area
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {directoryInsights.topAreas.map(areaItem => (
+                    <div key={areaItem.name} className="mj-tactile-well p-2.5 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="font-bold text-[#1F1638] dark:text-white truncate">{areaItem.name}</span>
+                        <span className="font-mono text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0 tabular-nums">
+                          {areaItem.active}/{areaItem.total} Aktif
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2E1459] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#58149C] to-[#7135B5]"
+                          style={{ width: `${areaItem.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Real Activity SVG Sparkline */}
+                <div className="pt-3 border-t border-[#E8DDFF] dark:border-[#3B1D78] flex items-end justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+                      JEJAK AKTIVITAS (7 HARI)
+                    </div>
+                    <div className="font-display text-xl font-extrabold text-[#1F1638] dark:text-white tabular-nums mt-0.5">
+                      {directoryInsights.activeLoginUsers}{' '}
+                      <span className="text-xs font-semibold text-[#58149C] dark:text-[#D8B4FE]">Akun Login</span>
+                    </div>
+                    <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2]">
+                      {directoryInsights.totalEvents7d} event audit &amp; sesi tercatat
+                    </div>
+                  </div>
+                  <svg viewBox="0 0 120 34" className="w-28 h-9 shrink-0 overflow-visible" aria-hidden="true">
+                    <polyline
+                      fill="none"
+                      stroke="#58149C"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={directoryInsights.activitySparkline}
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
       </div>
 

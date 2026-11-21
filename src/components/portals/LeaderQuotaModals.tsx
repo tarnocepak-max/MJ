@@ -80,7 +80,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl font-bold cursor-pointer"
+            className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl font-bold cursor-pointer"
           >
             Tutup
           </button>
@@ -89,9 +89,11 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
               type="submit"
               form="leader-daily-limit-form"
               disabled={isSaving}
-              className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-5 py-2 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+              className={`mj-btn-leader-primary min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer ${
+                isSaving ? 'mj-btn-loading' : ''
+              }`}
             >
-              <Check className="w-4 h-4" />
+              <Check className={`w-4 h-4 ${isSaving ? 'animate-pulse' : ''}`} />
               <span>{isSaving ? 'Menyimpan...' : 'Simpan Aturan Kuota'}</span>
             </button>
           )}
@@ -161,7 +163,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
               <button
                 type="button"
                 onClick={() => setCustomLimits({})}
-                className="text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] cursor-pointer"
               >
                 Reset Semua ke Default ({defaultLimit})
               </button>
@@ -219,7 +221,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
                               return next;
                             });
                           }}
-                          className="p-2 text-[#7D7484] hover:text-rose-600 cursor-pointer"
+                          className="mj-btn-icon-3d-leader w-8 h-8 text-[#7D7484] hover:text-rose-600 cursor-pointer"
                           title="Kembalikan ke batas default"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -321,7 +323,7 @@ export const BulkReassignModal: React.FC<BulkReassignModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl font-bold cursor-pointer"
+              className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl font-bold cursor-pointer"
             >
               Batal
             </button>
@@ -329,9 +331,11 @@ export const BulkReassignModal: React.FC<BulkReassignModalProps> = ({
               type="submit"
               form="leader-bulk-reassign-form"
               disabled={!canSubmit}
-              className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-5 py-2 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className={`mj-btn-leader-primary min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer ${
+                isSubmitting ? 'mj-btn-loading' : ''
+              }`}
             >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <ArrowRightLeft className={`w-3.5 h-3.5 ${isSubmitting ? 'animate-spin' : ''}`} />
               <span>{isSubmitting ? 'Memproses...' : `Alihkan ${selectedIds.length} WO`}</span>
             </button>
           </div>
@@ -497,7 +501,7 @@ export const AssignmentAuditTrailModal: React.FC<AssignmentAuditTrailModalProps>
           <button
             type="button"
             onClick={onClose}
-            className="btn-3d-secondary min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-xl font-bold cursor-pointer"
+            className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl font-bold cursor-pointer"
           >
             Tutup
           </button>

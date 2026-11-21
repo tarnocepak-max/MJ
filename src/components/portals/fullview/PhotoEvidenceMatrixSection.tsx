@@ -308,14 +308,16 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                     )}
                   </div>
 
-                  {/* Card Footer Buttons (Existing MoraJaws Secondary Buttons) */}
+                  {/* Card Footer Buttons */}
                   <div className="flex items-center gap-1.5">
                     {isFailed && uploadMeta?.pendingPayload ? (
                       <button
                         type="button"
                         disabled={isBusy}
                         onClick={() => onRetryUpload(slotDef)}
-                        className="flex-1 py-1.5 px-2 rounded-lg mj-tactile-btn-danger text-[10.5px] flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                        className={`mj-btn-installer-danger mj-btn-compact flex-1 py-1.5 px-2 text-[11px] gap-1 cursor-pointer ${
+                          isBusy ? 'mj-btn-loading' : ''
+                        }`}
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Retry</span>
@@ -324,9 +326,9 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                       <button
                         type="button"
                         onClick={() => onViewPhoto(slotData.url, slotDef)}
-                        className="flex-1 py-1.5 px-2 rounded-lg mj-btn-secondary text-[11px] flex items-center justify-center gap-1 cursor-pointer"
+                        className="mj-btn-installer-neutral mj-btn-compact flex-1 py-1.5 px-2 text-[11px] gap-1 cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5 text-[#58149c]" />
+                        <Eye className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
                         <span>Lihat</span>
                       </button>
                     )}
@@ -338,7 +340,9 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                         onClick={() => onOpenCamera(slotDef)}
                         aria-label={`Foto Ulang ${slotDef.title}`}
                         title={`Foto Ulang ${slotDef.title}`}
-                        className="w-8 h-8 rounded-lg mj-btn-secondary text-[#58149c] flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-40"
+                        className={`mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0 ${
+                          isBusy ? 'mj-btn-loading' : ''
+                        }`}
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin' : ''}`} />
                       </button>
@@ -380,7 +384,9 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                 type="button"
                 disabled={ticketClosed || isBusy}
                 onClick={() => onOpenCamera(slotDef)}
-                className="w-full py-2 px-2.5 rounded-lg mj-tactile-btn-primary text-[11px] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+                className={`mj-btn-installer-primary mj-btn-compact w-full py-2 px-2.5 text-[11px] gap-1.5 cursor-pointer ${
+                  isBusy ? 'mj-btn-loading' : ''
+                }`}
               >
                 <Camera className="w-3.5 h-3.5" />
                 <span>{ticketClosed ? 'Terkunci' : 'Ambil Foto'}</span>

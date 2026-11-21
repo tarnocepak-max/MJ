@@ -23,7 +23,10 @@ import {
   Wifi,
   ChevronDown,
   ChevronUp,
-  Download
+  Download,
+  Eye,
+  TrendingUp,
+  Award
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
@@ -32,6 +35,7 @@ import {
   formatAppointmentDateDisplay
 } from '../../services/appointmentDateParser';
 import { useToast } from '../../context/ToastContext';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import ftthInspectionImg from '../../assets/images/leader_ftth_inspection_1794890485687.jpg';
 
 interface ContractorRowData {
@@ -71,6 +75,7 @@ export const ContractorAreaRecapView: React.FC = () => {
   const [endDate, setEndDate] = useState<string>(todayWIB);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(() => !isLeader);
+  const [detailScope, setDetailScope] = useState<{ areaName: string; contractorName?: string } | null>(null);
 
   const wibTimeLabel = useMemo(() => {
     try {
@@ -350,6 +355,94 @@ export const ContractorAreaRecapView: React.FC = () => {
       .slice(0, 4);
   }, [filteredTickets]);
 
+  // Real 7-day completion trend across consecutive WIB dates ending at endDate || todayWIB
+  const dailyTrend = useMemo(() => {
+    const anchorStr = endDate || todayWIB;
+    const anchorDate = new Date(`${anchorStr}T12:00:00+07:00`);
+    const daysList: Array<{ dateKey: string; dayLabel: string; total: number; complete: number }> = [];
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+    for (let offset = -6; offset <= 0; offset++) {
+      const d = new Date(anchorDate.getTime() + offset * 86400000);
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const dateKey = `${yyyy}-${mm}-${dd}`;
+      daysList.push({
+        dateKey,
+        dayLabel: dayNames[d.getUTCDay()] || dd,
+        total: 0,
+        complete: 0
+      });
+    }
+
+    const dayMap = new Map(daysList.map(item => [item.dateKey, item]));
+    activeTickets.forEach(t => {
+      const appt = getTicketAppointmentDate(t);
+      if (!appt || !dayMap.has(appt)) return;
+
+      const ticketArea = (t.area || '').trim() || 'Belum Ditentukan';
+      if (selectedArea !== 'ALL' && ticketArea.toLowerCase() !== selectedArea.toLowerCase()) return;
+
+      const ticketContractor =
+        (t.contactorName || t.contractorName || (t as any).contractor || (t as any).vendorName || '').trim() ||
+        'Belum Ditentukan';
+      if (selectedContractor !== 'ALL' && ticketContractor.toLowerCase() !== selectedContractor.toLowerCase()) return;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const match =
+          ticketArea.toLowerCase().includes(q) ||
+          ticketContractor.toLowerCase().includes(q) ||
+          String(t.woNumber ?? '').toLowerCase().includes(q) ||
+          String(t.installerName ?? '').toLowerCase().includes(q);
+        if (!match) return;
+      }
+
+      const bucket = dayMap.get(appt)!;
+      bucket.total += 1;
+      if (classifyTicketStatus(t).isComplete) {
+        bucket.complete += 1;
+      }
+    });
+
+    const maxCount = Math.max(1, ...daysList.map(d => Math.max(d.complete, d.total)));
+    const totalDaysWithVolume = daysList.filter(d => d.total > 0).length;
+    const sumTotal = daysList.reduce((acc, d) => acc + d.total, 0);
+    const targetDaily = totalDaysWithVolume > 0 ? Math.round(sumTotal / totalDaysWithVolume) : 0;
+
+    return { days: daysList, maxCount, targetDaily };
+  }, [activeTickets, endDate, todayWIB, selectedArea, selectedContractor, searchQuery]);
+
+  // Top performing area from groupedData
+  const topCluster = useMemo(() => {
+    if (groupedData.length === 0) return null;
+    return [...groupedData]
+      .filter(g => g.subtotal.totalWO > 0)
+      .sort((a, b) => {
+        const rateA = a.subtotal.totalWO > 0 ? a.subtotal.complete / a.subtotal.totalWO : 0;
+        const rateB = b.subtotal.totalWO > 0 ? b.subtotal.complete / b.subtotal.totalWO : 0;
+        if (rateB !== rateA) return rateB - rateA;
+        return b.subtotal.complete - a.subtotal.complete;
+      })[0] || null;
+  }, [groupedData]);
+
+  // Drill-down tickets for "Lihat Rincian" modal
+  const detailTickets = useMemo(() => {
+    if (!detailScope) return [];
+    return filteredTickets.filter(t => {
+      const areaKey = (t.area || '').trim() || 'Belum Ditentukan';
+      if (areaKey !== detailScope.areaName) return false;
+      if (detailScope.contractorName) {
+        const contractorKey =
+          (t.contactorName || t.contractorName || (t as any).contractor || (t as any).vendorName || '').trim() ||
+          'Belum Ditentukan';
+        if (contractorKey !== detailScope.contractorName) return false;
+      }
+      return true;
+    });
+  }, [detailScope, filteredTickets]);
+
   // List of available areas and contractors from dataset
   const availableAreas = useMemo(() => {
     const set = new Set<string>();
@@ -628,165 +721,348 @@ export const ContractorAreaRecapView: React.FC = () => {
         </div>
       )}
 
-      {/* Top Grid: RINGKASAN EKSEKUSI WO + KUALITAS REDAMAN */}
-      <div className={isCompactUI ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch'}>
-        {/* Hero Card: RINGKASAN EKSEKUSI WO */}
-        <div className={`${isCompactUI ? '' : 'lg:col-span-7'} card-3d-lavender p-4 sm:p-5 flex flex-col justify-between gap-4`}>
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#7D7484] dark:text-[#C5B3DF]">
-                RINGKASAN EKSEKUSI WO
-              </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-3xl sm:text-4xl font-bold font-mono text-[#1F1638] dark:text-white tabular-nums">
-                  {grandTotal.totalWO}
-                </span>
-                <span className="text-xs sm:text-sm font-medium text-[#4B4452] dark:text-[#C5B3DF]">
-                  Total Tiket Dispatch
-                </span>
-              </div>
-            </div>
-
-            <div className="text-right shrink-0">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{executionRates.completionPct}% Sukses</span>
+      {/* 01 / REKAPITULASI OPERASIONAL: 5-Card Executive KPI Strip (MoraJaws Purple/Lilac/Maroon) */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 px-1">
+          <div>
+            <div className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#58149C] dark:text-[#D8B4FE]">
+              <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#D8CCF3] dark:border-[#5B35B1]">
+                01 / REKAPITULASI OPERASIONAL
               </span>
-              <div className="mt-1 text-[11px] text-[#7D7484] dark:text-[#A493C2]">
-                {grandTotal.complete} dari {grandTotal.totalWO} Rampung
-              </div>
+              <span className="text-[#7D7484] dark:text-[#A493C2]">{activeScopeSubtitle}</span>
             </div>
+            <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white mt-1">
+              Rekap Work Order (Mitra &amp; Area)
+            </h2>
           </div>
 
-          {/* 3 Sub-Tiles: Selesai, Pending/Proses, Gagal/Batal */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="mj-tactile-well p-3 rounded-xl">
-              <div className="flex items-center justify-between text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                <span>Selesai</span>
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </div>
-              <div className="mt-1.5 text-xl font-bold font-mono text-[#1F1638] dark:text-white tabular-nums">
-                {grandTotal.complete}
-              </div>
-              <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
-                Target tercapai
-              </div>
-            </div>
-
-            <div className="mj-tactile-well p-3 rounded-xl">
-              <div className="flex items-center justify-between text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                <span>Pending</span>
-                <Clock className="w-3.5 h-3.5" />
-              </div>
-              <div className="mt-1.5 text-xl font-bold font-mono text-[#1F1638] dark:text-white tabular-nums">
-                {grandTotal.uncomplete}
-              </div>
-              <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
-                Proses / Tunda
-              </div>
-            </div>
-
-            <div className="mj-tactile-well p-3 rounded-xl">
-              <div className="flex items-center justify-between text-[11px] font-bold text-rose-700 dark:text-rose-400">
-                <span>Gagal/Batal</span>
-                <XCircle className="w-3.5 h-3.5" />
-              </div>
-              <div className="mt-1.5 text-xl font-bold font-mono text-[#1F1638] dark:text-white tabular-nums">
-                {grandTotal.cancel}
-              </div>
-              <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
-                {grandTotal.unassign} blm assign
-              </div>
-            </div>
-          </div>
-
-          {/* Dark Purple Telemetry Bar: Assign Rate & Real Avg OPM */}
-          <div className="rounded-xl bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#1A0D36] text-white p-3.5 grid grid-cols-2 gap-3 border border-[#5B289B]/40 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-[#5B289B]/35 border border-[#D8B4FE]/25 flex items-center justify-center text-[#D8B4FE] shrink-0">
-                <Gauge className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[10.5px] text-[#D8B4FE]">Assign Rate</div>
-                <div className="text-lg font-bold font-mono leading-tight tabular-nums">
-                  {executionRates.assignPct}%
-                </div>
-                <div className="text-[10px] text-[#E8DDFF]/75">
-                  {grandTotal.assign}/{grandTotal.totalWO} Terdistribusi
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5 border-l border-[#D8B4FE]/15 pl-3">
-              <div className="w-9 h-9 rounded-lg bg-[#5B289B]/35 border border-[#D8B4FE]/25 flex items-center justify-center text-[#D8B4FE] shrink-0">
-                <Radio className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10.5px] text-[#D8B4FE]">Rata-rata OPM</div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-lg font-bold font-mono leading-tight tabular-nums">
-                    {executionRates.avgOpm !== null ? `${executionRates.avgOpm} dBm` : 'N/A'}
-                  </span>
-                  {executionRates.avgOpm !== null && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        executionRates.avgOpm < -25
-                          ? 'bg-rose-500/25 text-rose-200'
-                          : 'bg-emerald-500/25 text-emerald-200'
-                      }`}
-                    >
-                      {executionRates.avgOpm < -25 ? 'Tinggi' : 'Baik'}
-                    </span>
-                  )}
-                </div>
-                <div className="text-[10px] text-[#E8DDFF]/75">
-                  {executionRates.opmCount > 0 ? `${executionRates.opmCount} data OPM` : 'Belum ada data OPM'}
-                </div>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="btn-3d-lilac px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+              <span>Cetak Ringkasan</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="btn-3d-darkpurple px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#D8B4FE]" />
+              <span>Export Rekap Excel</span>
+            </button>
           </div>
         </div>
 
-        {/* Right Column Card: KUALITAS REDAMAN & EKSEKUSI */}
-        <div className={`${isCompactUI ? '' : 'lg:col-span-5'} card-3d-lavender bg-[#F8F1FF] dark:bg-[#1E1238] p-4 sm:p-5 flex flex-col justify-between gap-4`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="space-y-1.5 min-w-0">
-              <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#5B289B] dark:text-[#D8B4FE]">
-                {executionRates.opmCount > 0 ? 'KUALITAS REDAMAN OPTIK' : 'RINGKASAN KUALITAS OPERASIONAL'}
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-[#1F1638] dark:text-white leading-snug font-display">
-                {executionRates.opmCount > 0
-                  ? `${executionRates.optimalOpmCount} dari ${executionRates.opmCount} ONT Lolos Batas Optimal`
-                  : `${grandTotal.complete} WO Selesai dari ${grandTotal.totalWO} Tiket`}
-              </h2>
-              <p className="text-xs text-[#4B4452] dark:text-[#C5B3DF] leading-relaxed">
-                {executionRates.opmCount > 0
-                  ? `Rata-rata redaman terukur ${executionRates.avgOpm} dBm (ambang batas optimal -24 dBm s/d -10 dBm).`
-                  : `Tingkat penugasan teknisi mencapai ${executionRates.assignPct}% dengan ${grandTotal.unassign} tiket menunggu assign.`}
-              </p>
+        {/* 5 KPI Cards matching Stitch Layout in MoraJaws Purple/Lilac/Maroon */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* KPI 1: Total WO Masuk */}
+          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+                TOTAL WO MASUK
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+                <Layers className="w-3.5 h-3.5" />
+              </span>
             </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#1F1638] dark:text-white tabular-nums">
+                {grandTotal.totalWO}
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+                {executionRates.assignPct}% Assign
+              </span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+              <div className="h-full rounded-full bg-[#58149C] transition-all" style={{ width: `${Math.min(100, executionRates.assignPct)}%` }} />
+            </div>
+          </div>
 
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-white dark:border-[#4B2680] shadow-sm shrink-0 bg-[#E8DDFF] dark:bg-[#2E1654]">
-              <img
-                src={ftthInspectionImg}
-                alt="Inspeksi Kualitas FTTH"
-                className="w-full h-full object-cover"
+          {/* KPI 2: HIGHLIGHTED DARK PURPLE-TO-MAROON HERO CARD */}
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-[#240C45] via-[#35105E] to-[#480123] text-white border border-[#7135B5]/50 shadow-[0_10px_24px_-6px_rgba(53,16,94,0.45)] flex flex-col justify-between gap-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#DAB9FF]">
+                TOTAL SELESAI / COMPLETE
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-white/15 border border-white/20 text-white flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-white tabular-nums">
+                {grandTotal.complete}
+              </span>
+              <span className="text-xs font-mono font-bold text-[#DAB9FF]">
+                {executionRates.completionPct}%
+              </span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-white/15 overflow-hidden">
+              <div className="h-full rounded-full bg-[#DAB9FF] transition-all" style={{ width: `${executionRates.completionPct}%` }} />
+            </div>
+          </div>
+
+          {/* KPI 3: Dalam Proses / Check-in */}
+          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+                DALAM PROSES / CHECK-IN
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] text-[#7135B5] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+                <Gauge className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#58149C] dark:text-[#D8B4FE] tabular-nums">
+                {grandTotal.uncomplete}
+              </span>
+              <span className="text-xs font-mono font-bold text-[#7D7484] dark:text-[#A493C2]">
+                {grandTotal.totalWO > 0 ? Math.round((grandTotal.uncomplete / grandTotal.totalWO) * 1000) / 10 : 0}%
+              </span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#7135B5] transition-all"
+                style={{ width: `${grandTotal.totalWO > 0 ? Math.min(100, Math.round((grandTotal.uncomplete / grandTotal.totalWO) * 100)) : 0}%` }}
               />
             </div>
           </div>
 
-          {/* Real Operational Quick Breakdown Pills */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E5D9FF] dark:border-[#361F5E] text-xs">
-            <div className="mj-tactile-well rounded-xl p-2.5">
-              <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2]">Teknisi Terassign</div>
-              <div className="font-mono font-bold text-sm text-[#1F1638] dark:text-white tabular-nums">
-                {grandTotal.assign} <span className="text-[10.5px] font-normal text-emerald-600 dark:text-emerald-400">WO</span>
+          {/* KPI 4: Belum Di-Assign / Pending Queue */}
+          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+                BELUM DI-ASSIGN
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                <Clock className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#1F1638] dark:text-white tabular-nums">
+                {grandTotal.unassign}
+              </span>
+              <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                {grandTotal.totalWO > 0 ? Math.round((grandTotal.unassign / grandTotal.totalWO) * 1000) / 10 : 0}%
+              </span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-amber-100 dark:bg-amber-950 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all"
+                style={{ width: `${grandTotal.totalWO > 0 ? Math.min(100, Math.round((grandTotal.unassign / grandTotal.totalWO) * 100)) : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* KPI 5: Cancel (Maroon) */}
+          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5 col-span-2 sm:col-span-1">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#881337] dark:text-rose-300">
+                CANCEL
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-[#881337] dark:text-rose-300 flex items-center justify-center shrink-0">
+                <XCircle className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#881337] dark:text-rose-300 tabular-nums">
+                {grandTotal.cancel}
+              </span>
+              <span className="text-xs font-mono font-bold text-[#881337]/80 dark:text-rose-400">
+                {grandTotal.totalWO > 0 ? Math.round((grandTotal.cancel / grandTotal.totalWO) * 1000) / 10 : 0}%
+              </span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-rose-100 dark:bg-rose-950 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#881337] transition-all"
+                style={{ width: `${grandTotal.totalWO > 0 ? Math.min(100, Math.round((grandTotal.cancel / grandTotal.totalWO) * 100)) : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 02 / TREN HARIAN (8 COL SVG CHART) & EVALUASI CEPAT TOP CLUSTER (4 COL) */}
+      <div className={isCompactUI ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch'}>
+        {/* Left 8 Cols: Real 7-Day SVG Bar Chart */}
+        <div className={`${isCompactUI ? '' : 'lg:col-span-8'} card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4`}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#58149C] dark:text-[#D8B4FE]">
+                02 / TREN HARIAN (7 HARI HINGGA {endDate || todayWIB})
+              </div>
+              <h3 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white mt-0.5 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />
+                <span>Tren Penyelesaian Work Order</span>
+              </h3>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold">
+              <span className="inline-flex items-center gap-1.5 text-[#1F1638] dark:text-white">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#58149C]" />
+                <span>Selesai (Complete)</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[#7D7484] dark:text-[#A493C2]">
+                <span className="w-3 border-t-2 border-dashed border-[#881337]" />
+                <span>Rata Target ({dailyTrend.targetDaily} WO)</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="w-full overflow-x-auto">
+            <svg viewBox="0 0 640 190" className="w-full min-w-[420px] h-44 overflow-visible" role="img" aria-label="Grafik Tren Penyelesaian Work Order 7 Hari">
+              {/* Target dashed line */}
+              {dailyTrend.targetDaily > 0 && (
+                <>
+                  <line
+                    x1="16"
+                    x2="624"
+                    y1={Math.round(145 - (dailyTrend.targetDaily / dailyTrend.maxCount) * 110)}
+                    y2={Math.round(145 - (dailyTrend.targetDaily / dailyTrend.maxCount) * 110)}
+                    stroke="#881337"
+                    strokeWidth="1.5"
+                    strokeDasharray="5 4"
+                    opacity="0.7"
+                  />
+                  <text
+                    x="18"
+                    y={Math.max(14, Math.round(145 - (dailyTrend.targetDaily / dailyTrend.maxCount) * 110) - 6)}
+                    className="fill-[#881337] dark:fill-rose-300 text-[10px] font-mono font-bold"
+                  >
+                    Avg {dailyTrend.targetDaily} WO
+                  </text>
+                </>
+              )}
+
+              {/* 7 Daily Bars */}
+              {dailyTrend.days.map((day, idx) => {
+                const slotW = 86;
+                const centerX = 48 + idx * slotW;
+                const barW = 42;
+                const totalH = day.total > 0 ? Math.max(8, Math.round((day.total / dailyTrend.maxCount) * 110)) : 4;
+                const compH = day.complete > 0 ? Math.max(8, Math.round((day.complete / dailyTrend.maxCount) * 110)) : 0;
+                const isPeak = day.complete > 0 && day.complete === Math.max(...dailyTrend.days.map(d => d.complete));
+
+                return (
+                  <g key={day.dateKey}>
+                    {/* Background total WO bar */}
+                    <rect
+                      x={centerX - barW / 2}
+                      y={145 - totalH}
+                      width={barW}
+                      height={totalH}
+                      rx="8"
+                      className="fill-[#F3EAFF] dark:fill-[#2E1459]"
+                    />
+                    {/* Foreground completed WO bar */}
+                    {compH > 0 && (
+                      <rect
+                        x={centerX - barW / 2}
+                        y={145 - compH}
+                        width={barW}
+                        height={compH}
+                        rx="8"
+                        fill={isPeak ? '#35105E' : '#7135B5'}
+                      />
+                    )}
+                    {/* Value Label */}
+                    <text
+                      x={centerX}
+                      y={145 - Math.max(totalH, compH) - 6}
+                      textAnchor="middle"
+                      className="fill-[#1F1638] dark:fill-white text-[11px] font-mono font-bold"
+                    >
+                      {day.complete}/{day.total}
+                    </text>
+                    {/* Day Name & Date */}
+                    <text
+                      x={centerX}
+                      y={166}
+                      textAnchor="middle"
+                      className="fill-[#4B4452] dark:fill-[#E9D5FF] text-[11px] font-bold"
+                    >
+                      {day.dayLabel}
+                    </text>
+                    <text
+                      x={centerX}
+                      y={180}
+                      textAnchor="middle"
+                      className="fill-[#7D7484] dark:fill-[#A493C2] text-[9.5px] font-mono"
+                    >
+                      {day.dateKey.slice(5)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+
+        {/* Right 4 Cols: Evaluasi Cepat (Performa Kluster Terbaik + OPM & Assign Rate) */}
+        <div className={`${isCompactUI ? '' : 'lg:col-span-4'} card-3d-lavender bg-[#F8F1FF] dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4`}>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#58149C] dark:text-[#D8B4FE]">
+                  EVALUASI CEPAT
+                </div>
+                <h3 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white mt-0.5">
+                  Performa Kluster Terbaik
+                </h3>
+              </div>
+              <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#D8CCF3] dark:border-[#5B35B1] shrink-0">
+                <img src={ftthInspectionImg} alt="Inspeksi FTTH" className="w-full h-full object-cover" />
               </div>
             </div>
-            <div className="mj-tactile-well rounded-xl p-2.5">
-              <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2]">Belum Di-assign</div>
-              <div className="font-mono font-bold text-sm text-amber-600 dark:text-amber-400 tabular-nums">
-                {grandTotal.unassign} <span className="text-[10.5px] font-normal">WO</span>
+
+            {topCluster ? (
+              <div className="mj-tactile-well p-3.5 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                      {topCluster.areaName}
+                    </div>
+                    <div className="text-[11px] text-[#7D7484] dark:text-[#A493C2] font-mono">
+                      {topCluster.subtotal.complete} / {topCluster.subtotal.totalWO} WO Selesai
+                    </div>
+                  </div>
+                </div>
+                <span className="font-display text-lg font-extrabold text-[#58149C] dark:text-[#DAB9FF] tabular-nums shrink-0">
+                  {topCluster.subtotal.totalWO > 0
+                    ? `${Math.round((topCluster.subtotal.complete / topCluster.subtotal.totalWO) * 1000) / 10}%`
+                    : '0%'}
+                </span>
+              </div>
+            ) : (
+              <div className="mj-tactile-well p-3.5 rounded-xl text-xs text-[#7D7484] dark:text-[#A493C2]">
+                Belum ada kluster area pada rentang tanggal ini.
+              </div>
+            )}
+          </div>
+
+          {/* Dark Purple Telemetry Bar: Assign Rate & Real Avg OPM */}
+          <div className="rounded-xl bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#480123] text-white p-3.5 grid grid-cols-2 gap-3 border border-[#7135B5]/40 shadow-sm">
+            <div className="min-w-0">
+              <div className="text-[10px] text-[#D8B4FE] uppercase font-bold">Assign Rate</div>
+              <div className="text-lg font-bold font-mono leading-tight tabular-nums mt-0.5">
+                {executionRates.assignPct}%
+              </div>
+              <div className="text-[10px] text-[#E8DDFF]/75 truncate">
+                {grandTotal.assign}/{grandTotal.totalWO} Terassign
+              </div>
+            </div>
+            <div className="border-l border-[#D8B4FE]/20 pl-3 min-w-0">
+              <div className="text-[10px] text-[#D8B4FE] uppercase font-bold">Rata-rata OPM</div>
+              <div className="text-lg font-bold font-mono leading-tight tabular-nums mt-0.5">
+                {executionRates.avgOpm !== null ? `${executionRates.avgOpm} dBm` : 'N/A'}
+              </div>
+              <div className="text-[10px] text-[#E8DDFF]/75 truncate">
+                {executionRates.opmCount > 0 ? `${executionRates.optimalOpmCount}/${executionRates.opmCount} Optimal` : 'Belum ada data OPM'}
               </div>
             </div>
           </div>
@@ -1010,54 +1286,77 @@ export const ContractorAreaRecapView: React.FC = () => {
                 </div>
 
                 <div className="divide-y divide-[#E5D9FF]/60 dark:divide-[#361F5E]">
-                  {group.contractors.map((c, cIdx) => (
-                    <div key={`${group.areaName}-${c.contractorName}`} className="p-3 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">#{cIdx + 1}</span>
-                          <Building2 className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
-                          <span className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
-                            {c.contractorName}
+                  {group.contractors.map((c, cIdx) => {
+                    const rowRate = c.totalWO > 0 ? Math.round((c.complete / c.totalWO) * 1000) / 10 : 0;
+                    return (
+                      <div key={`${group.areaName}-${c.contractorName}`} className="p-3 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">#{cIdx + 1}</span>
+                            <Building2 className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
+                            <span className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
+                              {c.contractorName}
+                            </span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1654] border border-[#DFC7FF] dark:border-[#5B289B]/40 font-mono text-xs font-extrabold text-[#5B289B] dark:text-[#D8B4FE] shrink-0 tabular-nums">
+                            {c.totalWO} WO
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1654] border border-[#DFC7FF] dark:border-[#5B289B]/40 font-mono text-xs font-extrabold text-[#5B289B] dark:text-[#D8B4FE] shrink-0 tabular-nums">
-                          {c.totalWO} WO
-                        </span>
+
+                        <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
+                          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 py-1 px-1">
+                            <div className="text-emerald-700 dark:text-emerald-400 font-semibold">Assign</div>
+                            <div className="font-mono font-bold text-xs text-emerald-700 dark:text-emerald-300 tabular-nums">
+                              {c.assign}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 py-1 px-1">
+                            <div className="text-amber-700 dark:text-amber-400 font-semibold">Unasgn</div>
+                            <div className="font-mono font-bold text-xs text-amber-700 dark:text-amber-300 tabular-nums">
+                              {c.unassign}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-[#F3EAFF] dark:bg-[#2E1654] py-1 px-1">
+                            <div className="text-[#58149C] dark:text-[#D8B4FE] font-semibold">Comp</div>
+                            <div className="font-mono font-bold text-xs text-[#58149C] dark:text-white tabular-nums">
+                              {c.complete}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-[#F3EAFF]/70 dark:bg-[#2E1654]/60 py-1 px-1">
+                            <div className="text-[#7135B5] dark:text-[#D8B4FE] font-semibold">Pend</div>
+                            <div className="font-mono font-bold text-xs text-[#7135B5] dark:text-[#E8DDFF] tabular-nums">
+                              {c.uncomplete}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-rose-50 dark:bg-rose-950/40 py-1 px-1">
+                            <div className="text-[#881337] dark:text-rose-400 font-semibold">Cancel</div>
+                            <div className="font-mono font-bold text-xs text-[#881337] dark:text-rose-300 tabular-nums">
+                              {c.cancel}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="h-1.5 flex-1 rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+                              <div className="h-full rounded-full bg-[#58149C]" style={{ width: `${rowRate}%` }} />
+                            </div>
+                            <span className="font-mono text-[10.5px] font-bold text-[#58149C] dark:text-[#D8B4FE] shrink-0">
+                              {rowRate}%
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDetailScope({ areaName: group.areaName, contractorName: c.contractorName })}
+                            className="btn-3d-darkpurple px-2.5 py-1 rounded-lg text-[10.5px] font-bold inline-flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Lihat Rincian</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
-                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 py-1 px-1">
-                          <div className="text-emerald-700 dark:text-emerald-400 font-semibold">Assign</div>
-                          <div className="font-mono font-bold text-xs text-emerald-700 dark:text-emerald-300 tabular-nums">
-                            {c.assign}
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 py-1 px-1">
-                          <div className="text-amber-700 dark:text-amber-400 font-semibold">Unasgn</div>
-                          <div className="font-mono font-bold text-xs text-amber-700 dark:text-amber-300 tabular-nums">
-                            {c.unassign}
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-teal-50 dark:bg-teal-950/40 py-1 px-1">
-                          <div className="text-teal-700 dark:text-teal-400 font-semibold">Comp</div>
-                          <div className="font-mono font-bold text-xs text-teal-700 dark:text-teal-300 tabular-nums">
-                            {c.complete}
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-[#F3EAFF] dark:bg-[#2E1654]/60 py-1 px-1">
-                          <div className="text-[#5B289B] dark:text-[#D8B4FE] font-semibold">Pend</div>
-                          <div className="font-mono font-bold text-xs text-[#5B289B] dark:text-[#E8DDFF] tabular-nums">
-                            {c.uncomplete}
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-rose-50 dark:bg-rose-950/40 py-1 px-1">
-                          <div className="text-rose-700 dark:text-rose-400 font-semibold">Cancel</div>
-                          <div className="font-mono font-bold text-xs text-rose-700 dark:text-rose-300 tabular-nums">
-                            {c.cancel}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="px-3.5 py-2 bg-[#F8F1FF] dark:bg-[#1E1238] border-t border-[#E5D9FF] dark:border-[#361F5E] flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
@@ -1071,7 +1370,7 @@ export const ContractorAreaRecapView: React.FC = () => {
               </div>
             ))}
 
-            <div className="rounded-2xl bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#1A0D36] text-white p-4 border border-[#5B289B]/50 space-y-2.5 shadow-md">
+            <div className="rounded-2xl bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#480123] text-white p-4 border border-[#7135B5]/50 space-y-2.5 shadow-md">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-[#D8B4FE]">GRAND TOTAL</span>
                 <span className="font-mono text-lg font-extrabold tabular-nums">{grandTotal.totalWO} WO</span>
@@ -1086,7 +1385,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.unassign}</div>
                 </div>
                 <div className="rounded-lg bg-white/10 py-1.5">
-                  <div className="text-teal-300">Comp</div>
+                  <div className="text-[#DAB9FF]">Comp</div>
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.complete}</div>
                 </div>
                 <div className="rounded-lg bg-white/10 py-1.5">
@@ -1106,99 +1405,149 @@ export const ContractorAreaRecapView: React.FC = () => {
               <thead>
                 <tr className="bg-[#241145] text-white font-bold border-b border-[#3F2370]">
                   <th className="py-3 px-4 w-12 text-center">No</th>
-                  <th className="py-3 px-4">Nama Kontraktor</th>
+                  <th className="py-3 px-4">Kluster Area &amp; Kontraktor</th>
                   <th className="py-3 px-3 text-right">Total WO</th>
                   <th className="py-3 px-3 text-right text-emerald-300">Assign</th>
                   <th className="py-3 px-3 text-right text-amber-300">Unassign</th>
-                  <th className="py-3 px-3 text-right text-teal-300">Complete</th>
-                  <th className="py-3 px-3 text-right text-[#D8B4FE]">Uncomplete</th>
+                  <th className="py-3 px-3 text-right text-[#DAB9FF]">Complete</th>
+                  <th className="py-3 px-3 text-right text-[#D8B4FE]">Pending</th>
                   <th className="py-3 px-3 text-right text-rose-300">Cancel</th>
+                  <th className="py-3 px-4 min-w-[165px]">Tingkat Penyelesaian</th>
+                  <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5D9FF]/60 dark:divide-[#361F5E] text-[#4B4452] dark:text-[#C5B3DF]">
-                {groupedData.map(group => (
-                  <React.Fragment key={group.areaName}>
-                    <tr className="bg-[#F3EAFF] dark:bg-[#241145] border-t-2 border-b border-[#DFC7FF] dark:border-[#3F2370]">
-                      <td colSpan={8} className="py-2.5 px-4 font-bold text-xs text-[#1F1638] dark:text-white">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE] shrink-0" />
-                            <span className="tracking-wide uppercase font-bold text-[12px]">
-                              AREA: {group.areaName}
-                            </span>
-                            {group.areaName === 'Belum Ditentukan' && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-normal">
-                                Perlu Penyesuaian Data
+                {groupedData.map(group => {
+                  const groupRate =
+                    group.subtotal.totalWO > 0
+                      ? Math.round((group.subtotal.complete / group.subtotal.totalWO) * 1000) / 10
+                      : 0;
+                  return (
+                    <React.Fragment key={group.areaName}>
+                      <tr className="bg-[#F3EAFF] dark:bg-[#241145] border-t-2 border-b border-[#DFC7FF] dark:border-[#3F2370]">
+                        <td colSpan={10} className="py-2.5 px-4 font-bold text-xs text-[#1F1638] dark:text-white">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE] shrink-0" />
+                              <span className="tracking-wide uppercase font-bold text-[12px]">
+                                AREA: {group.areaName}
                               </span>
-                            )}
+                              {group.areaName === 'Belum Ditentukan' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-normal">
+                                  Perlu Penyesuaian Data
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] font-mono text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
+                              {group.contractors.length} Kontraktor | {group.subtotal.totalWO} WO ({groupRate}% Selesai)
+                            </span>
                           </div>
-                          <span className="text-[11px] font-mono text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
-                            {group.contractors.length} Kontraktor | {group.subtotal.totalWO} WO
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {group.contractors.map((c, cIdx) => (
-                      <tr
-                        key={`${group.areaName}-${c.contractorName}`}
-                        className="hover:bg-[#F8F1FF] dark:hover:bg-[#1E1238]/60 transition-colors"
-                      >
-                        <td className="py-2.5 px-4 text-center font-mono text-[#7D7484] dark:text-[#A493C2] text-[11px] tabular-nums">
-                          {cIdx + 1}
-                        </td>
-                        <td className="py-2.5 px-4 font-semibold text-[#1F1638] dark:text-white flex items-center gap-2">
-                          <Building2 className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
-                          <span>{c.contractorName}</span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#1F1638] dark:text-white tabular-nums">
-                          {c.totalWO}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                          {c.assign}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                          {c.unassign}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-teal-600 dark:text-teal-400 tabular-nums">
-                          {c.complete}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
-                          {c.uncomplete}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-                          {c.cancel}
                         </td>
                       </tr>
-                    ))}
 
-                    <tr className="bg-[#F8F1FF] dark:bg-[#1E1238] font-bold border-b border-t border-[#E5D9FF] dark:border-[#361F5E] text-[#1F1638] dark:text-white">
-                      <td colSpan={2} className="py-2 px-4 text-right uppercase text-[11px] text-[#5B289B] dark:text-[#D8B4FE]">
-                        Subtotal {group.areaName}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-extrabold text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
-                        {group.subtotal.totalWO}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                        {group.subtotal.assign}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                        {group.subtotal.unassign}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-teal-600 dark:text-teal-400 tabular-nums">
-                        {group.subtotal.complete}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
-                        {group.subtotal.uncomplete}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-                        {group.subtotal.cancel}
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                ))}
+                      {group.contractors.map((c, cIdx) => {
+                        const rowRate = c.totalWO > 0 ? Math.round((c.complete / c.totalWO) * 1000) / 10 : 0;
+                        return (
+                          <tr
+                            key={`${group.areaName}-${c.contractorName}`}
+                            className="hover:bg-[#F8F1FF] dark:hover:bg-[#1E1238]/60 transition-colors"
+                          >
+                            <td className="py-2.5 px-4 text-center font-mono text-[#7D7484] dark:text-[#A493C2] text-[11px] tabular-nums">
+                              {cIdx + 1}
+                            </td>
+                            <td className="py-2.5 px-4 font-semibold text-[#1F1638] dark:text-white">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
+                                <span>{c.contractorName}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#1F1638] dark:text-white tabular-nums">
+                              {c.totalWO}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                              {c.assign}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                              {c.unassign}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#58149C] dark:text-[#D8B4FE] tabular-nums">
+                              {c.complete}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#7135B5] dark:text-[#E9D5FF] tabular-nums">
+                              {c.uncomplete}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#881337] dark:text-rose-400 tabular-nums">
+                              {c.cancel}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 flex-1 rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-[#58149C] to-[#7135B5]"
+                                    style={{ width: `${rowRate}%` }}
+                                  />
+                                </div>
+                                <span className="font-mono text-[11px] font-bold text-[#1F1638] dark:text-white tabular-nums w-11 text-right">
+                                  {rowRate}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDetailScope({ areaName: group.areaName, contractorName: c.contractorName })
+                                }
+                                className="btn-3d-darkpurple px-3 py-1 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Lihat Rincian</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
 
-                <tr className="bg-[#160D29] text-white font-extrabold border-t-2 border-[#7135B5] text-sm">
+                      <tr className="bg-[#F8F1FF] dark:bg-[#1E1238] font-bold border-b border-t border-[#E5D9FF] dark:border-[#361F5E] text-[#1F1638] dark:text-white">
+                        <td colSpan={2} className="py-2 px-4 text-right uppercase text-[11px] text-[#5B289B] dark:text-[#D8B4FE]">
+                          Subtotal {group.areaName}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-extrabold text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
+                          {group.subtotal.totalWO}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          {group.subtotal.assign}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                          {group.subtotal.unassign}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-[#58149C] dark:text-[#D8B4FE] tabular-nums">
+                          {group.subtotal.complete}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-[#7135B5] dark:text-[#E9D5FF] tabular-nums">
+                          {group.subtotal.uncomplete}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-[#881337] dark:text-rose-400 tabular-nums">
+                          {group.subtotal.cancel}
+                        </td>
+                        <td className="py-2 px-4 font-mono text-[11px] font-extrabold text-[#58149C] dark:text-[#D8B4FE] text-right">
+                          {groupRate}%
+                        </td>
+                        <td className="py-2 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setDetailScope({ areaName: group.areaName })}
+                            className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[10.5px] font-bold cursor-pointer"
+                          >
+                            Semua Area
+                          </button>
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+
+                <tr className="bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#480123] text-white font-extrabold border-t-2 border-[#7135B5] text-sm">
                   <td colSpan={2} className="py-3 px-4 text-right uppercase tracking-wider text-xs text-[#D8B4FE]">
                     GRAND TOTAL KESELURUHAN
                   </td>
@@ -1211,14 +1560,17 @@ export const ContractorAreaRecapView: React.FC = () => {
                   <td className="py-3 px-3 text-right font-mono text-amber-300 tabular-nums">
                     {grandTotal.unassign}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-teal-300 tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-[#DAB9FF] tabular-nums">
                     {grandTotal.complete}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-[#D8B4FE] tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-[#E9D5FF] tabular-nums">
                     {grandTotal.uncomplete}
                   </td>
                   <td className="py-3 px-3 text-right font-mono text-rose-300 tabular-nums">
                     {grandTotal.cancel}
+                  </td>
+                  <td colSpan={2} className="py-3 px-4 text-right font-mono text-xs text-[#DAB9FF] tabular-nums">
+                    Completion: {executionRates.completionPct}%
                   </td>
                 </tr>
               </tbody>
@@ -1248,9 +1600,65 @@ export const ContractorAreaRecapView: React.FC = () => {
           </button>
         </div>
         <p className="text-[11px] text-[#7D7484] dark:text-[#A493C2]">
-          Format laporan resmi operasional NOC & Dispatch MoraJaws • Data langsung dari database produksi
+          Format laporan resmi operasional NOC &amp; Dispatch MoraJaws • Data langsung dari database produksi
         </p>
       </div>
+
+      {/* Drill-down Rincian Modal */}
+      {detailScope && (
+        <ResponsiveModal
+          isOpen={Boolean(detailScope)}
+          onClose={() => setDetailScope(null)}
+          title={`Rincian Work Order — ${detailScope.areaName}`}
+          subtitle={
+            detailScope.contractorName
+              ? `${detailScope.contractorName} • ${detailTickets.length} WO`
+              : `Seluruh Kontraktor di Area ${detailScope.areaName} • ${detailTickets.length} WO`
+          }
+          icon={<Layers className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />}
+          size="xl"
+        >
+          <div className="p-4 sm:p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+            {detailTickets.length === 0 ? (
+              <div className="p-8 text-center text-xs text-[#7D7484] dark:text-[#A493C2]">
+                Tidak ada Work Order aktif pada cakupan ini.
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E8DDFF] dark:divide-[#361F5E] rounded-xl border border-[#E8DDFF] dark:border-[#361F5E] overflow-hidden">
+                {detailTickets.map(t => (
+                  <div
+                    key={t.id}
+                    className="p-3 bg-white dark:bg-[#160D29] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-[#58149C] dark:text-[#D8B4FE]">#{t.woNumber}</span>
+                        <span className="font-bold text-[#1F1638] dark:text-white">{t.customerName}</span>
+                        <span className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A493C2]">
+                          {t.appointmentDate || getTicketAppointmentDate(t) || '-'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] truncate mt-0.5">
+                        Teknisi: <strong>{t.installerName || 'Belum Di-assign'}</strong> · {t.streetName || t.clusterName || '-'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+                        {t.statusWOInstaller || t.statusWOAgent || 'Open'}
+                      </span>
+                      {t.approvalStatus && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                          {t.approvalStatus}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </ResponsiveModal>
+      )}
     </div>
   );
 };

@@ -304,10 +304,10 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             onStatusFilterChange('all');
             if (onCategoryFilterChange) onCategoryFilterChange('ALL');
           }}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap shrink-0 cursor-pointer ${
             statusFilter === 'all' && categoryFilter === 'ALL'
-              ? 'bg-[#58149c] text-white shadow-[0_2px_8px_rgba(88,20,156,0.28)]'
-              : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-[#a380fe]'
+              ? 'mj-btn-leader-secondary mj-btn-xs'
+              : 'mj-btn-leader-neutral mj-btn-xs'
           }`}
         >
           <span>Semua</span>
@@ -328,10 +328,10 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             if (onCategoryFilterChange) onCategoryFilterChange('ALL');
             onStatusFilterChange(statusFilter === 'unassigned' ? 'all' : 'unassigned');
           }}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap shrink-0 cursor-pointer ${
             statusFilter === 'unassigned'
-              ? 'bg-[#d97706] text-white shadow-[0_2px_8px_rgba(217,119,6,0.28)]'
-              : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-amber-400'
+              ? 'mj-btn-leader-warning mj-btn-xs'
+              : 'mj-btn-leader-neutral mj-btn-xs'
           }`}
         >
           <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'unassigned' ? 'bg-white' : 'bg-[#d97706]'}`} />
@@ -350,10 +350,10 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                   onCategoryFilterChange(isCatActive ? 'ALL' : cat.name);
                 }
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap shrink-0 cursor-pointer ${
                 isCatActive
-                  ? 'bg-[#58149c] text-white shadow-[0_2px_8px_rgba(88,20,156,0.25)]'
-                  : 'bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] hover:border-[#a380fe]'
+                  ? 'mj-btn-leader-secondary mj-btn-xs'
+                  : 'mj-btn-leader-neutral mj-btn-xs'
               }`}
             >
               <span>{cat.name}</span>
@@ -465,10 +465,10 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                   onViewModeChange('cards');
                 }}
                 aria-pressed={effectiveViewMode === 'cards'}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap ${
                   effectiveViewMode === 'cards'
-                    ? 'btn-3d-primary'
-                    : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'mj-btn-leader-primary mj-btn-xs'
+                    : 'font-bold text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
                 title="Tampilan Kartu (Terintegrasi dengan Mobile Mode)"
               >
@@ -482,10 +482,10 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                   onViewModeChange('table');
                 }}
                 aria-pressed={effectiveViewMode === 'table'}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap ${
                   effectiveViewMode === 'table'
-                    ? 'btn-3d-primary'
-                    : 'text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'mj-btn-leader-primary mj-btn-xs'
+                    : 'font-bold text-[#7d7484] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
                 title="Tampilan Tabel (Terintegrasi dengan Desktop Mode)"
               >
@@ -516,7 +516,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onResetFilters}
-                  className="btn-3d-secondary inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold cursor-pointer"
+                  className="mj-btn-leader-neutral mj-btn-xs inline-flex items-center gap-1 px-2.5 py-1 rounded-lg cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset Filter</span>
@@ -529,7 +529,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onExportCopy}
-                  className="btn-3d-secondary px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
+                  className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                 >
                   <Copy className="w-3 h-3" />
                   <span>Copy</span>
@@ -537,7 +537,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onExportCSV}
-                  className="btn-3d-secondary px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
+                  className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                 >
                   <Download className="w-3 h-3" />
                   <span>CSV</span>
@@ -545,7 +545,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onExportExcel}
-                  className="btn-3d-emerald px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
+                  className="mj-btn-leader-success mj-btn-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                 >
                   <FileSpreadsheet className="w-3 h-3" />
                   <span>Excel</span>
@@ -553,7 +553,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onPrint}
-                  className="btn-3d-secondary px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
+                  className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                 >
                   <Printer className="w-3 h-3" />
                   <span>Print</span>
@@ -561,7 +561,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 <button
                   type="button"
                   onClick={onOpenColumnSettings}
-                  className="btn-3d-secondary px-2.5 py-1 rounded-lg font-bold text-[#58149c] flex items-center gap-1 cursor-pointer"
+                  className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-[#58149c] dark:text-[#dab9ff] flex items-center gap-1 cursor-pointer"
                 >
                   <Sliders className="w-3 h-3" />
                   <span>Atur Kolom</span>
@@ -627,7 +627,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 type="button"
                 disabled={!bulkQuickInstaller || selectedTicketIds.length === 0}
                 onClick={onExecuteBulkQuickAssign}
-                className="btn-3d-primary px-3.5 py-1.5 rounded-xl disabled:opacity-45 font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <UserCheck className="w-3.5 h-3.5" />
                 <span>Tugaskan</span>
@@ -637,7 +637,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 type="button"
                 onClick={onExecuteAutoBalance}
                 title="Auto-Balance Slot: distribusikan otomatis WO Unassigned sesuai slot waktu & sisa kuota terendah"
-                className="btn-3d-secondary px-2.5 py-1.5 rounded-xl text-[#58149c] dark:text-[#dab9ff] cursor-pointer shrink-0 flex items-center gap-1.5"
+                className="mj-btn-leader-neutral mj-btn-compact px-3 py-1.5 text-[#58149c] dark:text-[#dab9ff] cursor-pointer shrink-0 flex items-center gap-1.5"
               >
                 <Wand2 className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-bold">Auto-Balance</span>
@@ -669,7 +669,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             <button
               type="button"
               onClick={onResetFilters}
-              className="btn-3d-primary px-4 py-2 rounded-xl font-bold text-xs cursor-pointer"
+              className="mj-btn-leader-primary px-4 py-2 text-xs cursor-pointer"
             >
               Tampilkan Semua WO Hari Ini
             </button>
@@ -825,7 +825,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                       type="button"
                       onClick={() => onOpenWhatsAppModal(t)}
                       title="Hubungi / Kirim Notifikasi WhatsApp"
-                      className="w-8 h-8 rounded-xl bg-white dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff] hover:bg-[#eedbff] flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+                      className="mj-btn-icon-3d-leader w-9 h-9 shrink-0 cursor-pointer"
                     >
                       <Phone className="w-3.5 h-3.5" />
                     </button>
@@ -922,7 +922,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                               return next;
                             });
                           }}
-                          className="btn-3d-primary flex-1 py-2.5 px-3 rounded-xl disabled:opacity-45 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="mj-btn-leader-primary flex-1 py-2.5 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Zap className="w-3.5 h-3.5" />
                           <span>
@@ -933,7 +933,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                         <button
                           type="button"
                           onClick={() => onSelectTicket(t)}
-                          className="btn-3d-secondary px-3 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                          className="mj-btn-leader-neutral mj-btn-compact px-3 py-2 text-xs flex items-center gap-1 cursor-pointer shrink-0"
                         >
                           <Info className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                           <span>Detail</span>
@@ -943,7 +943,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                           type="button"
                           onClick={() => onOpenWhatsAppModal(t)}
                           title="Kirim / pratinjau pesan WhatsApp"
-                          className="btn-3d-icon-wa w-10 h-10 shrink-0 cursor-pointer"
+                          className="mj-btn-icon-3d-wa w-10 h-10 shrink-0 cursor-pointer"
                         >
                           <MessageSquare className="w-4 h-4" />
                         </button>
@@ -957,7 +957,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                       <button
                         type="button"
                         onClick={() => onSelectTicket(t)}
-                        className="btn-3d-secondary px-3 py-2 rounded-xl font-bold text-xs cursor-pointer"
+                        className="mj-btn-leader-neutral mj-btn-compact px-3 py-2 text-xs cursor-pointer"
                       >
                         Detail
                       </button>
@@ -990,7 +990,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                         <button
                           type="button"
                           onClick={() => onOpenReassignModal(t)}
-                          className="btn-3d-secondary flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="mj-btn-leader-neutral mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <RotateCcw className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                           <span>Reassign</span>
@@ -999,7 +999,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                       <button
                         type="button"
                         onClick={() => onSelectTicket(t)}
-                        className="btn-3d-secondary flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
+                        className="mj-btn-leader-neutral mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Info className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                         <span>Detail</span>
@@ -1008,7 +1008,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                         type="button"
                         onClick={() => onOpenWhatsAppModal(t)}
                         title="Kirim pesan WhatsApp ke teknisi"
-                        className="btn-3d-icon-wa w-9 h-9 shrink-0 cursor-pointer"
+                        className="mj-btn-icon-3d-wa w-10 h-10 shrink-0 cursor-pointer"
                       >
                         <MessageSquare className="w-4 h-4" />
                       </button>
@@ -1063,7 +1063,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                                 <button
                                   type="button"
                                   onClick={() => openCustomerAddressInGoogleMaps(t)}
-                                  className="btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs font-semibold text-[#58149c] rounded-lg cursor-pointer"
+                                  className="mj-btn-leader-neutral mj-btn-compact inline-flex items-center gap-1.5 px-3 py-1.5 mt-1 text-xs text-[#58149c] dark:text-[#dab9ff] rounded-lg cursor-pointer"
                                 >
                                   <MapPin className="w-3.5 h-3.5" />
                                   <span>Buka di Google Maps</span>

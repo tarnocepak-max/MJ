@@ -85,7 +85,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Tutup Pratinjau"
-            className="w-9 h-9 rounded-full mj-btn-secondary text-[#1f1638] flex items-center justify-center cursor-pointer shrink-0"
+            className="mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -155,7 +155,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl mj-tactile-btn-secondary text-xs cursor-pointer"
+            className="mj-btn-installer-neutral flex-1 py-2.5 text-xs font-bold cursor-pointer"
           >
             Tutup
           </button>
@@ -166,7 +166,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
                 onClose();
                 onRetake(matchedSlotDef);
               }}
-              className="flex-1 py-2.5 rounded-xl mj-tactile-btn-primary text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              className="mj-btn-installer-primary flex-1 py-2.5 text-xs font-bold gap-1.5 cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Foto Ulang</span>

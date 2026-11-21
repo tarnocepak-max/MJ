@@ -110,16 +110,19 @@ export const FormSamedayView: React.FC = () => {
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
-      {/* Top Banner */}
-      <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3">
+      {/* Top Banner — Express Dispatch Maroon/Dark Purple 3D */}
+      <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3 border-l-4 border-l-[#881337]">
         <div className="flex items-start sm:items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center font-bold shadow-[0_3px_0_#78350f] shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#881337] via-[#6b103b] to-[#480123] text-white flex items-center justify-center font-bold shadow-[0_3px_0_#260112] shrink-0">
             <Zap className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white flex flex-wrap items-center gap-2">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#881337] dark:text-rose-300">
+              EXPRESS SAMEDAY DISPATCH · WIB
+            </div>
+            <h2 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white flex flex-wrap items-center gap-2 mt-0.5">
               <span>Formulir Pendaftaran WO Sameday (Hari Ini)</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] whitespace-nowrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
                 Prioritas Tinggi (Express)
               </span>
             </h2>
@@ -142,7 +145,7 @@ export const FormSamedayView: React.FC = () => {
               required
               value={woNumber}
               onChange={e => setWoNumber(e.target.value.toUpperCase())}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]"
             />
           </div>
           <div>
@@ -156,7 +159,7 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Contoh: 7399501"
               value={customerId}
               onChange={e => setCustomerId(e.target.value.replace(/\D/g, ''))}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono font-semibold text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl font-mono font-semibold text-[#1F1638] dark:text-white"
             />
           </div>
           <div>
@@ -169,7 +172,7 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Nama customer"
               value={customerName}
               onChange={e => setCustomerName(e.target.value)}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-medium text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 rounded-xl font-medium text-[#1F1638] dark:text-white"
             />
           </div>
           <div>
@@ -182,7 +185,7 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Contoh: 081299887766"
               value={customerPhone}
               onChange={e => setCustomerPhone(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl font-mono text-[#1F1638] dark:text-white"
             />
           </div>
           <div>
@@ -192,7 +195,7 @@ export const FormSamedayView: React.FC = () => {
             <select
               value={contractorName}
               onChange={e => setContractorName(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl font-semibold text-[#1F1638] dark:text-white"
             >
               {contractors.map(c => (
                 <option key={c.id} value={c.name}>{c.name}</option>
@@ -206,7 +209,7 @@ export const FormSamedayView: React.FC = () => {
             <select
               value={slotTime}
               onChange={e => setSlotTime(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-medium text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl font-medium text-[#1F1638] dark:text-white"
             >
               <option value="09:00 - 11:00 WIB">09:00 - 11:00 WIB (Pagi)</option>
               <option value="11:00 - 13:00 WIB">11:00 - 13:00 WIB (Siang)</option>
@@ -221,7 +224,7 @@ export const FormSamedayView: React.FC = () => {
             <select
               value={area}
               onChange={e => setArea(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl font-semibold text-[#1F1638] dark:text-white"
             >
               {coverageAreas.map(a => (
                 <option key={a.id} value={a.name}>{a.name}</option>
@@ -237,7 +240,7 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Nama cluster"
               value={clusterName}
               onChange={e => setClusterName(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl text-[#1F1638] dark:text-white"
             />
           </div>
           <div>
@@ -248,7 +251,7 @@ export const FormSamedayView: React.FC = () => {
               type="text"
               value={ticketCategory}
               onChange={e => setTicketCategory(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl text-[#1F1638] dark:text-white"
             />
           </div>
         </div>
@@ -263,7 +266,7 @@ export const FormSamedayView: React.FC = () => {
             placeholder="Jalan, nomor rumah, RT/RW"
             value={streetName}
             onChange={e => setStreetName(e.target.value)}
-            className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+            className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl text-[#1F1638] dark:text-white"
           />
         </div>
 
@@ -277,7 +280,7 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Dekat masjid / seberang ruko..."
               value={streetAlternatif}
               onChange={e => setStreetAlternatif(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl text-[#1F1638] dark:text-white"
             />
           </div>
           <div>
@@ -288,7 +291,7 @@ export const FormSamedayView: React.FC = () => {
               type="text"
               value={fdtCode}
               onChange={e => setFdtCode(e.target.value.toUpperCase())}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl font-mono text-[#1F1638] dark:text-white"
             />
           </div>
           <div>
@@ -299,7 +302,7 @@ export const FormSamedayView: React.FC = () => {
               type="text"
               value={fatCode}
               onChange={e => setFatCode(e.target.value.toUpperCase())}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 rounded-xl font-mono text-[#1F1638] dark:text-white"
             />
           </div>
         </div>
@@ -308,7 +311,7 @@ export const FormSamedayView: React.FC = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-3d-amber w-full sm:w-auto justify-center px-6 py-2.5 min-h-[44px] font-extrabold rounded-xl cursor-pointer flex items-center gap-2 disabled:opacity-60"
+            className="btn-3d-maroon w-full sm:w-auto justify-center px-6 py-2.5 min-h-[44px] font-extrabold rounded-xl cursor-pointer flex items-center gap-2 disabled:opacity-60"
           >
             <Zap className="w-4 h-4" />
             <span>{isSubmitting ? 'Mendaftarkan...' : 'Kirim & Terbitkan WO Sameday'}</span>

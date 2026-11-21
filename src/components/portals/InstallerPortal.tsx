@@ -44,7 +44,9 @@ import {
   ArrowUpDown,
   Calendar,
   Eye,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  Gauge
 } from 'lucide-react';
 
 export type InstallerWoBucket = 'tugas_baru' | 'dalam_proses' | 'selesai' | 'overdue';
@@ -687,16 +689,16 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
       {/* Offline / Pending Sync Bar */}
       {(!isOnline || pendingCount > 0) && (
-        <div className="rounded-xl bg-[#f3eaff] border border-[#d8ccf3] px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
+        <div className="rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] border border-[#d8ccf3] dark:border-[#4B386B] px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-white text-[#58149c] flex items-center justify-center shrink-0 border border-[#e8ddff]">
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#160D29] text-[#58149c] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 border border-[#e8ddff] dark:border-[#35105E]">
               {!isOnline ? (
-                <WifiOff className="w-4 h-4 text-amber-600" />
+                <WifiOff className="w-4 h-4 text-amber-600 dark:text-amber-300" />
               ) : (
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               )}
             </div>
-            <span className="font-semibold text-[#1f1638] truncate">
+            <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate">
               {!isOnline
                 ? `Mode Offline Aktif (${pendingCount} log tersimpan lokal)`
                 : `${pendingCount} antrean data siap disinkronkan`}
@@ -708,7 +710,9 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 type="button"
                 onClick={() => syncNow()}
                 disabled={isSyncing}
-                className="mj-btn-secondary px-3 py-1 rounded-lg text-xs cursor-pointer"
+                className={`mj-btn-installer-secondary mj-btn-xs px-3 py-1 text-xs cursor-pointer ${
+                  isSyncing ? 'mj-btn-loading' : ''
+                }`}
               >
                 {isSyncing ? 'Sync...' : 'Sync'}
               </button>
@@ -716,7 +720,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             <button
               type="button"
               onClick={() => setIsOfflineModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg text-xs font-bold text-[#58149c] hover:bg-white cursor-pointer"
+              className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-1 text-xs font-bold cursor-pointer"
             >
               Detail
             </button>
@@ -725,22 +729,26 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* HEADER, 3-BUCKET SEGMENTED TABS & SEARCH/FILTER BAR          */}
+      {/* HEADER, SHIFT BANNER, TACTILE TABS & DEBOSSED SEARCH BAR     */}
       {/* ============================================================ */}
-      <section className="mj-enterprise-card rounded-2xl p-3.5 sm:p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+      <section className="card-3d-lavender rounded-2xl p-3.5 sm:p-4 space-y-3">
+        {/* Top Area / Shift Banner */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#e8ddff] dark:border-[#35105E]">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-display text-base sm:text-lg font-bold text-[#1f1638]">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#160D29] to-[#35105E] text-[#EEDBFF] font-mono text-[10px] font-bold border border-[#58149C]/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{currentUser.area || 'TIM LAPANGAN'} · {currentUser.contractor || effectiveInstallerName}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mt-1.5">
+              <h2 className="font-display text-base sm:text-lg font-extrabold text-[#1f1638] dark:text-[#f5eeff]">
                 Work Order Lapangan
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#f3eaff] text-[#58149c] border border-[#e8ddff]">
+              <span className="px-2 py-0.5 rounded-md bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#4B386B] font-mono text-[10.5px] font-bold">
                 {effectiveInstallerName}
               </span>
             </div>
-            <p className="text-[11.5px] text-[#4b4452] mt-0.5">
-              {dateScope === 'today' ? `Jadwal Hari Ini (${formatAppointmentDateDisplay(todayWIB) || todayWIB})` : 'Semua Tanggal Appointment'}
-            </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -749,7 +757,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 aria-label="Pilih Teknisi"
                 value={selectedInstallerName}
                 onChange={e => setSelectedInstallerName(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-[#f8f1ff] rounded-xl font-semibold text-[#1f1638] border border-[#e8ddff] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
+                className="px-2.5 py-1.5 text-xs bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl font-semibold text-[#1f1638] dark:text-[#f5eeff] border border-[#e8ddff] dark:border-[#35105E] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
               >
                 {myInstallers.map(inst => (
                   <option key={inst.id} value={inst.name}>
@@ -759,21 +767,25 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               </select>
             )}
 
-            <div className="inline-flex rounded-xl bg-[#f3eaff] p-0.5 border border-[#e8ddff] text-[11px] font-bold">
+            <div className="inline-flex rounded-xl bg-[#f3eaff] dark:bg-[#160D29] p-0.5 border border-[#e8ddff] dark:border-[#35105E] text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => setDateScope('today')}
                 className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  dateScope === 'today' ? 'bg-white text-[#58149c] shadow-2xs' : 'text-[#4b4452]'
+                  dateScope === 'today'
+                    ? 'bg-white dark:bg-[#35105E] text-[#58149c] dark:text-[#f5eeff] shadow-2xs'
+                    : 'text-[#4b4452] dark:text-[#A79BC0]'
                 }`}
               >
-                Hari Ini
+                Hari Ini ({formatAppointmentDateDisplay(todayWIB) || todayWIB})
               </button>
               <button
                 type="button"
                 onClick={() => setDateScope('all')}
                 className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  dateScope === 'all' ? 'bg-white text-[#58149c] shadow-2xs' : 'text-[#4b4452]'
+                  dateScope === 'all'
+                    ? 'bg-white dark:bg-[#35105E] text-[#58149c] dark:text-[#f5eeff] shadow-2xs'
+                    : 'text-[#4b4452] dark:text-[#A79BC0]'
                 }`}
               >
                 Semua
@@ -786,7 +798,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         <div
           role="tablist"
           aria-label="Kategori Status Work Order"
-          className="mj-tactile-tab-bar grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 border border-[#e8ddff]"
+          className="mj-tactile-tab-bar grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 border border-[#e8ddff] dark:border-[#35105E]"
         >
           {(
             [
@@ -794,25 +806,25 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 key: 'tugas_baru' as InstallerWoBucket,
                 label: 'Tugas Baru',
                 count: bucketCounts.tugas_baru,
-                badgeCls: 'bg-[#EFF6FF] text-[#1D4ED8] border-[#93C5FD]'
+                badgeCls: 'bg-[#F3EAFF] dark:bg-[#2A194B] text-[#58149C] dark:text-[#DAB9FF] border-[#D8CCF3] dark:border-[#5B35B1]'
               },
               {
                 key: 'dalam_proses' as InstallerWoBucket,
                 label: 'Dalam Proses',
                 count: bucketCounts.dalam_proses,
-                badgeCls: 'bg-[#FEF3C7] text-[#B45309] border-[#FCD34D]'
+                badgeCls: 'bg-[#FEF3C7] dark:bg-amber-950/50 text-[#B45309] dark:text-amber-300 border-[#FCD34D] dark:border-amber-700/60'
               },
               {
                 key: 'selesai' as InstallerWoBucket,
                 label: 'Selesai',
                 count: bucketCounts.selesai,
-                badgeCls: 'bg-[#ECFDF5] text-[#15803D] border-[#86EFAC]'
+                badgeCls: 'bg-[#ECFDF5] dark:bg-emerald-950/50 text-[#15803D] dark:text-emerald-300 border-[#86EFAC] dark:border-emerald-700/60'
               },
               {
                 key: 'overdue' as InstallerWoBucket,
                 label: 'Overdue',
                 count: bucketCounts.overdue,
-                badgeCls: 'bg-[#FEF2F2] text-[#B91C1C] border-[#FCA5A5]'
+                badgeCls: 'bg-[#FEF2F2] dark:bg-rose-950/50 text-[#BA1A1A] dark:text-rose-300 border-[#FCA5A5] dark:border-rose-800/60'
               }
             ] as const
           ).map(tab => {
@@ -829,8 +841,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 }}
                 className={`min-h-[42px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   isSelected
-                    ? 'mj-tactile-tab-active text-[#58149c]'
-                    : 'text-[#4b4452] hover:text-[#1f1638]'
+                    ? 'mj-tactile-tab-active text-[#58149c] dark:text-[#f5eeff]'
+                    : 'text-[#4b4452] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
                 }`}
               >
                 <span className="truncate">{tab.label}</span>
@@ -845,7 +857,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         </div>
 
         {/* Field Dispatch 6-Status Quick Filter Strip */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
           {(
             [
               { key: 'field_checkin' as WOKpiFilterKey, label: 'Check-in', count: fieldDispatchDateScopedCounts.checkIn },
@@ -871,16 +883,16 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     });
                   }
                 }}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+                className={`px-2.5 py-1 text-[11px] font-bold whitespace-nowrap gap-1 cursor-pointer shrink-0 ${
                   isChipActive
-                    ? 'bg-[#58149c] text-white border-[#58149c]'
-                    : 'bg-[#f8f1ff] text-[#4b4452] border-[#e8ddff] hover:border-[#cec3d4] hover:text-[#1f1638]'
+                    ? 'mj-btn-installer-primary mj-btn-xs'
+                    : 'mj-btn-installer-neutral mj-btn-xs'
                 }`}
               >
                 <span>{chip.label}</span>
                 <span
                   className={`font-mono text-[10px] tabular-nums ${
-                    isChipActive ? 'text-white/90' : 'text-[#58149c]'
+                    isChipActive ? 'text-[#DAB9FF]' : 'text-[#58149c] dark:text-[#DAB9FF]'
                   }`}
                 >
                   {chip.count}
@@ -890,36 +902,36 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           })}
         </div>
 
-        {/* Compact Search & Sort Bar */}
+        {/* Debossed Search & Sort Bar */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 text-[#7d7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari No. WO, Customer, Alamat, ID Pelanggan..."
-              className="w-full min-h-[40px] pl-9 pr-8 py-1.5 bg-[#f8f1ff] border border-[#e8ddff] rounded-xl text-xs text-[#1f1638] placeholder:text-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
+              placeholder="Cari No. WO, Pelanggan, FAT/ODP, Alamat..."
+              className="tactile-debossed-input w-full min-h-[42px] pl-9 pr-8 py-1.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl text-xs text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Hapus pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-1 bg-[#f8f1ff] px-2.5 min-h-[40px] rounded-xl border border-[#e8ddff] shrink-0">
-            <ArrowUpDown className="w-3.5 h-3.5 text-[#58149c]" />
+          <div className="flex items-center gap-1 bg-[#f8f1ff] dark:bg-[#160D29] px-2.5 min-h-[42px] rounded-xl border border-[#e8ddff] dark:border-[#35105E] shrink-0">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
             <select
               aria-label="Urutkan Work Order"
               value={sortBy}
               onChange={e => setSortBy(e.target.value as 'slot' | 'status' | 'wo')}
-              className="bg-transparent text-xs font-bold text-[#1f1638] focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] focus:outline-none cursor-pointer"
             >
               <option value="slot">Slot</option>
               <option value="status">Status</option>
@@ -931,10 +943,10 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
       {/* Active KPI Drilldown Notice */}
       {activeKpiDrilldown && (
-        <div className="bg-[#f3eaff] border border-[#d8ccf3] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
-          <span className="font-semibold text-[#1f1638]">
+        <div className="bg-[#f3eaff] dark:bg-[#2A194B] border border-[#d8ccf3] dark:border-[#4B386B] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+          <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff]">
             Filter Aktif:{' '}
-            <strong className="text-[#58149c]">
+            <strong className="text-[#58149c] dark:text-[#DAB9FF]">
               {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
             </strong>{' '}
             ({displayedTickets.length} WO)
@@ -942,7 +954,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           <button
             type="button"
             onClick={() => setActiveKpiDrilldown(null)}
-            className="mj-btn-secondary px-2.5 py-1 rounded-lg text-[11px] cursor-pointer"
+            className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-1 text-[11px] font-bold cursor-pointer"
           >
             Reset
           </button>
@@ -953,20 +965,22 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {/* WORK ORDER LIST BY BUCKET                                    */}
       {/* ============================================================ */}
       {displayedTickets.length === 0 ? (
-        <div className="mj-enterprise-card rounded-2xl p-8 text-center space-y-2.5">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-[#f3eaff] text-[#58149c] flex items-center justify-center border border-[#e8ddff]">
+        <div className="card-3d-lavender rounded-2xl p-8 text-center space-y-2.5">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] flex items-center justify-center border border-[#e8ddff] dark:border-[#4B386B]">
             <Wrench className="w-6 h-6" />
           </div>
-          <h3 className="font-display text-sm font-bold text-[#1f1638]">
+          <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff]">
             {activeKpiDrilldown
               ? `Tidak Ada WO: ${KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}`
               : activeBucket === 'tugas_baru'
               ? 'Tidak Ada Tugas Baru'
               : activeBucket === 'dalam_proses'
               ? 'Tidak Ada WO Dalam Proses'
+              : activeBucket === 'overdue'
+              ? 'Tidak Ada WO Overdue'
               : 'Belum Ada WO Selesai'}
           </h3>
-          <p className="text-xs text-[#4b4452] max-w-sm mx-auto">
+          <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] max-w-sm mx-auto">
             {searchQuery
               ? 'Tidak ada Work Order yang cocok dengan kata kunci pencarian Anda.'
               : activeKpiDrilldown
@@ -975,6 +989,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               ? 'Semua WO yang baru didistribusikan kepada Anda akan muncul otomatis di tab ini.'
               : activeBucket === 'dalam_proses'
               ? 'WO yang sudah di-Check-In dan sedang dikerjakan akan tampil di sini.'
+              : activeBucket === 'overdue'
+              ? 'Semua jadwal appointment sebelumnya telah diselesaikan tepat waktu.'
               : 'WO yang sudah selesai Report & Check-Out akan terarsip rapi di tab Selesai.'}
           </p>
           {(searchQuery || dateScope === 'today' || activeKpiDrilldown) && (
@@ -983,7 +999,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveKpiDrilldown(null)}
-                  className="mj-btn-secondary px-3 py-1.5 rounded-xl text-xs cursor-pointer"
+                  className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold cursor-pointer"
                 >
                   Reset Filter KPI
                 </button>
@@ -992,7 +1008,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="mj-btn-secondary px-3 py-1.5 rounded-xl text-xs cursor-pointer"
+                  className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold cursor-pointer"
                 >
                   Hapus Pencarian
                 </button>
@@ -1001,7 +1017,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setDateScope('all')}
-                  className="mj-tactile-btn-primary px-3.5 py-1.5 rounded-xl text-xs cursor-pointer"
+                  className="mj-btn-installer-primary mj-btn-compact px-3.5 py-1.5 text-xs font-bold cursor-pointer"
                 >
                   Lihat Semua Tanggal ({myAssignedTickets.length})
                 </button>
@@ -1030,6 +1046,17 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             const photoCount = getTicketPhotoEvidenceCount(ticket);
             const cardBucket = classifyInstallerWoBucket(ticket);
 
+            const rawOpmStr =
+              ticket.technicalReport?.opticalPowerDbm ||
+              ticket.rosetRedamanDbm ||
+              ticket.fatRedamanDbm ||
+              '';
+            const opmNum = rawOpmStr
+              ? parseFloat(String(rawOpmStr).replace(',', '.').match(/-?\d+(\.\d+)?/)?.[0] || '')
+              : NaN;
+            const hasValidOpm = !Number.isNaN(opmNum);
+            const isOpmPass = hasValidOpm && opmNum <= -15 && opmNum >= -24;
+
             /* -------------------------------------------------------- */
             /* CARD VARIANT C: SELESAI (COMPACT COMPLETED WO)           */
             /* -------------------------------------------------------- */
@@ -1038,78 +1065,84 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <article
                   key={ticket.id}
                   onClick={() => handleOpenFullview(ticket)}
-                  className="mj-enterprise-card rounded-2xl p-4 space-y-3 hover:border-[#cec3d4] transition-colors cursor-pointer"
+                  className="card-3d-lavender rounded-2xl overflow-hidden hover:border-[#A380FE] transition-colors cursor-pointer"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="font-mono text-xs font-extrabold text-[#58149c] tracking-tight block">
-                        {ticket.woNumber}
-                      </span>
-                      <h3 className="font-display text-sm font-bold text-[#1f1638] truncate mt-0.5">
-                        {ticket.customerName}
-                      </h3>
+                  <div className="h-1.5 w-full bg-gradient-to-r from-[#16A36A] via-emerald-400 to-[#059669]" />
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF] tracking-tight block">
+                          {ticket.woNumber}
+                        </span>
+                        <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff] truncate mt-0.5">
+                          {ticket.customerName}
+                        </h3>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                        {canonicalReport !== 'NONE' && (
+                          <StatusBadge status={canonicalReport} variant="report" />
+                        )}
+                        {canonicalApproval !== 'NONE' && (
+                          <StatusApprovalBadge status={canonicalApproval} />
+                        )}
+                        {canonicalReport === 'NONE' && canonicalApproval === 'NONE' && (
+                          <StatusInstallerBadge status={ticket.statusWOInstaller} />
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
-                      {canonicalReport !== 'NONE' && (
-                        <StatusBadge status={canonicalReport} variant="report" />
-                      )}
-                      {canonicalApproval !== 'NONE' && (
-                        <StatusApprovalBadge status={canonicalApproval} />
-                      )}
-                      {canonicalReport === 'NONE' && canonicalApproval === 'NONE' && (
-                        <StatusInstallerBadge status={ticket.statusWOInstaller} />
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 bg-[#f8f1ff] border border-[#e8ddff] rounded-xl p-2.5 text-[11px]">
-                    <div>
-                      <span className="text-[#7d7484] block">Appointment</span>
-                      <span className="font-semibold text-[#1f1638] block truncate">
-                        {appDateDisplay} {ticket.slotTime ? `(${ticket.slotTime})` : ''}
-                      </span>
+                    <div className="grid grid-cols-2 gap-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl p-2.5 text-[11px]">
+                      <div>
+                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Appointment</span>
+                        <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate">
+                          {appDateDisplay} {ticket.slotTime ? `(${ticket.slotTime})` : ''}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Selesai</span>
+                        <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate">
+                          {formatCompletedDateLabel(ticket.checkOutAt || ticket.updatedAt)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Check-In / Check-Out</span>
+                        <span className="font-mono font-bold text-[#1f1638] dark:text-[#f5eeff] tabular-nums block truncate">
+                          {ticket.checkInAt ? formatJakartaTimeOnly(ticket.checkInAt) : '-'} →{' '}
+                          {ticket.checkOutAt ? formatJakartaTimeOnly(ticket.checkOutAt) : '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Work Type &amp; OPM</span>
+                        <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate">
+                          {workTypeLabel}
+                          {hasValidOpm ? ` · ${opmNum} dBm` : ''}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[#7d7484] block">Selesai</span>
-                      <span className="font-semibold text-[#1f1638] block truncate">
-                        {formatCompletedDateLabel(ticket.checkOutAt || ticket.updatedAt)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[#7d7484] block">Check-In / Check-Out</span>
-                      <span className="font-mono font-bold text-[#1f1638] tabular-nums block truncate">
-                        {ticket.checkInAt ? formatJakartaTimeOnly(ticket.checkInAt) : '-'} →{' '}
-                        {ticket.checkOutAt ? formatJakartaTimeOnly(ticket.checkOutAt) : '-'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[#7d7484] block">Work Type</span>
-                      <span className="font-semibold text-[#1f1638] block truncate">{workTypeLabel}</span>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span className="text-[11px] text-[#4b4452] truncate">
-                      {photoCount}/{PHOTO_SLOT_DEFINITIONS.length} Foto · {ticket.fatCode || 'FAT -'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleOpenFullview(ticket);
-                      }}
-                      className="mj-tactile-btn-secondary px-3.5 py-2 min-h-[38px] rounded-xl border border-[#cec3d4] text-xs text-[#58149c] inline-flex items-center gap-1.5 cursor-pointer shrink-0"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>LIHAT DETAIL</span>
-                    </button>
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <span className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6] truncate font-mono">
+                        {photoCount}/{PHOTO_SLOT_DEFINITIONS.length} Foto · {ticket.fatCode || 'FAT -'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleOpenFullview(ticket);
+                        }}
+                        className="mj-btn-installer-neutral mj-btn-compact px-3.5 py-2 text-xs font-bold gap-1.5 cursor-pointer shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ringkasan BAST</span>
+                      </button>
+                    </div>
                   </div>
                 </article>
               );
             }
 
             /* -------------------------------------------------------- */
-            /* CARD VARIANT B: DALAM PROSES (CONTINUE WORK)             */
+            /* CARD VARIANT B: DALAM PROSES (CONTINUE WORK + OPM LCD)   */
             /* -------------------------------------------------------- */
             if (cardBucket === 'dalam_proses') {
               const guidance = getContinueWorkGuidance(ticket);
@@ -1125,287 +1158,355 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <article
                   key={ticket.id}
                   onClick={() => handleOpenFullview(ticket, guidance.section)}
-                  className={`mj-enterprise-card rounded-2xl p-4 space-y-3 transition-colors cursor-pointer ${
-                    canonicalApproval === 'REVISION' ? 'border-[#FCA5A5]' : 'hover:border-[#cec3d4]'
+                  className={`card-3d-lavender rounded-2xl overflow-hidden transition-colors cursor-pointer ${
+                    canonicalApproval === 'REVISION' ? 'border-[#FCA5A5] dark:border-rose-700' : 'hover:border-[#A380FE]'
                   }`}
                 >
-                  {/* 1-2: WO Number + Status */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono text-xs font-extrabold text-[#58149c]">
-                          {ticket.woNumber}
+                  {/* Top Status Accent Bar */}
+                  <div
+                    className={`h-1.5 w-full ${
+                      canonicalApproval === 'REVISION'
+                        ? 'bg-gradient-to-r from-[#BA1A1A] to-[#480123]'
+                        : 'bg-gradient-to-r from-[#58149C] via-[#A380FE] to-[#7135B5]'
+                    }`}
+                  />
+
+                  <div className="p-4 space-y-3">
+                    {/* 1-2: WO Number + Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF]">
+                            {ticket.woNumber}
+                          </span>
+                          <span className="text-[11px] font-semibold text-[#4b4452] dark:text-[#C4B5D6]">
+                            · {ticket.slotTime || 'Hari Ini'}
+                          </span>
+                        </div>
+                        <h3 className="font-display text-[15px] font-extrabold text-[#1f1638] dark:text-[#f5eeff] truncate mt-0.5">
+                          {ticket.customerName}
+                        </h3>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                        <StatusInstallerBadge status={ticket.statusWOInstaller || 'In Progress'} />
+                        {canonicalApproval === 'REVISION' && (
+                          <StatusApprovalBadge status="REVISION" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Revision banner if returned by Dispatch */}
+                    {canonicalApproval === 'REVISION' && (
+                      <div className="rounded-xl bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FCA5A5] dark:border-rose-800/60 px-3 py-2 text-[11px] text-[#BA1A1A] dark:text-rose-200">
+                        <span className="font-bold">Revisi Dispatch: </span>
+                        <span>{revisionNote || 'Perbaiki data report dan kirim ulang.'}</span>
+                      </div>
+                    )}
+
+                    {/* Customer Info Inset Well */}
+                    <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 space-y-1 text-xs text-[#4b4452] dark:text-[#C4B5D6]">
+                      <div className="flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{addressDisplay}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-[#E8DDFF]/70 dark:border-[#35105E]">
+                        <span className="inline-flex items-center gap-1 font-semibold text-[#1f1638] dark:text-[#f5eeff]">
+                          <Clock className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                          <span>Check-In: {checkInLabel}</span>
                         </span>
-                        <span className="text-[11px] font-semibold text-[#4b4452]">
-                          · {workTypeLabel}
+                        <span className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF]">
+                          {guidance.stageLabel}
                         </span>
                       </div>
-                      <h3 className="font-display text-[15px] font-bold text-[#1f1638] truncate mt-0.5">
-                        {ticket.customerName}
-                      </h3>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
-                      <StatusInstallerBadge status={ticket.statusWOInstaller || 'In Progress'} />
-                      {canonicalApproval === 'REVISION' && (
-                        <StatusApprovalBadge status="REVISION" />
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Revision banner if returned by Dispatch */}
-                  {canonicalApproval === 'REVISION' && (
-                    <div className="rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] px-3 py-2 text-[11px] text-[#B91C1C]">
-                      <span className="font-bold">Revisi Dispatch: </span>
-                      <span>{revisionNote || 'Perbaiki data report dan kirim ulang.'}</span>
-                    </div>
-                  )}
+                    {/* 2-Col Telemetry Strip: ODP/FAT Distribution + Dark Inset OPM LIVE LCD */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 flex flex-col justify-between">
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0]">
+                          ODP / FAT Distribution
+                        </span>
+                        <span className="font-mono font-extrabold text-xs text-[#1f1638] dark:text-[#f5eeff] truncate mt-1">
+                          {ticket.fatCode || ticket.fdtCode || 'FAT -'}
+                        </span>
+                        <span className="font-mono text-[10.5px] font-semibold text-[#58149c] dark:text-[#DAB9FF] mt-0.5 truncate">
+                          {ticket.fatPort ? `Port ${ticket.fatPort}` : workTypeLabel}
+                        </span>
+                      </div>
 
-                  {/* Address + Check-In Time */}
-                  <div className="space-y-1.5 text-xs text-[#4b4452]">
-                    <div className="flex items-start gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[#58149c] shrink-0 mt-0.5" />
-                      <span className="line-clamp-2">{addressDisplay}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5">
-                      <span className="inline-flex items-center gap-1 font-semibold text-[#1f1638]">
-                        <Clock className="w-3.5 h-3.5 text-[#58149c]" />
-                        <span>Check-In: {checkInLabel}</span>
-                      </span>
-                      <span className="font-mono font-bold text-[#58149c]">
-                        {guidance.stageLabel}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Compact Workflow Progress Strip: Check-In -> Instalasi -> Foto -> Report -> Check-Out */}
-                  <div className="bg-[#f8f1ff] border border-[#e8ddff] rounded-xl p-2.5 space-y-1.5">
-                    <div className="grid grid-cols-5 gap-1 text-[10px] font-bold text-center">
-                      {[
-                        { label: 'Check-In', done: Boolean(ticket.checkInAt) },
-                        { label: 'Instalasi', done: guidance.installDone },
-                        { label: `Foto ${photoCount}/7`, done: guidance.photosDone },
-                        { label: 'Report', done: guidance.reportDone },
-                        { label: 'Check-Out', done: Boolean(ticket.checkOutAt) }
-                      ].map(step => (
-                        <div
-                          key={step.label}
-                          className={`px-1 py-1 rounded-lg border truncate ${
-                            step.done
-                              ? 'bg-[#ECFDF5] text-[#15803D] border-[#86EFAC]'
-                              : 'bg-white text-[#4b4452] border-[#e8ddff]'
-                          }`}
-                        >
-                          {step.label}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Action Footer */}
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#e8ddff]">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (hasHouseGps) {
-                            openCoordinatesInGoogleMaps(
-                              ticket.houseLocation!.latitude,
-                              ticket.houseLocation!.longitude
-                            );
-                          } else {
-                            openCustomerAddressInGoogleMaps(ticket, () => {
-                              toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
-                            });
-                          }
-                        }}
-                        aria-label="Buka Google Maps"
-                        className="w-9 h-9 rounded-xl bg-[#f8f1ff] border border-[#e8ddff] text-[#58149c] flex items-center justify-center hover:bg-[#f3eaff] cursor-pointer"
-                      >
-                        <Navigation className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleOpenChat(ticket);
-                        }}
-                        aria-label="LiveChat WO"
-                        className="relative w-9 h-9 rounded-xl bg-[#f8f1ff] border border-[#e8ddff] text-[#58149c] flex items-center justify-center hover:bg-[#f3eaff] cursor-pointer"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        {unread > 0 && (
-                          <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-[#ba1a1a] text-white text-[9px] font-bold flex items-center justify-center">
-                            {unread > 99 ? '99+' : unread}
+                      <div className="rounded-xl bg-[#160D29] border border-[#35105E] p-2.5 text-white flex flex-col justify-between shadow-inner">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-[#DAB9FF] flex items-center gap-1">
+                            <Gauge className="w-3 h-3" />
+                            <span>OPM LIVE</span>
                           </span>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          setKendalaTicket(ticket);
-                        }}
-                        aria-label="Laporkan Kendala"
-                        className="w-9 h-9 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] text-[#B91C1C] flex items-center justify-center hover:bg-rose-100 cursor-pointer"
-                      >
-                        <ShieldAlert className="w-4 h-4" />
-                      </button>
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-extrabold ${
+                              !hasValidOpm
+                                ? 'bg-white/15 text-[#EEDBFF]'
+                                : isOpmPass
+                                ? 'bg-emerald-500/25 text-emerald-300'
+                                : 'bg-rose-500/30 text-rose-200'
+                            }`}
+                          >
+                            {!hasValidOpm ? 'WAIT' : isOpmPass ? 'PASS' : 'ALERT'}
+                          </span>
+                        </div>
+                        <div className="font-mono font-extrabold text-base text-white tabular-nums mt-0.5">
+                          {hasValidOpm ? `${opmNum.toFixed(1)} dBm` : '— dBm'}
+                        </div>
+                        <span className="font-mono text-[9.5px] text-white/60">
+                          SOP: -15 s/d -24 dBm
+                        </span>
+                      </div>
                     </div>
 
-                    {!ticket.checkInAt ? (
-                      <button
-                        type="button"
-                        onClick={e => handleTriggerCheckIn(e, ticket)}
-                        className="mj-tactile-btn-primary px-4 py-2 min-h-[40px] rounded-xl text-xs inline-flex items-center gap-1.5 cursor-pointer shrink-0"
-                      >
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>CHECK-IN</span>
-                      </button>
-                    ) : (
+                    {/* Primary & Secondary 3D CTAs */}
+                    <div className="space-y-2 pt-0.5">
+                      {!ticket.checkInAt ? (
+                        <button
+                          type="button"
+                          onClick={e => handleTriggerCheckIn(e, ticket)}
+                          className="mj-btn-installer-primary w-full px-4 py-2 text-xs font-bold gap-1.5 cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span>CHECK-IN LOKASI GPS</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleOpenFullview(ticket, guidance.section);
+                          }}
+                          className="mj-btn-installer-primary w-full px-4 py-2 text-xs font-bold gap-1.5 cursor-pointer"
+                        >
+                          <span>{guidance.buttonLabel}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={e => {
                           e.stopPropagation();
-                          handleOpenFullview(ticket, guidance.section);
+                          handleOpenFullview(ticket);
                         }}
-                        className="mj-tactile-btn-primary px-4 py-2 min-h-[40px] rounded-xl text-xs inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+                        className="mj-btn-installer-secondary w-full px-3.5 py-2 text-xs font-bold gap-1.5 cursor-pointer"
                       >
-                        <span>{guidance.buttonLabel}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Buka Detail Tiket (Fullview)</span>
                       </button>
-                    )}
+
+                      {/* 3-col Ergonomic Macro Row */}
+                      <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (hasHouseGps) {
+                              openCoordinatesInGoogleMaps(
+                                ticket.houseLocation!.latitude,
+                                ticket.houseLocation!.longitude
+                              );
+                            } else {
+                              openCustomerAddressInGoogleMaps(ticket, () => {
+                                toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
+                              });
+                            }
+                          }}
+                          className="mj-btn-installer-neutral mj-btn-compact px-2 text-[11px] font-bold gap-1 cursor-pointer"
+                        >
+                          <Navigation className="w-3.5 h-3.5" />
+                          <span>Maps</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleOpenChat(ticket);
+                          }}
+                          className="relative mj-btn-installer-neutral mj-btn-compact px-2 text-[11px] font-bold gap-1 cursor-pointer"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                          <span>LiveChat</span>
+                          {unread > 0 && (
+                            <span className="ml-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#ba1a1a] text-white text-[9px] font-bold flex items-center justify-center">
+                              {unread > 99 ? '99+' : unread}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setKendalaTicket(ticket);
+                          }}
+                          className="mj-btn-installer-danger mj-btn-compact px-2 text-[11px] font-bold gap-1 cursor-pointer"
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <span>Kendala</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </article>
               );
             }
 
             /* -------------------------------------------------------- */
-            /* CARD VARIANT A: TUGAS BARU (8-ITEM HIERARCHY + CHECK-IN) */
+            /* CARD VARIANT A / D: TUGAS BARU & OVERDUE                 */
             /* -------------------------------------------------------- */
+            const isOverdueCard = cardBucket === 'overdue';
             return (
               <article
                 key={ticket.id}
                 onClick={() => handleOpenFullview(ticket)}
-                className="mj-enterprise-card rounded-2xl p-4 space-y-2.5 hover:border-[#cec3d4] transition-colors cursor-pointer"
+                className="card-3d-lavender rounded-2xl overflow-hidden hover:border-[#A380FE] transition-colors cursor-pointer"
               >
-                {/* 1. WO Number & 2. Status WO */}
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff]">
-                  <span className="font-mono text-xs font-extrabold text-[#58149c] tracking-tight">
-                    {ticket.woNumber}
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} />
+                <div
+                  className={`h-1.5 w-full ${
+                    isOverdueCard
+                      ? 'bg-gradient-to-r from-[#BA1A1A] to-[#480123]'
+                      : 'bg-gradient-to-r from-[#D97706] to-[#F59E0B]'
+                  }`}
+                />
+                <div className="p-4 space-y-2.5">
+                  {/* 1. WO Number & 2. Status WO */}
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#35105E]">
+                    <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF] tracking-tight">
+                      {ticket.woNumber}
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} />
+                    </div>
                   </div>
-                </div>
 
-                {/* 3. Nama Customer */}
-                <div>
-                  <h3 className="font-display text-[15px] font-bold text-[#1f1638] leading-snug">
-                    {ticket.customerName}
-                  </h3>
-                  {ticket.idCustomer && (
-                    <span className="font-mono text-[10.5px] text-[#7d7484]">
-                      ID: {ticket.idCustomer}
-                    </span>
-                  )}
-                </div>
-
-                {/* 4. Alamat Customer */}
-                <div className="flex items-start gap-1.5 text-xs text-[#4b4452]">
-                  <MapPin className="w-3.5 h-3.5 text-[#58149c] shrink-0 mt-0.5" />
-                  <span className="line-clamp-2">{addressDisplay}</span>
-                </div>
-
-                {/* 5. Appointment Date & 6. Work Type / Category */}
-                <div className="grid grid-cols-2 gap-2 bg-[#f8f1ff] border border-[#e8ddff] rounded-xl px-3 py-2 text-[11px]">
-                  <div className="min-w-0">
-                    <span className="text-[#7d7484] flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-[#58149c]" />
-                      <span>Appointment</span>
-                    </span>
-                    <span className="font-semibold text-[#1f1638] block truncate mt-0.5">
-                      {appDateDisplay}{ticket.slotTime ? ` · ${ticket.slotTime}` : ''}
-                    </span>
+                  {/* 3. Customer Info Inset Well */}
+                  <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-display text-[15px] font-extrabold text-[#1f1638] dark:text-[#f5eeff] leading-snug truncate">
+                        {ticket.customerName}
+                      </h3>
+                      {ticket.customerPhone && (
+                        <span className="font-mono text-[10.5px] font-bold text-[#58149c] dark:text-[#DAB9FF] shrink-0">
+                          {ticket.customerPhone}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-start gap-1.5 text-xs text-[#4b4452] dark:text-[#C4B5D6]">
+                      <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{addressDisplay}</span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-[#7d7484] flex items-center gap-1">
-                      <Wrench className="w-3 h-3 text-[#58149c]" />
-                      <span>Work Type</span>
-                    </span>
-                    <span className="font-semibold text-[#1f1638] block truncate mt-0.5">
-                      {workTypeLabel}
-                    </span>
+
+                  {/* 5. Appointment Date & 6. Work Type / Category */}
+                  <div className="grid grid-cols-2 gap-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl px-3 py-2 text-[11px]">
+                    <div className="min-w-0">
+                      <span className="text-[#7d7484] dark:text-[#A79BC0] flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-[#58149c] dark:text-[#A380FE]" />
+                        <span>Appointment</span>
+                      </span>
+                      <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate mt-0.5">
+                        {appDateDisplay}{ticket.slotTime ? ` · ${ticket.slotTime}` : ''}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[#7d7484] dark:text-[#A79BC0] flex items-center gap-1">
+                        <Wrench className="w-3 h-3 text-[#58149c] dark:text-[#A380FE]" />
+                        <span>Work Type</span>
+                      </span>
+                      <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate mt-0.5">
+                        {workTypeLabel}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* 7. Informasi Teknis Relevan */}
-                <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-[#4b4452] flex-wrap">
-                  <span>
-                    {ticket.fdtCode || 'FDT -'} · FAT {ticket.fatCode || '-'}
-                    {ticket.fatPort ? ` / P${ticket.fatPort}` : ''}
-                  </span>
-                  <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
-                </div>
+                  {/* 7. Informasi Teknis Relevan */}
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-[#4b4452] dark:text-[#C4B5D6] flex-wrap">
+                    <span>
+                      {ticket.fdtCode || 'FDT -'} · FAT {ticket.fatCode || '-'}
+                      {ticket.fatPort ? ` / P${ticket.fatPort}` : ''}
+                    </span>
+                    <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                  </div>
 
-                {/* 8. Action Footer: Quick Maps/WA/Detail + Primary CHECK-IN */}
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e8ddff]">
-                  <div className="flex items-center gap-1.5">
+                  {/* 8. Action Footer: Quick Maps/WA/Detail + Primary CHECK-IN */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          openCustomerAddressInGoogleMaps(ticket, () => {
+                            toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
+                          });
+                        }}
+                        aria-label="Buka Google Maps"
+                        className="mj-btn-icon-3d-installer w-10 h-10 cursor-pointer"
+                      >
+                        <Navigation className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={!ticket.customerPhone}
+                        onClick={e => {
+                          e.stopPropagation();
+                          onOpenWhatsApp(ticket);
+                        }}
+                        aria-label="Hubungi Pelanggan via WhatsApp"
+                        className="mj-btn-icon-3d-wa w-10 h-10 cursor-pointer"
+                      >
+                        <Phone className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleOpenFullview(ticket);
+                        }}
+                        className="mj-btn-installer-neutral mj-btn-compact px-2.5 text-[11px] font-bold cursor-pointer"
+                      >
+                        Detail WO
+                      </button>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        openCustomerAddressInGoogleMaps(ticket, () => {
-                          toast.warning('Alamat pelanggan belum tersedia untuk Google Maps.', 'Google Maps');
-                        });
-                      }}
-                      aria-label="Buka Google Maps"
-                      className="w-9 h-9 rounded-xl bg-[#f8f1ff] border border-[#e8ddff] text-[#58149c] flex items-center justify-center hover:bg-[#f3eaff] cursor-pointer"
+                      onClick={e => handleTriggerCheckIn(e, ticket)}
+                      className="mj-btn-installer-primary mj-btn-compact px-3.5 py-2 text-xs font-bold gap-1.5 cursor-pointer shrink-0"
                     >
-                      <Navigation className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!ticket.customerPhone}
-                      onClick={e => {
-                        e.stopPropagation();
-                        onOpenWhatsApp(ticket);
-                      }}
-                      aria-label="Hubungi Pelanggan via WhatsApp"
-                      className="w-9 h-9 rounded-xl bg-[#ECFDF5] border border-[#86EFAC] text-[#15803D] flex items-center justify-center hover:bg-emerald-100 disabled:opacity-45 cursor-pointer"
-                    >
-                      <Phone className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleOpenFullview(ticket);
-                      }}
-                      className="mj-btn-secondary px-2.5 min-h-[36px] rounded-xl text-[11px] cursor-pointer"
-                    >
-                      Detail
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Check-in &amp; Mulai</span>
                     </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={e => handleTriggerCheckIn(e, ticket)}
-                    className="mj-tactile-btn-primary px-4 py-2 min-h-[40px] rounded-xl text-xs inline-flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>CHECK-IN</span>
-                  </button>
                 </div>
               </article>
             );
           })}
         </div>
       )}
+
+      {/* ============================================================ */}
+      {/* SOP KESELAMATAN KERJA (K3) REMINDER BANNER                   */}
+      {/* ============================================================ */}
+      <section className="rounded-2xl bg-[#f8f1ff] dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] px-4 py-3 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-[#2D115B] text-[#DAB9FF] flex items-center justify-center shrink-0">
+          <ShieldCheck className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <h4 className="font-display text-xs font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-[#f5eeff]">
+            SOP Keselamatan Kerja (K3)
+          </h4>
+          <p className="text-[11.5px] text-[#4b4452] dark:text-[#C4B5D6] leading-snug mt-0.5">
+            Gunakan helm pelindung, safety belt saat memanjat tiang, serta sarung tangan isolasi sebelum terminasi kabel optik FAT/ODP.
+          </p>
+        </div>
+      </section>
 
       {/* Kendala / Reschedule Escalation Modal */}
       <TactileConfirmModal
@@ -1444,12 +1545,12 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             : undefined
         }
         footer={
-          <div className="w-full flex items-center justify-between gap-3 text-xs text-[#7d7484]">
+          <div className="w-full flex items-center justify-between gap-3 text-xs text-[#7d7484] dark:text-[#A79BC0]">
             <span>Koordinasi cepat dengan Dispatch &amp; Leader</span>
             <button
               type="button"
               onClick={() => setChatModalTicket(null)}
-              className="mj-btn-secondary min-h-[38px] px-4 py-1.5 rounded-xl text-xs cursor-pointer"
+              className="mj-btn-installer-neutral mj-btn-compact px-4 py-1.5 text-xs font-bold cursor-pointer"
             >
               Tutup Chat
             </button>

@@ -1,43 +1,75 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useOfflineSync } from '../../context/OfflineSyncContext';
+import { useToast } from '../../context/ToastContext';
 import { Ticket } from '../../types/index.ts';
-import { StatusInstallerBadge, StatusWhatsAppBadge } from '../common/Badge';
+import { StatusWhatsAppBadge } from '../common/Badge';
 import {
   MessageSquare,
   Search,
   Phone,
   Send,
-  Calendar,
   MapPin,
   CheckCircle2,
   Clock,
-  RotateCcw,
-  ExternalLink,
-  Wrench,
-  AlertCircle,
   Copy,
-  Check
+  Check,
+  Wifi,
+  WifiOff,
+  FileText,
+  Zap,
+  Eye,
+  X
 } from 'lucide-react';
-import { normalizePhoneNumber, buildWhatsAppClickToChatUrl, renderWhatsAppMessage } from '../../services/whatsappService';
-import { useToast } from '../../context/ToastContext';
+import {
+  normalizePhoneNumber,
+  buildWhatsAppClickToChatUrl,
+  renderWhatsAppMessage
+} from '../../services/whatsappService';
 
 interface InstallerWhatsAppCenterProps {
   onOpenWhatsAppModal: (ticket: Ticket) => void;
   onSelectTicket: (ticket: Ticket) => void;
 }
 
+const FALLBACK_QUICK_TEMPLATES = [
+  {
+    id: 'tpl_otw',
+    shortLabel: 'Template A · Konfirmasi Keberangkatan',
+    messageBody:
+      'Halo {{customer_name}}, saya {{installer_name}} teknisi {{contractor_name}} untuk WO {{wo_number}}. Saat ini saya sedang bersiap menuju lokasi Anda sesuai jadwal {{slot_time}}. Mohon pastikan ada penerima di lokasi.'
+  },
+  {
+    id: 'tpl_eta',
+    shortLabel: 'Template B · Estimasi Tiba (ETA 20 Mnt)',
+    messageBody:
+      'Halo {{customer_name}}, teknisi {{installer_name}} ({{contractor_name}}) menginfokan estimasi tiba di alamat Anda sekitar 20 menit lagi untuk pemasangan WO {{wo_number}}. Terima kasih.'
+  },
+  {
+    id: 'tpl_shareloc',
+    shortLabel: 'Template C · Permintaan Share Location',
+    messageBody:
+      'Halo {{customer_name}}, saya {{installer_name}} teknisi {{contractor_name}} (WO {{wo_number}}). Mohon kirimkan share live location via WhatsApp agar tim kami lebih mudah menemukan titik rumah Anda. Terima kasih.'
+  }
+];
+
 export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = ({
   onOpenWhatsAppModal,
   onSelectTicket
 }) => {
   const { currentUser, tickets, templates } = useApp();
+  const { isOnline } = useOfflineSync();
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unconfirmed' | 'confirmed' | 'reschedule'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedQuickTplByTicket, setSelectedQuickTplByTicket] = useState<Record<string, string>>({});
 
-  // Helper matching for logged-in technician
+  // Official SOP template preview state
+  const [selectedSopTemplateId, setSelectedSopTemplateId] = useState<string>('');
+  const [selectedPreviewTicketId, setSelectedPreviewTicketId] = useState<string>('');
+
   const isInstallerMatch = (ticketInstaller: string | undefined, installerName: string) => {
     if (!ticketInstaller || !ticketInstaller.trim()) return false;
     const tInst = ticketInstaller.toLowerCase().trim();
@@ -57,7 +89,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
 
     return (tickets || []).filter(t => {
       if (t.isArchived || t.isDeleted) return false;
-      if (!t.installerName) return false;
+      if (!t.installerName && !t.assignedTo && !t.installerId) return false;
 
       if (t.assignedTo && (t.assignedTo === myId || t.assignedTo === myUsername)) return true;
       if (myName && isInstallerMatch(t.installerName, myName)) return true;
@@ -66,6 +98,18 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
       return false;
     });
   }, [tickets, currentUser]);
+
+  const counts = useMemo(() => {
+    const confirmed = myTickets.filter(t => t.statusWhatsApp === 'confirmed').length;
+    const reschedule = myTickets.filter(t => t.statusWhatsApp === 'reschedule_requested').length;
+    const unconfirmed = myTickets.filter(t => t.statusWhatsApp !== 'confirmed').length;
+    return {
+      total: myTickets.length,
+      confirmed,
+      reschedule,
+      unconfirmed
+    };
+  }, [myTickets]);
 
   const filteredTickets = useMemo(() => {
     return myTickets.filter(t => {
@@ -83,7 +127,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
         const matchCust = (t.customerName || '').toLowerCase().includes(q);
         const matchPhone = (t.customerPhone || '').includes(q);
         const matchArea = (t.area || '').toLowerCase().includes(q);
-        const matchStreet = (t.streetName || '').toLowerCase().includes(q);
+        const matchStreet = (t.streetName || t.address || '').toLowerCase().includes(q);
         return matchWO || matchCust || matchPhone || matchArea || matchStreet;
       }
 
@@ -91,15 +135,91 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
     });
   }, [myTickets, statusFilter, searchQuery]);
 
-  const handleDirectWA = (ticket: Ticket) => {
-    const defaultTpl = templates.find(tpl => tpl.isDefault) || templates[0];
-    const templateBody = defaultTpl ? defaultTpl.messageBody : 'Halo {{customer_name}}, kami dari teknisi {{contractor_name}} konfirmasi kedatangan untuk WO {{wo_number}}.';
-    const { renderedText } = renderWhatsAppMessage(templateBody, ticket);
-    const { url } = buildWhatsAppClickToChatUrl(ticket.customerPhone, renderedText);
+  // Quick A/B/C options sourced from AppContext templates when available, with standard SOP fallback
+  const quickTemplateChoices = useMemo(() => {
+    const activeTemplates = (templates || []).filter(tpl => tpl.active !== false);
+    if (activeTemplates.length >= 3) {
+      return activeTemplates.slice(0, 3).map((tpl, idx) => ({
+        id: tpl.id,
+        shortLabel: `Template ${['A', 'B', 'C'][idx]} · ${tpl.name}`,
+        messageBody: tpl.messageBody
+      }));
+    }
+    if (activeTemplates.length > 0) {
+      const merged = [
+        ...activeTemplates.map((tpl, idx) => ({
+          id: tpl.id,
+          shortLabel: `Template ${['A', 'B', 'C'][idx]} · ${tpl.name}`,
+          messageBody: tpl.messageBody
+        })),
+        ...FALLBACK_QUICK_TEMPLATES
+      ].slice(0, 3);
+      return merged;
+    }
+    return FALLBACK_QUICK_TEMPLATES;
+  }, [templates]);
+
+  // All SOP templates available in bottom preview card
+  const sopTemplateOptions = useMemo(() => {
+    const activeTemplates = (templates || []).filter(tpl => tpl.active !== false);
+    if (activeTemplates.length > 0) {
+      return activeTemplates.map((tpl, i) => ({
+        id: tpl.id,
+        label: `SOP-${String(i + 1).padStart(2, '0')}: ${tpl.name}`,
+        messageBody: tpl.messageBody
+      }));
+    }
+    return FALLBACK_QUICK_TEMPLATES.map((tpl, i) => ({
+      id: tpl.id,
+      label: `SOP-${String(i + 1).padStart(2, '0')}: ${tpl.shortLabel}`,
+      messageBody: tpl.messageBody
+    }));
+  }, [templates]);
+
+  useEffect(() => {
+    if (!selectedSopTemplateId && sopTemplateOptions.length > 0) {
+      setSelectedSopTemplateId(sopTemplateOptions[0].id);
+    }
+  }, [sopTemplateOptions, selectedSopTemplateId]);
+
+  useEffect(() => {
+    if (!selectedPreviewTicketId && myTickets.length > 0) {
+      const priorityTicket = myTickets.find(t => t.statusWhatsApp !== 'confirmed') || myTickets[0];
+      setSelectedPreviewTicketId(priorityTicket.id);
+    }
+  }, [myTickets, selectedPreviewTicketId]);
+
+  const activeSopTemplate = useMemo(
+    () => sopTemplateOptions.find(t => t.id === selectedSopTemplateId) || sopTemplateOptions[0],
+    [sopTemplateOptions, selectedSopTemplateId]
+  );
+
+  const activePreviewTicket = useMemo(
+    () => myTickets.find(t => t.id === selectedPreviewTicketId) || myTickets[0] || null,
+    [myTickets, selectedPreviewTicketId]
+  );
+
+  const renderedSopPreview = useMemo(() => {
+    if (!activeSopTemplate || !activePreviewTicket) {
+      return activeSopTemplate?.messageBody || '';
+    }
+    return renderWhatsAppMessage(activeSopTemplate.messageBody, activePreviewTicket).renderedText;
+  }, [activeSopTemplate, activePreviewTicket]);
+
+  const sendRenderedWhatsApp = (ticket: Ticket, bodyText: string) => {
+    const { renderedText } = renderWhatsAppMessage(bodyText, ticket);
+    const { url, error } = buildWhatsAppClickToChatUrl(ticket.customerPhone, renderedText);
 
     if (url) {
-      window.open(url, '_blank');
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } else {
+      toast.warning(error || 'Nomor telepon belum valid. Membuka editor pesan...', 'WhatsApp');
       onOpenWhatsAppModal(ticket);
     }
   };
@@ -113,184 +233,401 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
   };
 
   return (
-    <div className="max-w-lg lg:max-w-5xl mx-auto space-y-4">
-      {/* Top Banner */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0B1220] border border-slate-700/80 text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-[#16A36A]/20 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <MessageSquare className="w-5 h-5 text-emerald-400" />
+    <div className="max-w-lg lg:max-w-5xl mx-auto space-y-4 pb-24 sm:pb-8">
+      {/* =============================================================== */}
+      {/* 1. MORAJAWS DARK PURPLE / MAROON WHATSAPP GATEWAY HEADER        */}
+      {/* =============================================================== */}
+      <section className="rounded-2xl bg-gradient-to-br from-[#160D29] via-[#2D115B] to-[#480123] border border-[#58149C]/60 text-white p-4 sm:p-5 shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-400/40">
+              <MessageSquare className="w-5 h-5 text-emerald-300" />
             </div>
-            <div>
-              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-white">
-                Pusat WhatsApp Pelanggan
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-[#DAB9FF]">
+                  KONFIRMASI PELANGGAN
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-mono font-bold border ${
+                    isOnline
+                      ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+                      : 'bg-amber-500/20 text-amber-200 border-amber-400/40'
+                  }`}
+                >
+                  {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                  <span>{isOnline ? 'SIAP KIRIM · ONLINE' : 'OFFLINE'}</span>
+                </span>
+              </div>
+              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-white mt-0.5 truncate">
+                WhatsApp Gateway Teknisi
               </h2>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Konfirmasi jadwal, pesan template resmi, dan notifikasi teknisi menuju lokasi.
-              </p>
             </div>
           </div>
-          <div className="px-3 py-1.5 rounded-full bg-white/10 text-xs font-bold text-[#38BDF8] shrink-0 self-start sm:self-auto border border-slate-700 tabular-nums">
-            {myTickets.length} Tiket Pelanggan
+
+          <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-mono font-bold text-[#EEDBFF] shrink-0 self-start sm:self-auto tabular-nums">
+            {currentUser.name}
+          </span>
+        </div>
+
+        {/* 3 Real Operational Counters */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <div className="rounded-xl bg-white/10 backdrop-blur-xs border border-white/15 px-3 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#DAB9FF] block truncate">
+              Total Pelanggan
+            </span>
+            <span className="font-display text-xl font-extrabold text-white tabular-nums mt-0.5 block">
+              {counts.total}
+            </span>
+          </div>
+          <div className="rounded-xl bg-white/10 backdrop-blur-xs border border-emerald-400/25 px-3 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block truncate">
+              Terkonfirmasi
+            </span>
+            <span className="font-display text-xl font-extrabold text-emerald-300 tabular-nums mt-0.5 block">
+              {counts.confirmed}
+            </span>
+          </div>
+          <div className="rounded-xl bg-white/10 backdrop-blur-xs border border-amber-400/25 px-3 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200 block truncate">
+              Perlu Konfirmasi
+            </span>
+            <span className="font-display text-xl font-extrabold text-amber-300 tabular-nums mt-0.5 block">
+              {counts.unconfirmed}
+            </span>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-2xs space-y-3">
+      {/* =============================================================== */}
+      {/* 2. FILTER TABS & DEBOSSED SEARCH BAR                            */}
+      {/* =============================================================== */}
+      <section className="card-3d-lavender rounded-2xl p-3.5 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Status Buttons (horizontal scroll on mobile) */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-            <button
-              type="button"
-              onClick={() => setStatusFilter('all')}
-              className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer tabular-nums shrink-0 whitespace-nowrap ${
-                statusFilter === 'all'
-                  ? 'bg-[#2563EB] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Semua ({myTickets.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('unconfirmed')}
-              className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                statusFilter === 'unconfirmed'
-                  ? 'bg-[#D97706] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Perlu Konfirmasi
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('confirmed')}
-              className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                statusFilter === 'confirmed'
-                  ? 'bg-[#16A36A] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Terkonfirmasi
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('reschedule')}
-              className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                statusFilter === 'reschedule'
-                  ? 'bg-[#2563EB] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Reschedule
-            </button>
+            {[
+              { key: 'all' as const, label: `Semua (${counts.total})` },
+              { key: 'unconfirmed' as const, label: `Perlu Konfirmasi (${counts.unconfirmed})` },
+              { key: 'confirmed' as const, label: `Terkonfirmasi (${counts.confirmed})` },
+              { key: 'reschedule' as const, label: `Reschedule (${counts.reschedule})` }
+            ].map(tab => {
+              const isActive = statusFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.key)}
+                  className={`px-3 py-1.5 text-xs font-bold cursor-pointer tabular-nums shrink-0 whitespace-nowrap ${
+                    isActive
+                      ? 'mj-btn-installer-secondary mj-btn-compact'
+                      : 'mj-btn-installer-neutral mj-btn-compact'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Search */}
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Cari nama, WO, atau telp..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2.5 min-h-[44px] text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input w-full pl-10 pr-8 py-2 min-h-[42px] text-xs rounded-xl border border-[#e8ddff] dark:border-[#35105E] bg-[#f8f1ff] dark:bg-[#160D29] text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Hapus pencarian"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Ticket List for WhatsApp */}
+      {/* =============================================================== */}
+      {/* 3. DAFTAR ANTREAN CHAT PELANGGAN + QUICK TEMPLATE A/B/C         */}
+      {/* =============================================================== */}
       {filteredTickets.length === 0 ? (
-        <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 space-y-2">
-          <MessageSquare className="w-10 h-10 text-slate-400 mx-auto" />
-          <h4 className="font-display text-sm font-bold text-slate-900 dark:text-white">
+        <div className="card-3d-lavender p-8 text-center rounded-2xl space-y-2">
+          <div className="w-12 h-12 rounded-2xl bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149C] dark:text-[#DAB9FF] mx-auto flex items-center justify-center border border-[#e8ddff] dark:border-[#4B386B]">
+            <MessageSquare className="w-6 h-6" />
+          </div>
+          <h4 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff]">
             Tidak Ada Work Order yang Cocok
           </h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6]">
             Tidak ditemukan tiket pelanggan sesuai filter yang dipilih.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {filteredTickets.map(ticket => (
-            <div
-              key={ticket.id}
-              className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs font-extrabold text-[#2563EB] dark:text-[#38BDF8]">
-                      {ticket.woNumber || ticket.ticketNumber || 'WO-Unknown'}
+          {filteredTickets.map(ticket => {
+            const isConfirmed = ticket.statusWhatsApp === 'confirmed';
+            const selectedQuickId =
+              selectedQuickTplByTicket[ticket.id] || quickTemplateChoices[0]?.id || '';
+            const selectedQuickObj =
+              quickTemplateChoices.find(c => c.id === selectedQuickId) || quickTemplateChoices[0];
+            const renderedQuickPreview = selectedQuickObj
+              ? renderWhatsAppMessage(selectedQuickObj.messageBody, ticket).renderedText
+              : '';
+
+            return (
+              <article
+                key={ticket.id}
+                className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-3"
+              >
+                {/* Header: WO + Slot + WA Status */}
+                <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-[#e8ddff] dark:border-[#35105E]">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF]">
+                        {ticket.woNumber || ticket.ticketNumber || 'WO-Unknown'}
+                      </span>
+                      <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                    </div>
+                    <h3 className="font-display font-bold text-sm sm:text-[15px] text-[#1f1638] dark:text-[#f5eeff] mt-1 truncate">
+                      {ticket.customerName || 'Nama Pelanggan'}
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5 tabular-nums">
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      <span>{ticket.customerPhone || 'Tidak ada nomor telepon'}</span>
+                      {ticket.customerPhone && (
+                        <button
+                          type="button"
+                          onClick={e => handleCopyPhone(e, ticket.customerPhone, ticket.id)}
+                          className="text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer p-1 rounded-md"
+                          title="Salin nomor"
+                        >
+                          {copiedId === ticket.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#4B386B] shrink-0 tabular-nums">
+                    {ticket.slotTime || 'Hari ini'}
+                  </span>
+                </div>
+
+                {/* Address Inset Well */}
+                <div className="text-xs text-[#4b4452] dark:text-[#C4B5D6] flex items-start gap-1.5 bg-[#f8f1ff] dark:bg-[#160D29] p-2.5 rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
+                  <MapPin className="w-3.5 h-3.5 text-[#58149C] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                  <span className="line-clamp-2">
+                    {[ticket.streetName || ticket.address, ticket.clusterName, ticket.area]
+                      .filter(Boolean)
+                      .join(' · ') || 'Alamat tidak tersedia'}
+                  </span>
+                </div>
+
+                {/* Quick Template Selector for Unconfirmed Tickets */}
+                {!isConfirmed ? (
+                  <div className="space-y-2">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF] block">
+                      Pilih Pesan Cepat (Otomatisasi):
                     </span>
-                    <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                    <div className="space-y-1.5">
+                      {quickTemplateChoices.map(tpl => {
+                        const isChecked = selectedQuickId === tpl.id;
+                        const snippet = renderWhatsAppMessage(tpl.messageBody, ticket).renderedText;
+                        return (
+                          <label
+                            key={tpl.id}
+                            className={`flex items-start gap-2 p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-[#f3eaff] dark:bg-[#2A194B] border-[#7135B5] dark:border-[#A380FE]'
+                                : 'bg-[#f8f1ff] dark:bg-[#160D29] border-[#e8ddff] dark:border-[#35105E] hover:border-[#cec3d4]'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`quick-tpl-${ticket.id}`}
+                              checked={isChecked}
+                              onChange={() =>
+                                setSelectedQuickTplByTicket(prev => ({
+                                  ...prev,
+                                  [ticket.id]: tpl.id
+                                }))
+                              }
+                              className="mt-0.5 accent-[#58149C]"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-[#1f1638] dark:text-[#f5eeff] truncate">
+                                {tpl.shortLabel}
+                              </div>
+                              <div className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6] line-clamp-1 mt-0.5">
+                                &ldquo;{snippet}&rdquo;
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => sendRenderedWhatsApp(ticket, renderedQuickPreview)}
+                      className="mj-btn-installer-success w-full px-4 py-2 text-xs sm:text-sm font-extrabold gap-1.5 cursor-pointer"
+                    >
+                      <Zap className="w-4 h-4 shrink-0" />
+                      <span>Kirim Template Konfirmasi</span>
+                    </button>
                   </div>
-                  <h3 className="font-display font-bold text-sm text-slate-900 dark:text-white mt-1">
-                    {ticket.customerName || 'Nama Pelanggan'}
-                  </h3>
-                  <div className="flex items-center gap-2 text-xs font-medium text-[#16A36A] dark:text-emerald-400 mt-0.5 tabular-nums">
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>{ticket.customerPhone || 'Tidak ada nomor telepon'}</span>
-                    {ticket.customerPhone && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyPhone(e, ticket.customerPhone, ticket.id)}
-                        className="text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg"
-                        title="Salin nomor"
-                      >
-                        {copiedId === ticket.id ? <Check className="w-3.5 h-3.5 text-[#16A36A]" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    )}
+                ) : (
+                  <div className="rounded-xl bg-[#ECFDF5] dark:bg-emerald-950/35 border border-[#86EFAC] dark:border-emerald-700/60 p-2.5 text-xs text-[#15803D] dark:text-emerald-300 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="font-semibold">
+                      Pelanggan sudah mengonfirmasi jadwal kedatangan teknisi.
+                    </span>
                   </div>
-                </div>
+                )}
 
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] border border-blue-100 dark:border-slate-700 shrink-0 tabular-nums">
-                  {ticket.slotTime || 'Hari ini'}
-                </span>
-              </div>
-
-              <div className="text-xs text-slate-600 dark:text-slate-300 flex items-start gap-1.5 bg-slate-50 dark:bg-[#1E293B] p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                <MapPin className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0 mt-0.5" />
-                <span className="line-clamp-2">
-                  {ticket.streetName || ticket.clusterName || ticket.area || 'Alamat tidak tersedia'}
-                </span>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => onSelectTicket(ticket)}
-                  className="px-3 py-2 min-h-[44px] rounded-xl text-xs font-bold text-[#2563EB] dark:text-[#38BDF8] hover:bg-blue-50 dark:hover:bg-[#1E293B] cursor-pointer transition-colors"
-                >
-                  Lihat Detail WO
-                </button>
-
-                <div className="flex items-center gap-1.5 ml-auto">
+                {/* Card Footer Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]">
                   <button
                     type="button"
-                    onClick={() => onOpenWhatsAppModal(ticket)}
-                    className="px-3 py-2 min-h-[44px] rounded-xl bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white transition-all cursor-pointer whitespace-nowrap"
+                    onClick={() => onSelectTicket(ticket)}
+                    className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold gap-1.5 cursor-pointer"
                   >
-                    Pilih Template
+                    <Eye className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <span>Detail WO</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDirectWA(ticket)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl bg-[#16A36A] hover:bg-[#15803D] text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Kirim WA</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => onOpenWhatsAppModal(ticket)}
+                      className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold cursor-pointer whitespace-nowrap"
+                    >
+                      Editor Pesan
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        sendRenderedWhatsApp(
+                          ticket,
+                          selectedQuickObj?.messageBody || FALLBACK_QUICK_TEMPLATES[0].messageBody
+                        )
+                      }
+                      className="mj-btn-installer-success mj-btn-compact gap-1.5 px-3.5 py-1.5 text-xs font-bold cursor-pointer whitespace-nowrap"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Buka WA</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
+
+      {/* =============================================================== */}
+      {/* 4. TEMPLATE PESAN RESMI SOP + DARK INSET LIVE PREVIEW           */}
+      {/* =============================================================== */}
+      <section className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] border border-[#e8ddff] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-display font-extrabold text-sm sm:text-base text-[#1f1638] dark:text-[#f5eeff] truncate">
+                Template Pesan Resmi SOP
+              </h3>
+              <p className="text-[11.5px] text-[#4b4452] dark:text-[#C4B5D6] truncate">
+                Format baku komunikasi lapangan agar seragam &amp; profesional ke pelanggan.
+              </p>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-[#f3eaff] dark:bg-[#2A194B] border border-[#e8ddff] dark:border-[#4B386B] font-mono text-[10px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+            Auto-Fill
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[11px] font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+              Pilih Template SOP
+            </label>
+            <select
+              value={selectedSopTemplateId}
+              onChange={e => setSelectedSopTemplateId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-[#f5eeff] focus:outline-none focus:ring-2 focus:ring-[#7135B5] cursor-pointer"
+            >
+              {sopTemplateOptions.map(tpl => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+              Target Pelanggan Aktif
+            </label>
+            <select
+              value={selectedPreviewTicketId}
+              disabled={myTickets.length === 0}
+              onChange={e => setSelectedPreviewTicketId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-[#f5eeff] focus:outline-none focus:ring-2 focus:ring-[#7135B5] cursor-pointer disabled:opacity-50"
+            >
+              {myTickets.length === 0 ? (
+                <option value="">Belum ada WO ditugaskan</option>
+              ) : (
+                myTickets.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.woNumber} · {t.customerName}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
+
+        {/* Dark Purple Inset Live Preview Box */}
+        <div className="rounded-xl bg-[#160D29] border border-[#35105E] p-3.5 text-white space-y-2 shadow-inner">
+          <div className="flex items-center justify-between gap-2 text-[10.5px] font-mono border-b border-white/10 pb-2">
+            <span className="text-[#DAB9FF] font-bold truncate">
+              Target:{' '}
+              {activePreviewTicket
+                ? `${activePreviewTicket.customerName} (${activePreviewTicket.customerPhone || '-'})`
+                : 'Belum ada pelanggan aktif'}
+            </span>
+            <span className="text-emerald-300 font-bold shrink-0">PREVIEW LIVE</span>
+          </div>
+          <p className="text-xs font-mono text-[#EEDBFF] leading-relaxed whitespace-pre-wrap">
+            {renderedSopPreview || 'Pilih template SOP dan target pelanggan untuk melihat pratinjau pesan.'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          disabled={!activePreviewTicket}
+          onClick={() => {
+            if (activePreviewTicket && activeSopTemplate) {
+              sendRenderedWhatsApp(activePreviewTicket, activeSopTemplate.messageBody);
+            }
+          }}
+          className="mj-btn-installer-primary w-full px-4 py-2.5 text-xs sm:text-sm font-extrabold gap-2 cursor-pointer"
+        >
+          <Send className="w-4 h-4 shrink-0" />
+          <span>Kirim via WhatsApp</span>
+        </button>
+      </section>
     </div>
   );
 };

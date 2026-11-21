@@ -256,7 +256,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
             <button
               type="button"
               onClick={onClose}
-              className="btn-3d-secondary min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+              className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
             >
               Batal
             </button>
@@ -274,7 +274,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                 type="button"
                 disabled={!isLeaderRole || !isTargetValid || !isReasonValid || isStrictBlocked}
                 onClick={handleGoToConfirm}
-                className="btn-3d-primary min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer"
+                className="mj-btn-leader-primary min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Lanjut ke Konfirmasi</span>
                 <ArrowRight className="w-4 h-4" />
@@ -287,7 +287,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
               type="button"
               disabled={isSubmitting}
               onClick={() => setStep('form')}
-              className="btn-3d-secondary min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="mj-btn-leader-neutral min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Kembali / Ubah Teknisi</span>
@@ -297,7 +297,9 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
               type="button"
               disabled={isSubmitting || !isLeaderRole || !isTargetValid || !isReasonValid || isStrictBlocked}
               onClick={handleFinalSubmit}
-              className="btn-3d-primary min-h-[44px] sm:min-h-[40px] px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wide flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className={`mj-btn-leader-primary min-h-[44px] sm:min-h-[40px] px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer ${
+                isSubmitting ? 'mj-btn-loading' : ''
+              }`}
             >
               <ArrowRightLeft className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
               <span>{isSubmitting ? 'Menyimpan Pengalihan...' : 'Confirm Reassignment'}</span>
@@ -546,10 +548,10 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                         key={chip.id}
                         type="button"
                         onClick={() => setCandidateFilter(chip.id)}
-                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer transition-all ${
+                        className={`px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer ${
                           active
-                            ? 'bg-[#58149C] text-white shadow-xs'
-                            : 'bg-[#F8F1FF] dark:bg-[#261942] text-[#4B4452] dark:text-[#CEC0E8] border border-[#E8DDFF] dark:border-[#4B386B] hover:border-[#58149C]'
+                            ? 'mj-btn-leader-secondary mj-btn-xs'
+                            : 'mj-btn-leader-neutral mj-btn-xs'
                         }`}
                       >
                         {chip.label}
@@ -671,10 +673,10 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                         setReason(preset);
                         setValidationError('');
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[10.5px] font-semibold border cursor-pointer transition-colors ${
+                      className={`px-2.5 py-1 rounded-lg text-[10.5px] font-semibold cursor-pointer ${
                         reason === preset
-                          ? 'bg-[#EEDBFF] dark:bg-[#35105E] border-[#58149C] text-[#58149C] dark:text-[#DAB9FF]'
-                          : 'bg-[#F8F1FF] dark:bg-[#1E1238] border-[#E8DDFF] dark:border-[#4B386B] text-[#4B4452] dark:text-[#CEC0E8] hover:border-[#A380FE]'
+                          ? 'mj-btn-leader-secondary mj-btn-xs'
+                          : 'mj-btn-leader-neutral mj-btn-xs'
                       }`}
                     >
                       + {preset}
