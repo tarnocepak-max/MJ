@@ -464,7 +464,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       };
     }
     if (cat === 'untouch') {
-      return { percent: 25, barColor: 'bg-indigo-500', label: 'Ditugaskan — Menunggu Check-in Teknisi', badgeCls: 'bg-indigo-50 text-indigo-700 border-indigo-200', badgeText: 'Menunggu' };
+      return { percent: 25, barColor: 'bg-[#7135B5]', label: 'Ditugaskan — Menunggu Check-in Teknisi', badgeCls: 'bg-[#F3EAFF] text-[#58149C] border-[#D0BCFF]', badgeText: 'Menunggu' };
     }
     return { percent: 0, barColor: 'bg-slate-300', label: 'Belum Di-assign ke Teknisi', badgeCls: 'bg-slate-100 text-slate-600 border-slate-200', badgeText: 'Unassign' };
   };
@@ -513,7 +513,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             type="button"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#f3eaff] hover:bg-[#e8ddff] dark:bg-[#251545] dark:hover:bg-[#311c5a] border border-[#e8ddff] dark:border-purple-800/60 text-xs font-bold text-[#1f1638] dark:text-purple-100 transition-all cursor-pointer disabled:opacity-60"
+            className="btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#1f1638] dark:text-purple-100 cursor-pointer disabled:opacity-60"
             title="Sinkronkan progres lapangan terbaru dari server"
           >
             <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`} />
@@ -524,10 +524,10 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
           <button
             type="button"
             onClick={() => setShowLifecycleKpi(prev => !prev)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer ${
               showLifecycleKpi
-                ? 'bg-[#58149c] text-white border-[#58149c]'
-                : 'bg-white dark:bg-[#1A0E2E] text-[#4b4452] dark:text-slate-200 border-[#e8ddff] dark:border-purple-900/60 hover:bg-[#f8f1ff]'
+                ? 'btn-3d-primary'
+                : 'btn-3d-secondary text-[#4b4452] dark:text-slate-200'
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -610,7 +610,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               setActiveKpiDrilldown(null);
               setCurrentPage(1);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-[#1f1638] hover:bg-[#f8f1ff] text-xs font-bold cursor-pointer"
+            className="btn-3d-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[#1f1638] text-xs font-bold cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Reset Filter KPI</span>
@@ -729,7 +729,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-purple-900/60 rounded-2xl text-xs sm:text-sm text-[#1f1638] dark:text-white placeholder-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7C3AED] shadow-xs"
+            className="tactile-debossed-input w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-purple-900/60 rounded-2xl text-xs sm:text-sm text-[#1f1638] dark:text-white placeholder-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
           />
           {searchQuery && (
             <button
@@ -792,7 +792,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                     setSearchQuery('');
                     setCurrentPage(1);
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#58149c] text-white text-xs font-bold cursor-pointer"
+                  className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Tampilkan Semua WO ({statCounts.total})
                 </button>
@@ -942,7 +942,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             Check-in: <strong className="font-mono text-[#1f1638] dark:text-slate-200">{t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '-'}</strong>
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                            <CheckCircle2 className="w-3 h-3 text-[#7135B5] dark:text-[#DAB9FF]" />
                             Check-out: <strong className="font-mono text-[#1f1638] dark:text-slate-200">{t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '-'}</strong>
                           </span>
                           <span className="inline-flex items-center gap-1">
@@ -1032,7 +1032,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                 activeIndex: 0
                               })
                             }
-                            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1A0E2E] border border-[#e8ddff] text-[11px] font-bold text-[#58149c] dark:text-[#d0bcff] hover:bg-[#f3eaff] cursor-pointer"
+                            className="btn-3d-secondary shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#58149c] dark:text-[#d0bcff] cursor-pointer"
                           >
                             Lihat Foto
                           </button>
@@ -1045,7 +1045,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                       <button
                         type="button"
                         onClick={() => openCustomerAddressInGoogleMaps(t)}
-                        className="flex-1 min-w-[110px] py-2 px-3 rounded-xl bg-white dark:bg-[#251545] hover:bg-[#f8f1ff] border border-[#e8ddff] dark:border-purple-800 text-xs font-bold text-[#1f1638] dark:text-white inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="btn-3d-secondary flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs font-bold text-[#1f1638] dark:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Navigation className="w-3.5 h-3.5 text-[#58149c] dark:text-[#d0bcff]" />
                         <span>Cek Lokasi</span>
@@ -1062,7 +1062,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             }
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 min-w-[120px] py-2 px-3 rounded-xl bg-[#f3eaff] hover:bg-[#e8ddff] dark:bg-purple-950/80 border border-[#e8ddff] dark:border-purple-800 text-xs font-bold text-[#58149c] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            className="btn-3d-secondary flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold text-[#58149c] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5" />
                             <span>Hubungi Teknisi</span>
@@ -1071,7 +1071,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           <button
                             type="button"
                             onClick={() => onOpenWhatsApp(t)}
-                            className="flex-1 min-w-[120px] py-2 px-3 rounded-xl bg-[#f3eaff] hover:bg-[#e8ddff] dark:bg-purple-950/80 border border-[#e8ddff] dark:border-purple-800 text-xs font-bold text-[#58149c] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            className="btn-3d-secondary flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold text-[#58149c] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5" />
                             <span>Hubungi WA</span>
@@ -1082,7 +1082,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                       <button
                         type="button"
                         onClick={() => onSelectTicket(t)}
-                        className="flex-1 min-w-[120px] py-2 px-3 rounded-xl bg-[#58149c] hover:bg-[#6a46c1] text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        className="btn-3d-primary flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Detail WO</span>
@@ -1123,7 +1123,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 bg-[#f8f1ff] dark:bg-slate-800 px-2.5 py-1.5 rounded-xl border border-[#e8ddff] dark:border-purple-900/60">
+              <div className="flex items-center gap-1.5 bg-[#f8f1ff] dark:bg-[#160D29] px-2.5 py-1.5 rounded-xl border border-[#e8ddff] dark:border-purple-900/60">
                 <span className="text-[#4b4452] dark:text-slate-400">Tampil:</span>
                 <select
                   value={rowsPerPage}
@@ -1141,23 +1141,23 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                 </select>
               </div>
 
-              <div className="flex items-center gap-1 bg-[#f8f1ff] dark:bg-slate-800 p-1 rounded-xl border border-[#e8ddff] dark:border-purple-900/60">
+              <div className="flex items-center gap-1 bg-[#f8f1ff] dark:bg-[#160D29] p-1 rounded-xl border border-[#e8ddff] dark:border-purple-900/60">
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="px-2 py-1 text-[#1f1638] dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer"
+                  className="px-2 py-1 text-[#1f1638] dark:text-slate-300 hover:bg-white dark:hover:bg-[#261942] rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer"
                   title="Salin Data ke Clipboard"
                 >
-                  <Copy className="w-3.5 h-3.5 text-indigo-500" />
+                  <Copy className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                   <span>{copySuccess ? 'Disalin!' : 'Copy'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="px-2 py-1 text-[#1f1638] dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer"
+                  className="px-2 py-1 text-[#1f1638] dark:text-slate-300 hover:bg-white dark:hover:bg-[#261942] rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer"
                   title="Export CSV"
                 >
-                  <Download className="w-3.5 h-3.5 text-blue-500" />
+                  <Download className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A380FE]" />
                   <span>CSV</span>
                 </button>
                 <button
@@ -1307,7 +1307,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           </td>
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-1.5 font-bold text-[#1f1638] dark:text-slate-200">
-                              <UserCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <UserCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
                               <span className="truncate max-w-[130px]">{t.installerName || 'Belum Di-assign'}</span>
                             </div>
                             {t.installerContact && (
@@ -1350,7 +1350,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           <td className="py-3 px-3 whitespace-nowrap">
                             {t.checkOutAt ? (
                               <div className="flex items-center gap-1 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                                <CheckCircle2 className="w-3 h-3 text-blue-500 shrink-0" />
+                                <CheckCircle2 className="w-3 h-3 text-[#7135B5] dark:text-[#DAB9FF] shrink-0" />
                                 <span>{formatJakartaTimeOnly(t.checkOutAt)}</span>
                               </div>
                             ) : (
@@ -1379,7 +1379,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             <button
                               type="button"
                               onClick={() => onSelectTicket(t)}
-                              className="px-2.5 py-1 bg-[#58149c] hover:bg-[#3B1D78] text-white font-bold rounded-lg text-xs shadow-xs transition-all cursor-pointer inline-flex items-center gap-1"
+                              className="btn-3d-primary px-2.5 py-1 font-bold rounded-lg text-xs cursor-pointer inline-flex items-center gap-1"
                               title="Buka Lembar Kerja WO"
                             >
                               <Eye className="w-3 h-3" />
@@ -1395,7 +1395,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                 <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-1">
                                   <div className="text-[10px] uppercase font-bold text-slate-400">Installer</div>
                                   <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                                    <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
+                                    <UserCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                                     <span>{t.installerName || 'Belum Di-assign'}</span>
                                   </div>
                                   {t.installerContact && (
@@ -1448,7 +1448,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                   <button
                                     type="button"
                                     onClick={() => openCustomerAddressInGoogleMaps(t)}
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
+                                    className="btn-3d-secondary px-2.5 py-1 font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
                                   >
                                     <ExternalLink className="w-3 h-3 text-rose-500" />
                                     <span>Google Maps</span>
@@ -1458,7 +1458,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                     <button
                                       type="button"
                                       onClick={() => onOpenWhatsApp(t)}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg flex items-center gap-1 shadow-xs cursor-pointer"
+                                      className="btn-3d-emerald px-2.5 py-1 font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
                                     >
                                       <MessageSquare className="w-3 h-3" />
                                       <span>Kirim WA</span>
@@ -1468,7 +1468,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                   <button
                                     type="button"
                                     onClick={() => onSelectTicket(t)}
-                                    className="px-3 py-1 bg-[#58149c] hover:bg-[#3B1D78] text-white font-bold rounded-lg shadow-xs cursor-pointer"
+                                    className="btn-3d-primary px-3 py-1 font-bold rounded-lg cursor-pointer"
                                   >
                                     Detail Lengkap
                                   </button>
@@ -1519,7 +1519,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         <button
           type="button"
           onClick={() => setIsBroadcastModalOpen(true)}
-          className="shrink-0 px-4 py-2 rounded-xl bg-white dark:bg-[#1A0E2E] hover:bg-[#58149c] hover:text-white text-[#58149c] dark:text-[#d0bcff] border border-[#e8ddff] dark:border-purple-700 text-xs font-bold shadow-xs transition-all cursor-pointer"
+          className="btn-3d-secondary shrink-0 px-4 py-2 rounded-xl text-[#58149c] dark:text-[#d0bcff] text-xs font-bold cursor-pointer"
         >
           Kirim
         </button>
@@ -1600,7 +1600,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               rows={3}
               value={broadcastMessage}
               onChange={e => setBroadcastMessage(e.target.value)}
-              className="w-full rounded-xl border border-[#e8ddff] dark:border-purple-800 bg-[#f8f1ff] dark:bg-[#251545] p-3 text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="tactile-debossed-input w-full rounded-xl border border-[#e8ddff] dark:border-purple-800 bg-[#f8f1ff] dark:bg-[#251545] p-3 text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
             />
           </div>
 
@@ -1644,7 +1644,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                         href={buildWhatsAppClickToChatUrl(inst.phone!, broadcastMessage).url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 min-h-[36px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold inline-flex items-center gap-1"
+                        className="btn-3d-emerald shrink-0 min-h-[36px] px-3 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1"
                       >
                         <MessageSquare className="w-3 h-3" />
                         <span>Kirim WA</span>

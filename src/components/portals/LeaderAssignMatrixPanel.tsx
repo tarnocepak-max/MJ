@@ -36,6 +36,7 @@ import { getTicketWorkStatus, formatJakartaTimeOnly } from '../../services/workS
 interface LeaderAssignMatrixPanelProps {
   // Data
   totalScopedCount: number;
+  slotTicketsSource?: Ticket[];
   filteredTickets: Ticket[];
   paginatedTickets: Ticket[];
   unassignedCount: number;
@@ -150,7 +151,7 @@ function getInstallerBadgeInfo(ticket: Ticket): { label: string; cls: string } {
   }
   return {
     label: up,
-    cls: 'bg-[#e0f2fe] dark:bg-blue-950/60 border border-[#bae6fd] dark:border-sky-800 text-[#1d4ed8] dark:text-sky-300'
+    cls: 'bg-[#f3eaff] dark:bg-[#2E1B59] border border-[#d0bcff] dark:border-[#58149c]/50 text-[#58149c] dark:text-[#dab9ff]'
   };
 }
 
@@ -188,6 +189,7 @@ function getWhatsAppBadgeInfo(ticket: Ticket): { label: string; cls: string } {
 
 export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = ({
   totalScopedCount,
+  slotTicketsSource,
   filteredTickets,
   paginatedTickets,
   unassignedCount,
@@ -267,6 +269,31 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
     clusterFilter !== 'ALL' ||
     installerFilter !== 'ALL';
 
+  const slotSource = slotTicketsSource || filteredTickets;
+  const slotTabItems = [
+    { id: 'ALL', label: 'Semua Slot', count: slotSource.length },
+    {
+      id: '1',
+      label: 'Slot 1 (09-11)',
+      count: slotSource.filter(t => normalizeSlotIndex(t.slotTime) === 1).length
+    },
+    {
+      id: '2',
+      label: 'Slot 2 (11-13)',
+      count: slotSource.filter(t => normalizeSlotIndex(t.slotTime) === 2).length
+    },
+    {
+      id: '3',
+      label: 'Slot 3 (13-15)',
+      count: slotSource.filter(t => normalizeSlotIndex(t.slotTime) === 3).length
+    },
+    {
+      id: '4',
+      label: 'Slot 4 (15-17)',
+      count: slotSource.filter(t => normalizeSlotIndex(t.slotTime) === 4).length
+    }
+  ];
+
   return (
     <div className="space-y-3.5">
       {/* CATEGORY FILTER CHIPS (Matching Stitch Assign Pills) */}
@@ -338,6 +365,37 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 
       {/* FILTER & CONTROLS BAR */}
       <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3">
+        {/* SLOT GROUPING QUICK TABS (Ref 2 Dispatch Queue Matrix) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-[#f3eaff] dark:border-[#35105E]">
+          {slotTabItems.map(tab => {
+            const isSlotActive = slotFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onSlotFilterChange(tab.id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap shrink-0 cursor-pointer ${
+                  isSlotActive
+                    ? 'tactile-chip-active'
+                    : 'tactile-chip text-[#4b4452] dark:text-[#CEC0E8]'
+                }`}
+              >
+                <Clock className="w-3 h-3 opacity-85" />
+                <span>{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
+                    isSlotActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[190px]">
@@ -347,7 +405,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               value={searchQuery}
               onChange={e => onSearchChange(e.target.value)}
               placeholder="Cari WO / ID Pelanggan / Alamat / ODP..."
-              className="w-full pl-8.5 pr-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] focus:outline-hidden focus:border-[#58149c]"
+              className="tactile-debossed-input w-full pl-8.5 pr-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] focus:outline-hidden focus:border-[#58149c]"
             />
           </div>
 

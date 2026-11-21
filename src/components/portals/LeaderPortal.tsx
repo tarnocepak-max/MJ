@@ -621,7 +621,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       t.statusWOInstaller === 'On Site' ||
       t.statusWOAgent === 'In Progress'
     ) {
-      return { category: 'in_progress', label: 'Sedang Dikerjakan', progressPercent: 65, color: 'text-blue-600' };
+      return { category: 'in_progress', label: 'Sedang Dikerjakan', progressPercent: 65, color: 'text-[#58149c] dark:text-[#dab9ff]' };
     }
 
     // 6. Waiting / Belum Dimulai (Assigned but not yet departed)
@@ -1426,7 +1426,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 selectedTicketIds.length === sortedTickets.length
               }
               onChange={handleSelectAll}
-              className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-700 cursor-pointer"
+              className="w-4 h-4 accent-[#58149c] rounded border-[#cec3d4] dark:border-[#4b386b] cursor-pointer"
             />
           </th>
         );
@@ -1708,7 +1708,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               type="checkbox"
               checked={isSelected}
               onChange={() => handleToggleSelectTicket(t.id)}
-              className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-700"
+              className="w-4 h-4 accent-[#58149c] rounded border-[#cec3d4] dark:border-[#4b386b] cursor-pointer"
             />
           </td>
         );
@@ -1723,14 +1723,14 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 title="Buka / Tutup Rincian Alamat & Teknis"
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
+                  <ChevronDown className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
                 ) : (
                   <ChevronRight className="w-3.5 h-3.5" />
                 )}
               </button>
               <span
                 onClick={() => onSelectTicket(t)}
-                className="text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                className="text-[#58149c] dark:text-[#dab9ff] hover:underline cursor-pointer"
               >
                 {t.woNumber}
               </span>
@@ -1826,7 +1826,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 !isLeaderRole ? 'opacity-70 cursor-not-allowed ' : ''
               }${
                 t.installerName
-                  ? 'bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+                  ? 'bg-[#f8f1ff] dark:bg-[#160D29] text-[#1f1638] dark:text-white border-[#d0bcff] dark:border-[#4b386b]'
                   : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold'
               }`}
             >
@@ -1899,10 +1899,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     progressPercent === 100
                       ? 'bg-emerald-500'
                       : progressPercent > 50
-                      ? 'bg-blue-500'
+                      ? 'bg-[#7135b5]'
                       : progressPercent > 0
                       ? 'bg-amber-500'
-                      : 'bg-slate-300'
+                      : 'bg-[#e8ddff] dark:bg-[#35105E]'
                   }`}
                   style={{ width: `${progressPercent}%` }}
                 />
@@ -1923,7 +1923,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectTicket(t)}
-                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-semibold text-xs cursor-pointer"
+                className="btn-3d-secondary px-2.5 py-1 rounded-lg font-semibold text-xs cursor-pointer"
               >
                 Detail
               </button>
@@ -1934,7 +1934,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenReassignModal(t)}
-                      className="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                      className="btn-3d-amber px-2.5 py-1 rounded-lg font-semibold text-xs flex items-center gap-1 cursor-pointer"
                       title="Reassign / Alihkan penugasan WO ke teknisi lain"
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -1956,7 +1956,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                         });
                       }
                     }}
-                    className="p-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 hover:bg-emerald-100 rounded cursor-pointer"
+                    className="btn-3d-icon-wa w-7 h-7 cursor-pointer"
                     title="Kirim pesan WhatsApp penugasan ke teknisi"
                   >
                     <Phone className="w-3.5 h-3.5" />
@@ -2237,14 +2237,14 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     setActiveTab('wo_assignment');
                     setCurrentPage(1);
                   }}
-                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#2563EB] transition-all"
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
                 >
                   <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
                     <span className="text-[10.5px] font-bold truncate">Assigned</span>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
                   </div>
                   <div className="mt-1.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-extrabold text-[#2563EB] dark:text-sky-300 tabular-nums">
+                    <span className="text-2xl font-extrabold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
                       {summaryMetrics.assigned}
                     </span>
                     <span className="text-[11px] font-bold text-[#16A36A] tabular-nums">
@@ -2447,6 +2447,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             <div className={isCompactUI ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
               <LeaderAssignMatrixPanel
                 totalScopedCount={summaryMetrics.total}
+                slotTicketsSource={todayContractorTickets}
                 filteredTickets={filteredTickets}
                 paginatedTickets={paginatedTickets}
                 unassignedCount={summaryMetrics.unassigned}
@@ -2898,7 +2899,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <select
                   value={bulkTargetInstaller}
                   onChange={e => setBulkTargetInstaller(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border-2 border-[#D8CCF3] dark:border-purple-800 rounded-xl font-medium text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#5B35B1] min-h-[44px]"
+                  className="tactile-debossed-input w-full px-3 py-2.5 bg-[#f8f1ff] dark:bg-[#160D29] border-2 border-[#D8CCF3] dark:border-purple-800 rounded-xl font-medium text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#58149c] min-h-[44px]"
                 >
                   <option value="">Pilih teknisi aktif...</option>
                   {myInstallers.map(inst => {
@@ -2921,7 +2922,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <select
                   value={bulkSlotTime}
                   onChange={e => setBulkSlotTime(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 min-h-[40px]"
+                  className="tactile-debossed-input w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white min-h-[40px]"
                 >
                   <option value="">Pertahankan slot waktu asli masing-masing tiket</option>
                   {STANDARD_SLOTS.map(slot => (
@@ -2982,7 +2983,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         {assignmentNoticeModal && (
           <div className="space-y-3 text-xs">
             <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-              Penugasan WO <strong className="font-mono text-indigo-600 dark:text-indigo-300">{assignmentNoticeModal.ticket.woNumber}</strong> berhasil disimpan di sistem. Kirimkan pesan rincian tugas langsung ke WhatsApp teknisi <strong>{assignmentNoticeModal.installer.name}</strong>:
+              Penugasan WO <strong className="font-mono text-[#58149c] dark:text-[#dab9ff]">{assignmentNoticeModal.ticket.woNumber}</strong> berhasil disimpan di sistem. Kirimkan pesan rincian tugas langsung ke WhatsApp teknisi <strong>{assignmentNoticeModal.installer.name}</strong>:
             </p>
 
             <div>
@@ -2993,7 +2994,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 type="text"
                 value={assignmentNoticeModal.targetPhone}
                 onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, targetPhone: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-[#160D29] border border-slate-200 dark:border-[#3E246F] rounded-lg font-mono text-xs text-slate-900 dark:text-white"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3E246F] rounded-lg font-mono text-xs text-[#1f1638] dark:text-white"
               />
             </div>
 
@@ -3005,7 +3006,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 rows={6}
                 value={assignmentNoticeModal.renderedMessage}
                 onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, renderedMessage: e.target.value })}
-                className="w-full p-2.5 bg-slate-50 dark:bg-[#160D29] border border-slate-200 dark:border-[#3E246F] rounded-xl font-mono text-[11px] text-slate-900 dark:text-white"
+                className="tactile-debossed-input w-full p-2.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3E246F] rounded-xl font-mono text-[11px] text-[#1f1638] dark:text-white"
               />
             </div>
           </div>
@@ -3045,7 +3046,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setQuotaWarningModal(null);
                   handleAssignTicket(ticket, installerName, slotTime, true);
                 }}
-                className="min-h-[42px] sm:min-h-[38px] px-4 py-2 bg-amber-600 text-white font-bold rounded-xl text-xs hover:bg-amber-700 cursor-pointer"
+                className="btn-3d-amber min-h-[42px] sm:min-h-[38px] px-4 py-2 font-bold rounded-xl text-xs cursor-pointer"
               >
                 Tetap Tugaskan
               </button>

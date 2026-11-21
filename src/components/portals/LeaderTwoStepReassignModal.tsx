@@ -521,7 +521,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                       value={candidateSearch}
                       onChange={e => setCandidateSearch(e.target.value)}
                       placeholder="Cari teknisi / area..."
-                      className="w-full pl-8 pr-3 py-1.5 min-h-[36px] rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+                      className="tactile-debossed-input w-full pl-8 pr-3 py-1.5 min-h-[36px] rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
                     />
                   </div>
                 </div>
@@ -606,7 +606,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                                     cand.liveTone === 'standby'
                                       ? 'bg-[#DCFCE7] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300'
                                       : cand.liveTone === 'onsite'
-                                      ? 'bg-[#E0F2FE] dark:bg-sky-950/60 text-[#1D4ED8] dark:text-sky-300'
+                                      ? 'bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF]'
                                       : cand.liveTone === 'enroute'
                                       ? 'bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300'
                                       : 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
@@ -690,7 +690,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                     if (validationError) setValidationError('');
                   }}
                   placeholder="Tuliskan alasan operasional reassign minimal 5 karakter (tercatat di append-only history)..."
-                  className="w-full px-3 py-2 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
                 />
                 <div className="flex items-center justify-between text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
                   <span>Wajib untuk jejak audit Leader &amp; riwayat WO.</span>

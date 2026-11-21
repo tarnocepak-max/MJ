@@ -156,7 +156,7 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[42px] sm:min-h-[38px] px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-medium cursor-pointer"
+            className="btn-3d-secondary min-h-[42px] sm:min-h-[38px] px-4 py-2 rounded-xl font-bold cursor-pointer"
           >
             Batal
           </button>
@@ -164,11 +164,7 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
             type="button"
             onClick={handleConfirm}
             disabled={!isLeaderRole || validCount === 0 || isProcessing}
-            className={`min-h-[42px] sm:min-h-[38px] px-5 py-2 rounded-xl font-bold text-white transition-all shadow-sm cursor-pointer ${
-              !isLeaderRole || validCount === 0 || isProcessing
-                ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-60'
-                : 'bg-[#6D28D9] hover:bg-[#5B21B6]'
-            }`}
+            className="btn-3d-primary min-h-[42px] sm:min-h-[38px] px-5 py-2 rounded-xl font-bold cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
           >
             {isProcessing ? 'Memproses...' : `Tugaskan ${validCount} WO Sekarang`}
           </button>
@@ -212,7 +208,7 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
               setPasteData(e.target.value);
               parseLines(e.target.value);
             }}
-            className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-[11px] text-slate-800 dark:text-slate-200"
+            className="tactile-debossed-input w-full p-2.5 bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D0BCFF] dark:border-[#4B386B] rounded-xl font-mono text-[11px] text-[#1F1638] dark:text-white"
           />
         </div>
 

@@ -23,12 +23,12 @@ interface LeaderQuotaSidebarProps {
 }
 
 const AVATAR_TONES = [
-  'bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8]',
+  'bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF]',
   'bg-[#FCE7F3] dark:bg-pink-950/70 text-[#BE185D] dark:text-pink-300',
-  'bg-[#E0E7FF] dark:bg-indigo-950/70 text-[#3730A3] dark:text-indigo-300',
+  'bg-[#EEDBFF] dark:bg-[#35105E] text-[#35105E] dark:text-[#E8DDFF]',
   'bg-[#DCFCE7] dark:bg-emerald-950/70 text-[#15803D] dark:text-emerald-300',
   'bg-[#FEF3C7] dark:bg-amber-950/70 text-[#B45309] dark:text-amber-300',
-  'bg-slate-100 dark:bg-slate-800 text-[#0F172A] dark:text-slate-200'
+  'bg-[#F8F1FF] dark:bg-[#261942] text-[#1F1638] dark:text-[#E8DDFF]'
 ];
 
 function getInitials(name: string): string {
@@ -74,12 +74,12 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
   return (
     <div className="space-y-4">
       {/* KAPASITAS & KUOTA CARD */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs space-y-3.5">
+      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+            <Gauge className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
             <h3
-              className="font-bold text-[15px] text-slate-900 dark:text-white tracking-tight"
+              className="font-bold text-[15px] text-[#1F1638] dark:text-white tracking-tight"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               Kapasitas &amp; Kuota
@@ -101,18 +101,18 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
           </span>
         </div>
 
-        <p className="text-[11.5px] text-slate-600 dark:text-slate-300 leading-relaxed">
+        <p className="text-[11.5px] text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
           Batas default:{' '}
-          <strong className="text-slate-900 dark:text-white font-semibold tabular-nums">
+          <strong className="text-[#1F1638] dark:text-white font-semibold tabular-nums">
             {quotaConfig.defaultMaxDailyQuota} Tiket/Teknisi/Hari.
           </strong>{' '}
           Sistem otomatis mengunci teknisi berkuota penuh untuk menjaga kualitas SOP &amp; waktu tempuh.
         </p>
 
         {/* Enforcement Toggle Strip */}
-        <div className="bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 min-h-[44px]">
-          <span className="text-[11.5px] font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+        <div className="bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 min-h-[44px]">
+          <span className="text-[11.5px] font-semibold text-[#1F1638] dark:text-[#E8DDFF] flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
             <span>Enforcement Kunci Slot Melebihi Kuota</span>
           </span>
           <button
@@ -127,7 +127,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                 : 'Hanya Leader yang dapat mengubah mode enforcement'
             }
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-              quotaConfig.enforceStrictLimit ? 'bg-[#2563EB]' : 'bg-slate-300 dark:bg-slate-600'
+              quotaConfig.enforceStrictLimit ? 'bg-[#58149C] dark:bg-[#7135B5]' : 'bg-[#D6CAE8] dark:bg-[#35105E]'
             } ${!isLeaderRole || isSavingQuota ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <span
@@ -141,7 +141,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
         {/* Technician Quota Cards Stack */}
         <div className="space-y-2.5">
           {technicians.length === 0 ? (
-            <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-[11.5px] text-slate-500 dark:text-slate-400">
+            <div className="p-4 rounded-xl border border-dashed border-[#D0BCFF] dark:border-[#4B386B] text-center text-[11.5px] text-[#7D7484] dark:text-[#CEC0E8]">
               Belum ada teknisi aktif pada cakupan mitra ini.
             </div>
           ) : (
@@ -152,8 +152,8 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                 tech.liveTone === 'onsite' || tech.liveTone === 'standby'
                   ? 'bg-emerald-500'
                   : tech.liveTone === 'enroute'
-                  ? 'bg-[#2563EB]'
-                  : 'bg-sky-500';
+                  ? 'bg-[#7135B5]'
+                  : 'bg-[#A380FE]';
 
               const canDirectAssign =
                 isLeaderRole && !tech.isFull && (selectedCount > 0 || hasUnassignedTickets);
@@ -165,8 +165,8 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                     tech.isFull
                       ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/20'
                       : tech.remainingSlots >= 2
-                      ? 'border-emerald-200 dark:border-emerald-800/70 bg-white dark:bg-[#0F172A]'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F172A]'
+                      ? 'border-emerald-200 dark:border-emerald-800/70 bg-white dark:bg-[#160D29]'
+                      : 'border-[#E8DDFF] dark:border-[#3E246F] bg-white dark:bg-[#160D29]'
                   }`}
                 >
                   {/* Row 1: Avatar + Name/Status + Ratio */}
@@ -183,10 +183,10 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                         {getInitials(tech.installer.name)}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-[12.5px] text-slate-900 dark:text-white truncate group-hover:text-[#2563EB] dark:group-hover:text-[#38BDF8] transition-colors">
+                        <div className="font-bold text-[12.5px] text-[#1F1638] dark:text-white truncate group-hover:text-[#58149C] dark:group-hover:text-[#DAB9FF] transition-colors">
                           {tech.installer.name}
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400 truncate">
+                        <div className="flex items-center gap-1.5 text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] truncate">
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${liveDotColor}`} />
                           <span className="truncate">
                             {tech.liveStatusLabel} ({tech.liveLocationLabel})
@@ -198,25 +198,25 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                     <div className="text-right shrink-0 space-y-0.5">
                       <div
                         className={`font-mono font-bold text-[12.5px] tabular-nums ${
-                          tech.isFull ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'
+                          tech.isFull ? 'text-rose-600 dark:text-rose-400' : 'text-[#1F1638] dark:text-white'
                         }`}
                       >
                         {tech.assignedCount} / {tech.maxLimit}
                       </div>
                       {tech.isFull ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wide bg-rose-600 text-white">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wide bg-[#BA1A1A] text-white">
                           KUOTA PENUH
                         </span>
                       ) : tech.hasCustomLimit ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-[#2563EB] dark:text-[#38BDF8]">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#58149C]/50 text-[#58149C] dark:text-[#DAB9FF]">
                           Custom Limit ({tech.maxLimit})
                         </span>
                       ) : tech.remainingSlots >= 2 ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-emerald-600 text-white">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-[#16A36A] text-white">
                           {tech.remainingSlots} Slot Kosong
                         </span>
                       ) : (
-                        <span className="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 tabular-nums block">
+                        <span className="text-[10.5px] font-medium text-[#7D7484] dark:text-[#CEC0E8] tabular-nums block">
                           {tech.utilizationPct}% Beban
                         </span>
                       )}
@@ -233,7 +233,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                             type="button"
                             onClick={() => cell.ticket && onSelectTicket(cell.ticket)}
                             title={`${cell.slotLabel}: ${cell.woNumber} (${cell.customerName}) - Selesai`}
-                            className="py-1.5 px-1 rounded-md bg-emerald-600 text-white font-mono font-bold text-[10px] text-center tabular-nums truncate hover:brightness-110 cursor-pointer"
+                            className="py-1.5 px-1 rounded-md bg-[#16A36A] text-white font-mono font-bold text-[10px] text-center tabular-nums truncate shadow-[0_2px_0_#117A50] active:translate-y-[1px] active:shadow-none hover:brightness-110 cursor-pointer transition-all"
                           >
                             {cell.slotCode}: OK
                           </button>
@@ -246,7 +246,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                             type="button"
                             onClick={() => cell.ticket && onSelectTicket(cell.ticket)}
                             title={`${cell.slotLabel}: ${cell.woNumber} (${cell.customerName})`}
-                            className="py-1.5 px-1 rounded-md bg-[#2563EB] text-white font-mono font-bold text-[10px] text-center tabular-nums truncate hover:bg-[#1D4ED8] cursor-pointer"
+                            className="py-1.5 px-1 rounded-md bg-[#58149C] hover:bg-[#7135B5] text-white font-mono font-bold text-[10px] text-center tabular-nums truncate shadow-[0_2px_0_#35105E] active:translate-y-[1px] active:shadow-none cursor-pointer transition-all"
                           >
                             {cell.slotCode}: {cell.shortWoCode}
                           </button>
@@ -257,7 +257,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                           <div
                             key={cell.slotCode}
                             title={`${cell.slotLabel}: Terkunci (Kuota Harian Penuh)`}
-                            className="py-1.5 px-1 rounded-md bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-mono font-semibold text-[10px] text-center tabular-nums truncate"
+                            className="py-1.5 px-1 rounded-md bg-[#F8F1FF] dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#3E246F] text-[#7D7484] dark:text-[#CEC0E8] font-mono font-semibold text-[10px] text-center tabular-nums truncate"
                           >
                             {cell.slotCode}: LOCK
                           </div>
@@ -280,7 +280,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
                     <button
                       type="button"
                       onClick={() => onDirectAssignToTechnician(tech.installer)}
-                      className="w-full min-h-[44px] sm:min-h-[36px] py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                      className="btn-3d-secondary w-full min-h-[44px] sm:min-h-[36px] py-2 px-3 rounded-xl text-[#58149C] dark:text-[#DAB9FF] font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <PlusCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>
@@ -298,16 +298,16 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
       </div>
 
       {/* AUDIT TRAIL REASSIGN TERKINI CARD */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs space-y-3">
+      <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[10.5px] font-bold uppercase tracking-wider">
-            <History className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+          <div className="flex items-center gap-1.5 text-[#7D7484] dark:text-[#CEC0E8] text-[10.5px] font-bold uppercase tracking-wider">
+            <History className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
             <span>Audit Trail Reassign Terkini</span>
           </div>
           <button
             type="button"
             onClick={onOpenAllAuditTrail}
-            className="text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] hover:underline cursor-pointer shrink-0 min-h-[32px] px-1"
+            className="text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer shrink-0 min-h-[32px] px-1"
           >
             Lihat Semua
           </button>
@@ -315,30 +315,30 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
 
         <div className="space-y-2">
           {auditFeed.length === 0 ? (
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 text-center">
+            <div className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] text-[11px] text-[#7D7484] dark:text-[#CEC0E8] text-center">
               Belum ada riwayat pengalihan tugas (Reassign) hari ini.
             </div>
           ) : (
             auditFeed.slice(0, 4).map(entry => (
               <div
                 key={entry.id}
-                className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 space-y-1"
+                className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-1"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-[11.5px] text-slate-900 dark:text-white tabular-nums">
+                  <span className="font-mono font-bold text-[11.5px] text-[#1F1638] dark:text-white tabular-nums">
                     {entry.woNumber}
                   </span>
-                  <span className="font-mono text-[10.5px] text-slate-500 dark:text-slate-400 tabular-nums">
+                  <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#CEC0E8] tabular-nums">
                     {formatWibClock(entry.timestamp || entry.createdAt)}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
                   Dari{' '}
-                  <span className="font-medium text-slate-500 dark:text-slate-400">
+                  <span className="font-medium text-[#7D7484] dark:text-[#B9A7DE]">
                     {entry.previousInstallerName || 'Teknisi Sebelumnya'}
                   </span>{' '}
                   →{' '}
-                  <strong className="text-slate-900 dark:text-white">
+                  <strong className="text-[#1F1638] dark:text-white">
                     {entry.newInstallerName || entry.installerName}
                   </strong>
                 </div>

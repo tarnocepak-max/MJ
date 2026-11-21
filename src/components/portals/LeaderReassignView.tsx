@@ -143,7 +143,7 @@ function getReassignBadge(t: Ticket): { label: string; cls: string; tone: 'probl
   return {
     label: (t.statusWOInstaller || 'ASSIGNED').toUpperCase(),
     tone: 'waiting',
-    cls: 'bg-[#E0F2FE] dark:bg-sky-950/60 border border-[#BAE6FD] dark:border-sky-800 text-[#1D4ED8] dark:text-sky-300'
+    cls: 'bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#5B35B1] text-[#58149C] dark:text-[#DAB9FF]'
   };
 }
 
@@ -312,6 +312,34 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
     const start = (safePage - 1) * rowsPerPage;
     return filteredTickets.slice(start, start + rowsPerPage);
   }, [filteredTickets, safePage, rowsPerPage]);
+
+  const [previewTicketId, setPreviewTicketId] = useState<string>('');
+
+  const selectedPreviewTicket = useMemo(() => {
+    if (paginatedTickets.length === 0) return null;
+    return (
+      paginatedTickets.find(t => t.id === previewTicketId) ||
+      paginatedTickets.find(isTicketEligibleForReassign) ||
+      paginatedTickets[0]
+    );
+  }, [paginatedTickets, previewTicketId]);
+
+  const basecampReserveTechs = useMemo(() => {
+    return [...technicians]
+      .filter(s => !s.isFull)
+      .sort((a, b) => a.assignedCount - b.assignedCount)
+      .slice(0, 5);
+  }, [technicians]);
+
+  const recommendedReplacementForPreview = useMemo(() => {
+    if (!selectedPreviewTicket) return null;
+    const orig = String(selectedPreviewTicket.installerName || '').trim().toLowerCase();
+    return (
+      basecampReserveTechs.find(s => s.installer.name.trim().toLowerCase() !== orig) ||
+      basecampReserveTechs[0] ||
+      null
+    );
+  }, [selectedPreviewTicket, basecampReserveTechs]);
 
   const hasActiveCustomFilter =
     Boolean(searchQuery.trim()) ||
@@ -1121,17 +1149,15 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               const workStat = getTicketWorkStatus(t);
               const accentClass =
                 badge.tone === 'problem'
-                  ? 'border-l-4 border-l-[#D97706]'
-                  : badge.tone === 'active'
-                  ? 'border-l-4 border-l-[#58149C]'
+                  ? 'border-[#FCD34D] dark:border-amber-700'
                   : badge.tone === 'unassigned'
-                  ? 'border-l-4 border-l-[#BA1A1A]'
-                  : 'border-l-4 border-l-[#6A46C1]';
+                  ? 'border-[#FCA5A5] dark:border-rose-800'
+                  : 'border-[#E8DDFF] dark:border-[#3E246F]';
 
               return (
                 <article
                   key={t.id}
-                  className={`bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_3px_12px_rgba(31,22,56,0.05)] space-y-3 ${accentClass}`}
+                  className={`bg-white dark:bg-[#1E1238] rounded-2xl border p-4 shadow-[0_3px_12px_rgba(31,22,56,0.05)] space-y-3 ${accentClass}`}
                 >
                   {/* Card Top Row */}
                   <div className="flex items-start justify-between gap-2">
@@ -1272,39 +1298,46 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
         </div>
       ) : (
         /* ============================================================ */
-        /* 3B. DESKTOP MODE: 7-COLUMN DENSE HIGH-EFFICIENCY TABLE       */
+        /* 3B. DESKTOP MODE: SPLIT TABLE (8 COL) + SNAPSHOT PANEL (4 COL)*/
         /* ============================================================ */
-        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] shadow-[0_3px_14px_rgba(31,22,56,0.05)] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
-                <tr>
-                  <th className="py-3 px-4 min-w-[140px]">WO Number</th>
-                  <th className="py-3 px-4 min-w-[200px]">Customer Details</th>
-                  <th className="py-3 px-4 min-w-[140px]">Category</th>
-                  <th className="py-3 px-4 min-w-[155px]">Appointment &amp; Slot</th>
-                  <th className="py-3 px-4 min-w-[190px]">Current Staff &amp; Load</th>
-                  <th className="py-3 px-4 min-w-[130px]">Status</th>
-                  <th className="py-3 px-4 text-right min-w-[150px]">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2E1859]">
-                {paginatedTickets.map(t => {
-                  const badge = getReassignBadge(t);
-                  const eligible = isTicketEligibleForReassign(t);
-                  const techInfo = t.installerName
-                    ? techMap.get(t.installerName.toLowerCase().trim())
-                    : undefined;
-                  const workStat = getTicketWorkStatus(t);
-                  const reassignCount = (t.assignmentHistory || []).filter(
-                    h => h.sourceAction === 'reassign'
-                  ).length;
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+          <div className="xl:col-span-8 min-w-0 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] shadow-[0_3px_14px_rgba(31,22,56,0.05)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                  <tr>
+                    <th className="py-3 px-4 min-w-[140px]">WO Number</th>
+                    <th className="py-3 px-4 min-w-[185px]">Customer Details</th>
+                    <th className="py-3 px-4 min-w-[130px]">Category</th>
+                    <th className="py-3 px-4 min-w-[145px]">Appointment &amp; Slot</th>
+                    <th className="py-3 px-4 min-w-[175px]">Current Staff &amp; Load</th>
+                    <th className="py-3 px-4 min-w-[120px]">Status</th>
+                    <th className="py-3 px-4 text-right min-w-[140px]">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2E1859]">
+                  {paginatedTickets.map(t => {
+                    const badge = getReassignBadge(t);
+                    const eligible = isTicketEligibleForReassign(t);
+                    const techInfo = t.installerName
+                      ? techMap.get(t.installerName.toLowerCase().trim())
+                      : undefined;
+                    const workStat = getTicketWorkStatus(t);
+                    const reassignCount = (t.assignmentHistory || []).filter(
+                      h => h.sourceAction === 'reassign'
+                    ).length;
+                    const isPreviewSelected = selectedPreviewTicket?.id === t.id;
 
-                  return (
-                    <tr
-                      key={t.id}
-                      className="hover:bg-[#F8F1FF]/60 dark:hover:bg-[#261942]/70 transition-colors"
-                    >
+                    return (
+                      <tr
+                        key={t.id}
+                        onClick={() => setPreviewTicketId(t.id)}
+                        className={`transition-colors cursor-pointer ${
+                          isPreviewSelected
+                            ? 'bg-[#F3EAFF]/85 dark:bg-[#2E1B59]/75'
+                            : 'hover:bg-[#F8F1FF]/60 dark:hover:bg-[#261942]/70'
+                        }`}
+                      >
                       {/* 1. WO NUMBER */}
                       <td className="py-3 px-4 align-top">
                         <button
@@ -1470,19 +1503,182 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             </table>
           </div>
 
-          <PaginationBar
-            currentPage={safePage}
-            totalPages={totalPages}
-            totalItems={filteredTickets.length}
-            pageSize={rowsPerPage}
-            pageSizeOptions={[10, 25, 50]}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={val => {
-              setRowsPerPage(val === 'ALL' ? filteredTickets.length || 10 : val);
-              setCurrentPage(1);
-            }}
-            itemLabel="Work Order"
-          />
+            <PaginationBar
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={filteredTickets.length}
+              pageSize={rowsPerPage}
+              pageSizeOptions={[10, 25, 50]}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={val => {
+                setRowsPerPage(val === 'ALL' ? filteredTickets.length || 10 : val);
+                setCurrentPage(1);
+              }}
+              itemLabel="Work Order"
+            />
+          </div>
+
+          {/* STICKY RIGHT PANE: SNAPSHOT REASSIGN & CADANGAN BASECAMP */}
+          <aside className="xl:col-span-4 space-y-4 xl:sticky xl:top-4">
+            {selectedPreviewTicket && (
+              <div className="card-3d-lavender rounded-2xl overflow-hidden">
+                <div className="bg-gradient-to-br from-[#1F1638] to-[#35105E] text-white p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-white/15 text-[#EEDBFF] text-[10px] font-extrabold uppercase tracking-wider">
+                      Panel Snapshot Reassign
+                    </span>
+                    <span className="font-mono text-[11px] font-bold text-[#DAB9FF]">
+                      {selectedPreviewTicket.slotTime || 'Standar'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSelectTicket(selectedPreviewTicket)}
+                      className="font-mono text-base font-extrabold text-white hover:underline cursor-pointer text-left"
+                    >
+                      {selectedPreviewTicket.woNumber}
+                    </button>
+                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold ${getReassignBadge(selectedPreviewTicket).cls}`}>
+                      {getReassignBadge(selectedPreviewTicket).label}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#EEDBFF] font-semibold truncate">
+                    {selectedPreviewTicket.customerName}
+                  </div>
+                  <div className="text-[11px] text-[#CEC0E8] truncate">
+                    {selectedPreviewTicket.clusterName || selectedPreviewTicket.streetName || selectedPreviewTicket.area || '-'}
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-3 text-xs">
+                  {(selectedPreviewTicket.rejectionReason || selectedPreviewTicket.remarksWOInstaller) && (
+                    <div className="p-2.5 rounded-xl bg-[#FFF8F6] dark:bg-rose-950/30 border border-[#FCA5A5]/70 dark:border-rose-800/60 text-[11px] text-[#93000A] dark:text-rose-200 flex items-start gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span className="line-clamp-3">
+                        {selectedPreviewTicket.rejectionReason || selectedPreviewTicket.remarksWOInstaller}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Perbandingan Beban Teknisi */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                      Perbandingan Beban Teknisi
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3E246F] min-w-0">
+                        <span className="text-[9.5px] font-bold uppercase text-[#93000A] dark:text-rose-300 block">
+                          Teknisi Asal
+                        </span>
+                        <strong className="text-[#1F1638] dark:text-white truncate block mt-0.5">
+                          {selectedPreviewTicket.installerName || 'Unassigned'}
+                        </strong>
+                        {selectedPreviewTicket.installerName &&
+                          techMap.get(selectedPreviewTicket.installerName.toLowerCase().trim()) && (
+                            <span className="font-mono text-[10.5px] text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                              {techMap.get(selectedPreviewTicket.installerName.toLowerCase().trim())!.assignedCount}/
+                              {techMap.get(selectedPreviewTicket.installerName.toLowerCase().trim())!.maxLimit} WO
+                            </span>
+                          )}
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-[#ECFDF5] dark:bg-emerald-950/30 border border-[#86EFAC] dark:border-emerald-800/60 min-w-0">
+                        <span className="text-[9.5px] font-bold uppercase text-[#15803D] dark:text-emerald-300 block">
+                          Rekomendasi
+                        </span>
+                        <strong className="text-[#1F1638] dark:text-white truncate block mt-0.5">
+                          {recommendedReplacementForPreview
+                            ? recommendedReplacementForPreview.installer.name
+                            : 'Semua Penuh'}
+                        </strong>
+                        {recommendedReplacementForPreview && (
+                          <span className="font-mono text-[10.5px] text-[#15803D] dark:text-emerald-300 tabular-nums">
+                            {recommendedReplacementForPreview.assignedCount}/
+                            {recommendedReplacementForPreview.maxLimit} WO
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {isTicketEligibleForReassign(selectedPreviewTicket) ? (
+                    <button
+                      type="button"
+                      disabled={!isLeaderRole}
+                      onClick={() => onOpenReassignModal(selectedPreviewTicket)}
+                      className="btn-3d-primary w-full py-2.5 px-4 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 disabled:opacity-45 cursor-pointer"
+                    >
+                      <ArrowRightLeft className="w-4 h-4" />
+                      <span>Buka Form Reassign 2-Langkah</span>
+                    </button>
+                  ) : !selectedPreviewTicket.installerName ? (
+                    <button
+                      type="button"
+                      onClick={onJumpToAssignTab}
+                      className="btn-3d-secondary w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <UserCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                      <span>Tugaskan di Assign WO</span>
+                    </button>
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-[#F3EAFF] dark:bg-[#261942] text-center text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8]">
+                      WO berstatus selesai / terkunci.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Ketersediaan Cadangan Basecamp */}
+            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#F3EAFF] dark:border-[#35105E]">
+                <div>
+                  <h3 className="text-xs font-extrabold text-[#1F1638] dark:text-white">
+                    Ketersediaan Cadangan Basecamp
+                  </h3>
+                  <p className="text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                    Teknisi sektor dengan sisa slot terbanyak
+                  </p>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950/70 text-[#15803D] dark:text-emerald-300 font-mono text-[10px] font-bold">
+                  {basecampReserveTechs.length} Siap
+                </span>
+              </div>
+
+              {basecampReserveTechs.length === 0 ? (
+                <div className="py-4 text-center text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                  Seluruh teknisi sektor sedang mencapai batas kuota harian.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {basecampReserveTechs.map(cand => (
+                    <div
+                      key={cand.installer.id}
+                      className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-extrabold text-[10px] flex items-center justify-center shrink-0">
+                          {getInitials(cand.installer.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
+                            {cand.installer.name}
+                          </div>
+                          <div className="text-[10px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                            {cand.liveStatusLabel} • Sisa {cand.remainingSlots} slot
+                          </div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[10px] font-extrabold text-[#58149C] dark:text-[#DAB9FF] shrink-0 tabular-nums">
+                        {cand.assignedCount}/{cand.maxLimit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
       )}
     </div>
