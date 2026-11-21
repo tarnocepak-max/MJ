@@ -72,7 +72,7 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
       aria-label="Navigasi Utama Leader"
       className="fixed bottom-0 inset-x-0 z-40 sm:pointer-events-none sm:px-4 sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]"
     >
-      <div className="sm:pointer-events-auto max-w-2xl mx-auto bg-[#fdf7ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-t sm:border border-[#E8DDFF] dark:border-[#35105E] sm:rounded-2xl shadow-[0_-4px_18px_rgba(31,22,56,0.08)] sm:shadow-[0_12px_32px_rgba(31,22,56,0.16)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)] px-1.5 py-1 sm:p-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:pb-1.5 grid grid-cols-5 gap-1">
+      <div className="sm:pointer-events-auto max-w-2xl mx-auto bg-[#fbf6ff]/78 dark:bg-[#1a103c]/68 backdrop-blur-2xl border-t sm:border border-[#E8DDFF]/80 dark:border-white/[0.14] sm:rounded-2xl shadow-[0_-4px_18px_rgba(31,22,56,0.08)] sm:shadow-[0_12px_32px_rgba(31,22,56,0.16)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.45)] px-1.5 py-1 sm:p-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:pb-1.5 grid grid-cols-5 gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

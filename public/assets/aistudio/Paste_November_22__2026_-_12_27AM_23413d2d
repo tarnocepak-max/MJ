@@ -1,0 +1,705 @@
+Update the existing MoraJaws background CSS to match the attached Lumina Aurora color reference.
+
+Implement multiple layered radial gradients over a smooth diagonal base gradient.
+
+Preserve all existing HTML structure, Tailwind classes, component dimensions, navigation, functionality, and application workflows.
+
+Do not replace the dashboard or rebuild its layout.
+
+Only update background colors, gradient positions, ambient glow, and compatible glass surface styling.
+
+Ensure the Aurora background works consistently across desktop, tablet, and mobile.
+
+HTML CODE :
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_dashboard" name="shell-type"/>
+<title>MoraJaws — Ops Enterprise Command Center</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "lumina-bg": "#150d2e",
+            "lumina-card": "rgba(255, 255, 255, 0.08)",
+            "lumina-card-hover": "rgba(255, 255, 255, 0.12)",
+            "lumina-border": "rgba(255, 255, 255, 0.16)",
+            "lumina-border-light": "rgba(255, 255, 255, 0.24)",
+            "lumina-active": "rgba(255, 255, 255, 0.18)",
+            "lumina-pill": "rgba(255, 255, 255, 0.10)",
+            "primary": "#d5baff",
+            "primary-container": "#8c4bf0",
+            "secondary": "#5de6ff",
+            "secondary-container": "#00cbe6",
+            "tertiary": "#dab9ff",
+            "success": "#34d399",
+            "warning": "#fbbf24",
+            "error": "#ff7b89"
+          },
+          fontFamily: {
+            sans: ["Plus Jakarta Sans", "Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #140d2d;
+        color: #f3effc;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.28);
+      }
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .glass-panel-subtle {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.10);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .glow-cyan {
+      box-shadow: 0 0 24px rgba(93, 230, 255, 0.4);
+    }
+    .glow-purple {
+      box-shadow: 0 0 28px rgba(140, 75, 240, 0.45);
+    }
+  </style>
+</head>
+<body class="relative min-h-screen overflow-x-hidden selection:bg-purple-500/30 selection:text-white">
+<!-- AURORA BACKGROUND AMBIENT GLOWS (LUMINA STYLE) -->
+<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+<!-- Deep gradient backdrop -->
+<div class="absolute inset-0 bg-gradient-to-br from-[#1a103c] via-[#241349] to-[#120a26]"></div>
+<!-- Top-Right Soft Magenta / Periwinkle Glow -->
+<div class="absolute -top-32 right-0 w-[850px] h-[750px] rounded-full bg-gradient-to-br from-[#b862ff]/28 to-[#ff5db1]/20 blur-[130px]"></div>
+<!-- Center-Right Vibrant Cyan / Indigo Horizon Glow -->
+<div class="absolute top-1/3 -right-20 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-[#38bdf8]/20 via-[#818cf8]/15 to-transparent blur-[140px]"></div>
+<!-- Bottom-Left Deep Violet Glow -->
+<div class="absolute -bottom-36 -left-20 w-[780px] h-[780px] rounded-full bg-gradient-to-tr from-[#6366f1]/25 via-[#a855f7]/20 to-transparent blur-[150px]"></div>
+<!-- Delicate noise overlay hint -->
+<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/[0.04] via-transparent to-transparent"></div>
+</div>
+<div class="relative z-10 flex min-h-screen p-4 md:p-6 lg:p-7 gap-5 max-w-[1920px] mx-auto">
+<!-- ==================== SIDEBAR KIRI (LUMINA STYLE) ==================== -->
+<aside class="w-64 xl:w-72 shrink-0 hidden lg:flex flex-col rounded-3xl glass-panel p-5 relative select-none">
+<!-- Brand Header with Geometric 3D Gem -->
+<div class="flex items-center gap-3.5 px-2 py-2 mb-6">
+<div class="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#9333ea] via-[#c084fc] to-[#38bdf8] p-0.5 shadow-[0_8px_20px_rgba(147,51,234,0.45)] flex items-center justify-center">
+<div class="w-full h-full rounded-[14px] bg-[#1a0e38]/70 backdrop-blur-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-white via-cyan-200 to-purple-300 text-2xl font-bold">
+              diamond
+            </span>
+</div>
+</div>
+<div>
+<span class="font-bold text-xl tracking-[0.22em] text-white block leading-none">MORAJAWS</span>
+<span class="text-[10px] font-mono tracking-widest text-cyan-300/80 block mt-1 uppercase font-semibold">Ops Enterprise</span>
+</div>
+</div>
+<!-- Navigation Section -->
+<div class="flex-1 overflow-y-auto pr-1 space-y-5 text-sm">
+<!-- Standalone Group -->
+<nav class="space-y-1.5">
+<!-- Active Item: Dashboard Utama -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/[0.18] text-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] border border-white/20 font-semibold transition-all" href="#">
+<span class="material-symbols-outlined text-xl text-white">grid_view</span>
+<span class="tracking-wide">Dashboard Utama</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-white/65 hover:text-white hover:bg-white/[0.08] transition-all group" href="#">
+<span class="material-symbols-outlined text-xl text-white/60 group-hover:text-cyan-300 transition-colors">map</span>
+<span>Monitoring Maps</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-white/65 hover:text-white hover:bg-white/[0.08] transition-all group" href="#">
+<span class="material-symbols-outlined text-xl text-white/60 group-hover:text-purple-300 transition-colors">receipt_long</span>
+<span>Audit Log Global</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-white/65 hover:text-white hover:bg-white/[0.08] transition-all group" href="#">
+<span class="material-symbols-outlined text-xl text-white/60 group-hover:text-emerald-300 transition-colors">forum</span>
+<span>WhatsApp Center</span>
+</a>
+<a class="flex items-center justify-between px-4 py-2.5 rounded-2xl text-white/65 hover:text-white hover:bg-white/[0.08] transition-all group" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-xl text-white/60 group-hover:text-cyan-300 transition-colors">sensors</span>
+<span>Telemetri OLT Live</span>
+</div>
+<span class="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-400/20 text-cyan-300 border border-cyan-400/30 font-semibold">100G</span>
+</a>
+</nav>
+<!-- Divider line -->
+<div class="h-px bg-white/10 mx-2"></div>
+<!-- Group: Contractor & Area -->
+<div class="space-y-1">
+<details class="group/acc" open="">
+<summary class="flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-white/40 cursor-pointer hover:text-white/70 transition-colors list-none">
+<span>Contractor &amp; Area</span>
+<span class="material-symbols-outlined text-base transition-transform group-open/acc:rotate-180">expand_more</span>
+</summary>
+<div class="mt-1 space-y-0.5 pl-2">
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">sync_alt</span>
+<span>Reassign WO</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">view_column</span>
+<span>Kuota &amp; Kolom</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">summarize</span>
+<span>Rekap WO</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">engineering</span>
+<span>Tim Teknisi</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">assignment_add</span>
+<span>Assign WO</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">query_stats</span>
+<span>Monitoring Progress</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">home_repair_service</span>
+<span>Basecamp Management</span>
+</a>
+</div>
+</details>
+</div>
+<!-- Group: Installer Lapangan -->
+<div class="space-y-1">
+<details class="group/acc2" open="">
+<summary class="flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-white/40 cursor-pointer hover:text-white/70 transition-colors list-none">
+<span>Installer Lapangan</span>
+<span class="material-symbols-outlined text-base transition-transform group-open/acc2:rotate-180">expand_more</span>
+</summary>
+<div class="mt-1 space-y-0.5 pl-2">
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">task_alt</span>
+<span>Tugas Saya</span>
+</a>
+<a class="flex items-center justify-between px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-base">headset_mic</span>
+<span>Live Chat NOC</span>
+</div>
+<span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">photo_camera_front</span>
+<span>Check-in GPS</span>
+</a>
+</div>
+</details>
+</div>
+<!-- Group: Settings -->
+<div class="space-y-1">
+<details class="group/acc3">
+<summary class="flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-white/40 cursor-pointer hover:text-white/70 transition-colors list-none">
+<span>Settings &amp; Setup</span>
+<span class="material-symbols-outlined text-base transition-transform group-open/acc3:rotate-180">expand_more</span>
+</summary>
+<div class="mt-1 space-y-0.5 pl-2">
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">tune</span>
+<span>Setup Terpusat</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">list_alt</span>
+<span>Droplist OLT</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] text-xs transition-all" href="#">
+<span class="material-symbols-outlined text-base">palette</span>
+<span>UI Theme Engine</span>
+</a>
+</div>
+</details>
+</div>
+</div>
+<!-- User Profile Card in Sidebar Bottom (Exact Lumina Aesthetic) -->
+<div class="pt-4 mt-auto border-t border-white/10">
+<div class="flex items-center justify-between p-2 rounded-2xl glass-panel-subtle hover:bg-white/[0.10] transition-all cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="relative w-9 h-9 rounded-full ring-2 ring-purple-400/40 overflow-hidden bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+<span>RY</span>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-1 ring-purple-950"></span>
+</div>
+<div class="overflow-hidden">
+<div class="font-semibold text-xs text-white truncate">Super Admin (Ray)</div>
+<div class="text-[11px] text-white/50 truncate font-mono">ops.root@morajaws</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-white/50 text-lg">unfold_more</span>
+</div>
+</div>
+</aside>
+<!-- ==================== MAIN CONTENT AREA ==================== -->
+<main class="flex-1 flex flex-col space-y-6 min-w-0">
+<!-- TOPBAR / GREETING HEADER (EXACT LUMINA TOPBAR) -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+<div>
+<h1 class="text-2xl lg:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+            Good morning, Ray <span class="inline-block hover:rotate-12 transition-transform cursor-default">👋</span>
+</h1>
+<p class="text-sm text-white/60 mt-1 font-normal">
+            Here's what's happening with field operations today.
+          </p>
+</div>
+<!-- Search Pill, Notifications & Quick Options -->
+<div class="flex items-center gap-3">
+<!-- Translucent Search Pill -->
+<div class="relative w-64 md:w-72">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-white/45 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-full glass-panel-subtle text-white placeholder-white/40 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:bg-white/[0.12] transition-all border border-white/15 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]" placeholder="Search WO, ODP, or cluster..." type="text"/>
+</div>
+<!-- Quick Action: Buat WO (MoraJaws Fast Trigger) -->
+<button class="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-medium text-xs shadow-[0_4px_16px_rgba(147,51,234,0.4)] hover:brightness-110 active:scale-95 transition-all border border-purple-300/30">
+<span class="material-symbols-outlined text-base">add</span>
+<span>+ Buat WO</span>
+</button>
+<!-- Notification Bell Button -->
+<button class="relative w-10 h-10 rounded-full glass-panel-subtle hover:bg-white/[0.14] text-white/80 hover:text-white flex items-center justify-center transition-all border border-white/15" title="Notifications">
+<span class="material-symbols-outlined text-xl">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-purple-950"></span>
+</button>
+<!-- More Options "•••" -->
+<button class="w-10 h-10 rounded-full glass-panel-subtle hover:bg-white/[0.14] text-white/80 hover:text-white flex items-center justify-center transition-all border border-white/15" title="More options">
+<span class="material-symbols-outlined text-xl">more_horiz</span>
+</button>
+</div>
+</header>
+<!-- 4 TOP KPI METRIC CARDS (IDENTICAL LUMINA TOP 4 CARDS) -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- CARD 1: Total Work Orders -->
+<div class="rounded-3xl glass-panel p-5 relative overflow-hidden group hover:border-white/30 transition-all">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-purple-500/25 border border-purple-400/40 flex items-center justify-center text-purple-300">
+<span class="material-symbols-outlined text-xl">show_chart</span>
+</div>
+<span class="text-xs font-medium text-white/65">Total Work Orders</span>
+</div>
+<div class="mt-3">
+<div class="text-3xl font-extrabold text-white tracking-tight">382</div>
+<div class="flex items-center gap-1.5 mt-2 text-xs font-semibold text-emerald-400">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+14 Hari ini</span>
+<span class="text-white/40 font-normal">from last month</span>
+</div>
+</div>
+</div>
+<!-- CARD 2: Active Users / Field Force -->
+<div class="rounded-3xl glass-panel p-5 relative overflow-hidden group hover:border-white/30 transition-all">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-sky-500/25 border border-sky-400/40 flex items-center justify-center text-sky-300">
+<span class="material-symbols-outlined text-xl">group</span>
+</div>
+<span class="text-xs font-medium text-white/65">Teknisi On-Duty</span>
+</div>
+<div class="mt-3">
+<div class="text-3xl font-extrabold text-white tracking-tight">36 <span class="text-lg font-normal text-white/45">/ 42</span></div>
+<div class="flex items-center gap-1.5 mt-2 text-xs font-semibold text-emerald-400">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+8.1% vs target</span>
+<span class="text-white/40 font-normal">from last month</span>
+</div>
+</div>
+</div>
+<!-- CARD 3: Antrean QC / Orders -->
+<div class="rounded-3xl glass-panel p-5 relative overflow-hidden group hover:border-white/30 transition-all">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-cyan-500/25 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+<span class="material-symbols-outlined text-xl">fact_check</span>
+</div>
+<span class="text-xs font-medium text-white/65">Antrean QC &amp; BAST</span>
+</div>
+<div class="mt-3">
+<div class="text-3xl font-extrabold text-white tracking-tight">28 <span class="text-sm font-normal text-white/50">WO Aktif</span></div>
+<div class="flex items-center gap-1.5 mt-2 text-xs font-semibold text-emerald-400">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+14.3% vs kemarin</span>
+<span class="text-white/40 font-normal">verified</span>
+</div>
+</div>
+</div>
+<!-- CARD 4: Mean SLA Pengerjaan -->
+<div class="rounded-3xl glass-panel p-5 relative overflow-hidden group hover:border-white/30 transition-all">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-indigo-500/25 border border-indigo-400/40 flex items-center justify-center text-indigo-300">
+<span class="material-symbols-outlined text-xl">timer</span>
+</div>
+<span class="text-xs font-medium text-white/65">Mean SLA Pengerjaan</span>
+</div>
+<div class="mt-3">
+<div class="text-3xl font-extrabold text-white tracking-tight">42.5 <span class="text-lg font-normal text-white/50">m</span></div>
+<div class="flex items-center gap-1.5 mt-2 text-xs font-semibold text-rose-300">
+<span class="material-symbols-outlined text-sm">trending_down</span>
+<span>↓ 12.4m Lebih Cepat</span>
+<span class="text-white/40 font-normal">target &lt;90m</span>
+</div>
+</div>
+</div>
+</section>
+<!-- MAIN 2-COLUMN GRID (LUMINA LAYOUT: 65% LEFT / 35% RIGHT) -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+<!-- ==================== LEFT COLUMN (approx 65% / col-span-8) ==================== -->
+<div class="lg:col-span-8 space-y-5">
+<!-- BIG CHART CARD: REVENUE / WORK ORDER VELOCITY -->
+<div class="rounded-3xl glass-panel p-6 relative overflow-hidden">
+<!-- Header of Chart -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+<div>
+<span class="text-xs font-medium text-white/65 tracking-wide block">Work Order Velocity &amp; SLA</span>
+<div class="flex items-baseline gap-3 mt-1">
+<span class="text-3xl lg:text-4xl font-extrabold text-white tracking-tight">382 WO</span>
+<span class="inline-flex items-center text-xs font-semibold text-emerald-400">
+<span class="material-symbols-outlined text-sm">north</span> 12.5%
+                  </span>
+</div>
+</div>
+<!-- Filter Pill & More Button -->
+<div class="flex items-center gap-2 self-start sm:self-auto">
+<button class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full glass-panel-subtle hover:bg-white/[0.12] text-xs font-medium text-white/80 border border-white/15 transition-all">
+<span>This Month</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="w-8 h-8 rounded-full glass-panel-subtle hover:bg-white/[0.12] text-white/70 flex items-center justify-center border border-white/15 transition-all">
+<span class="material-symbols-outlined text-base">more_horiz</span>
+</button>
+</div>
+</div>
+<!-- Lumina Glowing Curve Chart Area -->
+<div class="relative w-full h-64 md:h-72 mt-2">
+<!-- Y-Axis labels -->
+<div class="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-[11px] font-mono text-white/35 pointer-events-none">
+<span>400</span>
+<span>300</span>
+<span>200</span>
+<span>100</span>
+<span>0</span>
+</div>
+<!-- SVG Canvas for the glow wave line and pin tooltip -->
+<div class="ml-10 h-full relative">
+<!-- Grid Horizontal Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8">
+<div class="w-full border-b border-white/[0.06]"></div>
+<div class="w-full border-b border-white/[0.06]"></div>
+<div class="w-full border-b border-white/[0.06]"></div>
+<div class="w-full border-b border-white/[0.06]"></div>
+<div class="w-full border-b border-white/[0.08]"></div>
+</div>
+<svg class="w-full h-[calc(100%-2rem)] overflow-visible" preserveaspectratio="none" viewbox="0 0 700 200">
+<defs>
+<!-- Area under curve gradient -->
+<lineargradient id="luminaGlow" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"></stop>
+<stop offset="45%" stop-color="#a855f7" stop-opacity="0.20"></stop>
+<stop offset="100%" stop-color="#6366f1" stop-opacity="0.0"></stop>
+</lineargradient>
+<!-- Stroke linear glow gradient -->
+<lineargradient id="strokeGradient" x1="0" x2="1" y1="0" y2="0">
+<stop offset="0%" stop-color="#c084fc"></stop>
+<stop offset="40%" stop-color="#ffffff"></stop>
+<stop offset="80%" stop-color="#38bdf8"></stop>
+<stop offset="100%" stop-color="#5eead4"></stop>
+</lineargradient>
+<filter height="140%" id="neonBlur" width="140%" x="-20%" y="-20%">
+<fegaussianblur result="glow" stddeviation="4"></fegaussianblur>
+<femerge>
+<femergenode in="glow"></femergenode>
+<femergenode in="SourceGraphic"></femergenode>
+</femerge>
+</filter>
+</defs>
+<!-- Gradient Filled Area -->
+<path d="M 0 170 
+                       C 50 160, 80 150, 120 140 
+                       C 160 130, 180 160, 230 155 
+                       C 280 150, 310 80, 360 85 
+                       C 410 90, 440 120, 480 95 
+                       C 520 70, 560 50, 610 70 
+                       C 650 85, 680 40, 700 35 
+                       L 700 200 L 0 200 Z" fill="url(#luminaGlow)"></path>
+<!-- Glowing Main Smooth Path -->
+<path d="M 0 170 
+                       C 50 160, 80 150, 120 140 
+                       C 160 130, 180 160, 230 155 
+                       C 280 150, 310 80, 360 85 
+                       C 410 90, 440 120, 480 95 
+                       C 520 70, 560 50, 610 70 
+                       C 650 85, 680 40, 700 35" fill="none" filter="url(#neonBlur)" stroke="url(#strokeGradient)" stroke-width="3"></path>
+<!-- Pin Tooltip Point (around x=480, y=95) -->
+<!-- Vertical dash line to pin -->
+<line stroke="rgba(255,255,255,0.3)" stroke-dasharray="3 3" stroke-width="1.5" x1="480" x2="480" y1="95" y2="200"></line>
+<!-- Glowing circle on line -->
+<circle cx="480" cy="95" fill="#ffffff" filter="drop-shadow(0 0 10px #38bdf8)" r="7" stroke="#38bdf8" stroke-width="3.5"></circle>
+</svg>
+<!-- Floating Tooltip Box (Exact Lumina Pin) -->
+<div class="absolute left-[65%] top-[12%] -translate-x-1/2 -translate-y-full mb-2 pointer-events-none">
+<div class="glass-pill px-3 py-1.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.5)] border border-white/30 text-center backdrop-blur-md">
+<div class="text-[10px] text-white/60 font-mono">Nov 21, 2026</div>
+<div class="text-xs font-bold text-white tracking-wide">382 WO Selesai</div>
+</div>
+</div>
+<!-- X-Axis Labels -->
+<div class="absolute bottom-0 inset-x-0 flex justify-between text-[11px] font-mono text-white/40 pt-2 border-t border-white/[0.08]">
+<span>May 1</span>
+<span>May 6</span>
+<span>May 11</span>
+<span>May 16</span>
+<span class="text-white/80 font-bold">May 21</span>
+<span>May 26</span>
+<span>May 31</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SYSTEM STATUS PANEL (LUMINA BOTTOM BAR) -->
+<div class="rounded-3xl glass-panel p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h3 class="text-sm font-semibold text-white">System Status</h3>
+<div class="flex flex-wrap items-center gap-5 mt-2 text-xs">
+<!-- API Services -->
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+<span class="text-white/60">API Services:</span>
+<span class="text-white font-medium">Operational</span>
+</div>
+<!-- Database -->
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+<span class="text-white/60">Database:</span>
+<span class="text-white font-medium">Operational</span>
+</div>
+<!-- Storage -->
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+<span class="text-white/60">Storage:</span>
+<span class="text-white font-medium">Operational</span>
+</div>
+</div>
+</div>
+<!-- Auto updates Toggle Pill -->
+<div class="flex items-center gap-3 self-start md:self-auto glass-panel-subtle px-3.5 py-2 rounded-2xl border border-white/10">
+<div class="text-right">
+<div class="text-xs font-semibold text-white">Auto-updates</div>
+<div class="text-[10px] text-white/50">Keep everything up to date</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-10 h-5 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500 shadow-inner"></div>
+</label>
+</div>
+</div>
+<!-- MORAJAWS LIVE DISPATCH ACCORDION / WORK ORDERS QUICK FEED -->
+<div class="rounded-3xl glass-panel p-5 space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+<span class="text-xs font-semibold text-white uppercase tracking-wider">Antrean Work Order Lapangan</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[11px] text-white/50 font-mono">Cluster JKT-01 Edge</span>
+<span class="text-xs text-white/30">•</span>
+<a class="text-xs text-cyan-300 hover:underline" href="#">Semua WO (382) →</a>
+</div>
+</div>
+<!-- Mini List of Live WO Items -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+<!-- Item 1 -->
+<div class="p-3.5 rounded-2xl glass-panel-subtle border border-white/10 hover:border-cyan-400/40 transition-all">
+<div class="flex items-center justify-between text-xs">
+<span class="font-mono font-bold text-cyan-300">WO-20261120-0081</span>
+<span class="px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 font-mono text-[10px] font-bold">CHECK-IN AKTIF</span>
+</div>
+<div class="mt-2 text-xs font-semibold text-white">Siti Nurhaliza — Arcamanik BDG</div>
+<div class="text-[11px] text-white/50 truncate mt-0.5">ODP-ACM-04/12 (Port 03) • OPM: -19.0 dBm</div>
+<div class="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-white/60">
+<span>Teknisi: Madun</span>
+<span class="text-emerald-400 font-medium">Foto 2/3 Valid</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="p-3.5 rounded-2xl glass-panel-subtle border border-white/10 hover:border-rose-400/40 transition-all">
+<div class="flex items-center justify-between text-xs">
+<span class="font-mono font-bold text-rose-300">WO-20261120-0104</span>
+<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono text-[10px] font-bold">HIGH LOSS ALERT</span>
+</div>
+<div class="mt-2 text-xs font-semibold text-white">PT Surya Dinamika — Gedebage</div>
+<div class="text-[11px] text-white/50 truncate mt-0.5">ODP-SKH-08/16 • OPM: -26.4 dBm (Defect)</div>
+<div class="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-white/60">
+<span>Teknisi: Dimas Saputra</span>
+<span class="text-rose-400 font-medium">Eskalasi NOC L1</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ==================== RIGHT COLUMN (approx 35% / col-span-4) ==================== -->
+<div class="lg:col-span-4 space-y-5">
+<!-- DONUT CHART: PROJECT PROGRESS / WO COMPLETION RATE (EXACT LUMINA DONUT) -->
+<div class="rounded-3xl glass-panel p-6 relative overflow-hidden">
+<!-- Header -->
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base font-semibold text-white">Target Capaian Lapangan</h3>
+<button class="w-8 h-8 rounded-full glass-panel-subtle hover:bg-white/[0.12] text-white/70 flex items-center justify-center border border-white/15 transition-all">
+<span class="material-symbols-outlined text-base">more_horiz</span>
+</button>
+</div>
+<!-- Donut + Legend Layout -->
+<div class="flex items-center justify-between gap-4 mt-2">
+<!-- Circular Progress Gauge with Center Label -->
+<div class="relative w-36 h-36 shrink-0 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90" viewbox="0 0 120 120">
+<!-- Background Circle Track -->
+<circle cx="60" cy="60" fill="none" r="46" stroke="rgba(255, 255, 255, 0.08)" stroke-width="12"></circle>
+<!-- Colored Circular Segments -->
+<!-- Segment 1: Cyan / Blue Main Progress (72%) -->
+<circle cx="60" cy="60" fill="none" filter="drop-shadow(0 0 8px rgba(56, 189, 248, 0.4))" r="46" stroke="url(#donutGradient)" stroke-dasharray="289" stroke-dashoffset="81" stroke-linecap="round" stroke-width="12"></circle>
+<defs>
+<lineargradient id="donutGradient" x1="0" x2="1" y1="0" y2="1">
+<stop offset="0%" stop-color="#38bdf8"></stop>
+<stop offset="60%" stop-color="#818cf8"></stop>
+<stop offset="100%" stop-color="#c084fc"></stop>
+</lineargradient>
+</defs>
+</svg>
+<!-- Center Text -->
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="text-2xl font-extrabold text-white tracking-tight leading-none">72%</span>
+<span class="text-[11px] text-white/60 font-medium mt-1">Complete</span>
+</div>
+</div>
+<!-- Legend List with Percentage -->
+<div class="flex-1 space-y-2.5 text-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+<span class="text-white/70">Instalasi PSB</span>
+</div>
+<span class="font-mono text-white/90 font-medium">90%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+<span class="text-white/70">Repair &amp; QC</span>
+</div>
+<span class="font-mono text-white/90 font-medium">72%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+<span class="text-white/70">Relokasi ODP</span>
+</div>
+<span class="font-mono text-white/90 font-medium">45%</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+<span class="text-white/70">Dismantle</span>
+</div>
+<span class="font-mono text-white/90 font-medium">60%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- NOTIFICATIONS CARD (EXACT LUMINA NOTIFICATION FEED) -->
+<div class="rounded-3xl glass-panel p-6 relative overflow-hidden">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base font-semibold text-white">Notifications</h3>
+<a class="text-xs text-white/60 hover:text-white transition-colors" href="#">View all</a>
+</div>
+<!-- List of Notifications -->
+<div class="space-y-4">
+<!-- Item 1: Design System completed / QC Arcamanik Approved -->
+<div class="flex items-start gap-3.5">
+<div class="w-10 h-10 rounded-2xl bg-teal-500/20 border border-teal-400/30 text-teal-300 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">check</span>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-xs font-semibold text-white truncate">QC Arcamanik Approved (WO-0081)</h4>
+<p class="text-[11px] text-white/50 mt-0.5">2 hours ago</p>
+</div>
+</div>
+<!-- Item 2: New user registered / Teknisi Madun Checked In -->
+<div class="flex items-start gap-3.5">
+<div class="w-10 h-10 rounded-2xl bg-sky-500/20 border border-sky-400/30 text-sky-300 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">person</span>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-xs font-semibold text-white truncate">Teknisi Madun Checked In</h4>
+<p class="text-[11px] text-white/50 mt-0.5">5 hours ago</p>
+</div>
+</div>
+<!-- Item 3: OLT Telemetry Sync OK -->
+<div class="flex items-start gap-3.5">
+<div class="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-400/30 text-purple-300 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-xl">hub</span>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-xs font-semibold text-white truncate">OLT-BDG-01 Polling 1,248 ONUs</h4>
+<p class="text-[11px] text-white/50 mt-0.5">6 hours ago</p>
+</div>
+</div>
+</div>
+</div>
+<!-- QUICK MORAJAWS ACTION HUB (FROSTED 3D BUTTONS) -->
+<div class="rounded-3xl glass-panel p-5 space-y-2.5">
+<span class="text-xs font-semibold text-white/60 tracking-wider uppercase block mb-1">Tactical Actions</span>
+<button class="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:brightness-110 active:scale-95 text-white font-medium text-xs transition-all border border-purple-400/30 shadow-[0_4px_16px_rgba(147,51,234,0.3)]">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">bolt</span>
+<span>Auto-Assign Batch Kuota</span>
+</span>
+<span class="font-mono text-[10px] bg-white/20 px-1.5 py-0.5 rounded">FAST</span>
+</button>
+<button class="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl glass-panel-subtle hover:bg-white/[0.12] active:scale-95 text-white font-medium text-xs transition-all border border-white/15">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-cyan-300">headset_mic</span>
+<span>Hotline NOC VoIP Ext 201</span>
+</span>
+<span class="material-symbols-outlined text-sm text-white/50">call</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+</body></html>

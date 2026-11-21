@@ -1027,9 +1027,7 @@ const MainLayout: React.FC = () => {
 
   return (
     <div
-      className={`h-dvh flex flex-col overflow-hidden ${
-        isInstaller ? 'bg-[#fcf8ff]' : 'bg-[#fdf7ff]'
-      } dark:bg-[#140827] text-[#1f1638] dark:text-[#f5eeff] transition-colors relative`}
+      className="h-dvh flex flex-col overflow-hidden mj-aurora-bg text-[#1f1638] dark:text-[#f3effc] transition-colors relative"
     >
       {/* Main Workspace Frame */}
       <div className="flex-1 flex min-h-0 overflow-hidden">

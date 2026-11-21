@@ -46,12 +46,15 @@ import {
   Plus,
   Trash2,
   GripVertical,
-  ToggleLeft,
-  ToggleRight,
   Folder,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Search,
+  Filter,
+  ArrowRightLeft,
+  ChevronRight
 } from 'lucide-react';
+import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 
 const AVAILABLE_ICONS: { name: string; label: string; component: React.ElementType }[] = [
   { name: 'LayoutDashboard', label: 'Dashboard', component: LayoutDashboard },
@@ -165,6 +168,8 @@ export const NavigationConfigView: React.FC = () => {
   const [standaloneDraftLabel, setStandaloneDraftLabel] = useState('');
   const [standaloneDraftIcon, setStandaloneDraftIcon] = useState('');
 
+  const { isCompactUI } = useResponsiveViewport();
+
   // Drag and drop state
   const [draggedItem, setDraggedItem] = useState<{
     type: 'category' | 'standalone' | 'submenu';
@@ -180,6 +185,23 @@ export const NavigationConfigView: React.FC = () => {
     installer: false,
     menu_tambahan: true
   });
+  const [expandedCategoryPreview, setExpandedCategoryPreview] = useState<Record<string, boolean>>({
+    contractor_area: true
+  });
+
+  // Tab 2 (Menu Mandiri) Filter State
+  const [standaloneSearch, setStandaloneSearch] = useState('');
+  const [standaloneRoleFilter, setStandaloneRoleFilter] = useState<string>('all');
+
+  // Tab 3 (Submenu Items) Filter, Collapse & Batch Move State
+  const [submenuSearch, setSubmenuSearch] = useState('');
+  const [submenuCategoryFilter, setSubmenuCategoryFilter] = useState<string>('all');
+  const [submenuRoleFilter, setSubmenuRoleFilter] = useState<string>('all');
+  const [collapsedSubmenuGroups, setCollapsedSubmenuGroups] = useState<Record<string, boolean>>({
+    menu_tambahan: false
+  });
+  const [selectedSubmenuIds, setSelectedSubmenuIds] = useState<string[]>([]);
+  const [batchTargetCategoryId, setBatchTargetCategoryId] = useState<string>('menu_tambahan');
 
   // Filtered categories and standalone menus
   const sortedCategories = useMemo(() => {
@@ -189,6 +211,28 @@ export const NavigationConfigView: React.FC = () => {
   const sortedStandaloneMenus = useMemo(() => {
     return [...(standaloneMenus || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [standaloneMenus]);
+
+  const filteredStandaloneMenus = useMemo(() => {
+    const q = standaloneSearch.trim().toLowerCase();
+    return sortedStandaloneMenus.filter(menu => {
+      const matchesSearch =
+        !q ||
+        menu.label.toLowerCase().includes(q) ||
+        menu.id.toLowerCase().includes(q) ||
+        (menu.roles || []).some(r => r.toLowerCase().includes(q));
+      const matchesRole =
+        standaloneRoleFilter === 'all' ||
+        (menu.roles || []).includes(standaloneRoleFilter);
+      return matchesSearch && matchesRole;
+    });
+  }, [sortedStandaloneMenus, standaloneSearch, standaloneRoleFilter]);
+
+  const isStandaloneFiltered = standaloneSearch.trim() !== '' || standaloneRoleFilter !== 'all';
+
+  const isSubmenuFiltered =
+    submenuSearch.trim() !== '' ||
+    submenuCategoryFilter !== 'all' ||
+    submenuRoleFilter !== 'all';
 
   // Grouped submenus
   const submenusByCategory = useMemo(() => {
@@ -315,103 +359,160 @@ export const NavigationConfigView: React.FC = () => {
     setDraggedItem(null);
   };
 
+  const activeTabTitle =
+    activeConfigTab === 'categories'
+      ? 'Kategori Accordion'
+      : activeConfigTab === 'standalone'
+      ? 'Menu Mandiri'
+      : 'Submenu Items';
+
+  const handleToggleSelectSubmenu = (id: string) => {
+    setSelectedSubmenuIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleExecuteBatchMove = () => {
+    if (!isSuperadmin || selectedSubmenuIds.length === 0) return;
+    const targetCat = sortedCategories.find(c => c.id === batchTargetCategoryId);
+    let movedCount = 0;
+    selectedSubmenuIds.forEach(subId => {
+      const existing = (submenuItems || []).find(s => s.id === subId);
+      if (existing && existing.categoryId !== batchTargetCategoryId) {
+        moveSubmenuToCategory(subId, batchTargetCategoryId);
+        movedCount += 1;
+      }
+    });
+    setSelectedSubmenuIds([]);
+    if (movedCount > 0) {
+      toast.success(
+        `${movedCount} submenu dipindahkan ke kategori "${targetCat?.name || batchTargetCategoryId}". Klik Simpan Konfigurasi untuk menyimpan permanen.`
+      );
+    } else {
+      toast.info('Submenu yang dipilih sudah berada di kategori tujuan.');
+    }
+  };
+
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-5">
       {/* ================================================================ */}
-      {/* TOP HEADER & ACTION BAR                                          */}
+      {/* TOP HEADER & 3D ACTION BAR (STITCH TEMPLATES 1 & 2)              */}
       {/* ================================================================ */}
-      <div className="bg-[#160D29] border border-[#35105E] rounded-2xl p-5 md:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start md:items-center gap-3.5">
-          <div className="p-3 bg-gradient-to-br from-[#7135B5] to-[#5B35B1] rounded-xl text-white shadow-md shadow-[#5B35B1]/30">
-            <FolderTree className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white tracking-wide">
-                Konfigurasi Menu Navigasi
-              </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#35105E] text-[#D8B4FE] border border-[#7135B5]/40 uppercase font-mono tabular-nums">
-                Dynamic Engine · v{navDocVersion}
-              </span>
+      <div className="card-3d-lavender relative overflow-hidden rounded-2xl p-4 sm:p-6">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#58149C] via-[#A380FE] to-[#6B103B]" />
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="w-11 h-11 bg-gradient-to-b from-[#7135B5] to-[#58149C] rounded-xl text-white flex items-center justify-center shadow-[0_3px_0_#35105E] shrink-0">
+              <FolderTree className="w-5 h-5" />
             </div>
-            <p className="text-xs text-purple-300 mt-0.5">
-              Kelola Accordion Submenu, Menu Mandiri, dan urutan tampilan MoraJaws dengan integrasi Supabase PostgreSQL.
-            </p>
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-[#58149C] dark:text-[#DAB9FF]">01 — System Configuration</span>
+                <ChevronRight className="w-3 h-3 shrink-0" />
+                <span>Menu Navigasi Engine</span>
+                <ChevronRight className="w-3 h-3 shrink-0" />
+                <span className="text-[#6B103B] dark:text-[#F4B6C2]">{activeTabTitle}</span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white tracking-tight">
+                  Konfigurasi Menu Navigasi
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-[#35105E] dark:text-[#D8B4FE] dark:border-[#7135B5]/40 uppercase font-mono tabular-nums">
+                  v{navDocVersion} Schema
+                </span>
+                {hasUnsavedNavChanges && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800">
+                    Draft Belum Disimpan
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] max-w-3xl leading-relaxed">
+                Kelola {sortedCategories.length} Kategori Accordion, {sortedStandaloneMenus.length} Menu Mandiri, dan{' '}
+                {(submenuItems || []).length} Submenu Items beserta urutan drag-and-drop dan otorisasi role MoraJaws secara realtime.
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Live Preview Button */}
-          <button
-            type="button"
-            onClick={() => setShowPreviewModal(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#261547] text-[#D8B4FE] hover:bg-[#35105E] border border-[#7135B5]/40 transition-all cursor-pointer shadow-sm"
-          >
-            <Eye className="w-4 h-4 text-purple-300" />
-            <span>Pratinjau Navigasi</span>
-          </button>
-
-          {/* Reset to Default */}
-          {isSuperadmin && (
+          {/* 3D Tactile Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={() => setShowResetConfirm(true)}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#261547] text-rose-300 hover:text-rose-100 hover:bg-rose-950/40 border border-rose-500/30 transition-all cursor-pointer shadow-sm"
+              onClick={() => setShowPreviewModal(true)}
+              className="mj-btn-superadmin-lilac px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold gap-2 cursor-pointer"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span>Reset Default</span>
+              <Eye className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+              <span>Pratinjau per Role</span>
             </button>
-          )}
 
-          {/* Save to Supabase PostgreSQL */}
-          {isSuperadmin && (
-            <button
-              type="button"
-              onClick={handleSaveToCloud}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[#7135B5] to-[#5B35B1] text-white hover:from-[#8B4BC1] hover:to-[#7135B5] shadow-lg shadow-[#5B35B1]/40 border border-[#D8B4FE]/40 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Menyimpan ke Cloud...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Konfigurasi</span>
-                </>
-              )}
-            </button>
-          )}
+            {isSuperadmin && (
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                disabled={isSaving}
+                className="mj-btn-superadmin-lilac px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold gap-2 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/70 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset Default</span>
+              </button>
+            )}
+
+            {isSuperadmin && (
+              <button
+                type="button"
+                onClick={handleSaveToCloud}
+                disabled={isSaving}
+                className={`mj-btn-superadmin-primary px-4 sm:px-5 py-2 min-h-[40px] rounded-xl text-xs font-bold gap-2 cursor-pointer ${
+                  isSaving ? 'mj-btn-loading' : ''
+                }`}
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Menyimpan ke Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Simpan Konfigurasi</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ================================================================ */}
-      {/* SUPABASE SYNC STATUS & ACCORDION BEHAVIOR SETTINGS               */}
+      {/* SUPABASE SYNC STATUS & MULTI-SUBMENU COLLAPSE TOGGLE             */}
       {/* ================================================================ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Supabase Status Card */}
-        <div className={`bg-[#1C1133] border rounded-xl p-4 flex items-center justify-between gap-2 ${
-          cloudSyncStatus === 'error' ? 'border-rose-500/60' : 'border-[#35105E]'
-        }`}>
+        <div
+          className={`lg:col-span-5 card-3d-lavender rounded-2xl p-4 flex items-center justify-between gap-2.5 ${
+            cloudSyncStatus === 'error' ? 'border-rose-400 dark:border-rose-500/60' : ''
+          }`}
+        >
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`p-2 rounded-lg shrink-0 ${
-              cloudSyncStatus === 'synced'
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : cloudSyncStatus === 'error'
-                ? 'bg-rose-500/20 text-rose-400'
-                : cloudSyncStatus === 'syncing'
-                ? 'bg-amber-500/20 text-amber-300'
-                : 'bg-purple-500/20 text-purple-300'
-            }`}>
+            <div
+              className={`p-2.5 rounded-xl shrink-0 ${
+                cloudSyncStatus === 'synced'
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-700/50'
+                  : cloudSyncStatus === 'error'
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-700/50'
+                  : cloudSyncStatus === 'syncing'
+                  ? 'bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-700/50'
+                  : 'bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-700/50'
+              }`}
+            >
               <Cloud className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] text-purple-300 font-medium">Supabase PostgreSQL</p>
-              <p className="text-xs font-bold text-white truncate">
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                Supabase PostgreSQL
+              </p>
+              <p className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
                 {cloudSyncStatus === 'synced'
                   ? hasUnsavedNavChanges
                     ? 'Tersinkronisasi (Ada Perubahan Lokal)'
@@ -424,9 +525,10 @@ export const NavigationConfigView: React.FC = () => {
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2 shrink-0">
             {lastCloudSyncTime && (
-              <span className="text-[10px] text-purple-400">
+              <span className="text-[10.5px] font-mono tabular-nums text-[#7D7484] dark:text-[#A79BC0]">
                 {new Date(lastCloudSyncTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -434,7 +536,7 @@ export const NavigationConfigView: React.FC = () => {
               type="button"
               onClick={handleReloadFromCloud}
               disabled={isCloudSyncing || isSaving}
-              className="p-1.5 rounded-lg bg-[#261547] hover:bg-[#35105E] text-purple-200 border border-[#7135B5]/40 transition-colors cursor-pointer disabled:opacity-50"
+              className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer disabled:opacity-50"
               title="Muat ulang konfigurasi dari Supabase PostgreSQL"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
@@ -442,49 +544,47 @@ export const NavigationConfigView: React.FC = () => {
           </div>
         </div>
 
-        {/* Multi-Accordion Behavior Toggle */}
-        <div className="md:col-span-2 bg-[#1C1133] border border-[#35105E] rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-white flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-[#D8B4FE]" />
-              Mendukung Multi-Submenu Collapse (Beberapa Kategori Terbuka Bersamaan)
+        {/* Multi-Accordion Behavior 3D Toggle Panel */}
+        <div className="lg:col-span-7 card-3d-lavender rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-extrabold text-[#1F1638] dark:text-white flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
+              <span>Mendukung Multi-Submenu Collapse (Beberapa Kategori Terbuka Bersamaan)</span>
             </p>
-            <p className="text-[11px] text-purple-300 mt-0.5">
+            <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
               Ketika diaktifkan, membuka satu kategori accordion tidak akan menutup kategori lain secara otomatis.
             </p>
           </div>
           <button
             type="button"
+            role="switch"
+            aria-checked={accordionSettings.allowMultipleOpenGroups}
             disabled={!isSuperadmin}
             onClick={() => setAllowMultipleOpenGroups(!accordionSettings.allowMultipleOpenGroups)}
-            className={`p-1.5 rounded-lg border transition-all ${
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-all ${
               isSuperadmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
-            } ${
-              accordionSettings.allowMultipleOpenGroups
-                ? 'bg-purple-600/30 border-[#7135B5] text-[#D8B4FE]'
-                : 'bg-slate-800/50 border-slate-700 text-slate-400'
-            }`}
+            } ${accordionSettings.allowMultipleOpenGroups ? 'mj-switch-track-on' : 'mj-switch-track-off'}`}
             title="Ubah Mode Multi-Accordion"
           >
-            {accordionSettings.allowMultipleOpenGroups ? (
-              <ToggleRight className="w-6 h-6 text-emerald-400" />
-            ) : (
-              <ToggleLeft className="w-6 h-6 text-slate-400" />
-            )}
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full mj-switch-thumb transition-transform ${
+                accordionSettings.allowMultipleOpenGroups ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </div>
 
       {/* Diagnostic Error Banner when Supabase Save/Load Fails */}
       {cloudSyncStatus === 'error' && lastCloudSyncError && (
-        <div className="bg-rose-950/50 border border-rose-500/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-500/50 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-bold text-rose-200">
+              <p className="text-xs font-bold text-rose-800 dark:text-rose-200">
                 Detail Error Supabase PostgreSQL (app_settings / navigation_doc)
               </p>
-              <p className="text-xs text-rose-300 mt-0.5 font-mono break-all">
+              <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5 font-mono break-all">
                 {lastCloudSyncError}
               </p>
             </div>
@@ -494,7 +594,7 @@ export const NavigationConfigView: React.FC = () => {
               type="button"
               onClick={handleSaveToCloud}
               disabled={isSaving}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shrink-0 cursor-pointer disabled:opacity-50"
+              className="mj-btn-superadmin-maroon px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 cursor-pointer"
             >
               Coba Simpan Ulang
             </button>
@@ -504,74 +604,111 @@ export const NavigationConfigView: React.FC = () => {
 
       {/* Read-only notice for non-Super Admin roles */}
       {!isSuperadmin && (
-        <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3.5 flex items-center gap-2.5 text-xs text-amber-200">
-          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 rounded-2xl p-3.5 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-200">
+          <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <span>Mode Hanya-Baca: Hanya role Super Admin yang memiliki izin untuk mengubah dan menyimpan konfigurasi navigasi ke Supabase PostgreSQL.</span>
         </div>
       )}
 
       {/* ================================================================ */}
-      {/* NAVIGATION MANAGEMENT TABS                                       */}
-      {/* 1. Kategori (Accordion) | 2. Menu Mandiri | 3. Submenu Items     */}
+      {/* 3-SEGMENT TACTILE NAVIGATION SECTION TABS (STITCH TEMPLATES 1&2) */}
       {/* ================================================================ */}
-      <div className="flex border-b border-[#35105E] gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveConfigTab('categories')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-            activeConfigTab === 'categories'
-              ? 'border-[#D8B4FE] text-[#D8B4FE] bg-[#261547]/60 rounded-t-lg'
-              : 'border-transparent text-purple-300 hover:text-white'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>1. Kategori Accordion ({sortedCategories.length})</span>
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="mj-tactile-tab-bar p-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1">
+          <button
+            type="button"
+            onClick={() => setActiveConfigTab('categories')}
+            className={`flex items-center justify-center gap-2 px-4 py-2 min-h-[42px] rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 sm:flex-1 ${
+              activeConfigTab === 'categories'
+                ? 'btn-3d-primary text-white'
+                : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+            }`}
+          >
+            <Building2 className="w-4 h-4 shrink-0" />
+            <span>1. Kategori Accordion</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
+                activeConfigTab === 'categories'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+              }`}
+            >
+              {sortedCategories.length}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveConfigTab('standalone')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-            activeConfigTab === 'standalone'
-              ? 'border-[#D8B4FE] text-[#D8B4FE] bg-[#261547]/60 rounded-t-lg'
-              : 'border-transparent text-purple-300 hover:text-white'
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span>2. Menu Mandiri ({sortedStandaloneMenus.length})</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveConfigTab('standalone')}
+            className={`flex items-center justify-center gap-2 px-4 py-2 min-h-[42px] rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 sm:flex-1 ${
+              activeConfigTab === 'standalone'
+                ? 'btn-3d-primary text-white'
+                : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4 shrink-0" />
+            <span>2. Menu Mandiri</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
+                activeConfigTab === 'standalone'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+              }`}
+            >
+              {sortedStandaloneMenus.length}
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveConfigTab('submenus')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-            activeConfigTab === 'submenus'
-              ? 'border-[#D8B4FE] text-[#D8B4FE] bg-[#261547]/60 rounded-t-lg'
-              : 'border-transparent text-purple-300 hover:text-white'
-          }`}
-        >
-          <ListOrdered className="w-4 h-4" />
-          <span>3. Submenu Items ({(submenuItems || []).length})</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveConfigTab('submenus')}
+            className={`flex items-center justify-center gap-2 px-4 py-2 min-h-[42px] rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 sm:flex-1 ${
+              activeConfigTab === 'submenus'
+                ? 'btn-3d-primary text-white'
+                : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+            }`}
+          >
+            <ListOrdered className="w-4 h-4 shrink-0" />
+            <span>3. Submenu Items</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
+                activeConfigTab === 'submenus'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+              }`}
+            >
+              {(submenuItems || []).length}
+            </span>
+          </button>
+        </div>
+
+        {isSuperadmin && (
+          <div className="hidden xl:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+            <GripVertical className="w-3.5 h-3.5" />
+            <span>Drag &amp; Drop Urutan Aktif</span>
+          </div>
+        )}
       </div>
 
       {/* ================================================================ */}
-      {/* TAB 1: PENGATURAN KATEGORI (ACCORDION SUBMENU)                   */}
+      {/* TAB 1: PENGATURAN KATEGORI (ACCORDION SUBMENU + PREVIEW)         */}
       {/* ================================================================ */}
       {activeConfigTab === 'categories' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1C1133] p-4 rounded-xl border border-[#35105E]">
+          <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-white">Daftar Kategori Utama</h2>
-              <p className="text-xs text-purple-300">
-                Kategori utama menggunakan sistem Accordion Collapse. Dapat dibuka/tutup secara independen, digeser urutannya, atau diatur modenya.
+              <h3 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white">
+                Daftar Kategori Utama (Accordion &amp; Static)
+              </h3>
+              <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                Geser kartu atau gunakan tombol panah 3D untuk mengatur urutan sidebar, ubah mode Accordion/Static, atau lihat pratinjau submenu terpasang.
               </p>
             </div>
             {isSuperadmin && (
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white transition-colors cursor-pointer shrink-0"
+                className="mj-btn-superadmin-primary px-4 py-2 min-h-[38px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto"
               >
                 <Plus className="w-4 h-4" />
                 <span>Tambah Kategori</span>
@@ -579,12 +716,12 @@ export const NavigationConfigView: React.FC = () => {
             )}
           </div>
 
-          {/* Categories List with Drag & Drop + Up/Down */}
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {sortedCategories.map((cat, index) => {
               const CatIcon = getIconComp(cat.icon);
               const submenusInCat = submenusByCategory.get(cat.id) || [];
               const isEditing = editingCategoryId === cat.id;
+              const isPreviewOpen = Boolean(expandedCategoryPreview[cat.id]);
 
               return (
                 <div
@@ -593,35 +730,33 @@ export const NavigationConfigView: React.FC = () => {
                   onDragStart={() => handleDragStart('category', cat.id)}
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => handleDropCategory(index)}
-                  className={`bg-[#160D29] border rounded-xl p-3.5 md:p-4 transition-all duration-200 ${
-                    cat.isActive === false
-                      ? 'border-slate-800 opacity-60'
-                      : 'border-[#35105E] hover:border-[#7135B5]/60'
+                  className={`card-3d-lavender rounded-2xl p-4 transition-all duration-200 space-y-3 ${
+                    cat.isActive === false ? 'opacity-65' : 'hover:border-[#A380FE] dark:hover:border-[#7135B5]'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Left: Drag Handle, Icon, Name, Mode */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       {isSuperadmin && (
                         <div
-                          className="cursor-grab text-purple-400 hover:text-white p-1"
+                          className="cursor-grab text-[#7D7484] hover:text-[#58149C] dark:text-purple-400 dark:hover:text-white p-1 shrink-0"
                           title="Tahan & geser untuk mengubah urutan"
                         >
                           <GripVertical className="w-4 h-4" />
                         </div>
                       )}
 
-                      <div className="p-2 rounded-lg bg-[#261547] text-[#D8B4FE] border border-[#7135B5]/30">
+                      <div className="p-2.5 rounded-xl bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#7135B5]/30 shrink-0">
                         <CatIcon className="w-4 h-4" />
                       </div>
 
                       {isEditing ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <input
                             type="text"
                             value={categoryDraftName}
                             onChange={e => setCategoryDraftName(e.target.value)}
-                            className="px-2.5 py-1 text-xs bg-[#100921] border border-[#7135B5] text-white rounded-lg focus:outline-hidden"
+                            className="px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
                             autoFocus
                           />
                           <button
@@ -636,47 +771,63 @@ export const NavigationConfigView: React.FC = () => {
                                 toast.success('Nama kategori diperbarui.');
                               }
                             }}
-                            className="p-1 text-emerald-400 hover:bg-emerald-950/40 rounded cursor-pointer"
+                            className="p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg cursor-pointer"
                           >
                             <Check className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingCategoryId(null)}
-                            className="p-1 text-rose-400 hover:bg-rose-950/40 rounded cursor-pointer"
+                            className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg cursor-pointer"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-white tracking-wide">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white tracking-tight">
                               {cat.name}
-                            </h3>
-                            <span className="text-[10px] text-purple-400 font-mono">
+                            </h4>
+                            <span className="text-[10px] text-[#7D7484] dark:text-purple-400 font-mono">
                               ({cat.id})
                             </span>
                             <span
-                              className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider ${
+                              className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider ${
                                 cat.mode === 'static'
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-purple-500/20 text-[#D8B4FE] border border-purple-500/30'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
+                                  : 'bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-purple-500/20 dark:text-[#D8B4FE] dark:border-purple-500/30'
                               }`}
                             >
                               {cat.mode === 'static' ? 'Static Mode' : 'Accordion Mode'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-purple-300">
-                            {submenusInCat.length} Submenu terdaftar • Urutan #{cat.order}
+                          <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                            <strong className="font-mono tabular-nums">{submenusInCat.length}</strong> Submenu terdaftar · Urutan <strong className="font-mono tabular-nums">#{cat.order}</strong>
                           </p>
                         </div>
                       )}
                     </div>
 
-                    {/* Right: Controls (Mode, Active, Up/Down, Edit, Delete) */}
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      {/* Accordion / Static toggle */}
+                    {/* Right: 3D Tactile Controls */}
+                    <div className="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedCategoryPreview(prev => ({
+                            ...prev,
+                            [cat.id]: !prev[cat.id]
+                          }))
+                        }
+                        className="mj-btn-superadmin-lilac px-2.5 py-1.5 rounded-xl text-[11px] font-bold gap-1 cursor-pointer"
+                        title="Lihat daftar submenu terpasang dalam kategori ini"
+                      >
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform ${isPreviewOpen ? 'rotate-180' : ''}`}
+                        />
+                        <span>Preview ({submenusInCat.length})</span>
+                      </button>
+
                       {isSuperadmin && (
                         <button
                           type="button"
@@ -686,41 +837,39 @@ export const NavigationConfigView: React.FC = () => {
                               cat.mode === 'static' ? 'accordion' : 'static'
                             )
                           }
-                          className="px-2.5 py-1 text-[11px] font-semibold bg-[#261547] hover:bg-[#35105E] text-purple-200 rounded-lg border border-[#7135B5]/30 cursor-pointer"
+                          className="mj-btn-superadmin-lilac px-2.5 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer"
                           title="Ganti Mode Accordion / Static"
                         >
                           Mode: {cat.mode === 'static' ? 'Statis' : 'Accordion'}
                         </button>
                       )}
 
-                      {/* Active toggle */}
                       {isSuperadmin && (
                         <button
                           type="button"
+                          role="switch"
+                          aria-checked={cat.isActive !== false}
                           onClick={() => toggleCategoryActive(cat.id)}
-                          className={`p-1.5 rounded-lg border cursor-pointer ${
-                            cat.isActive !== false
-                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                              : 'bg-slate-800 border-slate-700 text-slate-500'
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all cursor-pointer ${
+                            cat.isActive !== false ? 'mj-switch-track-on' : 'mj-switch-track-off'
                           }`}
                           title={cat.isActive !== false ? 'Kategori Aktif' : 'Kategori Nonaktif'}
                         >
-                          {cat.isActive !== false ? (
-                            <ToggleRight className="w-4 h-4" />
-                          ) : (
-                            <ToggleLeft className="w-4 h-4" />
-                          )}
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full mj-switch-thumb transition-transform ${
+                              cat.isActive !== false ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
                         </button>
                       )}
 
-                      {/* Move Up / Down Buttons (Fallback touch/drag) */}
                       {isSuperadmin && (
-                        <div className="flex items-center gap-0.5 bg-[#100921] rounded-lg p-0.5 border border-[#35105E]">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => moveCategoryItem(cat.id, 'up')}
                             disabled={index === 0}
-                            className="p-1 text-purple-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                            className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
                             title="Pindah ke Atas"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
@@ -729,7 +878,7 @@ export const NavigationConfigView: React.FC = () => {
                             type="button"
                             onClick={() => moveCategoryItem(cat.id, 'down')}
                             disabled={index === sortedCategories.length - 1}
-                            className="p-1 text-purple-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                            className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
                             title="Pindah ke Bawah"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
@@ -737,7 +886,6 @@ export const NavigationConfigView: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Edit Button */}
                       {isSuperadmin && !isEditing && (
                         <button
                           type="button"
@@ -746,19 +894,18 @@ export const NavigationConfigView: React.FC = () => {
                             setCategoryDraftName(cat.name);
                             setCategoryDraftIcon(cat.icon || 'Building2');
                           }}
-                          className="p-1.5 text-purple-300 hover:text-white hover:bg-[#35105E] rounded-lg cursor-pointer"
+                          className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
                           title="Edit Kategori"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       )}
 
-                      {/* Delete Button (with safe submenu migration modal) */}
                       {isSuperadmin && (
                         <button
                           type="button"
                           onClick={() => setDeletingCategory(cat)}
-                          className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 rounded-lg cursor-pointer"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-300 dark:border-rose-800/70 transition-colors cursor-pointer"
                           title="Hapus Kategori"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -766,6 +913,75 @@ export const NavigationConfigView: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Expandable Inline Submenu Preview Drawer (Stitch Template 2) */}
+                  {isPreviewOpen && (
+                    <div className="pt-3 border-t border-[#EFE7FC] dark:border-[#35105E] space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 text-[10.5px]">
+                        <span className="font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                          Submenu Preview Terpasang ({submenusInCat.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveConfigTab('submenus')}
+                          className="font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                        >
+                          Kelola Semua Submenu →
+                        </button>
+                      </div>
+
+                      {submenusInCat.length === 0 ? (
+                        <div className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-dashed border-[#D8CCF3] dark:border-[#35105E] text-[11px] text-[#7D7484] dark:text-[#A79BC0] text-center">
+                          Kategori ini belum memiliki submenu. Tambahkan melalui tab <strong>3. Submenu Items</strong>.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                          {submenusInCat.map(sub => {
+                            const SubIcon = getIconComp(sub.icon);
+                            return (
+                              <div
+                                key={sub.id}
+                                className={`p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-1.5 ${
+                                  sub.visible === false ? 'opacity-55' : ''
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <span className="flex items-center gap-1.5 min-w-0 text-xs font-bold text-[#1F1638] dark:text-white">
+                                    <SubIcon className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+                                    <span className="truncate">{sub.label}</span>
+                                  </span>
+                                  <span
+                                    className={`text-[9.5px] font-bold shrink-0 ${
+                                      sub.visible !== false
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-[#7D7484]'
+                                    }`}
+                                  >
+                                    {sub.visible !== false ? 'Aktif' : 'Off'}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {(sub.roles || []).slice(0, 3).map(role => (
+                                    <span
+                                      key={role}
+                                      className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-white dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D]"
+                                    >
+                                      {role.replace('_admin', '').replace('_', ' ')}
+                                    </span>
+                                  ))}
+                                  {(sub.roles || []).length > 3 && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white dark:bg-[#261547] text-[#7D7484]">
+                                      +{(sub.roles || []).length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -774,149 +990,200 @@ export const NavigationConfigView: React.FC = () => {
       )}
 
       {/* ================================================================ */}
-      {/* TAB 2: PENGATURAN MENU MANDIRI (STANDALONE MENU)                 */}
-      {/* 7 Menu Utama: Dashboard, Tickets, Report, Import, Contact, Schedule, Users */}
+      {/* TAB 2: MENU MANDIRI / STANDALONE MENUS (STITCH TEMPLATE #2)      */}
       {/* ================================================================ */}
       {activeConfigTab === 'standalone' && (
         <div className="space-y-4">
-          <div className="bg-[#1C1133] p-4 rounded-xl border border-[#35105E]">
-            <h2 className="text-sm font-bold text-white">7 Menu Utama Mandiri</h2>
-            <p className="text-xs text-purple-300 mt-0.5">
-              Menu ini tampil langsung pada navigasi utama paling atas tanpa parent category dan tanpa accordion. Nama label, ikon, urutan, dan visibilitas dapat dikonfigurasi.
-            </p>
+          {/* Action & Search Filter Toolbar */}
+          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={standaloneSearch}
+                  onChange={e => setStandaloneSearch(e.target.value)}
+                  placeholder="Cari nama menu mandiri, ID /route, atau role..."
+                  className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-xl focus:outline-hidden"
+                />
+              </div>
+
+              <div className="relative min-w-[190px]">
+                <Filter className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select
+                  value={standaloneRoleFilter}
+                  onChange={e => setStandaloneRoleFilter(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                >
+                  <option value="all">Semua Role RBAC ({sortedStandaloneMenus.length})</option>
+                  <option value="super_admin">Super Admin</option>
+                  <option value="management_data">Management Data</option>
+                  <option value="dispatch">Dispatch</option>
+                  <option value="leader">Leader / Korlap</option>
+                  <option value="it_support">IT Support</option>
+                  <option value="installer">Teknisi / Installer</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+              <span className="text-[11px] font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                {filteredStandaloneMenus.length} / {sortedStandaloneMenus.length} Menu Mandiri
+              </span>
+              {isStandaloneFiltered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStandaloneSearch('');
+                    setStandaloneRoleFilter('all');
+                  }}
+                  className="mj-btn-superadmin-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold gap-1 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Reset Filter</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2.5">
-            {sortedStandaloneMenus.map((menu, index) => {
-              const MenuIcon = getIconComp(menu.icon);
-              const isEditing = editingStandaloneId === menu.id;
+          {filteredStandaloneMenus.length === 0 ? (
+            <div className="card-3d-lavender rounded-2xl p-8 text-center space-y-3">
+              <p className="text-xs font-bold text-[#1F1638] dark:text-white">
+                Tidak ada Menu Mandiri yang cocok dengan pencarian atau filter role.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setStandaloneSearch('');
+                  setStandaloneRoleFilter('all');
+                }}
+                className="mj-btn-superadmin-lilac px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Tampilkan Semua Menu Mandiri
+              </button>
+            </div>
+          ) : isCompactUI ? (
+            /* Mobile / Compact Responsive Card List */
+            <div className="space-y-3">
+              {filteredStandaloneMenus.map(menu => {
+                const MenuIcon = getIconComp(menu.icon);
+                const actualIndex = sortedStandaloneMenus.findIndex(m => m.id === menu.id);
+                const isEditing = editingStandaloneId === menu.id;
 
-              return (
-                <div
-                  key={menu.id}
-                  draggable={isSuperadmin}
-                  onDragStart={() => handleDragStart('standalone', menu.id)}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => handleDropStandalone(index)}
-                  className={`bg-[#160D29] border rounded-xl p-3.5 md:p-4 transition-all duration-200 ${
-                    menu.visible === false
-                      ? 'border-slate-800 opacity-60'
-                      : 'border-[#35105E] hover:border-[#7135B5]/60'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Left: Drag Handle, Icon, Label */}
-                    <div className="flex items-center gap-3">
-                      {isSuperadmin && (
-                        <div
-                          className="cursor-grab text-purple-400 hover:text-white p-1"
-                          title="Tahan & geser untuk mengubah urutan"
-                        >
-                          <GripVertical className="w-4 h-4" />
+                return (
+                  <div
+                    key={menu.id}
+                    className={`card-3d-lavender rounded-2xl p-4 space-y-3 transition-all ${
+                      menu.visible === false ? 'opacity-65' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-xs font-extrabold flex items-center justify-center shrink-0 tabular-nums">
+                          {actualIndex + 1}
+                        </span>
+                        <div className="p-2 rounded-xl bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#7135B5]/30 shrink-0">
+                          <MenuIcon className="w-4 h-4" />
                         </div>
-                      )}
-
-                      <div className="p-2 rounded-lg bg-[#261547] text-[#D8B4FE] border border-[#7135B5]/30">
-                        <MenuIcon className="w-4 h-4" />
+                        <div className="min-w-0">
+                          <h4 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white truncate">
+                            {menu.label}
+                          </h4>
+                          <p className="font-mono text-[11px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                            /{menu.id} · Standalone
+                          </p>
+                        </div>
                       </div>
 
-                      {isEditing ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input
-                            type="text"
-                            value={standaloneDraftLabel}
-                            onChange={e => setStandaloneDraftLabel(e.target.value)}
-                            className="px-2.5 py-1 text-xs bg-[#100921] border border-[#7135B5] text-white rounded-lg focus:outline-hidden"
-                            autoFocus
-                          />
-                          <select
-                            value={standaloneDraftIcon}
-                            onChange={e => setStandaloneDraftIcon(e.target.value)}
-                            className="px-2 py-1 text-xs bg-[#100921] border border-[#7135B5] text-purple-200 rounded-lg focus:outline-hidden"
-                          >
-                            {AVAILABLE_ICONS.map(i => (
-                              <option key={i.name} value={i.name}>
-                                {i.label}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (standaloneDraftLabel.trim()) {
-                                updateStandaloneMenu(menu.id, {
-                                  label: standaloneDraftLabel.trim(),
-                                  icon: standaloneDraftIcon
-                                });
-                                setEditingStandaloneId(null);
-                                toast.success('Menu mandiri diperbarui.');
-                              }
-                            }}
-                            className="p-1 text-emerald-400 hover:bg-emerald-950/40 rounded cursor-pointer"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingStandaloneId(null)}
-                            className="p-1 text-rose-400 hover:bg-rose-950/40 rounded cursor-pointer"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-white tracking-wide">
-                              {menu.label}
-                            </h3>
-                            <span className="text-[10px] text-purple-400 font-mono">
-                              ({menu.id})
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[11px] text-purple-300">
-                              Urutan #{menu.order}
-                            </span>
-                            <span className="text-purple-600">•</span>
-                            <span className="text-[10.5px] text-purple-400">
-                              Hak Akses: {menu.roles?.join(', ')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right: Controls (Active, Up/Down, Edit) */}
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      {/* Active toggle */}
                       {isSuperadmin && (
                         <button
                           type="button"
+                          role="switch"
+                          aria-checked={menu.visible !== false}
                           onClick={() => toggleStandaloneMenuActive(menu.id)}
-                          className={`p-1.5 rounded-lg border cursor-pointer ${
-                            menu.visible !== false
-                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                              : 'bg-slate-800 border-slate-700 text-slate-500'
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all cursor-pointer ${
+                            menu.visible !== false ? 'mj-switch-track-on' : 'mj-switch-track-off'
                           }`}
                           title={menu.visible !== false ? 'Menu Aktif' : 'Menu Disembunyikan'}
                         >
-                          {menu.visible !== false ? (
-                            <ToggleRight className="w-4 h-4" />
-                          ) : (
-                            <ToggleLeft className="w-4 h-4" />
-                          )}
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full mj-switch-thumb transition-transform ${
+                              menu.visible !== false ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
                         </button>
                       )}
+                    </div>
 
-                      {/* Up/Down buttons */}
-                      {isSuperadmin && (
-                        <div className="flex items-center gap-0.5 bg-[#100921] rounded-lg p-0.5 border border-[#35105E]">
+                    {isEditing && (
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
+                        <input
+                          type="text"
+                          value={standaloneDraftLabel}
+                          onChange={e => setStandaloneDraftLabel(e.target.value)}
+                          className="flex-1 min-w-[140px] px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                          autoFocus
+                        />
+                        <select
+                          value={standaloneDraftIcon}
+                          onChange={e => setStandaloneDraftIcon(e.target.value)}
+                          className="px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                        >
+                          {AVAILABLE_ICONS.map(i => (
+                            <option key={i.name} value={i.name}>
+                              {i.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (standaloneDraftLabel.trim()) {
+                              updateStandaloneMenu(menu.id, {
+                                label: standaloneDraftLabel.trim(),
+                                icon: standaloneDraftIcon
+                              });
+                              setEditingStandaloneId(null);
+                              toast.success('Menu mandiri diperbarui.');
+                            }
+                          }}
+                          className="p-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingStandaloneId(null)}
+                          className="p-2 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
+                      <div className="flex flex-wrap gap-1">
+                        {(menu.roles || []).map(role => (
+                          <span
+                            key={role}
+                            className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase ${
+                              role === 'super_admin'
+                                ? 'bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-[#35105E] dark:text-[#DAB9FF] dark:border-[#7135B5]/40'
+                                : 'bg-[#F8F1FF] text-[#4B4452] border border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
+                            }`}
+                          >
+                            {role.replace('_', ' ')}
+                          </span>
+                        ))}
+                      </div>
+
+                      {isSuperadmin && !isEditing && (
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => moveStandaloneMenu(menu.id, 'up')}
-                            disabled={index === 0}
-                            className="p-1 text-purple-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                            disabled={actualIndex === 0}
+                            className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
                             title="Pindah ke Atas"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
@@ -924,141 +1191,97 @@ export const NavigationConfigView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => moveStandaloneMenu(menu.id, 'down')}
-                            disabled={index === sortedStandaloneMenus.length - 1}
-                            className="p-1 text-purple-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                            disabled={actualIndex === sortedStandaloneMenus.length - 1}
+                            className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
                             title="Pindah ke Bawah"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingStandaloneId(menu.id);
+                              setStandaloneDraftLabel(menu.label);
+                              setStandaloneDraftIcon(menu.icon || 'LayoutDashboard');
+                            }}
+                            className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
+                            title="Edit Label / Ikon"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
-
-                      {/* Edit Button */}
-                      {isSuperadmin && !isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingStandaloneId(menu.id);
-                            setStandaloneDraftLabel(menu.label);
-                            setStandaloneDraftIcon(menu.icon || 'LayoutDashboard');
-                          }}
-                          className="p-1.5 text-purple-300 hover:text-white hover:bg-[#35105E] rounded-lg cursor-pointer"
-                          title="Edit Label / Ikon"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
                       )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ================================================================ */}
-      {/* TAB 3: PENGATURAN SUBMENU (SUBMENU ITEMS PER CATEGORY)           */}
-      {/* ================================================================ */}
-      {activeConfigTab === 'submenus' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1C1133] p-4 rounded-xl border border-[#35105E]">
-            <div>
-              <h2 className="text-sm font-bold text-white">Submenu per Kategori</h2>
-              <p className="text-xs text-purple-300">
-                Pindahkan submenu antar-kategori dengan dropdown atau drag & drop, atur urutan, edit nama, serta tentukan role permission.
-              </p>
+                );
+              })}
             </div>
-            {isSuperadmin && (
-              <button
-                type="button"
-                onClick={() => setShowAddSubmenuModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white transition-colors cursor-pointer shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Tambah Submenu</span>
-              </button>
-            )}
-          </div>
-
-          {/* Render category sections */}
-          {sortedCategories.map(cat => {
-            const CatIcon = getIconComp(cat.icon);
-            const submenusInCat = submenusByCategory.get(cat.id) || [];
-
-            return (
-              <div
-                key={cat.id}
-                onDragOver={e => e.preventDefault()}
-                onDrop={() => handleDropSubmenu(cat.id, submenusInCat.length)}
-                className="bg-[#160D29] border border-[#35105E] rounded-2xl p-4 md:p-5 space-y-3"
-              >
-                {/* Category Header Bar */}
-                <div className="flex items-center justify-between pb-3 border-b border-[#35105E]/60">
-                  <div className="flex items-center gap-2.5">
-                    <CatIcon className="w-5 h-5 text-[#D8B4FE]" />
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-                      {cat.name}
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#261547] text-purple-300 border border-[#7135B5]/40">
-                      {submenusInCat.length} Items
-                    </span>
-                  </div>
-                  <span className="text-xs text-purple-400">
-                    Kategori ID: <code className="text-[#D8B4FE]">{cat.id}</code>
-                  </span>
-                </div>
-
-                {/* Submenu List */}
-                {submenusInCat.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-purple-400 border border-dashed border-[#35105E] rounded-xl bg-[#110A21]/50">
-                    Belum ada submenu dalam kategori ini. Geser submenu ke sini atau gunakan dropdown pindahkan kategori.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {submenusInCat.map((sub, sIndex) => {
-                      const SubIcon = getIconComp(sub.icon);
-                      const isEditing = editingSubmenuId === sub.id;
+          ) : (
+            /* Desktop Clean Table Container matching Stitch Template #2 */
+            <div className="card-3d-lavender rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                      <th className="py-3 px-4 w-20 text-center">Urutan</th>
+                      <th className="py-3 px-4 min-w-[230px]">Nama Menu &amp; Path ID</th>
+                      <th className="py-3 px-4 w-32">Tipe Engine</th>
+                      <th className="py-3 px-4 min-w-[240px]">Hak Akses RBAC</th>
+                      <th className="py-3 px-4 w-24 text-center">Status</th>
+                      <th className="py-3 px-4 w-32 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2D1754] text-xs">
+                    {filteredStandaloneMenus.map(menu => {
+                      const MenuIcon = getIconComp(menu.icon);
+                      const actualIndex = sortedStandaloneMenus.findIndex(m => m.id === menu.id);
+                      const isEditing = editingStandaloneId === menu.id;
 
                       return (
-                        <div
-                          key={sub.id}
-                          draggable={isSuperadmin}
-                          onDragStart={() => handleDragStart('submenu', sub.id, cat.id)}
+                        <tr
+                          key={menu.id}
+                          draggable={isSuperadmin && !isStandaloneFiltered}
+                          onDragStart={() => handleDragStart('standalone', menu.id)}
                           onDragOver={e => e.preventDefault()}
-                          onDrop={() => handleDropSubmenu(cat.id, sIndex)}
-                          className={`bg-[#1C1133] border rounded-xl p-3 transition-all ${
-                            sub.visible === false
-                              ? 'border-slate-800 opacity-60'
-                              : 'border-[#35105E] hover:border-[#7135B5]/50'
+                          onDrop={() => {
+                            if (!isStandaloneFiltered) {
+                              handleDropStandalone(actualIndex);
+                            }
+                          }}
+                          className={`group transition-colors hover:bg-[#F8F1FF]/80 dark:hover:bg-[#1E1238]/75 ${
+                            menu.visible === false ? 'opacity-60' : ''
                           }`}
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                            {/* Left: Drag Handle, Icon, Label, Roles */}
-                            <div className="flex items-center gap-3">
-                              {isSuperadmin && (
-                                <div className="cursor-grab text-purple-400 hover:text-white p-1">
-                                  <GripVertical className="w-3.5 h-3.5" />
-                                </div>
+                          <td className="py-3 px-4 text-center">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              {isSuperadmin && !isStandaloneFiltered && (
+                                <GripVertical className="w-4 h-4 text-[#CEC3D4] group-hover:text-[#58149C] dark:text-purple-500/60 dark:group-hover:text-[#DAB9FF] cursor-grab" />
                               )}
+                              <span className="w-6 h-6 rounded-lg bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[11px] font-extrabold flex items-center justify-center tabular-nums">
+                                {actualIndex + 1}
+                              </span>
+                            </div>
+                          </td>
 
-                              <div className="p-1.5 rounded-lg bg-[#261547] text-[#D8B4FE]">
-                                <SubIcon className="w-3.5 h-3.5" />
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D] flex items-center justify-center shrink-0">
+                                <MenuIcon className="w-4 h-4" />
                               </div>
 
                               {isEditing ? (
-                                <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <input
                                     type="text"
-                                    value={submenuDraftLabel}
-                                    onChange={e => setSubmenuDraftLabel(e.target.value)}
-                                    className="px-2 py-1 text-xs bg-[#100921] border border-[#7135B5] text-white rounded focus:outline-hidden"
+                                    value={standaloneDraftLabel}
+                                    onChange={e => setStandaloneDraftLabel(e.target.value)}
+                                    className="px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
                                     autoFocus
                                   />
                                   <select
-                                    value={submenuDraftIcon}
-                                    onChange={e => setSubmenuDraftIcon(e.target.value)}
-                                    className="px-2 py-1 text-xs bg-[#100921] border border-[#7135B5] text-purple-200 rounded focus:outline-hidden"
+                                    value={standaloneDraftIcon}
+                                    onChange={e => setStandaloneDraftIcon(e.target.value)}
+                                    className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
                                   >
                                     {AVAILABLE_ICONS.map(i => (
                                       <option key={i.name} value={i.name}>
@@ -1069,56 +1292,504 @@ export const NavigationConfigView: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      if (submenuDraftLabel.trim()) {
-                                        updateSubmenu(sub.id, {
-                                          label: submenuDraftLabel.trim(),
-                                          icon: submenuDraftIcon
+                                      if (standaloneDraftLabel.trim()) {
+                                        updateStandaloneMenu(menu.id, {
+                                          label: standaloneDraftLabel.trim(),
+                                          icon: standaloneDraftIcon
                                         });
-                                        setEditingSubmenuId(null);
-                                        toast.success('Submenu diperbarui.');
+                                        setEditingStandaloneId(null);
+                                        toast.success('Menu mandiri diperbarui.');
                                       }
                                     }}
-                                    className="p-1 text-emerald-400 hover:bg-emerald-950/40 rounded cursor-pointer"
+                                    className="p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg cursor-pointer"
                                   >
                                     <Check className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setEditingSubmenuId(null)}
-                                    className="p-1 text-rose-400 hover:bg-rose-950/40 rounded cursor-pointer"
+                                    onClick={() => setEditingStandaloneId(null)}
+                                    className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg cursor-pointer"
                                   >
                                     <X className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               ) : (
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-white">
-                                      {sub.label}
-                                    </span>
-                                    <span className="text-[10px] text-purple-400 font-mono">
-                                      ({sub.id})
-                                    </span>
+                                <div className="min-w-0">
+                                  <div className="font-display font-extrabold text-[#1F1638] dark:text-white truncate">
+                                    {menu.label}
                                   </div>
-                                  <span className="text-[10px] text-purple-300">
-                                    Role: {sub.roles?.join(', ')}
-                                  </span>
+                                  <div className="font-mono text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                                    /{menu.id}
+                                  </div>
                                 </div>
                               )}
                             </div>
+                          </td>
 
-                            {/* Right: Category selector, Up/Down, Active, Edit, Delete */}
-                            <div className="flex items-center gap-2 self-end sm:self-center">
-                              {/* Move to another category dropdown */}
+                          <td className="py-3 px-4">
+                            <span className="px-2.5 py-1 rounded-md bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[10px] font-extrabold uppercase tracking-wider">
+                              Standalone
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {(menu.roles || []).map(role => (
+                                <span
+                                  key={role}
+                                  className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase ${
+                                    role === 'super_admin'
+                                      ? 'bg-[#58149C] text-white dark:bg-[#7135B5]'
+                                      : 'bg-[#F8F1FF] text-[#4B4452] border border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
+                                  }`}
+                                >
+                                  {role.replace('_', ' ')}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 text-center">
+                            {isSuperadmin ? (
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={menu.visible !== false}
+                                onClick={() => toggleStandaloneMenuActive(menu.id)}
+                                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all cursor-pointer ${
+                                  menu.visible !== false ? 'mj-switch-track-on' : 'mj-switch-track-off'
+                                }`}
+                                title={menu.visible !== false ? 'Menu Aktif' : 'Menu Disembunyikan'}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full mj-switch-thumb transition-transform ${
+                                    menu.visible !== false ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CABDE8]">
+                                {menu.visible !== false ? 'Aktif' : 'Nonaktif'}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 text-right">
+                            {isSuperadmin && !isEditing && (
+                              <div className="inline-flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => moveStandaloneMenu(menu.id, 'up')}
+                                  disabled={actualIndex === 0}
+                                  className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
+                                  title="Pindah ke Atas"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveStandaloneMenu(menu.id, 'down')}
+                                  disabled={actualIndex === sortedStandaloneMenus.length - 1}
+                                  className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
+                                  title="Pindah ke Bawah"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingStandaloneId(menu.id);
+                                    setStandaloneDraftLabel(menu.label);
+                                    setStandaloneDraftIcon(menu.icon || 'LayoutDashboard');
+                                  }}
+                                  className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
+                                  title="Edit Label / Ikon"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* TAB 3: SUBMENU ITEMS PER CATEGORY (STITCH TEMPLATE #1)           */}
+      {/* ================================================================ */}
+      {activeConfigTab === 'submenus' && (
+        <div className="space-y-4">
+          {/* Action & Filter Bar Submenu */}
+          <div className="card-3d-lavender rounded-2xl p-4 space-y-3">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={submenuSearch}
+                    onChange={e => setSubmenuSearch(e.target.value)}
+                    placeholder="Cari submenu / route ID / kategori..."
+                    className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-xl focus:outline-hidden"
+                  />
+                </div>
+
+                <select
+                  value={submenuCategoryFilter}
+                  onChange={e => setSubmenuCategoryFilter(e.target.value)}
+                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                >
+                  <option value="all">Semua Kategori ({(submenuItems || []).length} Items)</option>
+                  {sortedCategories.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({(submenusByCategory.get(c.id) || []).length})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={submenuRoleFilter}
+                  onChange={e => setSubmenuRoleFilter(e.target.value)}
+                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                >
+                  <option value="all">Semua Role Access</option>
+                  <option value="super_admin">Super Admin</option>
+                  <option value="dispatch">Dispatch</option>
+                  <option value="leader">Leader / Korlap</option>
+                  <option value="management_data">Management Data</option>
+                  <option value="it_support">IT Support</option>
+                  <option value="installer">Teknisi / Installer</option>
+                </select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {isSubmenuFiltered && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmenuSearch('');
+                      setSubmenuCategoryFilter('all');
+                      setSubmenuRoleFilter('all');
+                    }}
+                    className="mj-btn-superadmin-lilac px-3 py-2 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Reset Filter</span>
+                  </button>
+                )}
+
+                {isSuperadmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSubmenuModal(true)}
+                    className="mj-btn-superadmin-primary px-4 py-2 min-h-[38px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Submenu Baru</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Real Batch Category Move Bar when checkboxes are selected */}
+            {isSuperadmin && selectedSubmenuIds.length > 0 && (
+              <div className="pt-3 border-t border-[#EFE7FC] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                  <ArrowRightLeft className="w-4 h-4" />
+                  <span>{selectedSubmenuIds.length} submenu dipilih untuk dipindahkan secara batch</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={batchTargetCategoryId}
+                    onChange={e => setBatchTargetCategoryId(e.target.value)}
+                    className="px-3 py-1.5 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                  >
+                    {sortedCategories.map(c => (
+                      <option key={c.id} value={c.id}>
+                        Pindah ke: {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleExecuteBatchMove}
+                    className="mj-btn-superadmin-primary px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Terapkan Pindah ({selectedSubmenuIds.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubmenuIds([])}
+                    className="mj-btn-superadmin-lilac px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Grouped Submenus per Category */}
+          {sortedCategories
+            .filter(cat => submenuCategoryFilter === 'all' || cat.id === submenuCategoryFilter)
+            .map(cat => {
+              const CatIcon = getIconComp(cat.icon);
+              const allInCat = submenusByCategory.get(cat.id) || [];
+              const q = submenuSearch.trim().toLowerCase();
+              const filteredInCat = allInCat.filter(sub => {
+                const matchesQ =
+                  !q ||
+                  sub.label.toLowerCase().includes(q) ||
+                  sub.id.toLowerCase().includes(q) ||
+                  cat.name.toLowerCase().includes(q);
+                const matchesRole =
+                  submenuRoleFilter === 'all' ||
+                  (sub.roles || []).includes(submenuRoleFilter);
+                return matchesQ && matchesRole;
+              });
+
+              if (isSubmenuFiltered && filteredInCat.length === 0) {
+                return null;
+              }
+
+              const isCollapsed = !isSubmenuFiltered && Boolean(collapsedSubmenuGroups[cat.id]);
+
+              return (
+                <div
+                  key={cat.id}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => {
+                    if (!isSubmenuFiltered) {
+                      handleDropSubmenu(cat.id, allInCat.length);
+                    }
+                  }}
+                  className="card-3d-lavender rounded-2xl overflow-hidden"
+                >
+                  {/* Category Accordion Header */}
+                  <div className="px-4 sm:px-5 py-3.5 bg-gradient-to-r from-[#F3EAFF] via-[#F8F1FF] to-white dark:from-[#261547] dark:via-[#1E1238] dark:to-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shadow-[0_2px_0_#35105E] shrink-0">
+                        <CatIcon className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white truncate">
+                        Kategori Induk: {cat.name}
+                      </h4>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#58149C] text-white tabular-nums shrink-0">
+                        {filteredInCat.length} Submenu Items
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="hidden sm:inline font-mono text-[11px] font-semibold text-[#7D7484] dark:text-[#A79BC0]">
+                        Key: {cat.id}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCollapsedSubmenuGroups(prev => ({
+                            ...prev,
+                            [cat.id]: !prev[cat.id]
+                          }))
+                        }
+                        className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer"
+                        title={isCollapsed ? 'Buka daftar submenu' : 'Ringkas daftar submenu'}
+                      >
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {filteredInCat.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[#7D7484] dark:text-purple-400">
+                      Belum ada submenu dalam kategori ini. Geser submenu ke sini atau gunakan dropdown pindahkan kategori.
+                    </div>
+                  ) : isCollapsed ? (
+                    /* Collapsed 3-Item Summary Preview (Stitch Template #1 - Group C) */
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                        {filteredInCat.slice(0, 3).map((sub, idx) => {
+                          const SubIcon = getIconComp(sub.icon);
+                          return (
+                            <div
+                              key={sub.id}
+                              className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <SubIcon className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                                    {sub.label}
+                                  </div>
+                                  <div className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                                    /{sub.id}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="px-1.5 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0 tabular-nums">
+                                #{idx + 1}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
+                        <span className="text-xs font-semibold text-[#4B4452] dark:text-[#CABDE8]">
+                          {filteredInCat.length > 3
+                            ? `+${filteredInCat.length - 3} submenu lainnya terkonfigurasi dalam kategori ini`
+                            : `${filteredInCat.length} submenu terkonfigurasi dalam kategori ini`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsedSubmenuGroups(prev => ({
+                              ...prev,
+                              [cat.id]: false
+                            }))
+                          }
+                          className="mj-btn-superadmin-lilac px-3 py-1.5 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+                        >
+                          <span>Buka Seluruh {filteredInCat.length} Submenu</span>
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : isCompactUI ? (
+                    /* Mobile / Compact Responsive Submenu Cards */
+                    <div className="p-3 space-y-2.5">
+                      {filteredInCat.map(sub => {
+                        const SubIcon = getIconComp(sub.icon);
+                        const sIndex = allInCat.findIndex(s => s.id === sub.id);
+                        const isEditing = editingSubmenuId === sub.id;
+                        const isSelected = selectedSubmenuIds.includes(sub.id);
+
+                        return (
+                          <div
+                            key={sub.id}
+                            className={`p-3 rounded-xl bg-[#F8F1FF]/80 dark:bg-[#160D29] border space-y-2.5 ${
+                              sub.visible === false
+                                ? 'border-slate-200 dark:border-slate-800 opacity-60'
+                                : 'border-[#E8DDFF] dark:border-[#35105E]'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {isSuperadmin && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleSelectSubmenu(sub.id)}
+                                    className="rounded border-[#C9B6EA] text-[#58149C] focus:ring-0 cursor-pointer shrink-0"
+                                    title="Pilih untuk pindah batch"
+                                  />
+                                )}
+                                <div className="p-2 rounded-lg bg-white dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#E8DDFF] dark:border-[#35105E] shrink-0">
+                                  <SubIcon className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                                    {sub.label}
+                                  </div>
+                                  <div className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                                    /{sub.id} · #{sIndex + 1}
+                                  </div>
+                                </div>
+                              </div>
+
                               {isSuperadmin && (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={sub.visible !== false}
+                                  onClick={() => toggleSubmenuActive(sub.id)}
+                                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all cursor-pointer ${
+                                    sub.visible !== false ? 'mj-switch-track-on' : 'mj-switch-track-off'
+                                  }`}
+                                >
+                                  <span
+                                    className={`inline-block h-4 w-4 transform rounded-full mj-switch-thumb transition-transform ${
+                                      sub.visible !== false ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                  />
+                                </button>
+                              )}
+                            </div>
+
+                            {isEditing && (
+                              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+                                <input
+                                  type="text"
+                                  value={submenuDraftLabel}
+                                  onChange={e => setSubmenuDraftLabel(e.target.value)}
+                                  className="flex-1 min-w-[140px] px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                                  autoFocus
+                                />
+                                <select
+                                  value={submenuDraftIcon}
+                                  onChange={e => setSubmenuDraftIcon(e.target.value)}
+                                  className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                                >
+                                  {AVAILABLE_ICONS.map(i => (
+                                    <option key={i.name} value={i.name}>
+                                      {i.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (submenuDraftLabel.trim()) {
+                                      updateSubmenu(sub.id, {
+                                        label: submenuDraftLabel.trim(),
+                                        icon: submenuDraftIcon
+                                      });
+                                      setEditingSubmenuId(null);
+                                      toast.success('Submenu diperbarui.');
+                                    }
+                                  }}
+                                  className="p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg cursor-pointer"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSubmenuId(null)}
+                                  className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-1">
+                              {(sub.roles || []).map(role => (
+                                <span
+                                  key={role}
+                                  className="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase bg-white dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D]"
+                                >
+                                  {role.replace('_', ' ')}
+                                </span>
+                              ))}
+                            </div>
+
+                            {isSuperadmin && !isEditing && (
+                              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
                                 <select
                                   value={sub.categoryId}
                                   onChange={e => {
                                     moveSubmenuToCategory(sub.id, e.target.value);
-                                    toast.success(`Submenu dipindahkan ke kategori baru.`);
+                                    toast.success('Submenu dipindahkan ke kategori baru.');
                                   }}
-                                  className="px-2 py-1 text-[10.5px] bg-[#100921] border border-[#35105E] text-purple-200 rounded-lg focus:outline-hidden cursor-pointer"
-                                  title="Pindahkan ke Kategori Lain"
+                                  className="px-2.5 py-1 text-[10.5px] font-semibold bg-white dark:bg-[#100921] border border-[#D8CCF3] dark:border-[#35105E] text-[#1F1638] dark:text-purple-200 rounded-xl focus:outline-hidden cursor-pointer"
                                 >
                                   {sortedCategories.map(c => (
                                     <option key={c.id} value={c.id}>
@@ -1126,89 +1797,317 @@ export const NavigationConfigView: React.FC = () => {
                                     </option>
                                   ))}
                                 </select>
-                              )}
 
-                              {/* Active toggle */}
-                              {isSuperadmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleSubmenuActive(sub.id)}
-                                  className={`p-1.5 rounded-lg border cursor-pointer ${
-                                    sub.visible !== false
-                                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                                      : 'bg-slate-800 border-slate-700 text-slate-500'
-                                  }`}
-                                  title={sub.visible !== false ? 'Submenu Aktif' : 'Submenu Nonaktif'}
-                                >
-                                  {sub.visible !== false ? (
-                                    <ToggleRight className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <ToggleLeft className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                              )}
-
-                              {/* Up / Down */}
-                              {isSuperadmin && (
-                                <div className="flex items-center gap-0.5 bg-[#100921] rounded-lg p-0.5 border border-[#35105E]">
+                                <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => moveSubmenu(sub.id, 'up')}
                                     disabled={sIndex === 0}
-                                    className="p-1 text-purple-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                                    className="mj-btn-icon-3d-leader w-7 h-7 cursor-pointer"
                                   >
                                     <ArrowUp className="w-3 h-3" />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => moveSubmenu(sub.id, 'down')}
-                                    disabled={sIndex === submenusInCat.length - 1}
-                                    className="p-1 text-purple-300 hover:text-white disabled:opacity-30 cursor-pointer"
+                                    disabled={sIndex === allInCat.length - 1}
+                                    className="mj-btn-icon-3d-leader w-7 h-7 cursor-pointer"
                                   >
                                     <ArrowDown className="w-3 h-3" />
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingSubmenuId(sub.id);
+                                      setSubmenuDraftLabel(sub.label);
+                                      setSubmenuDraftIcon(sub.icon || 'FileText');
+                                    }}
+                                    className="mj-btn-icon-3d-leader w-7 h-7 cursor-pointer"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingSubmenu(sub)}
+                                    className="w-7 h-7 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-300 dark:border-rose-800/70 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
                                 </div>
-                              )}
-
-                              {/* Edit */}
-                              {isSuperadmin && !isEditing && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingSubmenuId(sub.id);
-                                    setSubmenuDraftLabel(sub.label);
-                                    setSubmenuDraftIcon(sub.icon || 'FileText');
-                                  }}
-                                  className="p-1.5 text-purple-300 hover:text-white hover:bg-[#35105E] rounded-lg cursor-pointer"
-                                  title="Edit Submenu"
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                </button>
-                              )}
-
-                              {/* Delete */}
-                              {isSuperadmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingSubmenu(sub)}
-                                  className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 rounded-lg cursor-pointer"
-                                  title="Hapus Submenu"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Desktop Submenu Table matching Stitch Template #1 */
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                            <th className="py-2.5 px-3 w-20 text-center">Urutan</th>
+                            <th className="py-2.5 px-3 min-w-[200px]">Submenu &amp; Endpoint ID</th>
+                            <th className="py-2.5 px-3 min-w-[180px]">Granular Role Access</th>
+                            <th className="py-2.5 px-3 w-44">Pindah Kategori</th>
+                            <th className="py-2.5 px-3 w-20 text-center">Status</th>
+                            <th className="py-2.5 px-3 w-36 text-right">Aksi Manajemen</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2D1754] text-xs">
+                          {filteredInCat.map(sub => {
+                            const SubIcon = getIconComp(sub.icon);
+                            const sIndex = allInCat.findIndex(s => s.id === sub.id);
+                            const isEditing = editingSubmenuId === sub.id;
+                            const isSelected = selectedSubmenuIds.includes(sub.id);
+
+                            return (
+                              <tr
+                                key={sub.id}
+                                draggable={isSuperadmin && !isSubmenuFiltered}
+                                onDragStart={() => handleDragStart('submenu', sub.id, cat.id)}
+                                onDragOver={e => e.preventDefault()}
+                                onDrop={() => {
+                                  if (!isSubmenuFiltered) {
+                                    handleDropSubmenu(cat.id, sIndex);
+                                  }
+                                }}
+                                className={`group transition-colors hover:bg-[#F8F1FF]/80 dark:hover:bg-[#1E1238]/75 ${
+                                  sub.visible === false ? 'opacity-60' : ''
+                                }`}
+                              >
+                                <td className="py-2.5 px-3 text-center">
+                                  <div className="inline-flex items-center justify-center gap-1.5">
+                                    {isSuperadmin && (
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => handleToggleSelectSubmenu(sub.id)}
+                                        className="rounded border-[#C9B6EA] text-[#58149C] focus:ring-0 cursor-pointer"
+                                        title="Pilih untuk pindah batch"
+                                      />
+                                    )}
+                                    {isSuperadmin && !isSubmenuFiltered && (
+                                      <GripVertical className="w-3.5 h-3.5 text-[#CEC3D4] group-hover:text-[#58149C] dark:text-purple-500/60 dark:group-hover:text-[#DAB9FF] cursor-grab" />
+                                    )}
+                                    <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                                      #{sIndex + 1}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="p-2 rounded-lg bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#E8DDFF] dark:border-[#35105E] shrink-0">
+                                      <SubIcon className="w-3.5 h-3.5" />
+                                    </div>
+                                    {isEditing ? (
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <input
+                                          type="text"
+                                          value={submenuDraftLabel}
+                                          onChange={e => setSubmenuDraftLabel(e.target.value)}
+                                          className="px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                                          autoFocus
+                                        />
+                                        <select
+                                          value={submenuDraftIcon}
+                                          onChange={e => setSubmenuDraftIcon(e.target.value)}
+                                          className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                                        >
+                                          {AVAILABLE_ICONS.map(i => (
+                                            <option key={i.name} value={i.name}>
+                                              {i.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (submenuDraftLabel.trim()) {
+                                              updateSubmenu(sub.id, {
+                                                label: submenuDraftLabel.trim(),
+                                                icon: submenuDraftIcon
+                                              });
+                                              setEditingSubmenuId(null);
+                                              toast.success('Submenu diperbarui.');
+                                            }
+                                          }}
+                                          className="p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg cursor-pointer"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingSubmenuId(null)}
+                                          className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg cursor-pointer"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-[#1F1638] dark:text-white truncate">
+                                          {sub.label}
+                                        </div>
+                                        <div className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                                          /{sub.id}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  <div className="flex flex-wrap gap-1">
+                                    {(sub.roles || []).map(role => (
+                                      <span
+                                        key={role}
+                                        className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase ${
+                                          role === 'super_admin'
+                                            ? 'bg-[#58149C] text-white dark:bg-[#7135B5]'
+                                            : 'bg-[#F8F1FF] text-[#4B4452] border border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
+                                        }`}
+                                      >
+                                        {role.replace('_', ' ')}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+
+                                <td className="py-2.5 px-3">
+                                  {isSuperadmin ? (
+                                    <select
+                                      value={sub.categoryId}
+                                      onChange={e => {
+                                        moveSubmenuToCategory(sub.id, e.target.value);
+                                        toast.success('Submenu dipindahkan ke kategori baru.');
+                                      }}
+                                      className="w-full px-2 py-1.5 text-[10.5px] font-semibold bg-white dark:bg-[#100921] border border-[#D8CCF3] dark:border-[#35105E] text-[#1F1638] dark:text-purple-200 rounded-xl focus:outline-hidden cursor-pointer"
+                                      title="Pindahkan ke Kategori Lain"
+                                    >
+                                      {sortedCategories.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                          {c.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-[11px] font-semibold text-[#4B4452] dark:text-[#CABDE8]">
+                                      {cat.name}
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-2.5 px-3 text-center">
+                                  {isSuperadmin ? (
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={sub.visible !== false}
+                                      onClick={() => toggleSubmenuActive(sub.id)}
+                                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all cursor-pointer ${
+                                        sub.visible !== false ? 'mj-switch-track-on' : 'mj-switch-track-off'
+                                      }`}
+                                      title={sub.visible !== false ? 'Submenu Aktif' : 'Submenu Nonaktif'}
+                                    >
+                                      <span
+                                        className={`inline-block h-4 w-4 transform rounded-full mj-switch-thumb transition-transform ${
+                                          sub.visible !== false ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                      />
+                                    </button>
+                                  ) : (
+                                    <span className="text-[11px] font-bold">
+                                      {sub.visible !== false ? 'Aktif' : 'Nonaktif'}
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-2.5 px-3 text-right">
+                                  {isSuperadmin && !isEditing && (
+                                    <div className="inline-flex items-center justify-end gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => moveSubmenu(sub.id, 'up')}
+                                        disabled={sIndex === 0}
+                                        className="mj-btn-icon-3d-leader w-7 h-7 cursor-pointer"
+                                        title="Pindah ke Atas"
+                                      >
+                                        <ArrowUp className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => moveSubmenu(sub.id, 'down')}
+                                        disabled={sIndex === allInCat.length - 1}
+                                        className="mj-btn-icon-3d-leader w-7 h-7 cursor-pointer"
+                                        title="Pindah ke Bawah"
+                                      >
+                                        <ArrowDown className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSubmenuId(sub.id);
+                                          setSubmenuDraftLabel(sub.label);
+                                          setSubmenuDraftIcon(sub.icon || 'FileText');
+                                        }}
+                                        className="mj-btn-icon-3d-leader w-7 h-7 cursor-pointer"
+                                        title="Edit Submenu"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setDeletingSubmenu(sub)}
+                                        className="w-7 h-7 inline-flex items-center justify-center rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-300 dark:border-rose-800/70 transition-colors cursor-pointer"
+                                        title="Hapus Submenu"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
+
+      {/* ================================================================ */}
+      {/* BOTTOM DB INTEGRITY & QUICK STATS FOOTER BAR (STITCH TEMPLATES)  */}
+      {/* ================================================================ */}
+      <div className="bg-[#160D29] text-white rounded-2xl border border-[#35105E] px-4 sm:px-5 py-3.5 shadow-[0_4px_0_#0d061b] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#CABDE8]">
+          <span className="inline-flex items-center gap-1.5 font-bold text-white">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>PostgreSQL Realtime:</span>
+            <span className="font-mono text-[#DAB9FF]">app_settings / navigation_doc</span>
+          </span>
+          <span className="text-[#4B386B]">|</span>
+          <span className="font-mono text-[11px] tabular-nums text-[#EEDBFF]">
+            {sortedCategories.length} Kategori · {sortedStandaloneMenus.length} Mandiri · {(submenuItems || []).length} Submenu · v{navDocVersion}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleReloadFromCloud}
+          disabled={isCloudSyncing || isSaving}
+          className="mj-btn-superadmin-lilac px-3.5 py-2 rounded-xl text-xs font-bold gap-1.5 cursor-pointer self-start sm:self-auto shrink-0"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+          <span>Force Re-sync</span>
+        </button>
+      </div>
+
 
       {/* ================================================================ */}
       {/* MODAL: TAMBAH KATEGORI BARU                                      */}

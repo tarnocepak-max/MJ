@@ -41,7 +41,7 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
     <nav
       aria-label="Mobile Bottom Navigation"
       data-testid="android-bottom-nav"
-      className="fixed bottom-0 inset-x-0 z-35 bg-[#fdf7ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-t border-[#E8DDFF] dark:border-[#35105E] shadow-[0_-4px_18px_rgba(53,16,94,0.08)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.45)] transition-all duration-200 pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed bottom-0 inset-x-0 z-35 bg-[#fbf6ff]/78 dark:bg-[#1a103c]/68 backdrop-blur-2xl border-t border-[#E8DDFF]/80 dark:border-white/[0.14] shadow-[0_-4px_18px_rgba(53,16,94,0.08)] dark:shadow-[0_-8px_28px_rgba(0,0,0,0.4)] transition-all duration-200 pb-[env(safe-area-inset-bottom,0px)]"
     >
       <div className={`max-w-4xl mx-auto flex items-center justify-around px-2 gap-1 ${touchSizeClass}`}>
         {/* Tab 1: Dashboard */}

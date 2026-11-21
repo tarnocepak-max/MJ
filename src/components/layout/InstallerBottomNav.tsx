@@ -70,7 +70,7 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
       aria-label="Navigasi Bawah Teknisi"
       className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md pointer-events-none select-none"
     >
-      <div className="pointer-events-auto h-16 px-1.5 rounded-full bg-white/92 dark:bg-[#1E1238]/95 backdrop-blur-2xl border border-[#e8ddff]/90 dark:border-[#3b1d78] shadow-[0_16px_32px_-6px_rgba(31,22,56,0.18),0_4px_12px_rgba(88,20,156,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_16px_32px_-6px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.08)] grid grid-cols-4 items-center gap-1 transition-colors">
+      <div className="pointer-events-auto h-16 px-1.5 rounded-full bg-white/82 dark:bg-[#1a103c]/68 backdrop-blur-2xl border border-[#e8ddff]/90 dark:border-white/[0.16] shadow-[0_16px_32px_-6px_rgba(31,22,56,0.18),0_4px_12px_rgba(88,20,156,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_20px_44px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.16)] grid grid-cols-4 items-center gap-1 transition-colors">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.isActive;

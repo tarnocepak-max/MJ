@@ -339,7 +339,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
       .join(' · ');
 
     return (
-      <header className="sticky top-0 z-40 w-full pt-safe bg-[#fdf7ff]/88 dark:bg-[#160D29]/92 backdrop-blur-xl border-b border-[#e8ddff]/80 dark:border-[#35105E] shadow-[0_2px_12px_rgba(31,22,56,0.04)] transition-colors">
+      <header className="sticky top-0 z-40 w-full pt-safe bg-[#fbf6ff]/74 dark:bg-[#1a103c]/52 backdrop-blur-2xl border-b border-[#e8ddff]/80 dark:border-white/[0.14] shadow-[0_4px_20px_rgba(31,22,56,0.06)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.28)] transition-colors">
         <div className="max-w-lg md:max-w-3xl lg:max-w-6xl mx-auto h-16 px-3.5 sm:px-6 flex items-center justify-between gap-2">
           {/* Left: Stitch 3D Purple Hub + Field Dispatch + Live Telemetry */}
           <div className="flex items-center gap-2.5 min-w-0">
@@ -504,7 +504,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   return (
     <>
       <header
-        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-3 bg-[#fdf7ff]/95 dark:bg-[#160D29]/95 backdrop-blur-xl border-b border-[#e8ddff] dark:border-[#35105E] shadow-[0_1px_8px_rgba(53,16,94,0.04)] transition-colors ${
+        className={`sticky top-0 z-40 h-16 flex items-center justify-between gap-2 sm:gap-3 bg-[#fbf6ff]/74 dark:bg-[#1a103c]/52 backdrop-blur-2xl border-b border-[#e8ddff]/80 dark:border-white/[0.14] shadow-[0_4px_20px_rgba(53,16,94,0.05)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.28)] transition-colors ${
           isMobileView ? 'px-3 sm:px-4' : 'px-4 sm:px-6'
         }`}
       >

@@ -198,11 +198,13 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1220] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors selection:bg-[#2563EB] selection:text-white pt-safe pb-safe">
-      {/* Subtle Business Tech navy radial backdrop */}
-      <div className="absolute inset-0 bg-radial from-[#1E3A8A]/30 via-[#0B1220] to-[#070C16] pointer-events-none" />
-      <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#2563EB]/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#0284C7]/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#140d2d] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors selection:bg-purple-500/30 selection:text-white pt-safe pb-safe">
+      {/* Lumina Aurora Diagonal Base & Multi-Layered Ambient Radial Glows */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#1a103c] via-[#241349] to-[#120a26] pointer-events-none" />
+      <div className="absolute -top-32 right-0 w-[680px] sm:w-[850px] h-[580px] sm:h-[750px] rounded-full bg-gradient-to-br from-[#b862ff]/28 to-[#ff5db1]/20 blur-[130px] pointer-events-none" />
+      <div className="absolute top-1/3 -right-20 w-[460px] sm:w-[600px] h-[460px] sm:h-[600px] rounded-full bg-gradient-to-bl from-[#38bdf8]/20 via-[#818cf8]/15 to-transparent blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-36 -left-20 w-[560px] sm:w-[780px] h-[560px] sm:h-[780px] rounded-full bg-gradient-to-tr from-[#6366f1]/25 via-[#a855f7]/20 to-transparent blur-[150px] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.05)_0%,_transparent_60%)] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md flex flex-col items-center">
         {/* Brand Header */}
@@ -211,19 +213,19 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
             <MoraJawsLogo size="lg" showText={true} animated={true} />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#0F172A] border border-slate-700/80 rounded-full text-sky-300 text-xs font-semibold shadow-sm">
-            <Server className="w-3.5 h-3.5 text-sky-400" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/[0.10] backdrop-blur-md border border-white/[0.16] rounded-full text-cyan-200 text-xs font-semibold shadow-sm">
+            <Server className="w-3.5 h-3.5 text-[#5de6ff]" />
             <span>Dispatch & Work Order Management System</span>
           </div>
 
-          <p className="text-xs sm:text-sm text-slate-400 mt-2.5 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-white/65 mt-2.5 max-w-sm mx-auto leading-relaxed">
             Masukkan identitas akun resmi MoraJaws. Hak akses dan peran staf diverifikasi melalui Supabase Auth.
           </p>
         </div>
 
-        {/* Login Card: Dark Navy + Charcoal + Tech Blue Accent */}
-        <div className="w-full bg-[#0F172A]/95 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] p-5 sm:p-8 backdrop-blur-2xl relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#38BDF8]/60 to-transparent" />
+        {/* Login Card: Lumina Aurora Frosted Glass */}
+        <div className="w-full bg-white/[0.07] border border-white/[0.14] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.2)] p-5 sm:p-8 backdrop-blur-2xl relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#5de6ff]/50 to-transparent" />
           {error && (
             <div className="mb-5 p-3.5 bg-rose-950/60 border border-rose-800/80 rounded-xl flex items-start gap-3 text-xs text-rose-200 animate-in fade-in duration-200">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -232,11 +234,11 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
           )}
 
           {/* Supabase Auth Gateway Notice */}
-          <div className="mb-5 p-3.5 bg-[#1E293B]/80 border border-slate-700/80 rounded-xl flex items-center gap-3 text-xs text-slate-200">
-            <ShieldCheck className="w-5 h-5 text-sky-400 shrink-0" />
+          <div className="mb-5 p-3.5 bg-white/[0.05] border border-white/[0.12] rounded-xl flex items-center gap-3 text-xs text-white/90 backdrop-blur-md">
+            <ShieldCheck className="w-5 h-5 text-[#5de6ff] shrink-0" />
             <div className="leading-snug">
               <span className="font-bold text-white block">Portal Autentikasi Staf MoraJaws</span>
-              <span className="text-slate-400 text-[11px]">MoraJaws Custom Authentication &amp; Supabase PostgreSQL</span>
+              <span className="text-white/55 text-[11px]">MoraJaws Custom Authentication &amp; Supabase PostgreSQL</span>
             </div>
           </div>
 
@@ -258,7 +260,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                   placeholder="Masukkan nama pengguna atau email"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 min-h-[44px] bg-[#0B1220] border border-slate-700 rounded-xl text-sm sm:text-xs font-medium text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] focus:border-[#38BDF8] transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 min-h-[44px] bg-white/[0.06] border border-white/[0.15] rounded-xl text-sm sm:text-xs font-medium text-white placeholder-white/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] focus:outline-hidden focus:ring-2 focus:ring-purple-400/50 focus:bg-white/[0.10] transition-all"
                 />
               </div>
             </div>
@@ -269,7 +271,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                 Kata Sandi
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/45">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -279,12 +281,12 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
                   placeholder="Masukkan kata sandi akun"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-11 py-2.5 min-h-[44px] bg-[#0B1220] border border-slate-700 rounded-xl text-sm sm:text-xs font-medium text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] focus:border-[#38BDF8] transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 min-h-[44px] bg-white/[0.06] border border-white/[0.15] rounded-xl text-sm sm:text-xs font-medium text-white placeholder-white/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] focus:outline-hidden focus:ring-2 focus:ring-purple-400/50 focus:bg-white/[0.10] transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3 min-w-[44px] flex items-center justify-center text-white/50 hover:text-white transition-colors cursor-pointer"
                   title={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
                   tabIndex={-1}
                 >
@@ -295,12 +297,12 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
 
             {/* Remember session checkbox */}
             <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-300 min-h-[36px]">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none text-white/75 min-h-[36px]">
                 <input
                   type="checkbox"
                   checked={rememberSession}
                   onChange={e => setRememberSession(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-600 bg-[#0B1220] text-[#2563EB] focus:ring-[#2563EB]"
+                  className="w-4 h-4 rounded border-white/25 bg-white/10 text-purple-500 focus:ring-purple-400"
                 />
                 <span>Simpan sesi aktif terproteksi</span>
               </label>
@@ -310,7 +312,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 min-h-[48px] py-3 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] border border-blue-400/30 shadow-[0_4px_14px_rgba(37,99,235,0.35)] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+              className="w-full mt-2 min-h-[48px] py-3 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#8c4bf0] to-indigo-600 hover:brightness-110 border border-purple-300/30 shadow-[0_4px_16px_rgba(147,51,234,0.4)] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading ? (
                 <>
@@ -327,9 +329,9 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
           </form>
 
           {/* Security footnote */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-            <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
-              <Lock className="w-3.5 h-3.5 text-sky-400" />
+          <div className="mt-6 pt-5 border-t border-white/10 text-center">
+            <div className="inline-flex items-center gap-1.5 text-[11px] text-white/55">
+              <Lock className="w-3.5 h-3.5 text-[#5de6ff]" />
               <span>Akses dibatasi hanya untuk staf berwenang. Semua aktivitas diaudit.</span>
             </div>
           </div>

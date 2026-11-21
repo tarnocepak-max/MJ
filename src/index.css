@@ -108,14 +108,86 @@
   --mj-ease-tactile: cubic-bezier(0.4, 0, 0.2, 1);
   --mj-rim-leader: inset 0 1px 0 0 #dab9ff;
   --mj-rim-installer: inset 0 1px 0 0 #eedbff;
+
+  /* Lumina Aurora Layered Background Tokens (Light Mode Harmonized) */
+  --mj-aurora-bg-color: #fbf6ff;
+  --mj-aurora-text-color: #1f1638;
+  --mj-aurora-gradient:
+    radial-gradient(ellipse 90% 42% at 50% 0%, rgba(255, 255, 255, 0.72) 0%, transparent 65%),
+    radial-gradient(circle clamp(320px, 56vmax, 850px) at 88% 8%, rgba(184, 98, 255, 0.14) 0%, rgba(255, 93, 177, 0.09) 38%, transparent 72%),
+    radial-gradient(circle clamp(250px, 42vmax, 620px) at 96% 42%, rgba(56, 189, 248, 0.13) 0%, rgba(129, 140, 248, 0.09) 42%, transparent 72%),
+    radial-gradient(circle clamp(300px, 52vmax, 780px) at 8% 92%, rgba(99, 102, 241, 0.13) 0%, rgba(168, 85, 247, 0.10) 42%, transparent 74%),
+    linear-gradient(135deg, #fbf6ff 0%, #f4ebff 50%, #f8f5ff 100%);
+  --mj-glass-bg: rgba(255, 255, 255, 0.80);
+  --mj-glass-bg-subtle: rgba(248, 241, 255, 0.72);
+  --mj-glass-border: rgba(216, 180, 254, 0.48);
+  --mj-glass-shadow: 0 14px 36px -10px rgba(53, 16, 94, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+html.dark {
+  /* Lumina Aurora Layered Background Tokens (Exact Dark Reference) */
+  --mj-aurora-bg-color: #140d2d;
+  --mj-aurora-text-color: #f3effc;
+  --mj-aurora-gradient:
+    radial-gradient(ellipse 90% 44% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 62%),
+    radial-gradient(circle clamp(340px, 56vmax, 850px) at 88% 8%, rgba(184, 98, 255, 0.28) 0%, rgba(255, 93, 177, 0.18) 38%, transparent 72%),
+    radial-gradient(circle clamp(260px, 42vmax, 620px) at 96% 42%, rgba(56, 189, 248, 0.20) 0%, rgba(129, 140, 248, 0.15) 42%, transparent 72%),
+    radial-gradient(circle clamp(300px, 52vmax, 780px) at 8% 92%, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.20) 42%, transparent 74%),
+    linear-gradient(135deg, #1a103c 0%, #241349 50%, #120a26 100%);
+  --mj-glass-bg: rgba(255, 255, 255, 0.07);
+  --mj-glass-bg-subtle: rgba(255, 255, 255, 0.05);
+  --mj-glass-border: rgba(255, 255, 255, 0.14);
+  --mj-glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Tablet & Mobile Responsive Radial Focal Adjustments for Consistent Aurora Balance */
+@media (max-width: 1023px) {
+  :root {
+    --mj-aurora-gradient:
+      radial-gradient(ellipse 95% 40% at 50% 0%, rgba(255, 255, 255, 0.72) 0%, transparent 64%),
+      radial-gradient(circle 58vmax at 86% 9%, rgba(184, 98, 255, 0.14) 0%, rgba(255, 93, 177, 0.09) 38%, transparent 72%),
+      radial-gradient(circle 46vmax at 94% 44%, rgba(56, 189, 248, 0.13) 0%, rgba(129, 140, 248, 0.09) 42%, transparent 72%),
+      radial-gradient(circle 54vmax at 10% 90%, rgba(99, 102, 241, 0.13) 0%, rgba(168, 85, 247, 0.10) 42%, transparent 74%),
+      linear-gradient(135deg, #fbf6ff 0%, #f4ebff 50%, #f8f5ff 100%);
+  }
+  html.dark {
+    --mj-aurora-gradient:
+      radial-gradient(ellipse 95% 40% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 62%),
+      radial-gradient(circle 58vmax at 86% 9%, rgba(184, 98, 255, 0.27) 0%, rgba(255, 93, 177, 0.17) 38%, transparent 72%),
+      radial-gradient(circle 46vmax at 94% 44%, rgba(56, 189, 248, 0.19) 0%, rgba(129, 140, 248, 0.14) 42%, transparent 72%),
+      radial-gradient(circle 54vmax at 10% 90%, rgba(99, 102, 241, 0.24) 0%, rgba(168, 85, 247, 0.19) 42%, transparent 74%),
+      linear-gradient(135deg, #1a103c 0%, #241349 50%, #120a26 100%);
+  }
+}
+
+@media (max-width: 639px) {
+  :root {
+    --mj-aurora-gradient:
+      radial-gradient(ellipse 100% 36% at 50% 0%, rgba(255, 255, 255, 0.72) 0%, transparent 62%),
+      radial-gradient(circle 62vmax at 84% 7%, rgba(184, 98, 255, 0.15) 0%, rgba(255, 93, 177, 0.09) 38%, transparent 72%),
+      radial-gradient(circle 50vmax at 95% 42%, rgba(56, 189, 248, 0.13) 0%, rgba(129, 140, 248, 0.09) 42%, transparent 72%),
+      radial-gradient(circle 56vmax at 10% 92%, rgba(99, 102, 241, 0.14) 0%, rgba(168, 85, 247, 0.10) 42%, transparent 74%),
+      linear-gradient(135deg, #fbf6ff 0%, #f4ebff 50%, #f8f5ff 100%);
+  }
+  html.dark {
+    --mj-aurora-gradient:
+      radial-gradient(ellipse 100% 36% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+      radial-gradient(circle 62vmax at 84% 7%, rgba(184, 98, 255, 0.26) 0%, rgba(255, 93, 177, 0.16) 38%, transparent 72%),
+      radial-gradient(circle 50vmax at 95% 42%, rgba(56, 189, 248, 0.18) 0%, rgba(129, 140, 248, 0.14) 42%, transparent 72%),
+      radial-gradient(circle 56vmax at 10% 92%, rgba(99, 102, 241, 0.24) 0%, rgba(168, 85, 247, 0.18) 42%, transparent 74%),
+      linear-gradient(135deg, #1a103c 0%, #241349 50%, #120a26 100%);
+  }
 }
 
 @layer base {
   html,
   body {
     font-family: var(--font-sans);
-    background-color: #fdf7ff;
-    color: #1f1638;
+    background-color: var(--mj-aurora-bg-color);
+    background-image: var(--mj-aurora-gradient);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    color: var(--mj-aurora-text-color);
     font-size: 14px;
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
@@ -125,8 +197,32 @@
 
   html.dark,
   html.dark body {
-    background-color: #140827;
-    color: #f5eeff;
+    background-color: var(--mj-aurora-bg-color);
+    background-image: var(--mj-aurora-gradient);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    color: var(--mj-aurora-text-color);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(113, 53, 181, 0.20);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(113, 53, 181, 0.36);
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  html.dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.28);
   }
 
   h1, h2, h3, h4, .font-display {
@@ -136,6 +232,51 @@
   code, pre, .font-mono {
     font-family: var(--font-mono);
   }
+}
+
+/* Lumina Aurora Canvas & Frosted Glass Primitives */
+.mj-aurora-bg {
+  background-color: var(--mj-aurora-bg-color);
+  background-image: var(--mj-aurora-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.glass-panel {
+  background: var(--mj-glass-bg);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--mj-glass-border);
+  box-shadow: var(--mj-glass-shadow);
+}
+
+.glass-panel-subtle {
+  background: var(--mj-glass-bg-subtle);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(216, 180, 254, 0.36);
+}
+html.dark .glass-panel-subtle {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(216, 180, 254, 0.45);
+}
+html.dark .glass-pill {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 24px rgba(93, 230, 255, 0.4);
+}
+
+.glow-purple {
+  box-shadow: 0 0 28px rgba(140, 75, 240, 0.45);
 }
 
 .tabular-nums {
@@ -192,44 +333,56 @@
    MoraJaws 3D Tactile Extrusion & Kinetic Physics Primitives
    ------------------------------------------------------------- */
 .mj-tactile-card {
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 0.75rem;
   box-shadow: 0 4px 0 #e8ddff, 0 12px 24px -6px rgba(31, 22, 56, 0.06);
 }
 html.dark .mj-tactile-card {
-  background-color: #1e1238;
-  box-shadow: 0 4px 0 #2e1859, 0 12px 24px -6px rgba(0, 0, 0, 0.45);
+  background-color: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .mj-tactile-well {
-  background-color: #f8f1ff;
+  background-color: rgba(248, 241, 255, 0.76);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-radius: 0.5rem;
   box-shadow: inset 0 2px 4px rgba(31, 22, 56, 0.06);
 }
 html.dark .mj-tactile-well {
-  background-color: #160d29;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28);
 }
 
 .mj-tactile-tab-bar {
-  background-color: #f3eaff;
+  background-color: rgba(243, 234, 255, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 0.75rem;
   box-shadow: inset 0 2px 4px rgba(31, 22, 56, 0.08);
 }
 html.dark .mj-tactile-tab-bar {
-  background-color: #1a0f30;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.32);
 }
 
 .mj-tactile-tab-active {
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.94);
   color: #1f1638;
   box-shadow: 0 3px 0 #cec3d4, 0 6px 12px rgba(31, 22, 56, 0.06);
 }
 html.dark .mj-tactile-tab-active {
-  background-color: #342b4e;
-  color: #f5eeff;
-  box-shadow: 0 3px 0 #160d29, 0 6px 12px rgba(0, 0, 0, 0.35);
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #f3effc;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .mj-tactile-btn-primary {
@@ -642,14 +795,18 @@ html.dark .tactile-chip:hover:not(:disabled) {
 
 /* MoraJaws Minimal Enterprise Elevation & Component Primitives */
 .mj-enterprise-card {
-  background-color: #FFFFFF;
-  border: 1px solid #E8DDFF;
+  background-color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(232, 221, 255, 0.9);
   box-shadow: 0 4px 0 #E8DDFF, 0 12px 24px -6px rgba(31, 22, 56, 0.06);
 }
 html.dark .mj-enterprise-card {
-  background-color: #1E1238;
-  border-color: #35105E;
-  box-shadow: 0 4px 0 #160D29, 0 12px 24px -6px rgba(0, 0, 0, 0.45);
+  background-color: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .mj-btn-primary {
@@ -797,18 +954,19 @@ html.dark .mj-btn-secondary:hover:not(:disabled) {
    Custom Luxury Utility Classes
    ------------------------------------------------------------- */
 .mj-gloss-card {
-  background: linear-gradient(135deg, rgba(22, 13, 41, 0.96) 0%, rgba(53, 16, 94, 0.92) 55%, rgba(22, 13, 41, 0.98) 100%);
-  border: 1px solid rgba(216, 180, 254, 0.32);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 12px 35px -8px rgba(22, 13, 41, 0.8), 0 0 25px -4px rgba(168, 85, 247, 0.25);
+  background: linear-gradient(135deg, rgba(26, 16, 60, 0.78) 0%, rgba(36, 19, 73, 0.72) 55%, rgba(18, 10, 38, 0.82) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .mj-gloss-card-light {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.97) 0%, rgba(243, 232, 255, 0.95) 100%);
-  border: 1px solid rgba(216, 180, 254, 0.6);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 12px 35px -8px rgba(113, 53, 181, 0.15), 0 0 20px -2px rgba(168, 85, 247, 0.2);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(243, 232, 255, 0.84) 100%);
+  border: 1px solid rgba(216, 180, 254, 0.55);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 12px 35px -8px rgba(113, 53, 181, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .mj-lilac-glow {
@@ -979,32 +1137,46 @@ html.dark .tactile-debossed-input {
 }
 
 .mj-stitch-surface {
-  background-color: #fcf8ff;
-  color: #1f1638;
+  background-color: var(--mj-aurora-bg-color);
+  background-image: var(--mj-aurora-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  color: var(--mj-aurora-text-color);
 }
 html.dark .mj-stitch-surface {
-  background-color: #140827;
-  color: #f5eeff;
+  background-color: var(--mj-aurora-bg-color);
+  background-image: var(--mj-aurora-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  color: var(--mj-aurora-text-color);
 }
 
 .mj-stitch-card {
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
   border-radius: 1rem;
-  border: 1px solid rgba(113, 53, 181, 0.12);
-  box-shadow: 0 4px 20px -2px rgba(99, 74, 140, 0.08);
+  border: 1px solid rgba(216, 180, 254, 0.45);
+  box-shadow: 0 8px 24px -4px rgba(99, 74, 140, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 html.dark .mj-stitch-card {
-  background-color: #1e1238;
-  border: 1px solid rgba(91, 53, 177, 0.38);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background-color: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .mj-stitch-tonal-well {
-  background-color: #f6f0ff;
+  background-color: rgba(246, 240, 255, 0.74);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-radius: 0.75rem;
 }
 html.dark .mj-stitch-tonal-well {
-  background-color: #160d29;
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 /* Stitch Field Engineer Tactile Action Shadows */
@@ -1105,14 +1277,18 @@ html.dark .btn-3d-lilac:active:not(:disabled) {
 }
 
 .card-3d-lavender {
-  background: #ffffff;
-  border: 1px solid #e8ddff;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(232, 221, 255, 0.9);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 3px 0 #e8ddff, 0 10px 24px -8px rgba(53, 16, 94, 0.08);
 }
 html.dark .card-3d-lavender {
-  background: #1e1238;
-  border-color: #3b1d78;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 3px 0 #130926, 0 10px 24px -8px rgba(0, 0, 0, 0.4);
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 20px 50px rgba(0, 0, 0, 0.25);
 }
 
 /* =============================================================
@@ -1587,4 +1763,136 @@ html.dark .mj-btn-icon-3d-wa:hover:not(:disabled) {
   color: #ffffff;
 }
 
+/* =============================================================
+   Stitch Superadmin Setup Hub 3D Tactile Extensions
+   ============================================================= */
+.mj-btn-superadmin-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #7135b5 0%, #58149c 100%);
+  color: #ffffff;
+  border: 1px solid rgba(238, 219, 255, 0.34);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.35), 0 4px 0 0 #35105e, 0 8px 16px -4px rgba(53, 16, 94, 0.32);
+  transition: transform 80ms var(--mj-ease-tactile), box-shadow 80ms var(--mj-ease-tactile), filter 120ms ease;
+  user-select: none;
+}
+.mj-btn-superadmin-primary:hover:not(:disabled):not(.mj-btn-loading) {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.45), 0 5px 0 0 #35105e, 0 10px 20px -4px rgba(88, 20, 156, 0.38);
+}
+.mj-btn-superadmin-primary:active:not(:disabled) {
+  transform: translateY(2.5px);
+  box-shadow: inset 0 2px 4px rgba(16, 3, 32, 0.42), 0 1.5px 0 0 #35105e;
+}
 
+.mj-btn-superadmin-lilac {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f3eaff 100%);
+  color: #431599;
+  border: 1px solid #d8ccf3;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.96), 0 3px 0 0 #c9b6ea, 0 5px 10px -3px rgba(88, 20, 156, 0.1);
+  transition: transform 80ms var(--mj-ease-tactile), box-shadow 80ms var(--mj-ease-tactile), background 120ms ease, border-color 120ms ease;
+  user-select: none;
+}
+.mj-btn-superadmin-lilac:hover:not(:disabled):not(.mj-btn-loading) {
+  background: linear-gradient(180deg, #ffffff 0%, #eae0ff 100%);
+  border-color: #a380fe;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 0 #ffffff, 0 4px 0 0 #b8a6d9, 0 7px 14px -3px rgba(88, 20, 156, 0.16);
+}
+.mj-btn-superadmin-lilac:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 3px rgba(53, 16, 94, 0.12), 0 1px 0 0 #c9b6ea;
+}
+html.dark .mj-btn-superadmin-lilac {
+  background: linear-gradient(180deg, #341a5c 0%, #241142 100%);
+  color: #eedbff;
+  border-color: #5b35b1;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 3px 0 0 #120724, 0 6px 12px -3px rgba(0, 0, 0, 0.45);
+}
+html.dark .mj-btn-superadmin-lilac:hover:not(:disabled):not(.mj-btn-loading) {
+  background: linear-gradient(180deg, #422274 0%, #2f1757 100%);
+  border-color: #a380fe;
+  color: #ffffff;
+}
+html.dark .mj-btn-superadmin-lilac:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 0 0 #120724;
+}
+
+.mj-btn-superadmin-maroon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #7a1444 0%, #480123 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 218, 214, 0.24);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.28), 0 4px 0 0 #260112, 0 8px 16px -4px rgba(72, 1, 35, 0.34);
+  transition: transform 80ms var(--mj-ease-tactile), box-shadow 80ms var(--mj-ease-tactile), filter 120ms ease;
+  user-select: none;
+}
+.mj-btn-superadmin-maroon:hover:not(:disabled):not(.mj-btn-loading) {
+  filter: brightness(1.09);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.36), 0 5px 0 0 #260112;
+}
+.mj-btn-superadmin-maroon:active:not(:disabled) {
+  transform: translateY(2.5px);
+  box-shadow: inset 0 2px 4px rgba(38, 1, 18, 0.55), 0 1.5px 0 0 #260112;
+}
+
+.mj-btn-superadmin-primary:disabled,
+.mj-btn-superadmin-lilac:disabled,
+.mj-btn-superadmin-maroon:disabled {
+  background: #ede6f5 !important;
+  color: #7d7484 !important;
+  border-color: #d8ccf3 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.45);
+}
+html.dark .mj-btn-superadmin-primary:disabled,
+html.dark .mj-btn-superadmin-lilac:disabled,
+html.dark .mj-btn-superadmin-maroon:disabled {
+  background: #231838 !important;
+  color: #8a7ea6 !important;
+  border-color: #3b2a5c !important;
+  box-shadow: none !important;
+  transform: none !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+.mj-seg-track {
+  background: #f3eaff;
+  border: 1px solid #d8ccf3;
+  box-shadow: inset 0 2px 4px rgba(53, 16, 94, 0.08);
+}
+html.dark .mj-seg-track {
+  background: #120822;
+  border-color: #35105e;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.mj-switch-track-on {
+  background: linear-gradient(180deg, #7135b5 0%, #58149c 100%);
+  box-shadow: inset 0 2px 4px rgba(16, 3, 32, 0.35), 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.mj-switch-track-off {
+  background: #d8ccf3;
+  box-shadow: inset 0 2px 4px rgba(53, 16, 94, 0.16);
+}
+html.dark .mj-switch-track-off {
+  background: #2a1949;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.48);
+}
+.mj-switch-thumb {
+  background: linear-gradient(180deg, #ffffff 0%, #f3eaff 100%);
+  box-shadow: 0 2px 4px rgba(22, 13, 41, 0.35), inset 0 1px 0 #ffffff;
+}

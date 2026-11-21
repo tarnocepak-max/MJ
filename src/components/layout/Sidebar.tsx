@@ -567,11 +567,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ? 'fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-2xl'
             : isMiniMode
             ? 'relative w-[72px] shadow-none'
-            : 'relative w-72 shadow-[0_4px_24px_rgba(53,16,94,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.45)]'
-        } bg-[#FAF0FF] dark:bg-[#160D29] text-[#4b4452] dark:text-[#CEC0E8] border-r border-[#e8ddff] dark:border-[#35105E]/70 transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
+            : 'relative w-72 shadow-[0_8px_32px_rgba(53,16,94,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.28)]'
+        } bg-[#FAF0FF]/76 dark:bg-white/[0.06] backdrop-blur-2xl text-[#4b4452] dark:text-[#CEC0E8] border-r border-[#e8ddff]/85 dark:border-white/[0.14] transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
       >
         {/* 1. Sidebar Header / MoraJaws Brand Lockup */}
-        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-5 justify-between'} flex items-center bg-[#FAF0FF] dark:bg-[#160D29] border-b border-[#e8ddff]/80 dark:border-white/10 sticky top-0 z-10 shrink-0`}>
+        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-5 justify-between'} flex items-center bg-transparent dark:bg-transparent border-b border-[#e8ddff]/80 dark:border-white/[0.12] sticky top-0 z-10 shrink-0`}>
           {isMiniMode ? (
             <button
               type="button"
@@ -645,7 +645,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Console Mode & Live Topology Chip (Expanded Mode) */}
         {!isMiniMode && (
           <div className="px-4 pt-3 pb-1 shrink-0 space-y-1.5">
-            <div className="bg-white/85 dark:bg-[#22123F] rounded-xl px-3 py-2 flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_0_#E8DDFF] dark:shadow-none border border-[#e8ddff] dark:border-[#35105E]">
+            <div className="bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl rounded-xl px-3 py-2 flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_0_#E8DDFF] dark:shadow-none border border-[#e8ddff] dark:border-white/[0.12]">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#4b4452] dark:text-[#CEC0E8] truncate">
                 CONSOLE MODE
               </span>
@@ -686,7 +686,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         ) : (
-          <div className="px-4 pt-2 pb-2.5 border-b border-[#e8ddff]/80 dark:border-white/10 bg-[#FAF0FF] dark:bg-[#160D29] shrink-0">
+          <div className="px-4 pt-2 pb-2.5 border-b border-[#e8ddff]/80 dark:border-white/[0.12] bg-transparent dark:bg-transparent shrink-0">
             <div className="relative flex items-center w-full">
               <Search className="w-3.5 h-3.5 text-[#7d7484] dark:text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
               <input
@@ -1060,7 +1060,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* 4. Bottom Core Telemetry Summary & Quick Operational Escalation */}
-        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-4'} bg-[#FAF0FF] dark:bg-[#1a0f30] border-t border-[#e8ddff] dark:border-white/10 space-y-2.5 shrink-0`}>
+        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-4'} bg-white/30 dark:bg-white/[0.03] border-t border-[#e8ddff]/85 dark:border-white/[0.12] space-y-2.5 shrink-0`}>
           {isMiniMode ? (
             <div className="flex flex-col items-center gap-1.5">
               <div
@@ -1089,7 +1089,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <div className="space-y-2.5">
-              <div className="p-3 rounded-xl bg-white dark:bg-[#160D29]/85 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_2px_0_#E8DDFF] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.28)] border border-[#e8ddff] dark:border-white/10 space-y-2">
+              <div className="p-3 rounded-xl bg-white/82 dark:bg-white/[0.06] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_2px_0_#E8DDFF] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] border border-[#e8ddff] dark:border-white/[0.12] space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#1F1638] dark:text-[#D8B4FE]">
                     CORE TELEMETRY
