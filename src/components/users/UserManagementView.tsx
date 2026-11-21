@@ -183,6 +183,178 @@ export const SearchableAreaDropdown: React.FC<SearchableAreaDropdownProps> = ({
   );
 };
 
+interface SearchableContractorDropdownProps {
+  value: string;
+  onChange: (contractorName: string) => void;
+  contractors: { id?: string; name: string; code?: string }[];
+  placeholder?: string;
+  required?: boolean;
+}
+
+export const SearchableContractorDropdown: React.FC<SearchableContractorDropdownProps> = ({
+  value,
+  onChange,
+  contractors,
+  placeholder = 'Cari & pilih kontraktor / vendor...',
+  required = false
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const uniqueContractors = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { id?: string; name: string; code?: string }[] = [];
+    (contractors || []).forEach(c => {
+      const name = String(c?.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      list.push({ id: c.id, name, code: c.code });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [contractors]);
+
+  const filteredContractors = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return uniqueContractors;
+    return uniqueContractors.filter(
+      c =>
+        c.name.toLowerCase().includes(q) ||
+        String(c.code || '').toLowerCase().includes(q)
+    );
+  }, [uniqueContractors, query]);
+
+  const handleSelect = (contractorName: string) => {
+    onChange(contractorName);
+    setIsOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <div
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }}
+        className={`tactile-debossed-input w-full px-3 py-2 min-h-[40px] bg-[#f8f1ff] dark:bg-[#160d29] border rounded-xl text-[#1F1638] dark:text-white cursor-pointer flex items-center justify-between transition-colors ${
+          isOpen
+            ? 'border-[#7135B5] ring-2 ring-[#7135B5]/25'
+            : 'border-[#d8ccf3] dark:border-[#3b1d78] hover:border-[#a78bfa]'
+        }`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          <Building2 className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+          <span className={`text-xs truncate ${value ? 'font-semibold text-[#1F1638] dark:text-white' : 'text-[#7D7484] dark:text-[#A79BC0]'}`}>
+            {value || placeholder}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {value && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                onChange('');
+              }}
+              aria-label="Hapus pilihan kontraktor"
+              className="p-0.5 text-[#7D7484] hover:text-[#BA1A1A] rounded cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+          <ChevronDown className={`w-3.5 h-3.5 text-[#7D7484] dark:text-[#A79BC0] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+
+      {required && (
+        <input
+          type="text"
+          value={value}
+          onChange={() => {}}
+          required
+          className="opacity-0 absolute inset-0 pointer-events-none h-0 w-0"
+          tabIndex={-1}
+        />
+      )}
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1.5 w-full bg-white dark:bg-[#1e1238] border border-[#d8ccf3] dark:border-[#4b386b] rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div className="p-2 border-b border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29] flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0 ml-1" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Ketik nama kontraktor..."
+              className="w-full bg-transparent border-none text-xs text-[#1F1638] dark:text-white focus:outline-hidden placeholder:text-[#7D7484]"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="p-1 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white rounded cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-56 overflow-y-auto p-1 text-xs divide-y divide-[#f3eaff] dark:divide-[#2e1859]">
+            {filteredContractors.length === 0 ? (
+              <div className="py-4 px-3 text-center text-xs text-[#BA1A1A] dark:text-rose-400 font-semibold">
+                Kontraktor tidak ditemukan
+              </div>
+            ) : (
+              filteredContractors.map(contractor => {
+                const isSelected = value.trim().toLowerCase() === contractor.name.toLowerCase();
+                return (
+                  <button
+                    key={contractor.id || contractor.name}
+                    type="button"
+                    onClick={() => handleSelect(contractor.name)}
+                    className={`w-full px-3 py-2 text-left rounded-lg transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-bold'
+                        : 'hover:bg-[#f8f1ff] dark:hover:bg-[#2a174a] text-[#1F1638] dark:text-[#e9d5ff]'
+                    }`}
+                  >
+                    <span className="truncate">{contractor.name}</span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {contractor.code && (
+                        <span className="font-mono text-[10px] text-[#7D7484] dark:text-[#A79BC0]">
+                          {contractor.code}
+                        </span>
+                      )}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const isCentralOpsRole = (role: UserRole): boolean => role === 'super_admin' || role === 'dispatch';
+
 export interface UserManagementViewProps {
   onOpenRolesTab?: () => void;
 }
@@ -262,7 +434,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
   const [createPhone, setCreatePhone] = useState('');
   const [createRole, setCreateRole] = useState<UserRole>('dispatch');
   const [createContractor, setCreateContractor] = useState('');
-  const [createArea, setCreateArea] = useState(coverageAreas[0]?.name || 'Jakarta Selatan');
+  const [createArea, setCreateArea] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [createConfirmPassword, setCreateConfirmPassword] = useState('');
   const [createInitialStatus, setCreateInitialStatus] = useState<'active' | 'inactive'>('active');
@@ -270,6 +442,20 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
   const [showCreateConfirmPassword, setShowCreateConfirmPassword] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isCentralOpsRole(createRole)) {
+      setCreateContractor('');
+      setCreateArea('');
+    }
+  }, [createRole]);
+
+  useEffect(() => {
+    if (isCentralOpsRole(editRole)) {
+      setEditContractor('');
+      setEditArea('');
+    }
+  }, [editRole]);
 
   const triggerNotice = (type: 'success' | 'error', text: string) => {
     setNotice({ type, text });
@@ -377,9 +563,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
 
     const areaMap = new Map<string, { total: number; active: number }>();
     users
-      .filter(u => !u.isArchived)
+      .filter(u => !u.isArchived && !isCentralOpsRole(u.role))
       .forEach(u => {
-        const areaName = (u.area || '').trim() || 'NOC Pusat';
+        const areaName = (u.area || '').trim();
+        if (!areaName) return;
         const cur = areaMap.get(areaName) || { total: 0, active: 0 };
         cur.total += 1;
         if (u.active && !isUserLocked(u)) cur.active += 1;
@@ -436,8 +623,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
     setEditName(user.name);
     setEditUsername(user.username);
     setEditRole(user.role);
-    setEditContractor(user.contractor || '');
-    setEditArea(user.area || '');
+    setEditContractor(isCentralOpsRole(user.role) ? '' : user.contractor || '');
+    setEditArea(isCentralOpsRole(user.role) ? '' : user.area || '');
     setEditPhone(user.phone || '');
     setEditEmail(user.email || '');
     setEditActive(user.active);
@@ -455,6 +642,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       return;
     }
 
+    if ((editRole === 'leader' || editRole === 'installer') && !editContractor.trim()) {
+      toast.error('Kontraktor / Vendor wajib dipilih untuk role Leader atau Installer.', 'Validasi Gagal');
+      return;
+    }
+
     const duplicateUser = users.find(
       u =>
         u.id !== editingUser.id &&
@@ -469,14 +661,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       return;
     }
 
+    const hideScopeFields = isCentralOpsRole(editRole);
+    const nextContractor = hideScopeFields ? '' : editContractor.trim();
+    const nextArea = hideScopeFields ? '' : editArea.trim();
+
     setIsUpdating(true);
     try {
       const apiRes = await adminUpdateUser(editingUser.id, {
         name: trimmedName,
         username: cleanUsername,
         role: editRole,
-        contractor: editContractor.trim() || undefined,
-        area: editArea.trim() || undefined,
+        contractor: nextContractor || undefined,
+        area: nextArea || undefined,
         phone: editPhone.trim() || undefined,
         email: editEmail.trim() || undefined,
         active: editActive
@@ -486,8 +682,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
         name: trimmedName,
         username: cleanUsername,
         role: editRole,
-        contractor: editContractor.trim() || undefined,
-        area: editArea.trim() || undefined,
+        contractor: nextContractor || undefined,
+        area: nextArea || undefined,
         phone: editPhone.trim() || undefined,
         email: editEmail.trim() || undefined,
         active: editActive
@@ -603,7 +799,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
     setCreatePhone('');
     setCreateRole('dispatch');
     setCreateContractor('');
-    setCreateArea(coverageAreas[0]?.name || 'Jakarta Selatan');
+    setCreateArea('');
     setCreatePassword('');
     setCreateConfirmPassword('');
     setCreateInitialStatus('active');
@@ -670,14 +866,27 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       return;
     }
 
+    const hideScopeFields = isCentralOpsRole(createRole);
+
     if ((createRole === 'leader' || createRole === 'installer') && !createContractor.trim()) {
-      setCreateError('Vendor Mitra / Kontraktor wajib diisi untuk role Leader Area atau Teknisi / Installer.');
+      setCreateError('Vendor Mitra / Kontraktor wajib dipilih untuk role Leader Area atau Teknisi / Installer.');
       return;
     }
 
-    const matchedContractor = contractors.find(
-      c => c.name.trim().toLowerCase() === createContractor.trim().toLowerCase()
-    );
+    const matchedContractor = !hideScopeFields
+      ? contractors.find(
+          c => c.name.trim().toLowerCase() === createContractor.trim().toLowerCase()
+        )
+      : undefined;
+
+    if (
+      (createRole === 'leader' || createRole === 'installer') &&
+      contractors.length > 0 &&
+      !matchedContractor
+    ) {
+      setCreateError('Pilih nama Kontraktor / Vendor yang terdaftar melalui kolom pencarian.');
+      return;
+    }
 
     setIsCreatingUser(true);
     try {
@@ -688,9 +897,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
         altEmail: createAltEmail.trim() || undefined,
         phone: createPhone.trim() || undefined,
         role: createRole,
-        contractor: createContractor.trim() || undefined,
+        contractor: hideScopeFields ? undefined : createContractor.trim() || undefined,
         contractorId: matchedContractor?.id,
-        area: createArea.trim() || undefined,
+        area: hideScopeFields ? undefined : createArea.trim() || undefined,
         password: createPassword
       });
 
@@ -1482,16 +1691,21 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   label: 'Area / Basecamp Mitra',
                   priority: 'primary',
                   sortable: true,
-                  render: u => (
-                    <div>
-                      <div className="font-bold text-[#1F1638] dark:text-white text-xs">
-                        {u.area || (u.role === 'super_admin' || u.role === 'dispatch' ? 'NOC Pusat' : '-')}
+                  render: u =>
+                    isCentralOpsRole(u.role) ? (
+                      <span className="text-[11px] font-semibold text-[#7D7484] dark:text-[#A79BC0]">
+                        Akses Sistem Pusat
+                      </span>
+                    ) : (
+                      <div>
+                        <div className="font-bold text-[#1F1638] dark:text-white text-xs">
+                          {u.area || '-'}
+                        </div>
+                        <div className="text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                          {u.contractor || '-'}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
-                        {u.contractor || (u.role === 'super_admin' || u.role === 'dispatch' ? 'MoraJaws Core' : '-')}
-                      </div>
-                    </div>
-                  )
+                    )
                 },
                 {
                   key: 'active',
@@ -1726,7 +1940,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                           <div className="min-w-0">
                             <div className="text-xs font-bold text-white truncate">{op.name}</div>
                             <div className="text-[10.5px] text-[#EEDBFF]/80 truncate">
-                              {op.area || 'NOC Pusat'} · {op.role.replace('_', ' ')}
+                              {!isCentralOpsRole(op.role) && op.area ? `${op.area} · ` : ''}
+                              {op.role.replace('_', ' ')}
                             </div>
                           </div>
                         </div>
@@ -2288,56 +2503,47 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 })()}
               </div>
 
-              {/* SECTION C: Penempatan Wilayah & Kemitraan */}
-              <div className="space-y-3 pt-1">
-                <span className="text-[10.5px] text-[#6A46C1] dark:text-[#DAB9FF] uppercase tracking-widest font-extrabold flex items-center gap-1.5">
-                  <span className="w-1.5 h-3.5 rounded-full bg-[#7135B5] dark:bg-[#A380FE]" />
-                  Bagian C: Penempatan Wilayah &amp; Kemitraan
-                </span>
+              {/* SECTION C: Penempatan Wilayah & Kemitraan (Disembunyikan untuk Superadmin & Dispatch) */}
+              {!isCentralOpsRole(createRole) && (
+                <div className="space-y-3 pt-1">
+                  <span className="text-[10.5px] text-[#6A46C1] dark:text-[#DAB9FF] uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+                    <span className="w-1.5 h-3.5 rounded-full bg-[#7135B5] dark:bg-[#A380FE]" />
+                    Bagian C: Penempatan Wilayah &amp; Kemitraan
+                  </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#1F1638] dark:text-white font-bold">
-                      Area / Cluster Regional {(createRole === 'leader' || createRole === 'installer') && <span className="text-[#BA1A1A]">*</span>}
-                    </label>
-                    <SearchableAreaDropdown
-                      value={createArea}
-                      onChange={setCreateArea}
-                      areas={coverageAreas}
-                      placeholder="Pilih atau cari area..."
-                      required={createRole === 'leader' || createRole === 'installer'}
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#1F1638] dark:text-white font-bold" htmlFor="stitch-contractor">
-                      Vendor Mitra / Basecamp {(createRole === 'leader' || createRole === 'installer') && <span className="text-[#BA1A1A]">*</span>}
-                    </label>
-                    <div className="relative">
-                      <Building2 className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        id="stitch-contractor"
-                        type="text"
-                        list="morajaws-contractors-list"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-[#1F1638] dark:text-white font-bold">
+                        Area / Cluster Regional {(createRole === 'leader' || createRole === 'installer') && <span className="text-[#BA1A1A]">*</span>}
+                      </label>
+                      <SearchableAreaDropdown
+                        value={createArea}
+                        onChange={setCreateArea}
+                        areas={coverageAreas}
+                        placeholder="Pilih atau cari area..."
                         required={createRole === 'leader' || createRole === 'installer'}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-[#1F1638] dark:text-white font-bold">
+                        Vendor Mitra / Contractor {(createRole === 'leader' || createRole === 'installer') && <span className="text-[#BA1A1A]">*</span>}
+                      </label>
+                      <SearchableContractorDropdown
+                        value={createContractor}
+                        onChange={setCreateContractor}
+                        contractors={contractors}
                         placeholder={
                           createRole === 'leader' || createRole === 'installer'
-                            ? 'Pilih atau ketik nama mitra wajib...'
-                            : 'Opsional (misal: MoraJaws Core / Mitra)'
+                            ? 'Cari & pilih nama kontraktor...'
+                            : 'Cari & pilih mitra (opsional)...'
                         }
-                        value={createContractor}
-                        onChange={e => setCreateContractor(e.target.value)}
-                        className="tactile-debossed-input w-full pl-9 pr-3 py-2.5 min-h-[40px] rounded-xl bg-[#FAF5FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+                        required={createRole === 'leader' || createRole === 'installer'}
                       />
-                      <datalist id="morajaws-contractors-list">
-                        {contractors.map(c => (
-                          <option key={c.id} value={c.name} />
-                        ))}
-                      </datalist>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* SECTION D: Status Awal Akun & Keamanan PostgreSQL */}
               <div className="mj-tactile-well p-4 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-3">
@@ -2673,30 +2879,34 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 </select>
               </div>
 
-              <div>
-                <label className="block text-[#1F1638] dark:text-white font-bold mb-1">
-                  Mitra Kontraktor
-                </label>
-                <input
-                  type="text"
-                  value={editContractor}
-                  onChange={e => setEditContractor(e.target.value)}
-                  placeholder="Nama vendor kontraktor"
-                  className="tactile-debossed-input w-full min-h-[40px] px-3 py-2 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white"
-                />
-              </div>
+              {!isCentralOpsRole(editRole) && (
+                <>
+                  <div>
+                    <label className="block text-[#1F1638] dark:text-white font-bold mb-1">
+                      Mitra Kontraktor {(editRole === 'leader' || editRole === 'installer') && <span className="text-[#BA1A1A]">*</span>}
+                    </label>
+                    <SearchableContractorDropdown
+                      value={editContractor}
+                      onChange={setEditContractor}
+                      contractors={contractors}
+                      placeholder="Cari & pilih kontraktor..."
+                      required={editRole === 'leader' || editRole === 'installer'}
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-[#1F1638] dark:text-white font-bold mb-1">
-                  Coverage Area
-                </label>
-                <SearchableAreaDropdown
-                  value={editArea}
-                  onChange={setEditArea}
-                  areas={coverageAreas}
-                  placeholder="Pilih atau cari area..."
-                />
-              </div>
+                  <div>
+                    <label className="block text-[#1F1638] dark:text-white font-bold mb-1">
+                      Coverage Area
+                    </label>
+                    <SearchableAreaDropdown
+                      value={editArea}
+                      onChange={setEditArea}
+                      areas={coverageAreas}
+                      placeholder="Pilih atau cari area..."
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-[#1F1638] dark:text-white font-bold mb-1">

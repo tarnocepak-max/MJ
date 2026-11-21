@@ -310,7 +310,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               : 'mj-btn-leader-neutral mj-btn-xs'
           }`}
         >
-          <span>Semua</span>
+          <span>Semua Unassigned</span>
           <span
             className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
               statusFilter === 'all' && categoryFilter === 'ALL'
@@ -318,25 +318,8 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 : 'bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]'
             }`}
           >
-            {totalScopedCount}
+            {unassignedCount}
           </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (onCategoryFilterChange) onCategoryFilterChange('ALL');
-            onStatusFilterChange(statusFilter === 'unassigned' ? 'all' : 'unassigned');
-          }}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap shrink-0 cursor-pointer ${
-            statusFilter === 'unassigned'
-              ? 'mj-btn-leader-warning mj-btn-xs'
-              : 'mj-btn-leader-neutral mj-btn-xs'
-          }`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === 'unassigned' ? 'bg-white' : 'bg-[#d97706]'}`} />
-          <span>Unassigned</span>
-          <span className="font-mono text-[10.5px] tabular-nums opacity-90">{unassignedCount}</span>
         </button>
 
         {categoryOptions.map(cat => {
@@ -422,19 +405,13 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
             <option value="4">Slot 4 (15:00 - 17:00)</option>
           </select>
 
-          {/* Status Filter */}
+          {/* Status Antrean Assign Filter (Unassigned Only) */}
           <select
-            value={statusFilter}
+            value={statusFilter === 'unassigned' ? 'unassigned' : 'all'}
             onChange={e => onStatusFilterChange(e.target.value)}
             className="px-3 py-2 bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] rounded-xl text-xs font-semibold text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] cursor-pointer"
           >
-            <option value="all">Semua Status ({totalScopedCount})</option>
-            <option value="unassigned">Unassigned ({unassignedCount})</option>
-            <option value="assigned">Assigned ({assignedCount})</option>
-            <option value="in_progress">Sedang Jalan ({inProgressCount})</option>
-            <option value="completed">Selesai ({completedCount})</option>
-            <option value="pending">Tertunda ({pendingCount})</option>
-            <option value="problem">Kendala ({problemCount})</option>
+            <option value="all">Semua Belum Ditugaskan ({unassignedCount})</option>
           </select>
 
           {/* Sub-Cluster Filter */}
@@ -964,55 +941,17 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                     </div>
                   )
                 ) : (
-                  <div className="space-y-2 pt-0.5">
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E]">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <UserCheck className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
-                        <span className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
-                          {t.installerName}
-                        </span>
-                      </div>
-                      {assignedTech && (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold font-mono tabular-nums shrink-0 ${
-                            assignedTech.isFull
-                              ? 'bg-[#ba1a1a] text-white'
-                              : 'bg-[#dcfce7] dark:bg-emerald-950/70 text-[#15803d] dark:text-emerald-300'
-                          }`}
-                        >
-                          {assignedTech.assignedCount}/{assignedTech.maxLimit} Slot
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {isLeaderRole && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenReassignModal(t)}
-                          className="mj-btn-leader-neutral mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
-                          <span>Reassign</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => onSelectTicket(t)}
-                        className="mj-btn-leader-neutral mj-btn-compact flex-1 py-2 px-3 text-xs flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Info className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
-                        <span>Detail</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onOpenWhatsAppModal(t)}
-                        title="Kirim pesan WhatsApp ke teknisi"
-                        className="mj-btn-icon-3d-wa w-10 h-10 shrink-0 cursor-pointer"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-[11px] font-semibold text-[#7d7484] dark:text-[#CEC0E8]">
+                      Sudah memiliki penugasan teknisi (kelola di Reassign WO)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onSelectTicket(t)}
+                      className="mj-btn-leader-neutral mj-btn-compact px-3 py-2 text-xs cursor-pointer"
+                    >
+                      Detail
+                    </button>
                   </div>
                 )}
               </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   AlertTriangle,
@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Search,
   ShieldAlert,
+  Trash2,
   Wrench,
   CheckCircle2,
   X
@@ -41,6 +42,7 @@ import {
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { PaginationBar } from '../common/PaginationBar';
 import { LeaderTwoStepReassignModal } from '../portals/LeaderTwoStepReassignModal';
+import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
 
 interface OverdueWorkOrdersViewProps {
   onSelectTicket: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
@@ -169,6 +171,9 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   // Leader two-step reassign modal state
   const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
   const [isReassignSubmitting, setIsReassignSubmitting] = useState(false);
+  const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
   const [quotaConfig, setQuotaConfig] = useState<LeaderQuotaConfig>(() => ({
     ...DEFAULT_LEADER_QUOTA_CONFIG,
     contractorName: currentUser.contractor || contractorsList?.[0] || ''
@@ -347,6 +352,54 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     const start = (currentPage - 1) * pageSize;
     return filteredTickets.slice(start, start + pageSize);
   }, [filteredTickets, currentPage, pageSize]);
+
+  // Clear selection when switching overdue/exception view modes and prune stale IDs
+  useEffect(() => {
+    setSelectedTicketIds([]);
+  }, [viewMode]);
+
+  useEffect(() => {
+    const validIds = new Set(filteredTickets.map(t => t.id));
+    setSelectedTicketIds(prev => {
+      const next = prev.filter(id => validIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [filteredTickets]);
+
+  const selectedIdSet = useMemo(() => new Set(selectedTicketIds), [selectedTicketIds]);
+
+  const selectedTicketsList = useMemo(
+    () => filteredTickets.filter(t => selectedIdSet.has(t.id)),
+    [filteredTickets, selectedIdSet]
+  );
+
+  const visibleTicketIds = useMemo(() => paginatedTickets.map(t => t.id), [paginatedTickets]);
+  const allVisibleSelected =
+    visibleTicketIds.length > 0 && visibleTicketIds.every(id => selectedIdSet.has(id));
+  const someVisibleSelected =
+    visibleTicketIds.some(id => selectedIdSet.has(id)) && !allVisibleSelected;
+
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  const toggleSelectOne = (ticketId: string) => {
+    setSelectedTicketIds(prev =>
+      prev.includes(ticketId) ? prev.filter(id => id !== ticketId) : [...prev, ticketId]
+    );
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (visibleTicketIds.length === 0) return;
+    if (allVisibleSelected) {
+      const visibleSet = new Set(visibleTicketIds);
+      setSelectedTicketIds(prev => prev.filter(id => !visibleSet.has(id)));
+    } else {
+      setSelectedTicketIds(prev => Array.from(new Set([...prev, ...visibleTicketIds])));
+    }
+  };
 
   const leaderInstallers = useMemo(() => {
     if (!isLeaderRole) return [];
@@ -797,6 +850,45 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         </div>
       </div>
 
+      {/* Bulk Selection Action Toolbar */}
+      {selectedTicketIds.length > 0 && (
+        <div className="bg-[#FDF7FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#58149C] text-white font-mono font-extrabold tabular-nums">
+              {selectedTicketIds.length} WO Overdue dipilih
+            </span>
+            {filteredTickets.length > selectedTicketIds.length && (
+              <button
+                type="button"
+                onClick={() => setSelectedTicketIds(filteredTickets.map(t => t.id))}
+                className="text-xs font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+              >
+                Pilih semua ({filteredTickets.length})
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedTicketIds([])}
+              className="text-xs font-semibold text-[#7D7484] dark:text-[#CEC0E8] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+            >
+              Batal Pilih
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={isDeleteModalOpen}
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="btn-3d-crimson px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Hapus WO Overdue ({selectedTicketIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Results Area */}
       {filteredTickets.length === 0 ? (
         <div className="bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl p-10 text-center space-y-3">
@@ -830,6 +922,23 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         </div>
       ) : isCompactUI ? (
         <div className="space-y-3">
+          <div className="flex items-center justify-between px-1 text-xs">
+            <label className="inline-flex items-center gap-2 font-bold text-[#4B4452] dark:text-[#CEC0E8] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                aria-label="Pilih semua WO overdue pada halaman ini"
+                className="w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer"
+              />
+              <span>Pilih Semua di Halaman ({visibleTicketIds.length})</span>
+            </label>
+            {selectedTicketIds.length > 0 && (
+              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                {selectedTicketIds.length} dipilih
+              </span>
+            )}
+          </div>
           {paginatedTickets.map(ticket => {
             const canReassign =
               isLeaderRole &&
@@ -837,28 +946,42 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
               Boolean(ticket.installerName) &&
               !isTicketClosed(ticket);
             const contractor = ticket.contactorName || ticket.contractorName || '-';
+            const isSelected = selectedIdSet.has(ticket.id);
             return (
               <article
                 key={ticket.id}
-                className="bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl p-4 space-y-3"
+                className={`rounded-2xl p-4 space-y-3 border transition-colors ${
+                  isSelected
+                    ? 'bg-[#F3EAFF]/80 dark:bg-[#2C1A4E] border-[#7135B5] ring-2 ring-[#7135B5]/25'
+                    : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E]'
+                }`}
               >
                 <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#F3EAFF] dark:border-[#35105E]">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => onSelectTicket(ticket, 'overview')}
-                        className="font-mono text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
-                      >
-                        {ticket.woNumber}
-                      </button>
-                      <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
-                        ID: {ticket.idCustomer || ticket.customerId || '-'}
-                      </span>
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectOne(ticket.id)}
+                      aria-label={`Pilih ${ticket.woNumber}`}
+                      className="mt-0.5 w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => onSelectTicket(ticket, 'overview')}
+                          className="font-mono text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                        >
+                          {ticket.woNumber}
+                        </button>
+                        <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                          ID: {ticket.idCustomer || ticket.customerId || '-'}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-sm text-[#1F1638] dark:text-white truncate mt-0.5">
+                        {ticket.customerName}
+                      </h3>
                     </div>
-                    <h3 className="font-bold text-sm text-[#1F1638] dark:text-white truncate mt-0.5">
-                      {ticket.customerName}
-                    </h3>
                   </div>
 
                   {viewMode === 'overdue' ? (
@@ -952,6 +1075,16 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#F8F1FF] dark:bg-[#22123F] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#4B4452] dark:text-[#CEC0E8]">
+                  <th className="pl-3.5 pr-2 py-3 w-10 text-center">
+                    <input
+                      ref={selectAllCheckboxRef}
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAllVisible}
+                      aria-label="Pilih semua WO overdue pada tabel ini"
+                      className="w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer align-middle"
+                    />
+                  </th>
                   <th className="px-3.5 py-3 whitespace-nowrap">WO Number</th>
                   <th className="px-3.5 py-3 whitespace-nowrap">Customer ID</th>
                   <th className="px-3.5 py-3 whitespace-nowrap">Customer Name</th>
@@ -976,12 +1109,26 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                     viewMode === 'overdue' &&
                     Boolean(ticket.installerName) &&
                     !isTicketClosed(ticket);
+                  const isSelected = selectedIdSet.has(ticket.id);
 
                   return (
                     <tr
                       key={ticket.id}
-                      className="hover:bg-[#FDF7FF] dark:hover:bg-[#1E1238]/70 transition-colors"
+                      className={`transition-colors ${
+                        isSelected
+                          ? 'bg-[#F3EAFF]/90 dark:bg-[#2C1A4E]'
+                          : 'hover:bg-[#FDF7FF] dark:hover:bg-[#1E1238]/70'
+                      }`}
                     >
+                      <td className="pl-3.5 pr-2 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectOne(ticket.id)}
+                          aria-label={`Pilih ${ticket.woNumber}`}
+                          className="w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer align-middle"
+                        />
+                      </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
                         <button
                           type="button"
@@ -1155,6 +1302,18 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           onConfirmReassign={handleConfirmReassign}
         />
       )}
+      {/* Authorized Soft Delete Confirmation Modal for Overdue WO */}
+      <ManagementDataDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        ticket={selectedTicketsList.length === 1 ? selectedTicketsList[0] : null}
+        selectedTickets={selectedTicketsList.length > 1 ? selectedTicketsList : []}
+        contextLabel={viewMode === 'exception' ? 'Exception WO' : 'Overdue WO'}
+        onSuccess={() => {
+          setSelectedTicketIds([]);
+          void refreshOverdueTickets();
+        }}
+      />
     </div>
   );
 };

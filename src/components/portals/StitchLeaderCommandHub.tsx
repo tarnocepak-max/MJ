@@ -2254,9 +2254,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => (onSwitchLeaderTab ? onSwitchLeaderTab('quota_settings') : onNavigate('quota_settings'))}
+                onClick={() => (onSwitchLeaderTab ? onSwitchLeaderTab('wo_assignment', 'all') : onNavigate('wo_assignment'))}
                 className="mj-btn-icon-3d-leader w-8 h-8 cursor-pointer shrink-0"
-                title="Pengaturan Kuota Harian"
+                title="Buka Assign WO"
               >
                 <PieChart className="w-4 h-4" />
               </button>

@@ -59,7 +59,6 @@ import {
   Package,
   ShieldAlert,
   SlidersHorizontal,
-  Zap,
   MoreVertical,
   Building2,
   Calendar,
@@ -74,7 +73,6 @@ import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
-import { WorkOrderQuickUpdateSheet } from '../tickets/WorkOrderQuickUpdateSheet';
 import {
   PHOTO_SLOT_DEFINITIONS,
   PhotoSlotDefinition,
@@ -194,7 +192,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   });
   const [showKendalaModal, setShowKendalaModal] = useState(false);
   const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
-  const [showQuickUpdateSheet, setShowQuickUpdateSheet] = useState(false);
   const [showEscalationMenu, setShowEscalationMenu] = useState(false);
 
   const checkInSectionRef = useRef<HTMLDetailsElement>(null);
@@ -3190,17 +3187,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                           type="button"
                           onClick={() => {
                             setShowEscalationMenu(false);
-                            setShowQuickUpdateSheet(true);
-                          }}
-                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#f8f1ff] dark:hover:bg-[#2A194B] font-semibold text-[#1f1638] dark:text-[#f5eeff] flex items-center gap-2 cursor-pointer"
-                        >
-                          <Zap className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF]" />
-                          <span>Update Status / Log Lapangan</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEscalationMenu(false);
                             setShowKendalaModal(true);
                           }}
                           className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold text-[#ba1a1a] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
@@ -3560,18 +3546,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           </div>
         </div>
       )}
-
-      {/* Quick Update Sheet */}
-      <WorkOrderQuickUpdateSheet
-        ticket={activeTicket}
-        isOpen={showQuickUpdateSheet}
-        onClose={() => setShowQuickUpdateSheet(false)}
-        onOpenFullReport={() => {
-          setShowQuickUpdateSheet(false);
-          if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-          checkoutFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }}
-      />
 
       {/* Geo-Tag Camera Modal */}
       {cameraModalSlot && (

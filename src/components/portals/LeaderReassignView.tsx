@@ -78,7 +78,6 @@ type ReassignStatusFilter =
   | 'problem'
   | 'in_progress'
   | 'waiting'
-  | 'unassigned'
   | 'reassigned';
 
 function getInitials(name?: string): string {
@@ -204,6 +203,11 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
     return map;
   }, [technicians]);
 
+  const assignedTodayTickets = useMemo(
+    () => todayTickets.filter(t => Boolean(t.installerName && t.installerName.trim())),
+    [todayTickets]
+  );
+
   const reassignedTodayCount = useMemo(() => {
     const uniqueWo = new Set<string>();
     auditFeed.forEach(item => {
@@ -212,49 +216,46 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
         if (item.woNumber || item.ticketId) uniqueWo.add(item.woNumber || item.ticketId || '');
       }
     });
-    todayTickets.forEach(t => {
+    assignedTodayTickets.forEach(t => {
       if (t.reassignedAt && t.reassignedAt.slice(0, 10) === todayWIB) {
         uniqueWo.add(t.woNumber || t.id);
       }
     });
     return uniqueWo.size;
-  }, [auditFeed, todayTickets, todayWIB]);
+  }, [auditFeed, assignedTodayTickets, todayWIB]);
 
   const eligibleCount = useMemo(
-    () => todayTickets.filter(isTicketEligibleForReassign).length,
-    [todayTickets]
+    () => assignedTodayTickets.filter(isTicketEligibleForReassign).length,
+    [assignedTodayTickets]
   );
 
   const problemCount = useMemo(
-    () => todayTickets.filter(t => isTicketEligibleForReassign(t) && isTicketProblematic(t)).length,
-    [todayTickets]
+    () => assignedTodayTickets.filter(t => isTicketEligibleForReassign(t) && isTicketProblematic(t)).length,
+    [assignedTodayTickets]
   );
 
   const filteredTickets = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return todayTickets.filter(t => {
-      // Status filter
+    return assignedTodayTickets.filter(t => {
+      // Status filter (strictly assigned WOs only)
       if (statusFilter === 'eligible' && !isTicketEligibleForReassign(t)) return false;
       if (statusFilter === 'problem' && (!isTicketEligibleForReassign(t) || !isTicketProblematic(t))) return false;
       if (
         statusFilter === 'in_progress' &&
-        (!t.installerName ||
-          (t.statusWOInstaller !== 'On Site' &&
-            t.statusWOInstaller !== 'En Route' &&
-            t.statusWOAgent !== 'In Progress'))
+        (t.statusWOInstaller !== 'On Site' &&
+          t.statusWOInstaller !== 'En Route' &&
+          t.statusWOAgent !== 'In Progress')
       ) {
         return false;
       }
       if (
         statusFilter === 'waiting' &&
-        (!t.installerName ||
-          isTicketCompletedOrClosed(t) ||
+        (isTicketCompletedOrClosed(t) ||
           t.statusWOInstaller === 'On Site' ||
           t.statusWOInstaller === 'En Route')
       ) {
         return false;
       }
-      if (statusFilter === 'unassigned' && t.installerName) return false;
       if (
         statusFilter === 'reassigned' &&
         !(t.reassignedAt || (t.assignmentHistory && t.assignmentHistory.some(h => h.sourceAction === 'reassign')))
@@ -304,7 +305,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
       return true;
     });
-  }, [todayTickets, statusFilter, slotFilter, categoryFilter, installerFilter, searchQuery]);
+  }, [assignedTodayTickets, statusFilter, slotFilter, categoryFilter, installerFilter, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTickets.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
@@ -378,12 +379,11 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
   }
   if (statusFilter !== 'eligible') {
     const statusLabels: Record<ReassignStatusFilter, string> = {
-      all: 'Semua WO Hari Ini',
+      all: 'Semua WO Ditugaskan',
       eligible: 'Aktif / Siap Reassign',
       problem: 'Kendala / Pending',
       in_progress: 'Sedang Dikerjakan',
       waiting: 'Menunggu Pengerjaan',
-      unassigned: 'Belum Di-assign',
       reassigned: 'Pernah Direassign'
     };
     activeFilterTags.push({
@@ -464,8 +464,8 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               Reassigned <span>{reassignedTodayCount}</span>
             </div>
             <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[11px] font-bold text-[#1F1638] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#BA1A1A]" />
-              Unassigned <span>{summaryMetrics.unassigned}</span>
+              <span className="w-2 h-2 rounded-full bg-[#D97706]" />
+              Kendala <span>{problemCount}</span>
             </div>
           </div>
 
@@ -519,12 +519,11 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[#1F1638] dark:text-white"
               >
                 <option value="eligible">Aktif / Siap Reassign ({eligibleCount})</option>
-                <option value="all">Semua WO Hari Ini ({todayTickets.length})</option>
+                <option value="all">Semua WO Ditugaskan ({assignedTodayTickets.length})</option>
                 <option value="problem">Kendala / Pending ({problemCount})</option>
                 <option value="in_progress">Sedang Dikerjakan</option>
                 <option value="waiting">Menunggu Pengerjaan</option>
                 <option value="reassigned">Pernah Direassign</option>
-                <option value="unassigned">Belum Di-assign ({summaryMetrics.unassigned})</option>
               </select>
 
               <select
@@ -567,7 +566,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               { id: 'eligible' as const, label: 'Siap Reassign', count: eligibleCount },
               { id: 'problem' as const, label: 'Kendala Lapangan', count: problemCount, dot: 'bg-[#D97706]' },
               { id: 'reassigned' as const, label: 'Sudah Dialihkan', count: reassignedTodayCount },
-              { id: 'all' as const, label: 'Semua WO', count: todayTickets.length }
+              { id: 'all' as const, label: 'Semua WO', count: assignedTodayTickets.length }
             ].map(chip => {
               const active = statusFilter === chip.id && categoryFilter === 'ALL';
               return (
@@ -687,27 +686,27 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               </div>
             </button>
 
-            {/* KPI 2: Unassigned WO */}
+            {/* KPI 2: Kendala / Pending Reassign */}
             <button
               type="button"
               onClick={() => {
-                setStatusFilter('unassigned');
+                setStatusFilter('problem');
                 setCurrentPage(1);
               }}
-              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] hover:border-[#BA1A1A] transition-all cursor-pointer"
+              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] hover:border-[#D97706] transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
-                  Unassigned WO
+                  Kendala / Pending
                 </span>
                 <span
                   className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                    summaryMetrics.unassigned > 0
-                      ? 'bg-[#FFDAD6] dark:bg-rose-950/60 text-[#BA1A1A] dark:text-rose-300'
+                    problemCount > 0
+                      ? 'bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300'
                       : 'bg-[#DCFCE7] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300'
                   }`}
                 >
-                  {summaryMetrics.unassigned > 0 ? (
+                  {problemCount > 0 ? (
                     <AlertCircle className="w-4 h-4" />
                   ) : (
                     <CheckCircle2 className="w-4 h-4" />
@@ -717,32 +716,24 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span
                   className={`text-2xl font-extrabold font-display tabular-nums ${
-                    summaryMetrics.unassigned > 0
-                      ? 'text-[#BA1A1A] dark:text-rose-400'
+                    problemCount > 0
+                      ? 'text-[#B45309] dark:text-amber-300'
                       : 'text-[#15803D] dark:text-emerald-300'
                   }`}
                 >
-                  {summaryMetrics.unassigned}
+                  {problemCount}
                 </span>
                 <span className="text-xs font-semibold text-[#7D7484] dark:text-[#A79BC0]">
-                  {summaryMetrics.unassigned > 0 ? 'Tiket' : 'Tertangani'}
+                  {problemCount > 0 ? 'Tiket' : 'Lancar'}
                 </span>
               </div>
               <div className="mt-2 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E] flex items-center justify-between text-[11px]">
                 <span className="text-[#4B4452] dark:text-[#CEC0E8] font-medium">
-                  {summaryMetrics.unassigned > 0 ? 'Perlu penugasan awal' : 'Antrean unassigned kosong'}
+                  {problemCount > 0 ? 'Perlu evaluasi alih teknisi' : 'Tidak ada kendala lapangan'}
                 </span>
-                {summaryMetrics.unassigned > 0 && isLeaderRole && (
-                  <span
-                    onClick={e => {
-                      e.stopPropagation();
-                      onExecuteAutoBalance();
-                    }}
-                    className="font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline"
-                  >
-                    Auto-Balance
-                  </span>
-                )}
+                <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                  Filter
+                </span>
               </div>
             </button>
 
@@ -855,12 +846,11 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] text-xs font-semibold text-[#1F1638] dark:text-white cursor-pointer"
                 >
                   <option value="eligible">Siap Reassign ({eligibleCount})</option>
-                  <option value="all">Semua WO ({todayTickets.length})</option>
+                  <option value="all">Semua WO Ditugaskan ({assignedTodayTickets.length})</option>
                   <option value="problem">Kendala / Pending ({problemCount})</option>
                   <option value="in_progress">Sedang Dikerjakan</option>
                   <option value="waiting">Menunggu Pengerjaan</option>
                   <option value="reassigned">Pernah Direassign</option>
-                  <option value="unassigned">Unassigned ({summaryMetrics.unassigned})</option>
                 </select>
               </div>
 
@@ -962,7 +952,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A79BC0] tabular-nums">
-                  {filteredTickets.length} dari {todayTickets.length} WO
+                  {filteredTickets.length} dari {assignedTodayTickets.length} WO
                 </span>
                 {hasActiveCustomFilter && (
                   <button
@@ -1049,17 +1039,6 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 <RefreshCw className={`w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>{isRefreshing ? 'Menyegarkan...' : 'Segarkan Data WO'}</span>
               </button>
-
-              {summaryMetrics.unassigned > 0 && (
-                <button
-                  type="button"
-                  onClick={onJumpToAssignTab}
-                  className="mj-btn-leader-neutral px-4 py-2.5 text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>Assign {summaryMetrics.unassigned} WO Baru</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
-                </button>
-              )}
             </div>
           </div>
 
@@ -1252,15 +1231,6 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       >
                         <ArrowRightLeft className="w-4 h-4" />
                         <span>Reassign WO</span>
-                      </button>
-                    ) : !t.installerName ? (
-                      <button
-                        type="button"
-                        onClick={onJumpToAssignTab}
-                        className="mj-btn-leader-neutral flex-1 min-h-[44px] px-4 py-2.5 text-xs flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <UserCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
-                        <span>Tugaskan di Assign WO</span>
                       </button>
                     ) : (
                       <div className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-[#F3EAFF] dark:bg-[#261942] text-[11px] font-bold text-[#7D7484] dark:text-[#CEC0E8] flex items-center justify-center">
@@ -1483,14 +1453,6 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                               <ArrowRightLeft className="w-3.5 h-3.5" />
                               <span>Reassign</span>
                             </button>
-                          ) : !t.installerName ? (
-                            <button
-                              type="button"
-                              onClick={onJumpToAssignTab}
-                              className="mj-btn-leader-neutral mj-btn-compact px-3 py-1.5 text-xs cursor-pointer"
-                            >
-                              Assign WO
-                            </button>
                           ) : (
                             <span className="text-[10.5px] font-semibold text-[#7D7484] dark:text-[#A79BC0] px-2">
                               Terkunci
@@ -1613,15 +1575,6 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     >
                       <ArrowRightLeft className="w-4 h-4" />
                       <span>Buka Form Reassign 2-Langkah</span>
-                    </button>
-                  ) : !selectedPreviewTicket.installerName ? (
-                    <button
-                      type="button"
-                      onClick={onJumpToAssignTab}
-                      className="mj-btn-leader-neutral w-full py-2.5 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <UserCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
-                      <span>Tugaskan di Assign WO</span>
                     </button>
                   ) : (
                     <div className="p-2.5 rounded-xl bg-[#F3EAFF] dark:bg-[#261942] text-center text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8]">

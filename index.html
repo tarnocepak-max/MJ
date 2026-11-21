@@ -16,6 +16,49 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="font-family:sans-serif;padding:32px;max-width:520px;margin:40px auto;border-radius:16px;background:#1a103c;color:#f8fafc;border:1px solid rgba(255,255,255,0.2)">
+        <h2 style="margin:0 0 8px 0;font-size:18px">JavaScript Diperlukan</h2>
+        <p style="margin:0;font-size:14px;opacity:0.85">Aktifkan JavaScript pada browser untuk memuat MoraJaws.</p>
+      </div>
+    </noscript>
+    <script>
+      (function () {
+        var shown = false;
+        function showBootFallback(detail) {
+          if (shown) return;
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) return;
+          shown = true;
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#1a103c 0%,#241349 50%,#120a26 100%);color:#f8fafc;font-family:"Plus Jakarta Sans",sans-serif';
+          wrap.innerHTML =
+            '<div style="max-width:460px;width:100%;padding:24px;border-radius:20px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);backdrop-filter:blur(20px);box-shadow:0 20px 45px rgba(0,0,0,0.45)">' +
+              '<div style="font-weight:800;font-size:18px;margin-bottom:8px">MoraJaws Gagal Memuat Modul Aplikasi</div>' +
+              '<p style="font-size:13px;line-height:1.5;color:#e2d9f3;margin:0 0 12px 0">Terjadi kegagalan saat memuat atau menginisialisasi aset produksi. Silakan muat ulang halaman.</p>' +
+              '<div id="mj-boot-err-detail" style="font-family:monospace;font-size:11px;padding:10px;border-radius:10px;background:rgba(0,0,0,0.35);color:#fda4af;word-break:break-word;margin-bottom:14px"></div>' +
+              '<button type="button" onclick="window.location.reload()" style="width:100%;padding:10px 14px;border-radius:9999px;border:1px solid rgba(255,255,255,0.35);background:linear-gradient(135deg,#9333ea,#6b21a8);color:#fff;font-weight:700;font-size:13px;cursor:pointer">Muat Ulang Halaman</button>' +
+            '</div>';
+          root.appendChild(wrap);
+          var detailEl = document.getElementById('mj-boot-err-detail');
+          if (detailEl) detailEl.textContent = String(detail || 'Module bootstrap error').slice(0, 240);
+        }
+        window.addEventListener('error', function (ev) {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) {
+            var msg = (ev && ev.message) || (ev && ev.target && ev.target.src ? 'Gagal memuat: ' + ev.target.src : 'Kesalahan skrip inisialisasi');
+            showBootFallback(msg);
+          }
+        }, true);
+        window.addEventListener('unhandledrejection', function (ev) {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) {
+            var reason = ev && ev.reason ? (ev.reason.message || String(ev.reason)) : 'Kesalahan async saat startup';
+            showBootFallback(reason);
+          }
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -275,6 +275,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (isDispatchOrLeader && (catId === 'cat_installer' || catId === 'installer' || catName.includes('installer'))) {
           return false;
         }
+        // Role LEADER tidak memiliki kategori Setting / Setup / Menu Tambahan
+        if (
+          userRole === 'leader' &&
+          (catId === 'menu_tambahan' ||
+            catId === 'cat_tambahan' ||
+            catId.includes('setting') ||
+            catName.includes('setting') ||
+            catName.includes('menu tambahan') ||
+            catName === 'setup')
+        ) {
+          return false;
+        }
         return true;
       })
       .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -290,8 +302,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (userRole === 'dispatch' && (subCatId === 'installer' || subId === 'report_installer' || subId === 'installer_mgmt')) {
               return false;
             }
-            // Role LEADER tidak boleh melihat report installer, hanya pendaftaran akun teknisi
-            if (userRole === 'leader' && subId === 'report_installer') {
+            // Role LEADER tidak boleh melihat report installer maupun menu setting
+            if (
+              userRole === 'leader' &&
+              (subId === 'report_installer' ||
+                subId === 'offline_sync' ||
+                subId === 'quota_settings' ||
+                subId === 'setup' ||
+                subId === 'nav_config' ||
+                subId === 'management_role' ||
+                subId === 'droplist_management' ||
+                subId === 'sound_settings' ||
+                subId.includes('setting'))
+            ) {
               return false;
             }
             // Requirement 5: WhatsApp Templates strictly for super_admin and dispatch only
@@ -641,24 +664,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : null}
           </div>
         </div>
-
-        {/* Console Mode & Live Topology Chip (Expanded Mode) */}
-        {!isMiniMode && (
-          <div className="px-4 pt-3 pb-1 shrink-0 space-y-1.5">
-            <div className="bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl rounded-xl px-3 py-2 flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_0_#E8DDFF] dark:shadow-none border border-[#e8ddff] dark:border-white/[0.12]">
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#4b4452] dark:text-[#CEC0E8] truncate">
-                CONSOLE MODE
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#EEE4FF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] text-[10px] font-bold capitalize shrink-0">
-                {userRole === 'super_admin'
-                  ? 'Superadmin'
-                  : userRole === 'dispatch'
-                  ? 'Dispatch Ops'
-                  : userRole.replace('_', ' ')}
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* 2. Global Search Bar */}
         {isMiniMode ? (
@@ -1130,21 +1135,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={() =>
-                    handleItemClick(
-                      overdueSummary.totalOverdue > 0
-                        ? 'overdue_wo'
-                        : butuhApprovalCount > 0
-                        ? 'verification_desk'
-                        : 'tickets'
-                    )
+                    handleItemClick(butuhApprovalCount > 0 ? 'verification_desk' : 'tickets')
                   }
                   className="btn-3d-darkpurple w-full py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <Zap className="w-3.5 h-3.5 text-[#D8B4FE] shrink-0" />
                   <span>
-                    {overdueSummary.totalOverdue > 0
-                      ? `Emergency Overdue (${overdueSummary.totalOverdue})`
-                      : butuhApprovalCount > 0
+                    {butuhApprovalCount > 0
                       ? `Antrean Verifikasi (${butuhApprovalCount})`
                       : 'Triage Work Orders'}
                   </span>

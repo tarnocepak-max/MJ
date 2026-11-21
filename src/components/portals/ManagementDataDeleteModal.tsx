@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Ticket } from '../../types/index.ts';
 import {
@@ -20,6 +20,7 @@ interface ManagementDataDeleteModalProps {
   onClose: () => void;
   ticket: Ticket | null;
   selectedTickets?: Ticket[];
+  contextLabel?: string;
   onSuccess?: () => void;
 }
 
@@ -28,6 +29,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
   onClose,
   ticket,
   selectedTickets = [],
+  contextLabel = 'Work Order',
   onSuccess
 }) => {
   const { currentUser, deleteTicket, bulkDeleteTickets } = useApp();
@@ -37,6 +39,15 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
   const [confirmPhrase, setConfirmPhrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setReason('');
+      setConfirmPhrase('');
+      setError(null);
+      setIsSubmitting(false);
+    }
+  }, [isOpen, ticket?.id, selectedTickets.length]);
 
   if (!isOpen) return null;
 
@@ -111,7 +122,9 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
                 </span>
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base mt-0.5">
-                {isBulk ? `Hapus ${targetCount} Work Order Terpilih` : `Hapus Work Order ${ticket?.woNumber || ''}`}
+                {isBulk
+                  ? `Hapus ${targetCount} ${contextLabel} Terpilih`
+                  : `Hapus ${contextLabel} ${ticket?.woNumber || ''}`}
               </h3>
             </div>
           </div>
@@ -192,7 +205,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
                     <span>Konfirmasi Penghapusan Massal</span>
                   </div>
                   <p className="text-[11.5px]">
-                    Anda akan menghapus <strong>{selectedTickets.length} Work Order</strong> secara bersamaan. Data akan ditandai soft delete dan dicatat dalam audit log.
+                    Anda akan menghapus <strong>{selectedTickets.length} {contextLabel}</strong> secara bersamaan. Data akan ditandai soft delete dan dicatat dalam audit log.
                   </p>
                 </div>
               )}

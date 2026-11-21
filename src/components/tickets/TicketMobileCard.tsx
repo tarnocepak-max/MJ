@@ -24,7 +24,6 @@ import {
   Calendar,
   Copy,
   Check,
-  Zap,
   ExternalLink,
   Building2
 } from 'lucide-react';
@@ -35,7 +34,6 @@ interface TicketMobileCardProps {
   onToggleSelect: (id: string) => void;
   onSelectTicket: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
   onOpenWhatsApp: (ticket: Ticket) => void;
-  onQuickUpdate?: (ticket: Ticket) => void;
 }
 
 export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
@@ -43,11 +41,10 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
   isSelected,
   onToggleSelect,
   onSelectTicket,
-  onOpenWhatsApp,
-  onQuickUpdate
+  onOpenWhatsApp
 }) => {
   const { config } = useUIConfig();
-  const { currentUser, getTicketUnreadCount } = useApp();
+  const { getTicketUnreadCount } = useApp();
   const { toast } = useToast();
   const [copiedWo, setCopiedWo] = useState(false);
 
@@ -85,11 +82,6 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
     : ticketClosed || ticket.approvalStatus === 'APPROVED'
     ? 'bg-emerald-600'
     : 'bg-[#D8CCF3] dark:bg-[#4B386B]';
-
-  const canQuickUpdate =
-    Boolean(onQuickUpdate) &&
-    !ticketClosed &&
-    currentUser?.role !== 'leader';
 
   const handleCopyWo = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -336,8 +328,8 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         </button>
       </div>
 
-      {/* Thumb-Zone Bottom CTA Row (Lihat Detail + Update Cepat) */}
-      <div className={`grid gap-2 pt-1 ${canQuickUpdate ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      {/* Thumb-Zone Bottom CTA Row (Lihat Detail) */}
+      <div className="grid grid-cols-1 gap-2 pt-1">
         <button
           type="button"
           onClick={() => onSelectTicket(ticket, 'overview')}
@@ -348,22 +340,6 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           <Eye className="w-4 h-4 shrink-0" />
           <span>Lihat Detail</span>
         </button>
-
-        {canQuickUpdate && (
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation();
-              onQuickUpdate?.(ticket);
-            }}
-            className={`btn-3d-primary flex items-center justify-center gap-1.5 px-3 rounded-xl font-bold cursor-pointer ${
-              isComfortableTouch ? 'min-h-[44px] text-xs' : 'min-h-[42px] text-[11px]'
-            }`}
-          >
-            <Zap className="w-4 h-4 shrink-0" />
-            <span>Update Cepat</span>
-          </button>
-        )}
       </div>
     </article>
   );

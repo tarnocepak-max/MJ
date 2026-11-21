@@ -26,6 +26,7 @@ import {
   buildWhatsAppClickToChatUrl,
   renderWhatsAppMessage
 } from '../../services/whatsappService';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 
 interface InstallerWhatsAppCenterProps {
   onOpenWhatsAppModal: (ticket: Ticket) => void;
@@ -57,7 +58,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
   onOpenWhatsAppModal,
   onSelectTicket
 }) => {
-  const { currentUser, tickets, templates } = useApp();
+  const { currentUser, tickets, templates, todayWIB } = useApp();
   const { isOnline } = useOfflineSync();
   const { toast } = useToast();
 
@@ -81,7 +82,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
     return false;
   };
 
-  // Strictly tickets assigned to current installer
+  // Strictly customer contacts from current installer's assigned WOs scheduled for today (Jakarta date)
   const myTickets = useMemo(() => {
     const myName = currentUser.name || '';
     const myUsername = currentUser.username || '';
@@ -90,6 +91,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
     return (tickets || []).filter(t => {
       if (t.isArchived || t.isDeleted) return false;
       if (!t.installerName && !t.assignedTo && !t.installerId) return false;
+      if (getTicketAppointmentDate(t) !== todayWIB) return false;
 
       if (t.assignedTo && (t.assignedTo === myId || t.assignedTo === myUsername)) return true;
       if (myName && isInstallerMatch(t.installerName, myName)) return true;
@@ -97,7 +99,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
 
       return false;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, currentUser, todayWIB]);
 
   const counts = useMemo(() => {
     const confirmed = myTickets.filter(t => t.statusWhatsApp === 'confirmed').length;
@@ -183,7 +185,12 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
   }, [sopTemplateOptions, selectedSopTemplateId]);
 
   useEffect(() => {
-    if (!selectedPreviewTicketId && myTickets.length > 0) {
+    if (myTickets.length === 0) {
+      if (selectedPreviewTicketId) setSelectedPreviewTicketId('');
+      return;
+    }
+    const stillValid = myTickets.some(t => t.id === selectedPreviewTicketId);
+    if (!selectedPreviewTicketId || !stillValid) {
       const priorityTicket = myTickets.find(t => t.statusWhatsApp !== 'confirmed') || myTickets[0];
       setSelectedPreviewTicketId(priorityTicket.id);
     }
@@ -361,10 +368,14 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
             <MessageSquare className="w-6 h-6" />
           </div>
           <h4 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff]">
-            Tidak Ada Work Order yang Cocok
+            {myTickets.length === 0
+              ? 'Tidak ada kontak WhatsApp dari tugas WO hari ini.'
+              : 'Tidak Ada Kontak Pelanggan yang Cocok'}
           </h4>
           <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6]">
-            Tidak ditemukan tiket pelanggan sesuai filter yang dipilih.
+            {myTickets.length === 0
+              ? 'Hanya pelanggan dari Work Order yang ditugaskan kepada Anda pada tanggal hari ini yang akan muncul di sini.'
+              : 'Tidak ditemukan kontak WhatsApp pelanggan sesuai kata kunci atau filter status hari ini.'}
           </p>
         </div>
       ) : (

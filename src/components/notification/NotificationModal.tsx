@@ -1,0 +1,96 @@
+import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
+
+interface NotificationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  variant?: 'violet' | 'danger' | 'warning' | 'success';
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  maxWidthClass?: string;
+}
+
+const MODAL_HEADER_GRADIENT: Record<NonNullable<NotificationModalProps['variant']>, string> = {
+  violet: 'mj-notif-header-glass',
+  danger: 'bg-gradient-to-r from-[#480123] via-[#93000A] to-[#BA1A1A]',
+  warning: 'bg-gradient-to-r from-[#78350F] via-[#B45309] to-[#D97706]',
+  success: 'bg-gradient-to-r from-[#064E3B] via-[#047857] to-[#10B981]'
+};
+
+export const NotificationModal: React.FC<NotificationModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  icon,
+  variant = 'violet',
+  children,
+  footer,
+  maxWidthClass = 'max-w-md'
+}) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#30104B]/45 dark:bg-black/70 backdrop-blur-[4px]"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
+        className={`w-full ${maxWidthClass} mj-notif-glass-panel rounded-[22px] overflow-hidden text-[#28203A] dark:text-white animate-in fade-in zoom-in-95 duration-200`}
+      >
+        {/* Header */}
+        <div className={`px-5 py-4 text-white flex items-center justify-between gap-3 ${MODAL_HEADER_GRADIENT[variant]}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            {icon && (
+              <div className="w-10 h-10 rounded-[14px] bg-white/16 border border-white/25 flex items-center justify-center shrink-0">
+                {icon}
+              </div>
+            )}
+            <div className="min-w-0">
+              <h3 className="font-display text-sm sm:text-base font-extrabold leading-tight truncate">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="text-[11px] text-white/80 mt-0.5 truncate">{subtitle}</p>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup dialog"
+            className="mj-notif-btn-3d-glass w-8 h-8 rounded-[11px] flex items-center justify-center cursor-pointer shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 bg-white/85 dark:bg-[#190C30]/85">{children}</div>
+
+        {/* Footer */}
+        {footer && (
+          <div className="px-5 py-3.5 bg-[#F7F4FC] dark:bg-[#140929] border-t border-[#EEE5FF] dark:border-[#3D1D72] flex flex-wrap items-center justify-end gap-2.5">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

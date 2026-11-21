@@ -111,7 +111,7 @@ import {
   classifyWorkOrderServer,
   getStrictAppointmentDateServer,
   summarizeWorkOrderClassificationsServer,
-  WoClassification
+  type WoClassification
 } from './server/woClassificationService.ts';
 import {
   DEFAULT_SLA_THRESHOLD_CONFIG,
@@ -13552,9 +13552,35 @@ export async function createExpressApp(options?: {
 
   // Mount Vite middleware in development or serve static in production
   if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    const distDir = path.join(__dirname, 'dist');
+    const distAssetsDir = path.join(distDir, 'assets');
+    const indexHtmlPath = path.join(distDir, 'index.html');
+
+    app.use('/assets', express.static(distAssetsDir, {
+      immutable: true,
+      maxAge: '1y'
+    }), (_req, res) => {
+      res.status(404).type('text/plain').send('Asset not found');
+    });
+
+    app.use(express.static(distDir, {
+      index: false
+    }));
+
+    app.get('*', (req, res) => {
+      if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
+        return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+      }
+      if (!fs.existsSync(indexHtmlPath)) {
+        console.error('[Production Static] Missing dist/index.html at:', indexHtmlPath);
+        return res.status(503).type('html').send(
+          '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
+        );
+      }
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.sendFile(indexHtmlPath);
     });
   } else if (!options?.skipVite) {
     const vite = await createViteServer({

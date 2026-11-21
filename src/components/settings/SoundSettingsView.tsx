@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { NotificationInline } from '../notification/NotificationInline';
 import {
   Volume2,
   VolumeX,
@@ -269,19 +270,15 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
 
       {/* Role & Error Status Banners */}
       {!isSuperAdmin && (
-        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 rounded-xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-300">
-          <Lock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span>
-            Mode Lihat Saja: Konfigurasi master audio &amp; pengumuman suara dikunci untuk peran Super Admin, namun Anda dapat menguji trigger notifikasi &amp; chirp secara langsung.
-          </span>
-        </div>
+        <NotificationInline
+          variant="warning"
+          message="Mode Lihat Saja"
+          detail="Konfigurasi master audio & pengumuman suara dikunci untuk peran Super Admin, namun Anda dapat menguji trigger notifikasi & chirp secara langsung."
+        />
       )}
 
       {soundError && (
-        <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2 text-xs text-[#BA1A1A] dark:text-rose-300 font-semibold">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>{soundError}</span>
-        </div>
+        <NotificationInline variant="error" message={soundError} />
       )}
 
       {/* 4 PHYSICS & ARCHITECTURE SPEC TILES */}

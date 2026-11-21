@@ -108,6 +108,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [isExecutingImport, setIsExecutingImport] = useState(false);
   const [contractorEnrollNotice, setContractorEnrollNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const batchConfirmSectionRef = useRef<HTMLDivElement>(null);
 
   // Top Tab Switcher: Import vs Export vs Riwayat & Hapus
   const [mainTab, setMainTab] = useState<'import' | 'export' | 'history_delete'>('import');
@@ -544,7 +545,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
   const existingWos = tickets.map(t => t.woNumber);
 
-  const handleParse = (textToParse?: string) => {
+  const handleParse = (textToParse?: string, shouldScrollToConfirm = false) => {
     const text = textToParse !== undefined ? textToParse : rawText;
     if (!text.trim()) {
       showToast('Masukkan data teks/tabel atau unggah file Excel/CSV terlebih dahulu.', 'warning', 'Data Kosong');
@@ -559,6 +560,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setParseResult(result);
     setImportReport(null);
     setStatusFilter('ALL');
+    if (shouldScrollToConfirm) {
+      setTimeout(() => {
+        batchConfirmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 90);
+    }
   };
 
   const processUploadedFile = (file: File) => {
@@ -1119,7 +1125,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   )}
                   <button
                     type="button"
-                    onClick={() => handleParse()}
+                    onClick={() => handleParse(undefined, true)}
                     disabled={!rawText.trim()}
                     className="btn-3d-primary px-4 py-2 disabled:opacity-40 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
@@ -1941,7 +1947,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               </div>
 
               {/* Bottom Batch Confirmation Card (Stitch Screenshot 2 Style) */}
-              <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div
+                ref={batchConfirmSectionRef}
+                className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 scroll-mt-20"
+              >
                 <div className="flex items-start sm:items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#5b35b1] flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-5 h-5" />

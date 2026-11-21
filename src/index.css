@@ -1896,3 +1896,359 @@ html.dark .mj-switch-track-off {
   background: linear-gradient(180deg, #ffffff 0%, #f3eaff 100%);
   box-shadow: 0 2px 4px rgba(22, 13, 41, 0.35), inset 0 1px 0 #ffffff;
 }
+
+/* =============================================================
+   MoraJaws Floating Navigation System (Aurora 3D Glassmorphism)
+   Dual-Theme Harmonized (Light Lavender Glass + Dark Violet Aurora)
+   ============================================================= */
+.mj-glass-capsule {
+  background: rgba(255, 255, 255, 0.80);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(216, 180, 254, 0.72);
+  box-shadow:
+    0 18px 40px -12px rgba(53, 16, 94, 0.16),
+    0 0 22px 0 rgba(168, 85, 247, 0.10),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 2px 0 rgba(88, 20, 156, 0.08);
+}
+html.dark .mj-glass-capsule {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.11) 0%,
+    rgba(24, 15, 56, 0.74) 100%
+  );
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow:
+    0 20px 45px -12px rgba(10, 5, 25, 0.62),
+    0 0 25px 0 rgba(199, 123, 233, 0.16),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.mj-floating-nav-pill-active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.44);
+  box-shadow:
+    0 6px 16px -2px rgba(109, 40, 217, 0.46),
+    0 3px 0 0 #4c1d95,
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.58);
+  transform: translateY(-1.5px);
+  transition: transform 150ms var(--mj-ease-tactile), box-shadow 150ms var(--mj-ease-tactile), filter 150ms ease;
+}
+.mj-floating-nav-pill-active:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 2px 6px -1px rgba(109, 40, 217, 0.45),
+    0 1px 0 0 #4c1d95,
+    inset 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+
+.mj-floating-nav-pill-idle {
+  background: rgba(243, 234, 255, 0.46);
+  border: 1px solid rgba(216, 180, 254, 0.38);
+  color: #4b4452;
+  transition: transform 160ms var(--mj-ease-tactile), background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.mj-floating-nav-pill-idle:hover {
+  background: rgba(238, 228, 255, 0.92);
+  border-color: rgba(163, 128, 254, 0.65);
+  color: #58149c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -3px rgba(88, 20, 156, 0.14);
+}
+.mj-floating-nav-pill-idle:active {
+  transform: translateY(1px);
+}
+html.dark .mj-floating-nav-pill-idle {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #e2d9f3;
+}
+html.dark .mj-floating-nav-pill-idle:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.26);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.45);
+}
+
+.mj-search-inset-well {
+  background: rgba(248, 241, 255, 0.88);
+  border: 1px solid rgba(216, 180, 254, 0.72);
+  box-shadow: inset 0 2px 4px rgba(53, 16, 94, 0.08);
+}
+html.dark .mj-search-inset-well {
+  background: rgba(12, 7, 29, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.52);
+}
+
+.mj-tactile-cta-pill {
+  background: linear-gradient(135deg, #9333ea 0%, #6b21a8 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  box-shadow:
+    0 6px 14px -3px rgba(147, 51, 234, 0.45),
+    0 3px 0 0 #4c1d95,
+    inset 0 1px 1px rgba(255, 255, 255, 0.50);
+  transition: transform 140ms var(--mj-ease-tactile), box-shadow 140ms var(--mj-ease-tactile), filter 140ms ease;
+}
+.mj-tactile-cta-pill:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.mj-tactile-cta-pill:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    0 2px 6px -1px rgba(147, 51, 234, 0.45),
+    0 1px 0 0 #4c1d95,
+    inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes mjSoftPulse {
+  0%, 100% { opacity: 0.88; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+.mj-glow-dot {
+  animation: mjSoftPulse 2.4s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mj-glow-dot {
+    animation: none !important;
+  }
+  .mj-floating-nav-pill-active,
+  .mj-floating-nav-pill-idle,
+  .mj-tactile-cta-pill,
+  .mj-glass-capsule,
+  .mj-notif-dropdown-enter,
+  .mj-notif-drawer-enter,
+  .mj-notif-toast-enter,
+  .mj-notif-snackbar-enter,
+  .mj-notif-badge-critical {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* =============================================================
+   MoraJaws Floating Notification Center
+   Imperial Violet + Purple Glassmorphism + Modern 3D Interface
+   ============================================================= */
+:root {
+  --mj-notif-violet: #5424A8;
+  --mj-notif-deep: #30104B;
+  --mj-notif-electric: #8648F5;
+  --mj-notif-lavender: #EEE5FF;
+  --mj-notif-bg: #F7F4FC;
+  --mj-notif-surface: #FFFFFF;
+  --mj-notif-text: #28203A;
+  --mj-notif-muted: #756C86;
+}
+
+.mj-notif-glass-panel {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(247, 244, 252, 0.92) 100%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(238, 229, 255, 0.95);
+  box-shadow:
+    0 24px 56px -14px rgba(48, 16, 75, 0.24),
+    0 10px 24px -10px rgba(84, 36, 168, 0.14),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 0 rgba(84, 36, 168, 0.06);
+}
+html.dark .mj-notif-glass-panel {
+  background: linear-gradient(165deg, rgba(36, 17, 68, 0.92) 0%, rgba(22, 11, 44, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(134, 72, 245, 0.30);
+  box-shadow:
+    0 28px 64px -12px rgba(8, 3, 20, 0.72),
+    0 8px 24px -6px rgba(134, 72, 245, 0.18),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.35);
+}
+
+.mj-notif-header-glass {
+  background: linear-gradient(135deg, #30104B 0%, #5424A8 62%, #6E33D6 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    0 8px 20px -10px rgba(48, 16, 75, 0.55);
+}
+
+.mj-notif-btn-3d {
+  background: linear-gradient(180deg, #8648F5 0%, #5424A8 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.48),
+    0 3px 0 0 #30104B,
+    0 6px 14px -4px rgba(84, 36, 168, 0.38);
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1), filter 150ms ease;
+  user-select: none;
+}
+.mj-notif-btn-3d:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.58),
+    0 4px 0 0 #30104B,
+    0 10px 18px -4px rgba(84, 36, 168, 0.44);
+}
+.mj-notif-btn-3d:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 4px rgba(48, 16, 75, 0.45),
+    0 1px 0 0 #30104B;
+}
+.mj-notif-btn-3d:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.mj-notif-btn-3d-soft {
+  background: linear-gradient(180deg, #FFFFFF 0%, #EEE5FF 100%);
+  color: #5424A8;
+  border: 1px solid #DFD0FA;
+  box-shadow:
+    inset 0 1px 0 0 #FFFFFF,
+    0 2.5px 0 0 #CFC0EC,
+    0 4px 10px -3px rgba(48, 16, 75, 0.12);
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease, background 150ms ease;
+  user-select: none;
+}
+.mj-notif-btn-3d-soft:hover:not(:disabled) {
+  background: linear-gradient(180deg, #FFFFFF 0%, #E4D6FF 100%);
+  border-color: #8648F5;
+  color: #30104B;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 #FFFFFF,
+    0 3.5px 0 0 #BEA8E8,
+    0 6px 14px -3px rgba(84, 36, 168, 0.18);
+}
+.mj-notif-btn-3d-soft:active:not(:disabled) {
+  transform: translateY(1.5px);
+  box-shadow:
+    inset 0 2px 3px rgba(48, 16, 75, 0.12),
+    0 1px 0 0 #CFC0EC;
+}
+.mj-notif-btn-3d-soft:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+html.dark .mj-notif-btn-3d-soft {
+  background: linear-gradient(180deg, rgba(66, 34, 116, 0.85) 0%, rgba(42, 19, 78, 0.92) 100%);
+  color: #EEE5FF;
+  border-color: rgba(134, 72, 245, 0.42);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    0 2.5px 0 0 #1A0933,
+    0 4px 10px -3px rgba(0, 0, 0, 0.42);
+}
+html.dark .mj-notif-btn-3d-soft:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(84, 36, 168, 0.9) 0%, rgba(48, 16, 75, 0.95) 100%);
+  border-color: #8648F5;
+  color: #FFFFFF;
+}
+
+.mj-notif-btn-3d-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.08) 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    0 2.5px 0 0 rgba(22, 6, 40, 0.45);
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1), background 150ms ease;
+  user-select: none;
+}
+.mj-notif-btn-3d-glass:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.14) 100%);
+  transform: translateY(-1px);
+}
+.mj-notif-btn-3d-glass:active:not(:disabled) {
+  transform: translateY(1.5px);
+  box-shadow: inset 0 2px 3px rgba(22, 6, 40, 0.35), 0 1px 0 0 rgba(22, 6, 40, 0.35);
+}
+
+@keyframes mjNotifDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.mj-notif-dropdown-enter {
+  animation: mjNotifDropdownIn 190ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: top right;
+}
+
+@keyframes mjNotifDrawerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.mj-notif-drawer-enter {
+  animation: mjNotifDrawerSlideIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes mjNotifToastIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.mj-notif-toast-enter {
+  animation: mjNotifToastIn 210ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes mjNotifSnackbarIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.mj-notif-snackbar-enter {
+  animation: mjNotifSnackbarIn 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes mjNotifBadgePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.92;
+  }
+}
+.mj-notif-badge-critical {
+  animation: mjNotifBadgePulse 2.1s ease-in-out infinite;
+}
+
+

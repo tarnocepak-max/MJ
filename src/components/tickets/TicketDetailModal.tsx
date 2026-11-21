@@ -61,7 +61,9 @@ import {
   History,
   ImageOff,
   Satellite,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface TicketDetailModalProps {
@@ -137,8 +139,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   // Evidence lightbox & error fallback
   const [zoomPhoto, setZoomPhoto] = useState<EvidencePhotoItem | null>(null);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [isHistoryOpen, setIsHistoryOpen] = useState(defaultTab === 'history');
 
   const chatSectionRef = useRef<HTMLDivElement>(null);
+  const historySectionRef = useRef<HTMLDivElement>(null);
 
   const unreadChatCount = ticket ? getTicketUnreadCount(ticket.id) : 0;
 
@@ -149,6 +153,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     setSelectedWoAgentStatus(getRecommendedDispatchWoAgentStatus(ticket));
     setDecisionNotes(ticket.approvalNotes || ticket.remarksAgent || '');
     setShowReportEditor(defaultTab === 'report');
+    setIsHistoryOpen(defaultTab === 'history');
     setChatInitialCategory(undefined);
     setZoomPhoto(null);
     setFailedImages({});
@@ -162,6 +167,13 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     if (defaultTab === 'chat') {
       const timer = setTimeout(() => {
         chatSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 180);
+      return () => clearTimeout(timer);
+    }
+
+    if (defaultTab === 'history') {
+      const timer = setTimeout(() => {
+        historySectionRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 180);
       return () => clearTimeout(timer);
     }
@@ -1496,52 +1508,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   )}
                 </div>
               </div>
-
-              {/* Card 4: Riwayat Transaksi, Progress Reports & Log Perubahan Tiket */}
-              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
-                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
-                      Riwayat Transaksi & Log Perubahan Tiket
-                    </h4>
-                  </div>
-                  <span className="text-[11px] font-bold text-[#8B8495] tabular-nums">
-                    {relatedActivities.length} Aktivitas · {ticket.progressReports?.length || 0} Versi Report
-                  </span>
-                </div>
-
-                {relatedActivities.length > 0 && (
-                  <div className="relative pl-6 space-y-3.5 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-[#E9E5F0] dark:before:bg-[#35105E] max-h-64 overflow-y-auto pr-1">
-                    {relatedActivities.map((act, idx) => (
-                      <div key={act.id || idx} className="relative">
-                        <span
-                          className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white dark:ring-[#1E1238] ${
-                            idx === 0 ? 'bg-[#7135B5]' : 'bg-[#3977C9]'
-                          }`}
-                        />
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[11px] font-bold text-[#35105E] dark:text-[#DAB9FF] tabular-nums">
-                            {new Date(act.timestamp).toLocaleString('id-ID')}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase text-[#8B8495]">
-                            {act.performedBy} ({act.userRole})
-                          </span>
-                        </div>
-                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5">{act.action}</div>
-                        <div className="text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">{act.description}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#8B8495] mb-2">
-                    History Progress Report & Approval Versions
-                  </div>
-                  <HistoryProgressReportView ticketId={ticket.id} compact />
-                </div>
-              </div>
             </div>
 
             {/* RIGHT COLUMN (5/12): STICKY REAL-TIME LIVECHAT */}
@@ -1593,6 +1559,75 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Bottom Collapsible Panel: Riwayat Transaksi, Progress Reports & Log Perubahan Tiket */}
+          <div
+            ref={historySectionRef}
+            className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden"
+          >
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen(prev => !prev)}
+              aria-expanded={isHistoryOpen}
+              className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5FF] dark:hover:bg-[#261942] transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <History className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF] shrink-0" />
+                <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white truncate">
+                  Riwayat Transaksi &amp; Log Perubahan Tiket
+                </h4>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className="text-[11px] font-bold text-[#8B8495] tabular-nums">
+                  {relatedActivities.length} Aktivitas · {ticket.progressReports?.length || 0} Versi Report
+                </span>
+                {isHistoryOpen ? (
+                  <ChevronUp className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                )}
+              </div>
+            </button>
+
+            {isHistoryOpen && (
+              <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 space-y-4 border-t border-[#E9E5F0] dark:border-[#35105E]">
+                {relatedActivities.length > 0 ? (
+                  <div className="relative pl-6 space-y-3.5 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-[#E9E5F0] dark:before:bg-[#35105E] max-h-64 overflow-y-auto pr-1">
+                    {relatedActivities.map((act, idx) => (
+                      <div key={act.id || idx} className="relative">
+                        <span
+                          className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white dark:ring-[#1E1238] ${
+                            idx === 0 ? 'bg-[#7135B5]' : 'bg-[#3977C9]'
+                          }`}
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[11px] font-bold text-[#35105E] dark:text-[#DAB9FF] tabular-nums">
+                            {new Date(act.timestamp).toLocaleString('id-ID')}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase text-[#8B8495]">
+                            {act.performedBy} ({act.userRole})
+                          </span>
+                        </div>
+                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5">{act.action}</div>
+                        <div className="text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">{act.description}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                    Belum ada riwayat perubahan tiket tercatat.
+                  </p>
+                )}
+
+                <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#8B8495] mb-2">
+                    History Progress Report &amp; Approval Versions
+                  </div>
+                  <HistoryProgressReportView ticketId={ticket.id} compact />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

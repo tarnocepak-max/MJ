@@ -282,7 +282,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   { id: 'droplist_management', label: 'Droplist Management', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
   { id: 'sound_settings', label: 'Pengaturan Notifikasi', category: 'Setup', order: 25, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'settings', label: 'Pengaturan Sistem', category: 'Setup', order: 26, visible: false, roles: ['super_admin'] },
-  { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 27, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 27, visible: true, roles: ['super_admin', 'dispatch'] },
 
   // =========================================================================
   // 6. MENU YANG DISEMBUNYIKAN DARI SIDEBAR (Bagian 7)

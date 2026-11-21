@@ -19,7 +19,6 @@ import {
 } from '../../services/woLifecycleService';
 import { TicketMobileCard } from './TicketMobileCard';
 import { WorkOrderFilterSheet } from './WorkOrderFilterSheet';
-import { WorkOrderQuickUpdateSheet } from './WorkOrderQuickUpdateSheet';
 import {
   Search,
   SlidersHorizontal,
@@ -233,7 +232,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   // Table presentation mode: 'stitch' (rich 9-col grouped view) vs 'canonical' (46-col configurable view)
   const [tableStyleMode, setTableStyleMode] = useState<'stitch' | 'canonical'>('stitch');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [quickUpdateTicket, setQuickUpdateTicket] = useState<Ticket | null>(null);
 
   // Switch automatically to canonical mode when user picks a non-default preset
   useEffect(() => {
@@ -2509,7 +2507,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   onToggleSelect={handleToggleSelect}
                   onSelectTicket={onSelectTicket}
                   onOpenWhatsApp={onOpenWhatsApp}
-                  onQuickUpdate={t => setQuickUpdateTicket(t)}
                 />
               ))}
             </div>
@@ -3711,14 +3708,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         }}
         ticketCategories={ticketCategories}
         onResetAll={resetAllFilters}
-      />
-
-      {/* Stitch Screen 3: Update Status Work Order Quick Sheet */}
-      <WorkOrderQuickUpdateSheet
-        ticket={quickUpdateTicket}
-        isOpen={Boolean(quickUpdateTicket)}
-        onClose={() => setQuickUpdateTicket(null)}
-        onOpenFullReport={t => onSelectTicket(t, 'report')}
       />
 
       {/* Dispatch-Exclusive Mobile Floating Action Button (+ Form Sameday) */}

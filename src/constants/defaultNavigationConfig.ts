@@ -298,7 +298,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       categoryId: 'cat_tambahan',
       order: 15,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'leader', 'installer']
+      roles: ['super_admin', 'dispatch', 'installer']
     }
   ]
 };

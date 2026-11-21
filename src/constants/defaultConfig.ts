@@ -562,7 +562,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'contractor_area',
     order: 5,
     visible: true,
-    roles: ['super_admin', 'leader']
+    roles: ['super_admin']
   },
   {
     id: 'sla_monitoring',
@@ -684,7 +684,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 10,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader']
+    roles: ['super_admin', 'dispatch']
   },
   {
     id: 'database_management',

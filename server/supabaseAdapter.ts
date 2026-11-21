@@ -5,7 +5,7 @@ import {
   attachClassificationMetadata,
   classifyWorkOrderServer,
   getJakartaDateStringServer,
-  WoClassification
+  type WoClassification
 } from './woClassificationService.ts';
 
 // ==============================================================================

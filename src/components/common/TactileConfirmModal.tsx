@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, ShieldAlert, X, CheckCircle2, Info } from 'lucide-react';
+import { NotificationInline } from '../notification/NotificationInline';
 
 export interface EscalationReasonOption {
   id: string;
@@ -81,29 +82,29 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#160D29]/70 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#30104B]/45 dark:bg-black/70 backdrop-blur-[4px] animate-in fade-in duration-150"
     >
       <div className="absolute inset-0" onClick={onClose} />
 
       <form
         onSubmit={handleSubmit}
-        className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FDF7FF] dark:bg-[#1E1238] rounded-t-[1.5rem] sm:rounded-3xl border border-[#E8DDFF] dark:border-[#5B35B1]/50 shadow-[0_-12px_40px_rgba(22,13,41,0.35),0_20px_50px_rgba(22,13,41,0.45)] overflow-hidden"
+        className="mj-sheet-enter mj-notif-glass-panel relative z-10 w-full sm:max-w-lg rounded-t-[22px] sm:rounded-[22px] overflow-hidden"
       >
         {/* Pull handle on mobile */}
         <div className="flex justify-center pt-2.5 pb-1 sm:hidden">
-          <div className="w-10 h-1.5 rounded-full bg-[#CEC3D4] dark:bg-[#4B386B]" />
+          <div className="w-10 h-1.5 rounded-full bg-[#D8C5FF] dark:bg-[#5424A8]" />
         </div>
 
         {/* Header */}
-        <div className="px-5 pt-3 pb-3.5 border-b border-[#E8DDFF] dark:border-[#35105E] flex items-start justify-between gap-3">
+        <div className="px-5 pt-3.5 pb-3.5 bg-white/75 dark:bg-[#190C30]/80 border-b border-[#EEE5FF] dark:border-[#3D1D72] flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+              className={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 border ${
                 isDanger
-                  ? 'bg-rose-50 dark:bg-rose-950/70 border-rose-200 dark:border-rose-500/40 text-[#BA1A1A] dark:text-rose-300 shadow-[0_2px_0_rgba(186,26,26,0.2)]'
+                  ? 'bg-rose-50 dark:bg-rose-950/75 border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-300'
                   : isWarning
-                  ? 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-300 shadow-[0_2px_0_rgba(217,119,6,0.2)]'
-                  : 'bg-[#F3EAFF] dark:bg-[#35105E] border-[#E8DDFF] dark:border-[#7135B5] text-[#58149C] dark:text-[#DAB9FF]'
+                  ? 'bg-amber-50 dark:bg-amber-950/75 border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-300'
+                  : 'bg-[#EEE5FF] dark:bg-[#341668] border-[#D8C5FF] dark:border-[#8648F5]/55 text-[#5424A8] dark:text-[#DEC8FF]'
               }`}
             >
               <IconComp className="w-5 h-5" />
@@ -112,15 +113,15 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
               <span
                 className={`text-[10px] font-extrabold uppercase tracking-wider block ${
                   isDanger
-                    ? 'text-[#BA1A1A] dark:text-rose-300'
+                    ? 'text-rose-700 dark:text-rose-300'
                     : isWarning
                     ? 'text-amber-700 dark:text-amber-300'
-                    : 'text-[#58149C] dark:text-[#DAB9FF]'
+                    : 'text-[#5424A8] dark:text-[#C9A8FF]'
                 }`}
               >
                 {badge}
               </span>
-              <h3 className="font-display font-bold text-[17px] text-[#1F1638] dark:text-white leading-snug mt-0.5">
+              <h3 className="font-display font-extrabold text-[17px] text-[#28203A] dark:text-white leading-snug mt-0.5">
                 {title}
               </h3>
             </div>
@@ -129,7 +130,7 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="tactile-pill-btn p-2 rounded-full bg-white dark:bg-[#2A1647] text-[#4B4452] dark:text-[#E9D5FF] border border-[#E8DDFF] dark:border-[#4B386B] cursor-pointer"
+            className="mj-notif-btn-3d-soft w-8 h-8 rounded-[11px] flex items-center justify-center cursor-pointer shrink-0"
             aria-label="Tutup dialog"
           >
             <X className="w-4 h-4" />
@@ -209,20 +210,17 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
           </div>
 
           {localError && (
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/40 text-[#BA1A1A] dark:text-rose-200 text-xs font-semibold flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{localError}</span>
-            </div>
+            <NotificationInline variant="error" message={localError} />
           )}
         </div>
 
         {/* Footer 3D Tactile Buttons */}
-        <div className="px-5 py-4 bg-white dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
+        <div className="px-5 py-4 bg-[#F7F4FC] dark:bg-[#140929] border-t border-[#EEE5FF] dark:border-[#3D1D72] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
           <button
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="tactile-btn-secondary px-4 py-2.5 min-h-[44px] rounded-xl bg-white dark:bg-[#22123F] text-[#4B4452] dark:text-[#E9D5FF] border border-[#CEC3D4] dark:border-[#4B386B] font-bold text-[13px] cursor-pointer"
+            className="mj-notif-btn-3d-soft px-4 py-2.5 min-h-[44px] rounded-[14px] font-bold text-[13px] cursor-pointer"
           >
             {cancelLabel}
           </button>
@@ -230,12 +228,12 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`px-5 py-2.5 min-h-[44px] rounded-xl font-bold text-[13px] text-white flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5 disabled:opacity-60 ${
+            className={`px-5 py-2.5 min-h-[44px] rounded-[14px] font-extrabold text-[13px] text-white flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-y-0.5 disabled:opacity-60 ${
               isDanger
-                ? 'bg-[#BA1A1A] hover:bg-[#93000A] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_4px_0_#7F1D1D]'
+                ? 'bg-gradient-to-b from-rose-500 to-rose-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_4px_0_#7F1D1D]'
                 : isWarning
-                ? 'bg-amber-600 hover:bg-amber-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_4px_0_#92400E]'
-                : 'tactile-btn-primary bg-gradient-to-r from-[#58149C] to-[#7135B5]'
+                ? 'bg-gradient-to-b from-amber-500 to-amber-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.34),0_4px_0_#92400E]'
+                : 'mj-notif-btn-3d'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />

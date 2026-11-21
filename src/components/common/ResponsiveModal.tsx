@@ -68,7 +68,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           : isFullscreenMobile
           ? 'items-stretch justify-center p-0'
           : 'items-center justify-center p-3 sm:p-5'
-      } bg-[#160D29]/75 backdrop-blur-sm transition-opacity`}
+      } bg-[#30104B]/45 dark:bg-black/70 backdrop-blur-[4px] transition-opacity`}
       onClick={() => {
         if (closeOnBackdropClick) onClose();
       }}
@@ -79,19 +79,19 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
         onClick={e => e.stopPropagation()}
         className={`relative w-full border shadow-2xl flex flex-col overflow-hidden ${
           isDarkTech
-            ? 'bg-[#160D29] text-white border-[#4B386B] shadow-[0_8px_0_#0D061A,0_24px_48px_rgba(13,6,26,0.65)]'
-            : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#3B1D78] shadow-[0_6px_0_#E8DDFF,0_24px_48px_-12px_rgba(53,16,94,0.28)] dark:shadow-[0_6px_0_#0D061A,0_24px_48px_rgba(0,0,0,0.65)]'
+            ? 'bg-[#160D29] text-white border-[#8648F5]/35 shadow-[0_24px_56px_rgba(8,3,20,0.72)]'
+            : 'bg-white/95 dark:bg-[#190C30]/95 backdrop-blur-xl border-[#EEE5FF] dark:border-[#8648F5]/30 shadow-[0_24px_56px_-12px_rgba(48,16,75,0.28)] dark:shadow-[0_24px_56px_rgba(0,0,0,0.72)]'
         } ${
           isFullscreenMobile
             ? 'h-dvh rounded-none'
             : isSheetMobile
-            ? 'max-h-[92dvh] rounded-t-2xl mj-sheet-enter'
-            : `${SIZE_MAX_WIDTH[size]} max-h-[92dvh] rounded-2xl`
+            ? 'max-h-[92dvh] rounded-t-[22px] mj-sheet-enter'
+            : `${SIZE_MAX_WIDTH[size]} max-h-[92dvh] rounded-[20px]`
         }`}
       >
         {isSheetMobile && (
           <div className="pt-2.5 pb-1 flex justify-center shrink-0">
-            <div className={`w-10 h-1 rounded-full ${isDarkTech ? 'bg-[#5B35B1]' : 'bg-[#D8CCF3] dark:bg-[#5B35B1]'}`} />
+            <div className={`w-10 h-1 rounded-full ${isDarkTech ? 'bg-[#8648F5]' : 'bg-[#D8C5FF] dark:bg-[#5424A8]'}`} />
           </div>
         )}
 
@@ -99,17 +99,17 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           <div
             className={`px-4 sm:px-5 py-3.5 border-b flex items-start justify-between gap-3 shrink-0 ${
               isDarkTech
-                ? 'border-[#35105E] bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#1A0D36]'
-                : 'border-[#E8DDFF] dark:border-[#35105E] bg-[#F8F1FF]/95 dark:bg-[#1E1238]'
+                ? 'border-[#3D1D72] bg-gradient-to-r from-[#30104B] via-[#5424A8] to-[#30104B] text-white'
+                : 'border-[#EEE5FF] dark:border-[#3D1D72] bg-[#F7F4FC]/95 dark:bg-[#1E0E3B]'
             }`}
           >
             <div className="flex items-center gap-3 min-w-0">
               {icon && (
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  className={`w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0 ${
                     isDarkTech
-                      ? 'bg-[#35105E] text-[#D8B4FE] border border-[#5B35B1]'
-                      : 'bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] border border-[#DFC7FF] dark:border-[#5B35B1]'
+                      ? 'bg-white/15 text-[#EEE5FF] border border-white/25'
+                      : 'bg-[#EEE5FF] dark:bg-[#341668] text-[#5424A8] dark:text-[#DEC8FF] border border-[#D8C5FF] dark:border-[#8648F5]/45'
                   }`}
                 >
                   {icon}
@@ -118,8 +118,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
               <div className="min-w-0">
                 {title && (
                   <h2
-                    className={`font-display font-bold text-sm sm:text-base truncate ${
-                      isDarkTech ? 'text-white' : 'text-[#1F1638] dark:text-white'
+                    className={`font-display font-extrabold text-sm sm:text-base truncate ${
+                      isDarkTech ? 'text-white' : 'text-[#28203A] dark:text-white'
                     }`}
                   >
                     {title}
@@ -128,7 +128,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
                 {subtitle && (
                   <p
                     className={`text-[11px] truncate mt-0.5 ${
-                      isDarkTech ? 'text-[#C5B3DF]' : 'text-[#7D7484] dark:text-[#C5B3DF]'
+                      isDarkTech ? 'text-[#EEE5FF]/85' : 'text-[#756C86] dark:text-[#BFB2DC]'
                     }`}
                   >
                     {subtitle}
@@ -143,10 +143,10 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Tutup dialog"
-                className={`min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-[36px] sm:min-h-[36px] rounded-xl flex items-center justify-center cursor-pointer transition-colors ${
+                className={`min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-[36px] sm:min-h-[36px] rounded-[12px] flex items-center justify-center cursor-pointer transition-all ${
                   isDarkTech
-                    ? 'bg-[#27104A] hover:bg-[#35105E] text-[#D8B4FE] hover:text-white border border-[#5B35B1]'
-                    : 'btn-3d-icon'
+                    ? 'mj-notif-btn-3d-glass'
+                    : 'mj-notif-btn-3d-soft'
                 }`}
               >
                 <X className="w-4 h-4" />
@@ -163,8 +163,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           <div
             className={`px-4 sm:px-5 py-3 border-t flex flex-wrap items-center justify-end gap-2 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
               isDarkTech
-                ? 'border-[#35105E] bg-[#1E1238]'
-                : 'border-[#E8DDFF] dark:border-[#35105E] bg-[#F8F1FF]/90 dark:bg-[#1E1238]'
+                ? 'border-[#3D1D72] bg-[#190C30]'
+                : 'border-[#EEE5FF] dark:border-[#3D1D72] bg-[#F7F4FC]/95 dark:bg-[#190C30]'
             }`}
           >
             {footer}

@@ -167,7 +167,11 @@ const MainLayout: React.FC = () => {
   }, [rolePermissions, isLoggedIn, currentUser?.role, activeTab]);
 
   const getInitialLeaderSubTab = (): LeaderTabType => {
-    if (['wo_assignment', 'progress_dashboard', 'contractor_recap', 'quota_settings'].includes(activeTab)) {
+    if (
+      ['progress_dashboard', 'wo_assignment', 'reassign_wo', 'contractor_recap', 'monitoring_maps'].includes(
+        activeTab
+      )
+    ) {
       return activeTab as LeaderTabType;
     }
     return 'wo_assignment';
@@ -188,9 +192,16 @@ const MainLayout: React.FC = () => {
     if (isInstaller && !installerAllowedTabs.includes(tab)) {
       targetTab = 'installer_dashboard';
     }
+    if (currentUser?.role === 'leader' && targetTab === 'quota_settings') {
+      targetTab = 'wo_assignment';
+    }
 
     setActiveTab(targetTab);
-    if (['wo_assignment', 'progress_dashboard', 'contractor_recap', 'quota_settings'].includes(targetTab)) {
+    if (
+      ['progress_dashboard', 'wo_assignment', 'reassign_wo', 'contractor_recap', 'monitoring_maps'].includes(
+        targetTab
+      )
+    ) {
       setLeaderSubTab(targetTab as LeaderTabType);
     }
     try {
@@ -213,23 +224,37 @@ const MainLayout: React.FC = () => {
         if (isInstaller && !installerAllowedTabs.includes(targetTab)) {
           targetTab = 'installer_dashboard';
         }
+        if (currentUser?.role === 'leader' && targetTab === 'quota_settings') {
+          targetTab = 'wo_assignment';
+        }
         setActiveTab(targetTab);
-        if (['wo_assignment', 'progress_dashboard', 'contractor_recap', 'quota_settings'].includes(targetTab)) {
+        if (
+          ['progress_dashboard', 'wo_assignment', 'reassign_wo', 'contractor_recap', 'monitoring_maps'].includes(
+            targetTab
+          )
+        ) {
           setLeaderSubTab(targetTab as LeaderTabType);
         }
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isInstaller, installerAllowedTabs]);
+  }, [isInstaller, installerAllowedTabs, currentUser?.role]);
 
   // Compute active tab for Leader Bottom Navigation
   const activeLeaderBottomTab: LeaderTabType = useMemo(() => {
     if (activeTab === 'progress_dashboard') return 'progress_dashboard';
-    if (activeTab === 'contractor_recap' || activeTab === 'rekap_laporan' || activeTab === 'report_installer') return 'contractor_recap';
-    if (activeTab === 'quota_settings') return 'quota_settings';
+    if (activeTab === 'reassign_wo') return 'reassign_wo';
+    if (activeTab === 'contractor_recap' || activeTab === 'rekap_laporan' || activeTab === 'report_installer') {
+      return 'contractor_recap';
+    }
+    if (activeTab === 'monitoring_maps') return 'monitoring_maps';
     if (activeTab === 'wo_assignment') return 'wo_assignment';
-    if (['wo_assignment', 'progress_dashboard', 'contractor_recap', 'quota_settings'].includes(leaderSubTab)) {
+    if (
+      ['progress_dashboard', 'wo_assignment', 'reassign_wo', 'contractor_recap', 'monitoring_maps'].includes(
+        leaderSubTab
+      )
+    ) {
       return leaderSubTab;
     }
     return 'wo_assignment';
@@ -248,18 +273,6 @@ const MainLayout: React.FC = () => {
       return (tContractor && myContractor && (tContractor.includes(myContractor) || myContractor.includes(tContractor)));
     }).length;
   }, [isLoggedIn, tickets, currentUser, todayWIB]);
-
-  // Scoped active installers count for Leader's contractor
-  const leaderInstallersCount = useMemo(() => {
-    if (!isLoggedIn || currentUser?.role !== 'leader') return 0;
-    const myContractor = String(currentUser?.contractor || '').toLowerCase().trim();
-    return (users || []).filter(u => {
-      if (u.isDeleted || u.role !== 'installer') return false;
-      if (!myContractor) return true;
-      const uCont = String(u.contractor || '').toLowerCase().trim();
-      return Boolean(uCont && (uCont.includes(myContractor) || myContractor.includes(uCont)));
-    }).length;
-  }, [isLoggedIn, users, currentUser]);
 
   // Helper matching for logged-in technician
   const isInstallerMatch = (ticketInstaller: string | undefined, installerName: string) => {
@@ -426,7 +439,6 @@ const MainLayout: React.FC = () => {
           'tugas_baru',
           'dalam_proses',
           'selesai',
-          'overdue',
           'all',
           'pending',
           'butuh_approval',
@@ -684,7 +696,7 @@ const MainLayout: React.FC = () => {
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
             onNavigate={tab => navigateTo(tab)}
-            activeLeaderTab={leaderSubTab}
+            activeLeaderTab={leaderSubTab === 'monitoring_maps' ? 'wo_assignment' : leaderSubTab}
             onLeaderTabChange={tab => navigateTo(tab)}
           />
         );
@@ -726,6 +738,17 @@ const MainLayout: React.FC = () => {
           />
         );
       case 'quota_settings':
+        if (currentUser.role === 'leader') {
+          return (
+            <LeaderPortal
+              onSelectTicket={handleOpenTicketDetail}
+              onOpenWhatsApp={handleOpenWhatsAppModal}
+              onNavigate={tab => navigateTo(tab)}
+              activeLeaderTab="wo_assignment"
+              onLeaderTabChange={tab => navigateTo(tab)}
+            />
+          );
+        }
         return (
           <LeaderPortal
             onSelectTicket={handleOpenTicketDetail}
@@ -1063,27 +1086,27 @@ const MainLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Content Viewport with responsive bottom navigation spacing */}
+          {/* Content Viewport with responsive floating topbar & bottom navigation spacing */}
           <main
             data-display-mode={isMobileView ? 'mobile' : 'desktop'}
             className={
               isFullChatMode
-                ? `flex-1 min-h-0 flex flex-col overflow-hidden p-0 w-full ${
+                ? `flex-1 min-h-0 flex flex-col overflow-hidden p-0 pt-2 w-full ${
                     isInstaller
                       ? 'pb-24'
-                      : currentUser.role === 'leader'
-                      ? 'pb-[68px]'
+                      : currentUser.role === 'leader' && isMobileView
+                      ? 'pb-24'
                       : isMobileView && config.device?.android?.showBottomNavigation !== false
-                      ? 'pb-16'
+                      ? 'pb-24'
                       : ''
                   }`
                 : `flex-1 overflow-y-auto overflow-x-hidden ${
-                    isMobileView ? 'p-3 sm:p-4 pb-28 w-full' : 'p-3 sm:p-5 lg:p-6'
+                    isMobileView ? 'p-3 pt-4 sm:p-4 sm:pt-4 pb-28 w-full' : 'p-3 pt-4 sm:p-5 lg:p-6'
                   } ${
                     isInstaller
                       ? 'pb-28 w-full'
-                      : currentUser.role === 'leader'
-                      ? 'pb-28 sm:pb-24'
+                      : currentUser.role === 'leader' && isMobileView
+                      ? 'pb-28'
                       : isMobileView && config.device?.android?.showBottomNavigation !== false
                       ? 'pb-28'
                       : ''
@@ -1125,14 +1148,15 @@ const MainLayout: React.FC = () => {
           waPendingCount={installerWaPendingCount}
         />
       ) : currentUser.role === 'leader' ? (
-        <LeaderBottomNav
-          activeTab={activeLeaderBottomTab}
-          onTabChange={tab => {
-            navigateTo(tab);
-          }}
-          unassignedCount={leaderUnassignedCount}
-          installersCount={leaderInstallersCount}
-        />
+        isMobileView && (
+          <LeaderBottomNav
+            activeTab={activeLeaderBottomTab}
+            onTabChange={tab => {
+              navigateTo(tab);
+            }}
+            unassignedCount={leaderUnassignedCount}
+          />
+        )
       ) : (
         isMobileView && config.device?.android?.showBottomNavigation !== false && (
           <AndroidBottomNav

@@ -43,7 +43,6 @@ import {
   Sliders,
   Gauge,
   Send,
-  RotateCcw,
   XCircle,
   ExternalLink,
   Layers,
@@ -755,12 +754,27 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [todayContractorTickets]);
 
-  const categoryOptions = useMemo(() => {
+  const assignCategoryOptions = useMemo(() => {
     const counts = new Map<string, number>();
-    todayContractorTickets.forEach(t => {
-      const cat = String(t.ticketCategory || '').trim();
-      if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
-    });
+    todayContractorTickets
+      .filter(t => !t.installerName)
+      .forEach(t => {
+        const cat = String(t.ticketCategory || '').trim();
+        if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
+      });
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [todayContractorTickets]);
+
+  const reassignCategoryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    todayContractorTickets
+      .filter(t => Boolean(t.installerName))
+      .forEach(t => {
+        const cat = String(t.ticketCategory || '').trim();
+        if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
+      });
     return Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
@@ -841,19 +855,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return list.sort((a, b) => new Date(b.timestamp || b.createdAt || 0).getTime() - new Date(a.timestamp || a.createdAt || 0).getTime());
   }, [assignmentFeed, contractorTickets]);
 
-  // FILTERED WORK ORDERS FOR DETAIL TABLE (Section 6, 7 & 8)
+  // FILTERED WORK ORDERS FOR ASSIGN WO TABLE (STRICTLY UNASSIGNED IN wo_assignment)
   const filteredTickets = useMemo(() => {
     return contractorTickets.filter(t => {
       const { category } = classifyTicketOperational(t);
 
-      // Status filter
-      if (statusFilter === 'unassigned' && t.installerName) return false;
-      if (statusFilter === 'assigned' && !t.installerName) return false;
-      if (statusFilter === 'waiting' && category !== 'waiting') return false;
-      if (statusFilter === 'in_progress' && category !== 'in_progress') return false;
-      if (statusFilter === 'completed' && category !== 'completed') return false;
-      if (statusFilter === 'pending' && category !== 'pending') return false;
-      if (statusFilter === 'problem' && category !== 'problem') return false;
+      // Feature 6: Assign WO strictly displays only unassigned WOs (!t.installerName)
+      if (activeTab === 'wo_assignment') {
+        if (t.installerName) return false;
+      } else {
+        if (statusFilter === 'unassigned' && t.installerName) return false;
+        if (statusFilter === 'assigned' && !t.installerName) return false;
+        if (statusFilter === 'waiting' && category !== 'waiting') return false;
+        if (statusFilter === 'in_progress' && category !== 'in_progress') return false;
+        if (statusFilter === 'completed' && category !== 'completed') return false;
+        if (statusFilter === 'pending' && category !== 'pending') return false;
+        if (statusFilter === 'problem' && category !== 'problem') return false;
+      }
 
       // Installer dropdown filter
       if (selectedInstallerFilter !== 'ALL') {
@@ -918,6 +936,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     });
   }, [
     contractorTickets,
+    activeTab,
     statusFilter,
     categoryFilter,
     selectedInstallerFilter,
@@ -1928,40 +1947,15 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 Detail
               </button>
 
-              {t.installerName && (
-                <>
-                  {isLeaderRole && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenReassignModal(t)}
-                      className="mj-btn-leader-warning mj-btn-xs px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-                      title="Reassign / Alihkan penugasan WO ke teknisi lain"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reassign</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const instUser = myInstallers.find(u => u.name === t.installerName);
-                      if (instUser) {
-                        const msg = buildInstallerAssignmentMessage(t, instUser);
-                        setAssignmentNoticeModal({
-                          ticket: t,
-                          installer: instUser,
-                          renderedMessage: msg,
-                          targetPhone: instUser.phone || ''
-                        });
-                      }
-                    }}
-                    className="mj-btn-icon-3d-wa w-8 h-8 cursor-pointer"
-                    title="Kirim pesan WhatsApp penugasan ke teknisi"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                  </button>
-                </>
+              {onOpenWhatsApp && (
+                <button
+                  type="button"
+                  onClick={() => onOpenWhatsApp(t)}
+                  className="mj-btn-icon-3d-wa w-8 h-8 cursor-pointer"
+                  title="Kirim pesan WhatsApp pelanggan"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
           </td>
@@ -2091,16 +2085,18 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <span className="sm:hidden">Upload</span>
               </button>
 
-              <button
-                type="button"
-                disabled={!isLeaderRole}
-                onClick={() => setIsBulkReassignModalOpen(true)}
-                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
-                <span className="hidden sm:inline">Bulk Reassign</span>
-                <span className="sm:hidden">Reassign</span>
-              </button>
+              {activeTab !== 'wo_assignment' && (
+                <button
+                  type="button"
+                  disabled={!isLeaderRole}
+                  onClick={() => setIsBulkReassignModalOpen(true)}
+                  className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                  <span className="hidden sm:inline">Bulk Reassign</span>
+                  <span className="sm:hidden">Reassign</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -2233,8 +2229,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
                 <div
                   onClick={() => {
-                    setStatusFilter('assigned');
-                    setActiveTab('wo_assignment');
+                    setStatusFilter('all');
+                    setActiveTab('reassign_wo');
                     setCurrentPage(1);
                   }}
                   className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
@@ -2298,8 +2294,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             { id: 'reassign_wo' as const, label: 'Reassign WO', badge: activeAssignedEligibleForReassign.length, icon: ArrowRightLeft },
             { id: 'progress_dashboard' as const, label: 'Progress Live', icon: Activity },
             { id: 'installer_mgmt' as const, label: 'Tim Teknisi', badge: myInstallers.length, icon: UserPlus },
-            { id: 'contractor_recap' as const, label: 'Rekap Mitra', icon: FileText },
-            { id: 'quota_settings' as const, label: 'Kuota & Kolom', icon: Sliders }
+            { id: 'contractor_recap' as const, label: 'Rekap Mitra', icon: FileText }
           ].map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -2446,8 +2441,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             {/* LEFT 8 COLUMNS: FILTER, BULK ACTIONS, CARD MATRIX / TABLE */}
             <div className={isCompactUI ? 'min-w-0' : 'xl:col-span-8 min-w-0'}>
               <LeaderAssignMatrixPanel
-                totalScopedCount={summaryMetrics.total}
-                slotTicketsSource={todayContractorTickets}
+                totalScopedCount={summaryMetrics.unassigned}
+                slotTicketsSource={todayContractorTickets.filter(t => !t.installerName)}
                 filteredTickets={filteredTickets}
                 paginatedTickets={paginatedTickets}
                 unassignedCount={summaryMetrics.unassigned}
@@ -2457,7 +2452,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 pendingCount={summaryMetrics.pending}
                 problemCount={summaryMetrics.problem}
                 clusterOptions={clusterOptions}
-                categoryOptions={categoryOptions}
+                categoryOptions={assignCategoryOptions}
                 technicians={technicianSummaries}
                 viewMode={matrixViewMode}
                 onViewModeChange={mode => {
@@ -2599,13 +2594,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       {activeTab === 'reassign_wo' && (
         <LeaderReassignView
-          todayTickets={todayContractorTickets}
+          todayTickets={todayContractorTickets.filter(t => Boolean(t.installerName))}
           todayWIB={todayWIB}
           todayAppointmentDisplay={todayAppointmentDisplay}
           displayContractor={displayContractor}
           displayArea={displayArea}
           clusterOptions={clusterOptions}
-          categoryOptions={categoryOptions}
+          categoryOptions={reassignCategoryOptions}
           technicians={technicianSummaries}
           installers={myInstallers}
           auditFeed={mergedAuditFeed}
@@ -2659,7 +2654,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           onSelectTechnicianDetail={inst => setSelectedInstallerForDetail(inst)}
           onAssignWorkOrderToTechnician={inst => {
             setBulkQuickInstaller(inst.name);
-            setStatusFilter('unassigned');
+            setStatusFilter('all');
             setActiveTab('wo_assignment');
             setCurrentPage(1);
             toast.info(

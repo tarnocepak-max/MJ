@@ -384,8 +384,9 @@ export function readWorkbookWithSmartSheetDetection(
   fileBuffer: ArrayBuffer | Uint8Array | Buffer,
   manualSheetName?: string
 ): WorkbookAnalysisResult {
+  const isNodeBuffer = typeof Buffer !== 'undefined' && typeof Buffer.isBuffer === 'function' && Buffer.isBuffer(fileBuffer);
   const workbook = XLSX.read(fileBuffer, {
-    type: Buffer.isBuffer(fileBuffer) ? 'buffer' : 'array',
+    type: isNodeBuffer ? 'buffer' : 'array',
     cellDates: true,
     raw: false
   });
