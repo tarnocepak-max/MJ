@@ -174,7 +174,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 min-h-[40px] bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl font-semibold text-xs cursor-pointer"
+          className="btn-3d-lilac px-4 py-2 min-h-[40px] rounded-xl font-bold text-xs cursor-pointer"
         >
           Tutup
         </button>
@@ -182,14 +182,14 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
     >
       <div className="space-y-4 text-xs">
         {/* Tab Selector */}
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+        <div className="mj-tactile-tab-bar p-1 rounded-xl flex items-center gap-1.5 text-xs font-semibold overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('monitoring')}
-            className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'monitoring'
-                ? 'border-[#5B35B1] text-[#5B35B1] dark:text-[#E9E1FF] font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'btn-3d-primary text-white font-bold'
+                : 'text-[#4B4452] hover:text-[#35105E] dark:text-[#CEC0E8] dark:hover:text-white'
             }`}
           >
             Monitoring Sesi Aktif ({sessions.filter(s => s.status === 'active').length})
@@ -197,10 +197,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
           <button
             type="button"
             onClick={() => setActiveTab('config')}
-            className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'config'
-                ? 'border-[#5B35B1] text-[#5B35B1] dark:text-[#E9E1FF] font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'btn-3d-primary text-white font-bold'
+                : 'text-[#4B4452] hover:text-[#35105E] dark:text-[#CEC0E8] dark:hover:text-white'
             }`}
           >
             Pengaturan Kebijakan Sesi
@@ -213,20 +213,20 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
             {/* Search & Status Filter */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="relative flex-1 sm:max-w-sm">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#7D7484] dark:text-[#A78BFA]" />
                 <input
                   type="text"
                   placeholder="Cari nama staf atau username..."
                   value={searchUser}
                   onChange={e => setSearchUser(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 min-h-[38px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  className="w-full pl-8 pr-3 py-1.5 min-h-[38px] tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded-xl focus:outline-none"
                 />
               </div>
               <div className="flex items-center gap-2">
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value as any)}
-                  className="flex-1 sm:flex-none py-1.5 px-3 min-h-[38px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium"
+                  className="flex-1 sm:flex-none py-1.5 px-3 min-h-[38px] tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-[#D8B4FE] font-semibold focus:outline-none"
                 >
                   <option value="ALL">Semua Sesi</option>
                   <option value="active">Aktif Saja</option>
@@ -236,7 +236,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                 <button
                   type="button"
                   onClick={fetchSessionsAndConfig}
-                  className="min-w-[38px] min-h-[38px] flex items-center justify-center text-slate-500 hover:text-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 cursor-pointer"
+                  className="btn-3d-icon min-w-[38px] min-h-[38px] cursor-pointer"
                   title="Refresh"
                 >
                   <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -253,9 +253,9 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                 title: 'Tidak ada sesi staf ditemukan',
                 description: 'Belum ada sesi staf yang cocok dengan pencarian atau filter status saat ini.'
               }}
-              mobileTitle={s => <span className="font-bold text-slate-900 dark:text-white">{s.name}</span>}
+              mobileTitle={s => <span className="font-bold text-[#1F1638] dark:text-white">{s.name}</span>}
               mobileSubtitle={s => (
-                <span className="font-mono capitalize">
+                <span className="font-mono capitalize text-[#7D7484] dark:text-[#D8B4FE]">
                   @{s.username} · {s.role.replace('_', ' ')}
                 </span>
               )}
@@ -265,7 +265,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                     s.status === 'active'
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
                       : s.status === 'expired'
-                      ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                      ? 'bg-[#F3EAFF] text-[#4B4452] dark:bg-[#2E1859] dark:text-[#CEC0E8]'
                       : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
                   }`}
                 >
@@ -279,8 +279,8 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   priority: 'hidden_mobile',
                   render: s => (
                     <div>
-                      <div className="font-bold text-slate-900 dark:text-white">{s.name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
+                      <div className="font-bold text-[#1F1638] dark:text-white">{s.name}</div>
+                      <div className="text-[11px] text-[#7D7484] dark:text-[#D8B4FE]/75 font-mono">
                         @{s.username} · <span className="capitalize">{s.role.replace('_', ' ')}</span>
                       </div>
                     </div>
@@ -291,7 +291,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   label: 'Waktu Login',
                   priority: 'primary',
                   render: s => (
-                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                    <span className="text-[#4B4452] dark:text-[#CEC0E8] font-mono tabular-nums whitespace-nowrap text-[11px]">
                       {new Date(s.loginAt).toLocaleTimeString('id-ID')} WIB
                     </span>
                   )
@@ -301,7 +301,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   label: 'Aktivitas Terakhir',
                   priority: 'secondary',
                   render: s => (
-                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                    <span className="text-[#4B4452] dark:text-[#CEC0E8] font-mono tabular-nums whitespace-nowrap text-[11px]">
                       {new Date(s.lastActivityAt).toLocaleTimeString('id-ID')} WIB
                     </span>
                   )
@@ -311,7 +311,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   label: 'Kedaluwarsa',
                   priority: 'secondary',
                   render: s => (
-                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                    <span className="text-[#4B4452] dark:text-[#CEC0E8] font-mono tabular-nums whitespace-nowrap text-[11px]">
                       {new Date(s.expiresAt).toLocaleTimeString('id-ID')} WIB
                     </span>
                   )
@@ -321,8 +321,8 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   label: 'Perangkat',
                   priority: 'primary',
                   render: s => (
-                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
-                      {s.deviceType === 'mobile' ? <Smartphone className="w-3.5 h-3.5" /> : <Laptop className="w-3.5 h-3.5" />}
+                    <div className="flex items-center gap-1.5 text-[#4B4452] dark:text-[#CEC0E8] font-mono text-[11px]">
+                      {s.deviceType === 'mobile' ? <Smartphone className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" /> : <Laptop className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />}
                       <span>{s.ipAddress || '127.0.0.1'}</span>
                     </div>
                   )
@@ -337,7 +337,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                         s.status === 'active'
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
                           : s.status === 'expired'
-                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          ? 'bg-[#F3EAFF] text-[#4B4452] dark:bg-[#2E1859] dark:text-[#CEC0E8]'
                           : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
                       }`}
                     >
@@ -365,7 +365,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   <button
                     type="button"
                     onClick={() => handleRevokeSession(s.sessionId, s.name)}
-                    className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 rounded-lg transition-colors cursor-pointer"
+                    className="btn-3d-crimson px-2.5 py-1 text-[11px] font-bold rounded-lg cursor-pointer"
                   >
                     Cabut Sesi
                   </button>
@@ -384,14 +384,14 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
               </div>
             )}
 
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-              <h5 className="font-bold text-slate-900 dark:text-white text-xs">
-                Kebijakan Waktu Sesi (Duration & Timeout)
+            <div className="p-4 mj-tactile-well border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl space-y-3">
+              <h5 className="font-display font-bold text-[#1F1638] dark:text-white text-xs">
+                Kebijakan Waktu Sesi (Duration &amp; Timeout)
               </h5>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Durasi Maksimum Sesi (Jam):</label>
+                  <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Durasi Maksimum Sesi (Jam):</label>
                   <input
                     type="number"
                     min={1}
@@ -399,12 +399,12 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                     disabled={!isSuperAdmin || isSavingConfig}
                     value={sessionConfig.sessionMaxDurationHours}
                     onChange={e => setSessionConfig({ ...sessionConfig, sessionMaxDurationHours: parseInt(e.target.value) || 8 })}
-                    className="w-full px-3 py-1.5 min-h-[38px] bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
+                    className="w-full px-3 py-1.5 min-h-[38px] tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white rounded-xl text-xs font-mono tabular-nums disabled:opacity-60 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Batas Waktu Tidak Aktif / Idle (Menit):</label>
+                  <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Batas Waktu Tidak Aktif / Idle (Menit):</label>
                   <input
                     type="number"
                     min={5}
@@ -412,13 +412,13 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                     disabled={!isSuperAdmin || isSavingConfig}
                     value={sessionConfig.idleTimeoutMinutes}
                     onChange={e => setSessionConfig({ ...sessionConfig, idleTimeoutMinutes: parseInt(e.target.value) || 60 })}
-                    className="w-full px-3 py-1.5 min-h-[38px] bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
+                    className="w-full px-3 py-1.5 min-h-[38px] tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white rounded-xl text-xs font-mono tabular-nums disabled:opacity-60 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-500 mb-1">Batas Maksimum Sesi Bersamaan per Akun:</label>
+                <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Batas Maksimum Sesi Bersamaan per Akun:</label>
                 <input
                   type="number"
                   min={1}
@@ -426,45 +426,45 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   disabled={!isSuperAdmin || isSavingConfig}
                   value={sessionConfig.maxActiveSessionsPerUser}
                   onChange={e => setSessionConfig({ ...sessionConfig, maxActiveSessionsPerUser: parseInt(e.target.value) || 3 })}
-                  className="w-full px-3 py-1.5 min-h-[38px] bg-white dark:bg-slate-800 border rounded-lg text-xs disabled:opacity-60"
+                  className="w-full px-3 py-1.5 min-h-[38px] tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white rounded-xl text-xs font-mono tabular-nums disabled:opacity-60 focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
-              <h5 className="font-bold text-slate-900 dark:text-white text-xs">
+            <div className="p-4 mj-tactile-well border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl space-y-2.5">
+              <h5 className="font-display font-bold text-[#1F1638] dark:text-white text-xs">
                 Otomatisasi Pembatalan Sesi
               </h5>
 
-              <label className={`flex items-center gap-2 text-xs min-h-[32px] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+              <label className={`flex items-center gap-2 text-xs min-h-[32px] text-[#4B4452] dark:text-[#CEC0E8] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                 <input
                   type="checkbox"
                   disabled={!isSuperAdmin || isSavingConfig}
                   checked={sessionConfig.extendOnActivity}
                   onChange={e => setSessionConfig({ ...sessionConfig, extendOnActivity: e.target.checked })}
-                  className="rounded text-[#5B35B1]"
+                  className="rounded text-[#7135B5] focus:ring-[#7135B5]"
                 />
                 <span>Perpanjang sesi otomatis saat pengguna aktif mengerjakan tiket</span>
               </label>
 
-              <label className={`flex items-center gap-2 text-xs min-h-[32px] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+              <label className={`flex items-center gap-2 text-xs min-h-[32px] text-[#4B4452] dark:text-[#CEC0E8] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                 <input
                   type="checkbox"
                   disabled={!isSuperAdmin || isSavingConfig}
                   checked={sessionConfig.revokeOnDeactivate}
                   onChange={e => setSessionConfig({ ...sessionConfig, revokeOnDeactivate: e.target.checked })}
-                  className="rounded text-[#5B35B1]"
+                  className="rounded text-[#7135B5] focus:ring-[#7135B5]"
                 />
                 <span>Cabut seluruh sesi aktif saat akun dinonaktifkan oleh administrator</span>
               </label>
 
-              <label className={`flex items-center gap-2 text-xs min-h-[32px] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+              <label className={`flex items-center gap-2 text-xs min-h-[32px] text-[#4B4452] dark:text-[#CEC0E8] ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                 <input
                   type="checkbox"
                   disabled={!isSuperAdmin || isSavingConfig}
                   checked={sessionConfig.revokeOnPasswordChange}
                   onChange={e => setSessionConfig({ ...sessionConfig, revokeOnPasswordChange: e.target.checked })}
-                  className="rounded text-[#5B35B1]"
+                  className="rounded text-[#7135B5] focus:ring-[#7135B5]"
                 />
                 <span>Cabut seluruh sesi aktif saat kata sandi akun diubah</span>
               </label>
@@ -474,7 +474,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
               <button
                 type="submit"
                 disabled={!isSuperAdmin || isSavingConfig}
-                className="px-5 py-2.5 min-h-[40px] bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-3d-primary px-5 py-2.5 min-h-[40px] rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSavingConfig ? 'Menyimpan...' : 'Simpan Kebijakan Sesi'}
               </button>

@@ -114,6 +114,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const [isQuickSearching, setIsQuickSearching] = useState(false);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const quickSearchRef = useRef<HTMLDivElement>(null);
+  const quickSearchInputRef = useRef<HTMLInputElement>(null);
 
   const canCrossDateSearch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
@@ -183,6 +184,17 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setQuickSearchOpen(false);
+      }
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName?.toLowerCase();
+        const isTypingField =
+          tag === 'input' || tag === 'textarea' || tag === 'select' || Boolean(target?.isContentEditable);
+        if (!isTypingField && quickSearchInputRef.current) {
+          e.preventDefault();
+          quickSearchInputRef.current.focus();
+          setQuickSearchOpen(true);
+        }
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -578,24 +590,39 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               {/* Stitch Engine Active + Console & Date Pill */}
               <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 bg-[#f3eaff] dark:bg-[#35105E]/70 border border-[#e8ddff] dark:border-[#7135B5]/50 rounded-lg text-[#1f1638] dark:text-[#E9D5FF] shadow-[inset_0_1px_1px_rgba(33,24,58,0.04)] shrink-0">
                 <span
-                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                  className={`w-2 h-2 rounded-full shrink-0 ${
                     isOnline && databaseStatus === 'connected'
-                      ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.65)]'
+                      ? 'bg-[#7135B5] dark:bg-emerald-400 shadow-[0_0_8px_rgba(113,53,181,0.5)]'
                       : 'bg-amber-500'
                   }`}
                 />
                 <span className="text-[11px] font-bold tracking-wide uppercase whitespace-nowrap">
                   {currentUser.role === 'dispatch'
-                    ? 'DISPATCH CONSOLE'
+                    ? 'Dispatch Ops'
                     : currentUser.role === 'super_admin'
-                    ? 'OPS ADMIN'
+                    ? 'Superadmin'
                     : currentUser.role === 'leader'
-                    ? 'LEADER CONSOLE'
-                    : 'OPS CONSOLE'}
+                    ? 'Leader Console'
+                    : 'Ops Console'}
                 </span>
                 <span className="text-[#cec3d4] dark:text-[#7135B5]">•</span>
-                <Calendar className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A78BFA] shrink-0" />
-                <span className="text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
+                <span
+                  className={`inline-flex items-center gap-1 text-[10.5px] font-bold whitespace-nowrap ${
+                    isOnline && databaseStatus === 'connected'
+                      ? 'text-[#58149C] dark:text-emerald-300'
+                      : 'text-amber-700 dark:text-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isOnline && databaseStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                    }`}
+                  />
+                  <span>{isOnline && databaseStatus === 'connected' ? 'SSE: Live Sync' : 'Local Sync'}</span>
+                </span>
+                <span className="hidden xl:inline text-[#cec3d4] dark:text-[#7135B5]">•</span>
+                <Calendar className="hidden xl:inline w-3.5 h-3.5 text-[#58149c] dark:text-[#A78BFA] shrink-0" />
+                <span className="hidden xl:inline text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
                   {activeArea ? `${activeArea} · ${formattedToday}` : formattedToday}
                 </span>
               </div>
@@ -633,6 +660,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             <div className="relative flex items-center w-full">
               <Search className="w-3.5 h-3.5 text-[#8B8495] absolute left-3 pointer-events-none" />
               <input
+                ref={quickSearchInputRef}
                 type="text"
                 value={quickSearch}
                 onFocus={() => setQuickSearchOpen(true)}
@@ -648,11 +676,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 }}
                 placeholder={
                   canCrossDateSearch
-                    ? 'Quick Cross-Date Search...'
+                    ? 'Lookup Ticket, OLT, Splitter ID...'
                     : 'Cari Work Order hari ini...'
                 }
                 aria-label="Quick Cross-Date Search"
-                className="w-full pl-8 pr-14 py-1.5 bg-[#F7F6FA] dark:bg-[#22123F] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] shadow-inner focus:outline-none focus:bg-white dark:focus:bg-[#2A1650] focus:ring-2 focus:ring-[#A78BFA]/70 transition-all"
+                className="w-full pl-8 pr-12 py-1.5 bg-[#F8F1FF] dark:bg-[#22123F] border border-[#E8DDFF] dark:border-[#35105E] rounded-full text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] shadow-inner focus:outline-none focus:bg-white dark:focus:bg-[#2A1650] focus:ring-2 focus:ring-[#A78BFA]/70 transition-all"
               />
               {quickSearch ? (
                 <button
@@ -667,8 +695,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                   <X className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <div className="absolute right-2 px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#766B83] dark:text-[#D8B4FE] pointer-events-none border border-[#D8CCF3] dark:border-[#5B35B1]">
-                  Ctrl+K
+                <div className="absolute right-2 px-2 py-0.5 rounded-full bg-white dark:bg-[#35105E] font-mono text-[10px] font-bold text-[#7135B5] dark:text-[#D8B4FE] pointer-events-none border border-[#D8CCF3] dark:border-[#5B35B1]">
+                  /
                 </div>
               )}
             </div>

@@ -4,6 +4,8 @@ import { WhatsAppTemplate } from '../../types';
 import { renderWhatsAppMessage } from '../../services/whatsappService';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
+import { useToast } from '../../context/ToastContext';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
   MessageSquare,
   Plus,
@@ -11,16 +13,14 @@ import {
   Trash2,
   Check,
   AlertTriangle,
-  RotateCcw,
   Sparkles,
-  ExternalLink,
-  Save,
   CheckCircle2,
   AlertCircle,
   WifiOff,
   Clock,
   RefreshCw,
-  Edit2
+  Edit2,
+  ShieldAlert
 } from 'lucide-react';
 
 type AutoSaveStatus = 'IDLE' | 'EDITING' | 'SAVING' | 'SAVED' | 'ERROR' | 'OFFLINE';
@@ -37,23 +37,25 @@ export const TemplateBuilder: React.FC = () => {
   } = useApp();
   const { isOnline } = useOfflineSync();
   const { playReportSavedSound, playErrorSound } = useMoraJawsSound();
+  const { toast } = useToast();
 
   const [activeTemplateId, setActiveTemplateId] = useState<string>(templates[0]?.id || '');
   const [selectedTicketId, setSelectedTicketId] = useState<string>(tickets[0]?.id || '');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [pendingDeleteTemplate, setPendingDeleteTemplate] = useState<WhatsAppTemplate | null>(null);
 
   // Requirement 5: Access Control Guard - Superadmin & Dispatch Only
   const isAuthorized = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
   if (!isAuthorized) {
     return (
-      <div className="p-8 text-center bg-white dark:bg-[#1A0E2E] rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-        <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-          ✕
+      <div className="card-3d-lavender p-8 text-center rounded-2xl max-w-lg mx-auto my-12 space-y-3">
+        <div className="banner-maroon-superadmin w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-white shadow-md">
+          <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <h3 className="font-display font-bold text-[#1F1638] dark:text-white text-base">
           Akses Ditolak: Khusus Superadmin & Dispatch
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
           Sesuai aturan keamanan Role Access Control MoraJaws, modul Template WhatsApp hanya dapat dikelola oleh Superadmin dan Dispatch. Role Anda (<strong>{currentUser.role}</strong>) tidak memiliki izin.
         </p>
       </div>
@@ -218,7 +220,7 @@ export const TemplateBuilder: React.FC = () => {
 
   const handleSaveNewTemplate = () => {
     if (!newTemplateData.name.trim()) {
-      alert('Nama template wajib diisi.');
+      toast.error('Nama template wajib diisi.', 'Validasi Template');
       return;
     }
     const created = createTemplate({
@@ -313,8 +315,9 @@ export const TemplateBuilder: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           <button
+            type="button"
             onClick={() => setIsCreatingNew(true)}
-            className="px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] rounded-xl flex items-center gap-1.5 shadow-[0_0_15px_rgba(168,85,247,0.4)] border border-[#E9D5FF]/30 transition-all cursor-pointer"
+            className="btn-3d-primary px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Create New Template</span>
@@ -411,14 +414,16 @@ export const TemplateBuilder: React.FC = () => {
 
           <div className="flex justify-end gap-2.5 pt-2">
             <button
+              type="button"
               onClick={() => setIsCreatingNew(false)}
-              className="px-4 py-2 text-xs font-semibold text-[#D8B4FE] hover:bg-[#35105E]/60 rounded-xl transition-colors cursor-pointer"
+              className="btn-3d-lilac px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer"
             >
               Batal
             </button>
             <button
+              type="button"
               onClick={handleSaveNewTemplate}
-              className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] rounded-xl shadow-md border border-[#E9D5FF]/30 cursor-pointer"
+              className="btn-3d-primary px-5 py-2 text-xs font-bold rounded-xl cursor-pointer"
             >
               Simpan Template ke Supabase
             </button>
@@ -479,12 +484,10 @@ export const TemplateBuilder: React.FC = () => {
                       </button>
                       {templates.length > 1 && !tpl.isDefault && (
                         <button
+                          type="button"
                           onClick={e => {
                             e.stopPropagation();
-                            if (confirm(`Hapus template "${tpl.name}"?`)) {
-                              deleteTemplate(tpl.id);
-                              playReportSavedSound();
-                            }
+                            setPendingDeleteTemplate(tpl);
                           }}
                           className="p-1.5 text-rose-400 hover:text-rose-300 rounded-lg hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Hapus Template"
@@ -666,6 +669,49 @@ export const TemplateBuilder: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Template Confirmation Modal */}
+      <ResponsiveModal
+        isOpen={Boolean(pendingDeleteTemplate)}
+        onClose={() => setPendingDeleteTemplate(null)}
+        size="sm"
+        mobileVariant="sheet"
+        variant="dark_purple"
+        zIndexClass="z-60"
+        icon={<Trash2 className="w-4 h-4" />}
+        title="Hapus Template WhatsApp"
+        subtitle="Konfirmasi penghapusan template pesan permanen"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setPendingDeleteTemplate(null)}
+              className="btn-3d-ceramic px-4 py-2 text-xs font-bold rounded-xl cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (pendingDeleteTemplate) {
+                  const deletedName = pendingDeleteTemplate.name;
+                  deleteTemplate(pendingDeleteTemplate.id);
+                  playReportSavedSound();
+                  toast.success(`Template "${deletedName}" berhasil dihapus.`);
+                  setPendingDeleteTemplate(null);
+                }
+              }}
+              className="btn-3d-crimson px-4 py-2 text-xs font-bold rounded-xl cursor-pointer"
+            >
+              Ya, Hapus Template
+            </button>
+          </div>
+        }
+      >
+        <p className="text-xs text-[#E9D5FF] leading-relaxed">
+          Anda yakin ingin menghapus template <strong className="text-white">"{pendingDeleteTemplate?.name}"</strong>? Tindakan ini tidak dapat dibatalkan.
+        </p>
+      </ResponsiveModal>
     </div>
   );
 };

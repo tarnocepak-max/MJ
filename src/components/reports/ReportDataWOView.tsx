@@ -445,21 +445,21 @@ export const ReportDataWOView: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className={`bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-3.5 ${isCompactUI ? '' : 'lg:flex-row lg:items-center'}`}>
+      <div className={`card-3d-lavender p-4 sm:p-5 flex flex-col justify-between gap-3.5 ${isCompactUI ? '' : 'lg:flex-row lg:items-center'}`}>
         <div className="flex items-start sm:items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[#0F172A] dark:bg-[#1E293B] border border-slate-800 dark:border-slate-700 text-[#38BDF8] flex items-center justify-center font-bold shadow-xs shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#5B289B] to-[#35105E] text-white flex items-center justify-center font-bold shadow-sm shrink-0">
             <BarChart3 className="w-5 h-5" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-sm sm:text-base font-display font-extrabold text-[#1F1638] dark:text-white tracking-tight">
                 Pusat Laporan &amp; Rekapitulasi Data Work Order
               </h2>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#38BDF8]/15 dark:text-[#38BDF8] border border-[#2563EB]/20 dark:border-[#38BDF8]/30 whitespace-nowrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#6b103b] text-white border border-[#9E245E]/60 whitespace-nowrap">
                 Column Search &amp; Global Sort
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+            <p className="text-xs text-[#4B4452] dark:text-[#C5B3DF] mt-0.5 leading-relaxed">
               DataTable interaktif dengan pencarian mandiri per-kolom, pengurutan 3-state, dan ekspor multi-format.
             </p>
           </div>
@@ -470,7 +470,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleCopyData}
-            className="px-3 py-2 min-h-[44px] sm:min-h-[36px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors"
+            className="btn-3d-ceramic px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
             title="Salin data tabel yang tampil ke clipboard (TSV format)"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -480,7 +480,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportCSV}
-            className="px-3 py-2 min-h-[44px] sm:min-h-[36px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors"
+            className="btn-3d-lilac px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>CSV</span>
@@ -489,7 +489,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportExcel}
-            className="px-3.5 py-2 min-h-[44px] sm:min-h-[36px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="btn-3d-emerald px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Ekspor XLSX</span>
@@ -498,7 +498,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportAllWO}
-            className="px-3.5 py-2 min-h-[44px] sm:min-h-[36px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="btn-3d-primary px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
             title="Download seluruh Work Order master tanpa terpengaruh filter"
           >
             <Archive className="w-3.5 h-3.5" />
@@ -508,7 +508,7 @@ export const ReportDataWOView: React.FC = () => {
       </div>
 
       {/* Report Types Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold no-scrollbar">
+      <div className="mj-tactile-tab-bar flex items-center gap-1.5 overflow-x-auto p-1.5 text-xs font-semibold no-scrollbar">
         {[
           { id: 'all_wo', label: 'Semua WO', count: activeTickets.length },
           { id: 'history_progress', label: 'History Progress Report', count: activeTickets.reduce((acc, t) => acc + (t.progressReports?.length || 0), 0) },
@@ -545,14 +545,18 @@ export const ReportDataWOView: React.FC = () => {
               setReportType(tab.id as any);
               setCurrentPage(1);
             }}
-            className={`px-3.5 py-2 min-h-[44px] sm:min-h-[40px] rounded-t-xl border-b-2 flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               reportType === tab.id
-                ? 'border-[#2563EB] bg-white dark:bg-[#0F172A] text-[#2563EB] dark:text-[#38BDF8] font-bold shadow-xs'
-                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'btn-3d-primary font-bold'
+                : 'text-[#5A4D73] dark:text-[#C5B3DF] hover:text-[#1F1638] dark:hover:text-white'
             }`}
           >
             <span>{tab.label}</span>
-            <span className="px-1.5 py-0.2 rounded-md text-[10px] font-mono tabular-nums bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300">
+            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono tabular-nums ${
+              reportType === tab.id
+                ? 'bg-white/20 text-white'
+                : 'bg-[#F3EAFF] dark:bg-[#2E1654] text-[#5B289B] dark:text-[#D8B4FE]'
+            }`}>
               {tab.count}
             </span>
           </button>
@@ -564,10 +568,10 @@ export const ReportDataWOView: React.FC = () => {
       ) : (
       <>
       {/* Global Filters Toolbar & Reset */}
-      <div className="p-3.5 sm:p-4 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 text-xs">
+      <div className="card-3d-lavender p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 text-xs">
         <div className={`grid gap-2.5 flex-1 min-w-0 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A493C2] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Cari Global (WO, Pelanggan, ID, Teknisi)..."
@@ -576,7 +580,7 @@ export const ReportDataWOView: React.FC = () => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[36px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-[#1F1638] dark:text-white"
             />
           </div>
           <select
@@ -585,7 +589,7 @@ export const ReportDataWOView: React.FC = () => {
               setContractorFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="px-3 py-2 min-h-[44px] sm:min-h-[36px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            className="tactile-debossed-input px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl font-medium text-[#1F1638] dark:text-white"
           >
             <option value="ALL">Semua Mitra Kontraktor</option>
             {contractors.map(c => (
@@ -593,7 +597,7 @@ export const ReportDataWOView: React.FC = () => {
             ))}
           </select>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0 w-12 sm:w-auto">Dari:</span>
+            <span className="text-[11px] text-[#4B4452] dark:text-[#C5B3DF] shrink-0 w-12 sm:w-auto">Dari:</span>
             <input
               type="date"
               value={dateStart}
@@ -601,11 +605,11 @@ export const ReportDataWOView: React.FC = () => {
                 setDateStart(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-2 min-h-[44px] sm:min-h-[36px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs text-[#1F1638] dark:text-white"
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0 w-12 sm:w-auto">Sampai:</span>
+            <span className="text-[11px] text-[#4B4452] dark:text-[#C5B3DF] shrink-0 w-12 sm:w-auto">Sampai:</span>
             <input
               type="date"
               value={dateEnd}
@@ -613,7 +617,7 @@ export const ReportDataWOView: React.FC = () => {
                 setDateEnd(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-2.5 py-2 min-h-[44px] sm:min-h-[36px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs text-[#1F1638] dark:text-white"
             />
           </div>
         </div>
@@ -623,7 +627,7 @@ export const ReportDataWOView: React.FC = () => {
           <button
             type="button"
             onClick={handleResetFilters}
-            className="px-3.5 py-2 min-h-[44px] sm:min-h-[36px] bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+            className="btn-3d-crimson px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Semua Filter</span>
@@ -632,19 +636,19 @@ export const ReportDataWOView: React.FC = () => {
       </div>
 
       {/* Interactive Data Table / Responsive Priority Cards */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
-        <div className="px-4 sm:px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs gap-2">
+      <div className="card-3d-lavender overflow-hidden">
+        <div className="px-4 sm:px-5 py-3 border-b border-[#E5D9FF] dark:border-[#361F5E] flex flex-wrap items-center justify-between text-xs gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-slate-900 dark:text-white">
-              Hasil Laporan: <span className="font-mono tabular-nums text-[#2563EB] dark:text-[#38BDF8]">{sortedReportData.length}</span> Work Order
+            <span className="font-bold text-[#1F1638] dark:text-white">
+              Hasil Laporan: <span className="font-mono tabular-nums text-[#5B289B] dark:text-[#D8B4FE]">{sortedReportData.length}</span> Work Order
             </span>
             {hasActiveFilters && (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#38BDF8]/15 dark:text-[#38BDF8]">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#F3EAFF] text-[#5B289B] dark:bg-[#2E1654] dark:text-[#D8B4FE] border border-[#DFC7FF] dark:border-[#5B289B]/40">
                 Filter Aktif
               </span>
             )}
             {sortState.column && (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-slate-100 text-slate-700 dark:bg-[#1E293B] dark:text-slate-300">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[#F8F1FF] text-[#4B4452] dark:bg-[#1E1238] dark:text-[#C5B3DF]">
                 Sort: {sortState.column} ({sortState.direction})
               </span>
             )}
@@ -652,7 +656,7 @@ export const ReportDataWOView: React.FC = () => {
 
           {isCompactUI ? (
             <div className="flex items-center gap-1.5 w-full sm:w-auto">
-              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
               <select
                 aria-label="Urutkan Laporan"
                 value={sortState.column || 'woNumber'}
@@ -660,7 +664,7 @@ export const ReportDataWOView: React.FC = () => {
                   setSortState({ column: e.target.value, direction: sortState.direction || 'asc' });
                   setCurrentPage(1);
                 }}
-                className="flex-1 sm:flex-none px-2.5 py-2 min-h-[44px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                className="tactile-debossed-input flex-1 sm:flex-none px-2.5 py-2 min-h-[44px] rounded-xl text-xs font-semibold text-[#1F1638] dark:text-white"
               >
                 <option value="woNumber">Urut: WO Number</option>
                 <option value="appointmentDate">Urut: Appointment</option>
@@ -677,14 +681,14 @@ export const ReportDataWOView: React.FC = () => {
                     direction: prev.direction === 'asc' ? 'desc' : 'asc'
                   }))
                 }
-                className="px-3 py-2 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E293B] font-mono text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] cursor-pointer"
+                className="btn-3d-lilac px-3 py-2 min-h-[44px] rounded-xl font-mono text-[11px] font-bold cursor-pointer"
               >
                 {sortState.direction === 'desc' ? 'DESC' : 'ASC'}
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 text-[11px]">Tampilkan:</span>
+              <span className="text-[#7D7484] dark:text-[#A493C2] text-[11px]">Tampilkan:</span>
               <select
                 value={pageSize}
                 onChange={e => {
@@ -692,7 +696,7 @@ export const ReportDataWOView: React.FC = () => {
                   setPageSize(val);
                   setCurrentPage(1);
                 }}
-                className="px-2.5 py-1 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white"
+                className="tactile-debossed-input px-2.5 py-1 rounded-lg text-xs text-[#1F1638] dark:text-white"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -700,22 +704,22 @@ export const ReportDataWOView: React.FC = () => {
                 <option value={100}>100</option>
                 <option value="ALL">Semua</option>
               </select>
-              <span className="text-slate-400 text-[11px]">baris</span>
+              <span className="text-[#7D7484] dark:text-[#A493C2] text-[11px]">baris</span>
             </div>
           )}
         </div>
 
         {sortedReportData.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs space-y-2.5">
-            <AlertCircle className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
-            <div className="font-semibold text-slate-600 dark:text-slate-300">
+          <div className="p-12 text-center text-[#7D7484] dark:text-[#A493C2] text-xs space-y-2.5">
+            <AlertCircle className="w-8 h-8 mx-auto text-[#C5B3DF] dark:text-[#5B289B]" />
+            <div className="font-semibold text-[#4B4452] dark:text-[#E8DDFF]">
               Tidak ada data yang sesuai dengan kombinasi filter dan pencarian.
             </div>
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="mt-2 px-4 py-2 min-h-[44px] sm:min-h-[36px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold cursor-pointer"
+                className="btn-3d-primary mt-2 px-4 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold cursor-pointer"
               >
                 Kosongkan Filter
               </button>
@@ -723,7 +727,7 @@ export const ReportDataWOView: React.FC = () => {
           </div>
         ) : isCompactUI ? (
           /* Mobile Priority Cards with Expandable Secondary Details */
-          <div className="p-3 space-y-2.5 bg-slate-50/70 dark:bg-[#0B1220]">
+          <div className="p-3 space-y-2.5 bg-[#F8F1FF]/70 dark:bg-[#160D29]/70">
             {paginatedData.map((t, idx) => {
               const globalIdx = pageSize === 'ALL' ? idx + 1 : (currentPage - 1) * pageSize + idx + 1;
               const isExpanded = Boolean(expandedCards[t.id]);
@@ -733,20 +737,20 @@ export const ReportDataWOView: React.FC = () => {
               return (
                 <article
                   key={t.id}
-                  className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 space-y-2.5 shadow-xs"
+                  className="mj-tactile-card p-3.5 space-y-2.5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-mono text-slate-400 tabular-nums">#{globalIdx}</span>
-                        <span className="font-mono font-bold text-xs text-[#2563EB] dark:text-[#38BDF8] tabular-nums">
+                        <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2] tabular-nums">#{globalIdx}</span>
+                        <span className="font-mono font-bold text-xs text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
                           {t.woNumber}
                         </span>
                       </div>
-                      <div className="font-bold text-xs text-slate-900 dark:text-white mt-0.5 break-words">
+                      <div className="font-bold text-xs text-[#1F1638] dark:text-white mt-0.5 break-words">
                         {t.customerName || '-'}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                      <div className="text-[11px] font-mono text-[#7D7484] dark:text-[#A493C2] tabular-nums">
                         ID: {t.idCustomer || t.customerId || '-'}
                       </div>
                     </div>
@@ -755,22 +759,22 @@ export const ReportDataWOView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t border-[#E5D9FF] dark:border-[#361F5E] text-[11px]">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate text-slate-800 dark:text-slate-200 font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
+                      <span className="truncate text-[#1F1638] dark:text-[#E8DDFF] font-medium">
                         {t.area || '-'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Calendar className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-                      <span className="truncate font-mono text-[#2563EB] dark:text-[#38BDF8] tabular-nums">
+                      <Calendar className="w-3.5 h-3.5 text-[#5B289B] dark:text-[#D8B4FE] shrink-0" />
+                      <span className="truncate font-mono text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
                         {t.appointmentDate || '-'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate text-slate-600 dark:text-slate-300 font-mono tabular-nums">
+                      <Clock className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
+                      <span className="truncate text-[#4B4452] dark:text-[#C5B3DF] font-mono tabular-nums">
                         {t.slotTime || '-'}
                       </span>
                     </div>
@@ -786,31 +790,31 @@ export const ReportDataWOView: React.FC = () => {
                     type="button"
                     onClick={() => setExpandedCards(prev => ({ ...prev, [t.id]: !prev[t.id] }))}
                     aria-expanded={isExpanded}
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1E293B] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] cursor-pointer transition-colors"
+                    className="btn-3d-lilac w-full min-h-[42px] px-3 py-2 rounded-xl flex items-center justify-between text-[11px] font-bold cursor-pointer"
                   >
                     <span>{isExpanded ? 'Tutup Detail Tambahan' : 'Lihat Detail Kontraktor & Catatan'}</span>
                     {isExpanded ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
                   </button>
 
                   {isExpanded && (
-                    <div className="pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-700 space-y-2 text-[11px]">
+                    <div className="pt-2.5 border-t border-dashed border-[#DFC7FF] dark:border-[#3F2370] space-y-2 text-[11px]">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <span className="text-[#7D7484] dark:text-[#A493C2] flex items-center gap-1">
                           <Building2 className="w-3.5 h-3.5" /> Kontraktor:
                         </span>
-                        <span className="font-semibold text-slate-900 dark:text-white text-right">
+                        <span className="font-semibold text-[#1F1638] dark:text-white text-right">
                           {contractorLabel}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-slate-500 dark:text-slate-400">Status Agent:</span>
+                        <span className="text-[#7D7484] dark:text-[#A493C2]">Status Agent:</span>
                         <StatusAgentBadge status={t.statusWOAgent} />
                       </div>
                       <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2] mb-0.5">
                           Catatan / Root Cause
                         </div>
-                        <p className="text-slate-800 dark:text-slate-200 break-words bg-slate-50 dark:bg-[#1E293B] p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                        <p className="text-[#1F1638] dark:text-[#E8DDFF] break-words mj-tactile-well p-2.5 rounded-xl">
                           {remarksText}
                         </p>
                       </div>
@@ -823,9 +827,9 @@ export const ReportDataWOView: React.FC = () => {
         ) : (
           <div className="overflow-x-auto max-h-[560px]">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 dark:bg-[#1E293B] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase sticky top-0 z-10 shadow-xs">
+              <thead className="bg-[#241145] text-[11px] font-bold text-[#F3EAFF] uppercase sticky top-0 z-10 shadow-xs">
                 {/* Header Row with 3-State Sorting (Feature 3) */}
-                <tr className="border-b border-slate-200 dark:border-slate-700">
+                <tr className="border-b border-[#3F2370]">
                   <th className="py-2.5 px-3 w-12 text-center">No</th>
                   <th className="py-2.5 px-3 min-w-[130px]">
                     <SortableColumnHeader
@@ -930,9 +934,9 @@ export const ReportDataWOView: React.FC = () => {
                 </tr>
 
                 {/* Individual Column Search Row (Feature 2) */}
-                <tr className="bg-slate-50 dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-700">
+                <tr className="bg-[#F8F1FF] dark:bg-[#1E1238] border-b border-[#E5D9FF] dark:border-[#361F5E]">
                   <td className="p-1.5 text-center">
-                    <Search className="w-3.5 h-3.5 text-slate-400 mx-auto" />
+                    <Search className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] mx-auto" />
                   </td>
                   <td className="p-1.5">
                     <input
@@ -943,7 +947,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, woNumber: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] font-mono text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -955,7 +959,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, customerId: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] font-mono text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -967,7 +971,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, customerName: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -979,7 +983,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, area: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -991,7 +995,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, appointmentDate: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] font-mono focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] font-mono text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -1003,7 +1007,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, slotTime: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -1015,7 +1019,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, contractor: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -1027,7 +1031,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, installer: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -1039,7 +1043,7 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, statusInstaller: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                   <td className="p-1.5">
@@ -1051,34 +1055,34 @@ export const ReportDataWOView: React.FC = () => {
                         setColFilters(prev => ({ ...prev, remarks: e.target.value }));
                         setCurrentPage(1);
                       }}
-                      className="w-full px-2 py-1 bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-md text-[11px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#1F1638] dark:text-white"
                     />
                   </td>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-[#E5D9FF]/60 dark:divide-[#361F5E]">
                 {paginatedData.map((t, idx) => {
                   const globalIdx = pageSize === 'ALL' ? idx + 1 : (currentPage - 1) * pageSize + idx + 1;
                   return (
-                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-[#1E293B]/50 transition-colors">
-                      <td className="py-2.5 px-3 font-mono tabular-nums text-slate-400 text-center">{globalIdx}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold tabular-nums text-[#2563EB] dark:text-[#38BDF8]">{t.woNumber}</td>
-                      <td className="py-2.5 px-3 font-mono tabular-nums">{t.idCustomer || t.customerId || '-'}</td>
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">{t.customerName}</td>
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">{t.area || '-'}</td>
-                      <td className="py-2.5 px-3 whitespace-nowrap text-[#2563EB] dark:text-[#38BDF8] font-mono tabular-nums font-medium">
+                    <tr key={t.id} className="hover:bg-[#F8F1FF] dark:hover:bg-[#1E1238]/60 transition-colors">
+                      <td className="py-2.5 px-3 font-mono tabular-nums text-[#7D7484] dark:text-[#A493C2] text-center">{globalIdx}</td>
+                      <td className="py-2.5 px-3 font-mono font-bold tabular-nums text-[#5B289B] dark:text-[#D8B4FE]">{t.woNumber}</td>
+                      <td className="py-2.5 px-3 font-mono tabular-nums text-[#1F1638] dark:text-[#E8DDFF]">{t.idCustomer || t.customerId || '-'}</td>
+                      <td className="py-2.5 px-3 font-semibold text-[#1F1638] dark:text-white">{t.customerName}</td>
+                      <td className="py-2.5 px-3 text-[#4B4452] dark:text-[#C5B3DF]">{t.area || '-'}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-[#5B289B] dark:text-[#D8B4FE] font-mono tabular-nums font-medium">
                         {t.appointmentDate || '-'}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 font-mono tabular-nums whitespace-nowrap">{t.slotTime || '-'}</td>
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{t.contactorName || t.contractorName || '-'}</td>
+                      <td className="py-2.5 px-3 text-[#4B4452] dark:text-[#C5B3DF] font-mono tabular-nums whitespace-nowrap">{t.slotTime || '-'}</td>
+                      <td className="py-2.5 px-3 text-[#4B4452] dark:text-[#C5B3DF]">{t.contactorName || t.contractorName || '-'}</td>
                       <td className="py-2.5 px-3 font-medium text-emerald-600 dark:text-emerald-400">
-                        {t.installerName || <span className="text-slate-400 italic">Belum Di-assign</span>}
+                        {t.installerName || <span className="text-[#7D7484] dark:text-[#A493C2] italic">Belum Di-assign</span>}
                       </td>
                       <td className="py-2.5 px-3">
                         <StatusInstallerBadge status={t.statusWOInstaller} />
                       </td>
-                      <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 max-w-xs truncate" title={t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || ''}>
+                      <td className="py-2.5 px-3 text-[#4B4452] dark:text-[#C5B3DF] max-w-xs truncate" title={t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || ''}>
                         {t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || '-'}
                       </td>
                     </tr>

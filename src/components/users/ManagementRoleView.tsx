@@ -143,22 +143,27 @@ export const ManagementRoleView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#5B35B1] text-white flex items-center justify-center font-bold shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center font-bold shadow-[0_2px_0_#35105E] shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#3B1D78] dark:text-purple-200 flex flex-wrap items-center gap-2">
-              <span>Manajemen Role & Matriks Hak Akses (RBAC)</span>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_1.5px_0_#260112]">
+                RBAC MATRIX
+              </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
                 6 Peran Resmi
               </span>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
                 v{rolePermissionsVersion} • DB-First
               </span>
+            </div>
+            <h2 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white">
+              Manajemen Role &amp; Matriks Hak Akses (RBAC)
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
               Setiap perubahan permission oleh Super Admin langsung disimpan ke PostgreSQL dan disinkronkan secara real-time ke semua sesi pengguna aktif.
             </p>
           </div>
@@ -200,22 +205,22 @@ export const ManagementRoleView: React.FC = () => {
           return (
             <div
               key={r.role}
-              className="p-4 bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 space-y-2 text-xs flex flex-col justify-between shadow-2xs"
+              className="card-3d-lavender p-4 rounded-2xl space-y-2 text-xs flex flex-col justify-between"
             >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <div className={`p-2 rounded-xl ${r.color} shrink-0`}>
                     <Icon className="w-4 h-4" />
                   </div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-xs">{r.label}</h4>
+                  <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-xs">{r.label}</h4>
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
                   {r.desc}
                 </p>
               </div>
-              <div className="pt-2 border-t border-slate-100 dark:border-purple-900/40 text-[10.5px] font-mono tabular-nums text-slate-400 flex items-center justify-between">
-                <span>Total Izin: {permsCount}</span>
-                <span className="capitalize text-[#5B35B1] dark:text-purple-300 font-semibold">{r.role}</span>
+              <div className="pt-2 border-t border-[#e8ddff] dark:border-[#3b1d78] text-[10.5px] font-mono tabular-nums text-[#7D7484] flex items-center justify-between">
+                <span>Total Izin: <strong className="text-[#1F1638] dark:text-white">{permsCount}</strong></span>
+                <span className="capitalize text-[#58149C] dark:text-[#DAB9FF] font-bold">{r.role}</span>
               </div>
             </div>
           );
@@ -223,12 +228,12 @@ export const ManagementRoleView: React.FC = () => {
       </div>
 
       {/* Full Permission Matrix (Desktop) or Role-Tabbed Toggle Cards (Mobile / Compact) */}
-      <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#D8CCF3] dark:border-purple-900/60 shadow-xs overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 dark:border-purple-900/50 text-xs flex flex-wrap items-center justify-between gap-2">
-          <span className="font-bold text-slate-800 dark:text-slate-200">
+      <div className="card-3d-lavender rounded-2xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#e8ddff] dark:border-[#3b1d78] text-xs flex flex-wrap items-center justify-between gap-2">
+          <span className="font-display font-bold text-[#1F1638] dark:text-white">
             Matriks Hak Akses &amp; Permission Granular
           </span>
-          <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+          <span className="text-[#58149C] dark:text-[#DAB9FF] font-mono text-[11px] font-semibold">
             {isSuperAdmin ? 'Ketuk izin untuk menyimpan langsung ke Database' : 'Read-Only Backend Enforced'}
           </span>
         </div>
@@ -236,7 +241,7 @@ export const ManagementRoleView: React.FC = () => {
         {isCompactUI ? (
           <div className="p-3.5 space-y-3 bg-[#FDF7FF] dark:bg-[#140827]/60">
             {/* Role Selector Strip */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <div className="mj-tactile-tab-bar p-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {roles.map(r => {
                 const active = selectedMobileRole === r.role;
                 const count = Array.isArray(rolePermissions[r.role]) ? rolePermissions[r.role].length : 0;
@@ -245,10 +250,10 @@ export const ManagementRoleView: React.FC = () => {
                     key={r.role}
                     type="button"
                     onClick={() => setSelectedMobileRole(r.role)}
-                    className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all cursor-pointer ${
                       active
-                        ? 'bg-[#58149C] text-white border-[#58149C] shadow-xs'
-                        : 'bg-white dark:bg-[#1E1238] text-slate-700 dark:text-slate-200 border-[#E8DDFF] dark:border-[#35105E]'
+                        ? 'btn-3d-primary'
+                        : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/70 dark:hover:bg-[#261942]'
                     }`}
                   >
                     <span className="capitalize">{r.role.replace('_', ' ')}</span>

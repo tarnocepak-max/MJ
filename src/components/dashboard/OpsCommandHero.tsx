@@ -33,6 +33,7 @@ import { StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
 import { StitchOpsCommandCenter } from './StitchOpsCommandCenter';
+import { StitchDispatchWorkspace } from './StitchDispatchWorkspace';
 import { DispatchVerificationDesk } from './DispatchVerificationDesk';
 
 export type OpsCommandViewTab = 'overview' | 'verification' | 'queue' | 'matrix';
@@ -353,14 +354,22 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
         </div>
       </div>
 
-      {/* TAB 1: STITCH AI GLOBAL OPERATIONS COMMAND */}
-      {activeView === 'overview' && (
-        <StitchOpsCommandCenter
-          onNavigate={onNavigate}
-          onSelectTicket={onSelectTicket}
-          onDrillDown={resolvedDrillDown}
-        />
-      )}
+      {/* TAB 1: ROLE-ADAPTIVE STITCH COMMAND CENTER (Dispatch Workspace vs Superadmin Master Console) */}
+      {activeView === 'overview' &&
+        (currentUser.role === 'dispatch' ? (
+          <StitchDispatchWorkspace
+            onNavigate={onNavigate}
+            onSelectTicket={onSelectTicket}
+            onOpenWhatsApp={onOpenWhatsApp}
+            onDrillDown={resolvedDrillDown}
+          />
+        ) : (
+          <StitchOpsCommandCenter
+            onNavigate={onNavigate}
+            onSelectTicket={onSelectTicket}
+            onDrillDown={resolvedDrillDown}
+          />
+        ))}
 
       {/* TAB 1B: STITCH AI DISPATCH VERIFICATION & QC DESK */}
       {activeView === 'verification' && (

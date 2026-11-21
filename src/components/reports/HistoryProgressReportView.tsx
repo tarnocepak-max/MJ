@@ -237,16 +237,16 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               <button
                 type="button"
                 onClick={() => onSelectTicket(item.ticketId)}
-                className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8] hover:underline tabular-nums block cursor-pointer"
+                className="font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE] hover:underline tabular-nums block cursor-pointer"
               >
                 {item.woNumber}
               </button>
             ) : (
-              <span className="font-mono font-bold text-[#0F172A] dark:text-white tabular-nums block">
+              <span className="font-mono font-bold text-[#1F1638] dark:text-white tabular-nums block">
                 {item.woNumber}
               </span>
             )}
-            <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-300">
+            <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#2E1654] border border-[#DFC7FF] dark:border-[#5B289B]/40 text-[10px] font-mono font-semibold text-[#5B289B] dark:text-[#D8B4FE]">
               v{item.versionNumber}
             </span>
           </>
@@ -259,11 +259,11 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         tdClassName: 'whitespace-nowrap tabular-nums',
         render: item => (
           <>
-            <div className="font-semibold text-[#0F172A] dark:text-white">
+            <div className="font-semibold text-[#1F1638] dark:text-white">
               {item.appointmentDate || '-'}
             </div>
-            <div className="text-[11px] text-slate-500">{item.slotTime || '-'}</div>
-            <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 max-w-[140px] truncate">
+            <div className="text-[11px] text-[#7D7484] dark:text-[#A493C2]">{item.slotTime || '-'}</div>
+            <div className="text-[11px] text-[#4B4452] dark:text-[#C5B3DF] mt-0.5 max-w-[140px] truncate">
               {item.customerName}
             </div>
           </>
@@ -281,16 +281,16 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         widthClass: 'min-w-[150px]',
         render: item => (
           <>
-            <div className="font-semibold text-[#0F172A] dark:text-white flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+            <div className="font-semibold text-[#1F1638] dark:text-white flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5 text-[#5B289B] dark:text-[#D8B4FE] shrink-0" />
               <span>{item.installerName}</span>
             </div>
-            <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1 mt-0.5">
-              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+            <div className="text-[11px] text-[#4B4452] dark:text-[#C5B3DF] flex items-center gap-1 mt-0.5">
+              <Building2 className="w-3 h-3 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
               <span>{item.vendorName}</span>
             </div>
-            <div className="text-[11px] text-slate-500 flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+            <div className="text-[11px] text-[#7D7484] dark:text-[#A493C2] flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
               <span>{item.area}</span>
             </div>
           </>
@@ -316,14 +316,14 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         render: item => (
           <div className="space-y-0.5">
             {item.reasonReport && (
-              <div className="font-semibold text-[#0F172A] dark:text-white">{item.reasonReport}</div>
+              <div className="font-semibold text-[#1F1638] dark:text-white">{item.reasonReport}</div>
             )}
             {item.rootCause && (
-              <div className="text-[11px] text-[#475569] dark:text-slate-300">
+              <div className="text-[11px] text-[#4B4452] dark:text-[#C5B3DF]">
                 Rootcause: {item.rootCause}
               </div>
             )}
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 break-words">
+            <div className="text-[11px] text-[#7D7484] dark:text-[#A493C2] break-words">
               {item.remarks || '-'}
             </div>
           </div>
@@ -333,10 +333,10 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         key: 'submittedAt',
         label: 'Waktu Laporan',
         priority: 'secondary',
-        tdClassName: 'whitespace-nowrap tabular-nums text-[11px] text-slate-600 dark:text-slate-300',
+        tdClassName: 'whitespace-nowrap tabular-nums text-[11px] text-[#4B4452] dark:text-[#C5B3DF]',
         render: item => (
           <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+            <Clock className="w-3 h-3 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
             <span>{item.submittedAt ? formatJakartaTimestamp(item.submittedAt) : '-'}</span>
           </div>
         )
@@ -356,16 +356,18 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         render: item =>
           item.dispatchApprover ? (
             <div className="space-y-0.5">
-              <div className="font-semibold text-[#0F172A] dark:text-white">{item.dispatchApprover}</div>
+              <div className="font-semibold text-[#1F1638] dark:text-white">{item.dispatchApprover}</div>
               {item.approvalTimestamp && (
-                <div className="text-[10px] font-mono tabular-nums text-slate-500">
+                <div className="text-[10px] font-mono tabular-nums text-[#7D7484] dark:text-[#A493C2]">
                   {formatJakartaTimestamp(item.approvalTimestamp)}
                 </div>
               )}
               {(item.revisionReason || item.approvalNotes) && (
                 <div
                   className={`text-[11px] rounded px-1.5 py-0.5 mt-1 ${
-                    item.revisionReason ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#ECFDF5] text-[#15803D]'
+                    item.revisionReason
+                      ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300'
+                      : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
                   }`}
                 >
                   {item.revisionReason || item.approvalNotes}
@@ -373,7 +375,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               )}
             </div>
           ) : (
-            <span className="text-[11px] text-slate-400">Menunggu review Dispatch</span>
+            <span className="text-[11px] text-[#7D7484] dark:text-[#A493C2]">Menunggu review Dispatch</span>
           )
       },
       {
@@ -385,7 +387,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
           <div className="flex flex-col items-start gap-1">
             <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
             {(item.ticketResult === 'Closed' || item.approvalStatus === 'APPROVED') && (
-              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase tracking-wide">
+              <span className="px-1.5 py-0.5 rounded bg-[#241145] text-[#D8B4FE] border border-[#5B289B]/40 text-[9.5px] font-bold uppercase tracking-wide">
                 {item.dispatchApprovalStatus || 'Ticket: Closed'}
               </span>
             )}
@@ -399,16 +401,16 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
   return (
     <div className="space-y-4">
       {!compact && (
-        <div className="rounded-2xl bg-[#0F172A] dark:bg-[#0B1220] text-white p-4 sm:p-5 border border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#2563EB]/25 text-[#38BDF8] border border-[#38BDF8]/30">
+        <div className="rounded-2xl bg-gradient-to-br from-[#160D29] via-[#27104A] to-[#1A0D36] text-white p-4 sm:p-5 border border-[#4B2680]/60 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#6b103b] text-white border border-[#9E245E]">
               <History className="w-3.5 h-3.5" />
               <span>Append-Only Audit Trail</span>
             </div>
-            <h2 className="text-base sm:text-lg font-bold tracking-tight">
+            <h2 className="text-base sm:text-lg font-display font-extrabold tracking-tight text-white">
               History Progress Report & Dispatch Approval
             </h2>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-[#E8DDFF]/85">
               Menyimpan seluruh versi laporan teknisi (PENDING, COMPLETE, RESCHEDULE, CANCEL), alasan revisi, dan jejak approval Dispatch secara permanen.
             </p>
           </div>
@@ -417,7 +419,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               type="button"
               onClick={loadHistory}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[#1E293B] hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-100 cursor-pointer"
+              className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-semibold cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -425,7 +427,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
             <button
               type="button"
               onClick={handleExportCsv}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-xs font-semibold text-white cursor-pointer"
+              className="btn-3d-primary inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-semibold cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
@@ -436,16 +438,16 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
 
       {/* Filter Bar */}
       {!ticketId && (
-        <div className="rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 p-3.5 space-y-3">
+        <div className="card-3d-lavender p-3.5 sm:p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
             <div className="lg:col-span-2 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A493C2] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Cari WO Number, Customer, Teknisi, Reason, Approver..."
-                className="w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs text-[#1F1638] dark:text-white"
               />
             </div>
 
@@ -453,7 +455,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Report Status"
               value={reportStatusFilter}
               onChange={(e) => setReportStatusFilter(e.target.value)}
-              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-medium text-[#1F1638] dark:text-white"
             >
               <option value="ALL">Semua Report Status</option>
               <option value="PENDING">PENDING</option>
@@ -466,7 +468,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Approval Status"
               value={approvalFilter}
               onChange={(e) => setApprovalFilter(e.target.value)}
-              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-medium text-[#1F1638] dark:text-white"
             >
               <option value="ALL">Semua Approval Status</option>
               <option value="WAITING APPROVAL">WAITING APPROVAL</option>
@@ -478,7 +480,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Vendor"
               value={vendorFilter}
               onChange={(e) => setVendorFilter(e.target.value)}
-              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-medium text-[#1F1638] dark:text-white"
             >
               <option value="ALL">Semua Vendor</option>
               {contractorsList.map(v => (
@@ -492,7 +494,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
               aria-label="Filter Area"
               value={areaFilter}
               onChange={(e) => setAreaFilter(e.target.value)}
-              className="px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="tactile-debossed-input px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-medium text-[#1F1638] dark:text-white"
             >
               <option value="ALL">Semua Area</option>
               {areasList.map(a => (
@@ -505,42 +507,42 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF]">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#5B289B] dark:text-[#D8B4FE]" />
                 Tanggal Appointment:
               </span>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs tabular-nums"
+                className="tactile-debossed-input px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs tabular-nums text-[#1F1638] dark:text-white"
               />
-              <span className="text-slate-400">s/d</span>
+              <span className="text-[#7D7484] dark:text-[#A493C2]">s/d</span>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg border border-slate-200 dark:border-slate-700 bg-[#F8FAFC] dark:bg-[#1E293B] text-xs tabular-nums"
+                className="tactile-debossed-input px-2.5 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs tabular-nums text-[#1F1638] dark:text-white"
               />
               {(searchTerm || reportStatusFilter !== 'ALL' || approvalFilter !== 'ALL' || vendorFilter !== 'ALL' || areaFilter !== 'ALL' || dateFrom || dateTo) && (
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="px-3 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs font-semibold text-[#2563EB] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 cursor-pointer"
+                  className="btn-3d-lilac px-3 py-1.5 min-h-[44px] sm:min-h-[34px] rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Reset Filter
                 </button>
               )}
             </div>
-            <div className="text-[11px] font-semibold text-slate-500 tabular-nums">
-              Menampilkan <span className="text-[#0F172A] dark:text-white font-bold">{filteredItems.length}</span> riwayat laporan
+            <div className="text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] tabular-nums">
+              Menampilkan <span className="text-[#5B289B] dark:text-[#D8B4FE] font-bold">{filteredItems.length}</span> riwayat laporan
             </div>
           </div>
         </div>
       )}
 
       {errorMsg && (
-        <div className="rounded-xl bg-[#FFF7ED] border border-[#FDBA74] px-3.5 py-2.5 text-xs text-[#C2410C] flex items-center gap-2">
+        <div className="rounded-xl bg-[#FFF7ED] dark:bg-amber-950/40 border border-[#FDBA74] dark:border-amber-700/60 px-3.5 py-2.5 text-xs text-[#C2410C] dark:text-amber-300 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>Backend history query fallback aktif: {errorMsg}</span>
         </div>
@@ -558,10 +560,10 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         }}
         mobileTitle={item => (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">
+            <span className="font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE]">
               {item.woNumber}
             </span>
-            <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-300">
+            <span className="px-1.5 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#2E1654] text-[10px] font-mono text-[#5B289B] dark:text-[#D8B4FE]">
               v{item.versionNumber}
             </span>
           </div>
@@ -573,7 +575,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
             <StatusBadge status={item.approvalStatus} variant="approval" size="xs" />
             <StatusBadge status={item.finalWoStatus} variant="wo_agent" size="xs" />
             {(item.ticketResult === 'Closed' || item.approvalStatus === 'APPROVED') && (
-              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase">
+              <span className="px-1.5 py-0.5 rounded bg-[#241145] text-[#D8B4FE] text-[9.5px] font-bold uppercase">
                 Closed
               </span>
             )}

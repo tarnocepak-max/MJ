@@ -2,12 +2,9 @@ import React, { useState } from 'react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useApp } from '../../context/AppContext';
 import { NavigationIcon, AVAILABLE_ICON_NAMES } from '../common/NavigationIcon';
-import {
-  NavigationCategory,
-  NavigationStandaloneMenu,
-  NavigationSubmenuItem
-} from '../../types/navigation';
+import { NavigationCategory } from '../../types/navigation';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { useToast } from '../../context/ToastContext';
 import {
   Save,
   RotateCcw,
@@ -38,6 +35,7 @@ import {
 
 export const NavigationManagementView: React.FC = () => {
   const { currentUser } = useApp();
+  const { toast } = useToast();
   const {
     draftConfig,
     isDraftDirty,
@@ -90,6 +88,14 @@ export const NavigationManagementView: React.FC = () => {
   const [categoryToDelete, setCategoryToDelete] = useState<NavigationCategory | null>(null);
   const [submenusActionOnDelete, setSubmenusActionOnDelete] = useState<'move_to_tambahan' | 'disable'>('move_to_tambahan');
 
+  // Confirmation modal replacing native confirm()
+  const [confirmDialog, setConfirmDialog] = useState<
+    | { type: 'reset' }
+    | { type: 'delete_standalone'; id: string; name: string }
+    | { type: 'delete_submenu'; id: string; name: string }
+    | null
+  >(null);
+
   // Icon picker state
   const [iconPickerTarget, setIconPickerTarget] = useState<{
     type: 'category' | 'standalone' | 'submenu';
@@ -130,9 +136,23 @@ export const NavigationManagementView: React.FC = () => {
   };
 
   // Handle Reset Default
-  const handleReset = async () => {
-    if (confirm('Kembalikan konfigurasi seluruh navigasi MoraJaws (3 Kategori Accordion & 7 Menu Mandiri) ke standar awal? Pengaturan di Supabase PostgreSQL akan diperbarui.')) {
+  const handleReset = () => {
+    setConfirmDialog({ type: 'reset' });
+  };
+
+  const executeConfirmDialog = async () => {
+    if (!confirmDialog) return;
+    const action = confirmDialog;
+    setConfirmDialog(null);
+    if (action.type === 'reset') {
       await resetToDefaultConfig(currentUser.name || 'Super Admin');
+      toast.success('Konfigurasi navigasi dikembalikan ke standar awal.', 'Reset Navigasi');
+    } else if (action.type === 'delete_standalone') {
+      deleteStandaloneMenuFromDraft(action.id);
+      toast.success(`Menu mandiri "${action.name}" dihapus dari draft.`, 'Draft Diperbarui');
+    } else if (action.type === 'delete_submenu') {
+      deleteSubmenuFromDraft(action.id);
+      toast.success(`Submenu "${action.name}" dihapus dari draft.`, 'Draft Diperbarui');
     }
   };
 
@@ -214,7 +234,7 @@ export const NavigationManagementView: React.FC = () => {
       setNewCatName('');
       setShowAddCategoryModal(false);
     } else {
-      alert(res.error);
+      toast.error(res.error || 'Gagal menambah kategori.', 'Validasi Kategori');
     }
   };
 
@@ -223,7 +243,7 @@ export const NavigationManagementView: React.FC = () => {
     e.preventDefault();
     const targetCat = newSubCatId || draftConfig.categories[0]?.id;
     if (!targetCat) {
-      alert('Buat kategori terlebih dahulu.');
+      toast.error('Buat kategori terlebih dahulu.', 'Validasi Submenu');
       return;
     }
     const res = addSubmenuToDraft(newSubName, targetCat, newSubId, newSubIcon);
@@ -232,7 +252,7 @@ export const NavigationManagementView: React.FC = () => {
       setNewSubId('');
       setShowAddSubmenuModal(false);
     } else {
-      alert(res.error);
+      toast.error(res.error || 'Gagal menambah submenu.', 'Validasi Submenu');
     }
   };
 
@@ -317,7 +337,7 @@ export const NavigationManagementView: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-white font-extrabold text-xs rounded-[14px] shadow-[0_0_20px_rgba(168,85,247,0.55)] border border-[#E9D5FF]/40 flex items-center gap-2 cursor-pointer transition-all"
+              className="btn-3d-primary px-4 py-2 disabled:opacity-50 font-extrabold text-xs rounded-xl flex items-center gap-2 cursor-pointer"
               title="Simpan konfigurasi navigasi ke Supabase PostgreSQL"
             >
               {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -327,7 +347,7 @@ export const NavigationManagementView: React.FC = () => {
             {isDraftDirty && (
               <button
                 onClick={cancelChanges}
-                className="px-3.5 py-2 bg-[#160D29] hover:bg-[#35105E] text-[#D8B4FE] font-bold text-xs rounded-[14px] border border-[#35105E] flex items-center gap-1.5 cursor-pointer transition-all"
+                className="btn-3d-lilac px-3.5 py-2 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
                 title="Batalkan perubahan yang belum disimpan"
               >
                 <X className="w-3.5 h-3.5" />
@@ -337,7 +357,7 @@ export const NavigationManagementView: React.FC = () => {
 
             <button
               onClick={handleReset}
-              className="px-3.5 py-2 bg-[#160D29] hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 font-bold text-xs rounded-[14px] border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
+              className="btn-3d-crimson px-3.5 py-2 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
               title="Kembalikan susunan menu ke default bawaan sistem"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -518,11 +538,13 @@ export const NavigationManagementView: React.FC = () => {
                       </button>
 
                       <button
-                        onClick={() => {
-                          if (confirm(`Hapus menu mandiri "${menu.name}" dari konfigurasi navigasi? Halaman dan fungsinya tetap aman di sistem.`)) {
-                            deleteStandaloneMenuFromDraft(menu.id);
-                          }
-                        }}
+                        onClick={() =>
+                          setConfirmDialog({
+                            type: 'delete_standalone',
+                            id: menu.id,
+                            name: menu.name || (menu as any).label || menu.id
+                          })
+                        }
                         className="p-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 cursor-pointer"
                         title="Hapus dari konfigurasi"
                       >
@@ -859,11 +881,13 @@ export const NavigationManagementView: React.FC = () => {
 
                             {/* Delete */}
                             <button
-                              onClick={() => {
-                                if (confirm(`Hapus submenu "${sub.name}" dari konfigurasi navigasi?`)) {
-                                  deleteSubmenuFromDraft(sub.id);
-                                }
-                              }}
+                              onClick={() =>
+                                setConfirmDialog({
+                                  type: 'delete_submenu',
+                                  id: sub.id,
+                                  name: sub.name || (sub as any).label || sub.id
+                                })
+                              }
                               className="p-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 cursor-pointer"
                               title="Hapus Submenu"
                             >
@@ -1219,6 +1243,56 @@ export const NavigationManagementView: React.FC = () => {
             ))}
           </div>
         </div>
+      </ResponsiveModal>
+
+      {/* ======================================================== */}
+      {/* MODAL 5: CONFIRMATION MODAL (REPLACES NATIVE CONFIRM) */}
+      {/* ======================================================== */}
+      <ResponsiveModal
+        isOpen={Boolean(confirmDialog)}
+        onClose={() => setConfirmDialog(null)}
+        title={
+          confirmDialog?.type === 'reset'
+            ? 'Reset Konfigurasi Navigasi ke Default?'
+            : confirmDialog?.type === 'delete_standalone'
+            ? `Hapus Menu Mandiri "${confirmDialog.name}"?`
+            : confirmDialog?.type === 'delete_submenu'
+            ? `Hapus Submenu "${confirmDialog.name}"?`
+            : 'Konfirmasi'
+        }
+        icon={<AlertCircle className="w-4 h-4 text-rose-400" />}
+        variant="dark_purple"
+        size="sm"
+        mobileVariant="sheet"
+        zIndexClass="z-60"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmDialog(null)}
+              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={executeConfirmDialog}
+              className="btn-3d-crimson px-4 py-2 font-extrabold rounded-xl cursor-pointer text-xs"
+            >
+              Ya, Lanjutkan
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-[#D8B4FE]/85 leading-relaxed">
+          {confirmDialog?.type === 'reset'
+            ? 'Kembalikan konfigurasi seluruh navigasi MoraJaws (3 Kategori Accordion & 7 Menu Mandiri) ke standar awal? Pengaturan di Supabase PostgreSQL akan diperbarui.'
+            : confirmDialog?.type === 'delete_standalone'
+            ? `Menu mandiri "${confirmDialog.name}" akan dihapus dari konfigurasi navigasi. Halaman dan fungsinya tetap aman di sistem.`
+            : confirmDialog?.type === 'delete_submenu'
+            ? `Submenu "${confirmDialog.name}" akan dihapus dari draft konfigurasi navigasi.`
+            : ''}
+        </p>
       </ResponsiveModal>
     </div>
   );

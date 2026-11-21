@@ -164,7 +164,7 @@ export const AuditLogViewer: React.FC = () => {
         sortable: true,
         priority: 'secondary',
         numeric: true,
-        tdClassName: 'whitespace-nowrap text-slate-500 dark:text-slate-300',
+        tdClassName: 'whitespace-nowrap text-[#6A5A88] dark:text-[#CEC0E8] font-mono tabular-nums',
         render: log => new Date(log.timestamp).toLocaleString('id-ID')
       },
       {
@@ -172,7 +172,7 @@ export const AuditLogViewer: React.FC = () => {
         label: 'Action',
         sortable: true,
         priority: 'hidden_mobile',
-        tdClassName: 'font-semibold text-[#0F172A] dark:text-white whitespace-nowrap',
+        tdClassName: 'font-bold text-[#1E1035] dark:text-white whitespace-nowrap',
         render: log => log.action
       },
       {
@@ -180,7 +180,7 @@ export const AuditLogViewer: React.FC = () => {
         label: 'Entity',
         sortable: true,
         priority: 'secondary',
-        tdClassName: 'whitespace-nowrap font-mono text-[11px] text-[#2563EB] dark:text-[#38BDF8] uppercase',
+        tdClassName: 'whitespace-nowrap font-mono text-[11px] font-bold text-[#5B289B] dark:text-[#D8B4FE] uppercase',
         render: log => log.entity
       },
       {
@@ -188,7 +188,7 @@ export const AuditLogViewer: React.FC = () => {
         label: 'Details',
         sortable: true,
         priority: 'primary',
-        tdClassName: 'text-slate-600 dark:text-slate-300 max-w-md break-words',
+        tdClassName: 'text-[#4A3B63] dark:text-[#D9CCF2] max-w-md break-words',
         render: log => <span className="break-words">{log.details}</span>
       },
       {
@@ -196,7 +196,7 @@ export const AuditLogViewer: React.FC = () => {
         label: 'Performed By',
         sortable: true,
         priority: 'secondary',
-        tdClassName: 'font-medium text-[#0F172A] dark:text-white whitespace-nowrap',
+        tdClassName: 'font-semibold text-[#1E1035] dark:text-white whitespace-nowrap',
         render: log => log.performedBy
       },
       {
@@ -204,7 +204,7 @@ export const AuditLogViewer: React.FC = () => {
         label: 'Role',
         sortable: true,
         priority: 'secondary',
-        tdClassName: 'font-mono text-[11px] text-slate-500 dark:text-slate-300 capitalize whitespace-nowrap',
+        tdClassName: 'font-mono text-[11px] text-[#6A5A88] dark:text-[#CEC0E8] capitalize whitespace-nowrap',
         render: log => String(log.userRole || '').replace('_', ' ')
       }
     ],
@@ -213,17 +213,17 @@ export const AuditLogViewer: React.FC = () => {
 
   if (!canViewAuditLogs) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-slate-200 dark:border-slate-800 text-center max-w-lg mx-auto space-y-4 shadow-sm my-8">
-        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto">
+      <div className="card-3d-lavender rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8">
+        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <h3 className="font-bold text-[#1E1035] dark:text-white text-base">
           Akses Ditolak: Otoritas Audit Log Dibatasi
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] leading-relaxed">
           Berdasarkan Konstitusi Keamanan MoraJaws, akses pembacaan jejak audit (Audit Log &amp; History) dibatasi hanya untuk <strong>Super Admin</strong> dan <strong>IT Support (Read-Only)</strong>.
         </p>
-        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-300 font-medium">
+        <div className="p-3 bg-[#F3EAFF] dark:bg-[#2A174B] rounded-xl text-xs text-[#431599] dark:text-[#E8DDFF] font-medium border border-[#D8CCF3] dark:border-[#4A2580]">
           Akun Anda: <span className="font-bold capitalize">{currentUser.name} ({currentUser.role})</span>. Akses ditolak pada level UI dan Backend Server.
         </div>
       </div>
@@ -250,30 +250,38 @@ export const AuditLogViewer: React.FC = () => {
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Header & Sub-tab Switcher */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[#0F172A] dark:bg-[#1E293B] text-white flex items-center justify-center shrink-0 shadow-xs">
-            <History className="w-5 h-5 text-[#38BDF8]" />
+      <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#5B289B] to-[#35105E] text-white flex items-center justify-center shrink-0 shadow-[0_6px_14px_rgba(53,16,94,0.28)]">
+            <History className="w-5 h-5 text-[#E8DDFF]" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-display font-bold text-[#0F172A] dark:text-white leading-snug">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-xs">
+                AUDIT &amp; GOVERNANCE
+              </span>
+              <span className="text-[11px] font-mono font-bold text-[#6A5A88] dark:text-[#CEC0E8] tabular-nums">
+                {auditLogs.length} Log Tercatat
+              </span>
+            </div>
+            <h2 className="text-sm sm:text-base font-display font-extrabold text-[#1E1035] dark:text-white leading-snug tracking-tight">
               System Audit Trail &amp; Global Config Version Control
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-300 mt-0.5 leading-relaxed">
+            <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mt-0.5 leading-relaxed">
               Catatan jejak audit operasional serta riwayat versi konfigurasi global dengan fitur rollback tervalidasi.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div className="bg-slate-100 dark:bg-[#0B1220] border border-slate-200 dark:border-slate-800 rounded-xl p-1 inline-flex flex-wrap items-center gap-1 text-xs">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="mj-tactile-tab-bar p-1 rounded-xl inline-flex flex-wrap items-center gap-1 text-xs">
             <button
               type="button"
               onClick={() => setActiveSubTab('audit_trail')}
-              className={`px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-lg font-bold transition-colors cursor-pointer ${
+              className={`px-3.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-lg font-bold transition-all cursor-pointer ${
                 activeSubTab === 'audit_trail'
-                  ? 'bg-[#2563EB] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-[#0F172A] dark:hover:text-white'
+                  ? 'btn-3d-primary text-white'
+                  : 'text-[#5A487A] dark:text-[#CEC0E8] hover:text-[#1E1035] dark:hover:text-white'
               }`}
             >
               Audit Trail Log
@@ -281,10 +289,10 @@ export const AuditLogViewer: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveSubTab('config_versions')}
-              className={`px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-lg font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeSubTab === 'config_versions'
-                  ? 'bg-[#2563EB] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-[#0F172A] dark:hover:text-white'
+                  ? 'btn-3d-primary text-white'
+                  : 'text-[#5A487A] dark:text-[#CEC0E8] hover:text-[#1E1035] dark:hover:text-white'
               }`}
             >
               <Layers className="w-3.5 h-3.5 shrink-0" />
@@ -296,9 +304,9 @@ export const AuditLogViewer: React.FC = () => {
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-3.5 py-2 min-h-[44px] sm:min-h-[38px] bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-[#0F172A] dark:text-white text-xs font-bold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+              className="btn-3d-lilac px-3.5 py-2 min-h-[44px] sm:min-h-[38px] text-xs font-bold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+              <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
             </button>
           )}
@@ -322,7 +330,7 @@ export const AuditLogViewer: React.FC = () => {
             }}
           >
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 shrink-0">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#6A5A88] dark:text-[#CEC0E8] shrink-0">
                 Entity:
               </label>
               <select
@@ -331,7 +339,7 @@ export const AuditLogViewer: React.FC = () => {
                   setSelectedEntity(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="flex-1 sm:w-56 px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input flex-1 sm:w-56 px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-xs font-semibold text-[#1E1035] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               >
                 <option value="ALL">All Entities</option>
                 <option value="global_config">Global Configurations</option>
@@ -356,10 +364,10 @@ export const AuditLogViewer: React.FC = () => {
             mobileSubtitle={log => `${log.performedBy} • ${new Date(log.timestamp).toLocaleString('id-ID')}`}
             mobileStatus={log => (
               <>
-                <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] font-mono text-[10px] font-bold uppercase">
+                <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2A174B] text-[#5B289B] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#4A2580] font-mono text-[10px] font-bold uppercase">
                   {log.entity}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono text-[10px] capitalize">
+                <span className="px-2 py-0.5 rounded-full bg-[#F8F1FF] dark:bg-[#1F1638] text-[#6A5A88] dark:text-[#CEC0E8] font-mono text-[10px] capitalize">
                   {String(log.userRole || '').replace('_', ' ')}
                 </span>
               </>
@@ -385,13 +393,13 @@ export const AuditLogViewer: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-              <label className="font-bold text-slate-700 dark:text-slate-200 shrink-0">Kunci Konfigurasi:</label>
+              <label className="font-bold text-[#1E1035] dark:text-[#E8DDFF] shrink-0">Kunci Konfigurasi:</label>
               <select
                 value={selectedConfigKey}
                 onChange={e => setSelectedConfigKey(e.target.value)}
-                className="w-full sm:w-auto px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-[#0F172A] dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full sm:w-auto px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#1E1035] dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               >
                 {CONFIG_KEY_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -405,7 +413,7 @@ export const AuditLogViewer: React.FC = () => {
               type="button"
               onClick={fetchVersions}
               disabled={versionsLoading}
-              className="px-3.5 py-2 min-h-[44px] sm:min-h-[38px] bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-slate-200 rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="btn-3d-lilac px-3.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${versionsLoading ? 'animate-spin' : ''}`} />
               <span>Muat Ulang Versi</span>
@@ -423,11 +431,11 @@ export const AuditLogViewer: React.FC = () => {
           {isCompactUI ? (
             <div className="space-y-2.5">
             {versionsLoading ? (
-              <div className="p-8 text-center text-xs text-slate-500 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="card-3d-lavender p-8 text-center text-xs text-[#6A5A88] dark:text-[#CEC0E8] rounded-2xl">
                 Memuat riwayat versi konfigurasi dari database...
               </div>
             ) : configVersions.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="card-3d-lavender p-8 text-center text-xs text-[#6A5A88] dark:text-[#CEC0E8] rounded-2xl">
                 Belum ada snapshot riwayat versi untuk kunci ini.
               </div>
             ) : (
@@ -436,28 +444,28 @@ export const AuditLogViewer: React.FC = () => {
                 return (
                   <div
                     key={ver.id}
-                    className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 space-y-2.5 shadow-xs"
+                    className="card-3d-lavender rounded-2xl p-3.5 space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-mono font-bold text-xs text-[#0F172A] dark:text-white break-all">
+                        <div className="font-mono font-bold text-xs text-[#1E1035] dark:text-white break-all">
                           {ver.config_key}
                         </div>
-                        <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                        <div className="text-[11px] font-mono text-[#6A5A88] dark:text-[#CEC0E8] mt-0.5 tabular-nums">
                           {new Date(ver.created_at).toLocaleString('id-ID')}
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-[#2563EB] border border-blue-200 dark:bg-blue-950/60 dark:text-[#38BDF8] dark:border-blue-800 font-mono text-[11px] font-bold shrink-0">
+                      <span className="px-2 py-0.5 rounded-lg bg-[#F3EAFF] text-[#431599] border border-[#D8CCF3] dark:bg-[#2A174B] dark:text-[#E8DDFF] dark:border-[#5B289B] font-mono text-[11px] font-bold shrink-0">
                         v{ver.version}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                       <span
-                        className={`px-2 py-0.5 rounded font-bold ${
+                        className={`px-2 py-0.5 rounded-lg font-bold ${
                           ver.action === 'ROLLBACK'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800'
+                            : 'bg-[#F8F1FF] text-[#431599] border border-[#E4D8F8] dark:bg-[#2A174B] dark:text-[#D8B4FE] dark:border-[#4A2580]'
                         }`}
                       >
                         {ver.action}
@@ -466,7 +474,7 @@ export const AuditLogViewer: React.FC = () => {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         {ver.tx_status}
                       </span>
-                      <span className="text-slate-600 dark:text-slate-300 font-medium">
+                      <span className="text-[#4A3B63] dark:text-[#D9CCF2] font-medium">
                         oleh {ver.changed_by_name || 'System'}
                       </span>
                     </div>
@@ -475,7 +483,7 @@ export const AuditLogViewer: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setExpandedVersionId(isExpanded ? null : ver.id)}
-                        className="px-3 py-1.5 min-h-[40px] sm:min-h-[36px] bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                        className="btn-3d-lilac px-3 py-1.5 min-h-[40px] sm:min-h-[36px] rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                         <span>{isExpanded ? 'Tutup JSON' : 'Lihat Snapshot JSON'}</span>
@@ -488,34 +496,34 @@ export const AuditLogViewer: React.FC = () => {
                             setRollbackTarget(ver);
                             setRollbackNotes('');
                           }}
-                          className="px-3 py-1.5 min-h-[40px] sm:min-h-[36px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          className="btn-3d-primary px-3 py-1.5 min-h-[40px] sm:min-h-[36px] text-white rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Rollback</span>
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-mono">Read-Only</span>
+                        <span className="text-[11px] text-[#766B83] font-mono">Read-Only</span>
                       )}
                     </div>
 
                     {isExpanded && (
-                      <div className="pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800 space-y-2.5">
+                      <div className="pt-2.5 border-t border-dashed border-[#D8CCF3] dark:border-[#35105E] space-y-2.5">
                         <div>
-                          <div className="text-[10.5px] font-bold text-slate-500 uppercase mb-1">Previous Value</div>
-                          <pre className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B1220] border border-slate-200 dark:border-slate-800 text-[10.5px] font-mono overflow-x-auto max-h-52 text-slate-700 dark:text-slate-300">
+                          <div className="text-[10.5px] font-bold text-[#6A5A88] dark:text-[#CEC0E8] uppercase mb-1">Previous Value</div>
+                          <pre className="p-2.5 rounded-lg bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E4D8F8] dark:border-[#35105E] text-[10.5px] font-mono overflow-x-auto max-h-52 text-[#211A2E] dark:text-[#E8DDFF]">
                             {JSON.stringify(ver.previous_value, null, 2) || 'null'}
                           </pre>
                         </div>
                         <div>
-                          <div className="text-[10.5px] font-bold text-[#2563EB] dark:text-[#38BDF8] uppercase mb-1">
+                          <div className="text-[10.5px] font-bold text-[#5B289B] dark:text-[#D8B4FE] uppercase mb-1">
                             New Value (Snapshot v{ver.version})
                           </div>
-                          <pre className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B1220] border border-blue-200 dark:border-blue-900 text-[10.5px] font-mono overflow-x-auto max-h-52 text-slate-700 dark:text-slate-300">
+                          <pre className="p-2.5 rounded-lg bg-[#F8F1FF] dark:bg-[#160D29] border border-[#CBB5F6] dark:border-[#5B289B] text-[10.5px] font-mono overflow-x-auto max-h-52 text-[#211A2E] dark:text-[#E8DDFF]">
                             {JSON.stringify(ver.new_value, null, 2) || 'null'}
                           </pre>
                         </div>
                         {ver.notes && (
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
                             <strong>Catatan:</strong> {ver.notes}
                           </div>
                         )}
@@ -527,31 +535,31 @@ export const AuditLogViewer: React.FC = () => {
             )}
             </div>
           ) : (
-            <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div className="card-3d-lavender rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#0F172A] dark:bg-[#0B1220] text-[11px] font-bold text-slate-200 uppercase">
+                <thead className="bg-[#241145] dark:bg-[#120926] text-[11px] font-bold text-[#EADFFF] uppercase tracking-wider">
                   <tr>
-                    <th className="py-2.5 px-3 w-8"></th>
-                    <th className="py-2.5 px-3">Waktu</th>
-                    <th className="py-2.5 px-3">Kunci Konfigurasi</th>
-                    <th className="py-2.5 px-3">Versi</th>
-                    <th className="py-2.5 px-3">Aksi</th>
-                    <th className="py-2.5 px-3">Diubah Oleh</th>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3 text-right">Pemulihan</th>
+                    <th className="py-3 px-3 w-8"></th>
+                    <th className="py-3 px-3">Waktu</th>
+                    <th className="py-3 px-3">Kunci Konfigurasi</th>
+                    <th className="py-3 px-3">Versi</th>
+                    <th className="py-3 px-3">Aksi</th>
+                    <th className="py-3 px-3">Diubah Oleh</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3 text-right">Pemulihan</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody className="divide-y divide-[#EDE4FA] dark:divide-[#2D1852]">
                   {versionsLoading ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                      <td colSpan={8} className="py-8 text-center text-[#6A5A88] dark:text-[#CEC0E8]">
                         Memuat riwayat versi konfigurasi dari database...
                       </td>
                     </tr>
                   ) : configVersions.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                      <td colSpan={8} className="py-8 text-center text-[#6A5A88] dark:text-[#CEC0E8]">
                         Belum ada snapshot riwayat versi untuk kunci ini.
                       </td>
                     </tr>
@@ -560,45 +568,45 @@ export const AuditLogViewer: React.FC = () => {
                       const isExpanded = expandedVersionId === ver.id;
                       return (
                         <React.Fragment key={ver.id}>
-                          <tr className="hover:bg-slate-50 dark:hover:bg-[#1E293B]/60">
+                          <tr className="hover:bg-[#F5EEFF]/70 dark:hover:bg-[#241242]/60 transition-colors">
                             <td className="py-2.5 px-3">
                               <button
                                 type="button"
                                 onClick={() => setExpandedVersionId(isExpanded ? null : ver.id)}
-                                className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                                className="p-1 text-[#6A5A88] hover:text-[#35105E] dark:text-[#CEC0E8] dark:hover:text-white cursor-pointer"
                                 title="Lihat Snapshot JSON"
                               >
                                 {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                               </button>
                             </td>
-                            <td className="py-2.5 px-3 font-mono tabular-nums text-slate-500 whitespace-nowrap">
+                            <td className="py-2.5 px-3 font-mono tabular-nums text-[#6A5A88] dark:text-[#CEC0E8] whitespace-nowrap">
                               {new Date(ver.created_at).toLocaleString('id-ID')}
                             </td>
-                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                            <td className="py-2.5 px-3 font-mono font-semibold text-[#1E1035] dark:text-white whitespace-nowrap">
                               {ver.config_key}
                             </td>
                             <td className="py-2.5 px-3 font-mono tabular-nums">
-                              <span className="px-2 py-0.5 rounded bg-blue-50 text-[#2563EB] border border-blue-200 dark:bg-blue-950/60 dark:text-[#38BDF8] dark:border-blue-800 font-bold">
+                              <span className="px-2 py-0.5 rounded-lg bg-[#F3EAFF] text-[#431599] border border-[#D8CCF3] dark:bg-[#2A174B] dark:text-[#E8DDFF] dark:border-[#5B289B] font-bold">
                                 v{ver.version}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 font-semibold whitespace-nowrap">
                               <span
-                                className={`px-2 py-0.5 rounded text-[10.5px] font-bold ${
+                                className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold ${
                                   ver.action === 'ROLLBACK'
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-800'
+                                    : 'bg-[#F8F1FF] text-[#431599] border border-[#E4D8F8] dark:bg-[#2A174B] dark:text-[#D8B4FE] dark:border-[#4A2580]'
                                 }`}
                               >
                                 {ver.action}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 whitespace-nowrap">
-                              <span className="font-medium text-slate-800 dark:text-slate-200">
+                              <span className="font-semibold text-[#1E1035] dark:text-white">
                                 {ver.changed_by_name || 'System'}
                               </span>
                               {ver.changed_by_role && (
-                                <span className="ml-1.5 text-[10px] font-mono text-slate-400">
+                                <span className="ml-1.5 text-[10px] font-mono text-[#766B83] dark:text-[#A78BFA]">
                                   ({ver.changed_by_role})
                                 </span>
                               )}
@@ -617,37 +625,37 @@ export const AuditLogViewer: React.FC = () => {
                                     setRollbackTarget(ver);
                                     setRollbackNotes('');
                                   }}
-                                  className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200 dark:bg-blue-950/60 dark:text-[#38BDF8] dark:border-blue-800 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                                  className="btn-3d-lilac px-2.5 py-1 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
                                 >
                                   <RotateCcw className="w-3 h-3" />
                                   <span>Rollback ke Versi Ini</span>
                                 </button>
                               ) : (
-                                <span className="text-[11px] text-slate-400 font-mono">Read-Only</span>
+                                <span className="text-[11px] text-[#766B83] font-mono">Read-Only</span>
                               )}
                             </td>
                           </tr>
                           {isExpanded && (
-                            <tr className="bg-slate-50/70 dark:bg-[#0B1220]/70">
+                            <tr className="bg-[#F8F1FF]/70 dark:bg-[#160D29]/70">
                               <td colSpan={8} className="p-4">
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                   <div className="space-y-1.5">
-                                    <div className="text-[11px] font-bold text-slate-500 uppercase">Previous Value</div>
-                                    <pre className="p-3 rounded-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 text-[11px] font-mono overflow-x-auto max-h-60 text-slate-700 dark:text-slate-300">
+                                    <div className="text-[11px] font-bold text-[#6A5A88] dark:text-[#CEC0E8] uppercase">Previous Value</div>
+                                    <pre className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E4D8F8] dark:border-[#35105E] text-[11px] font-mono overflow-x-auto max-h-60 text-[#211A2E] dark:text-[#E8DDFF]">
                                       {JSON.stringify(ver.previous_value, null, 2) || 'null'}
                                     </pre>
                                   </div>
                                   <div className="space-y-1.5">
-                                    <div className="text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] uppercase">
+                                    <div className="text-[11px] font-bold text-[#5B289B] dark:text-[#D8B4FE] uppercase">
                                       New Value (Snapshot v{ver.version})
                                     </div>
-                                    <pre className="p-3 rounded-lg bg-white dark:bg-[#0F172A] border border-blue-200 dark:border-blue-900 text-[11px] font-mono overflow-x-auto max-h-60 text-slate-700 dark:text-slate-300">
+                                    <pre className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#CBB5F6] dark:border-[#5B289B] text-[11px] font-mono overflow-x-auto max-h-60 text-[#211A2E] dark:text-[#E8DDFF]">
                                       {JSON.stringify(ver.new_value, null, 2) || 'null'}
                                     </pre>
                                   </div>
                                 </div>
                                 {ver.notes && (
-                                  <div className="mt-2 text-[11px] text-slate-500">
+                                  <div className="mt-2 text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
                                     <strong>Catatan:</strong> {ver.notes}
                                   </div>
                                 )}
@@ -681,7 +689,7 @@ export const AuditLogViewer: React.FC = () => {
               type="button"
               onClick={() => setRollbackTarget(null)}
               disabled={isRollingBack}
-              className="px-4 py-2 min-h-[44px] sm:min-h-[40px] bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
+              className="btn-3d-lilac px-4 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold cursor-pointer"
             >
               Batal
             </button>
@@ -689,7 +697,7 @@ export const AuditLogViewer: React.FC = () => {
               type="button"
               onClick={handleConfirmRollback}
               disabled={isRollingBack}
-              className="px-4 py-2 min-h-[44px] sm:min-h-[40px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+              className="btn-3d-primary px-4 py-2 min-h-[44px] sm:min-h-[40px] text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
             >
               {isRollingBack ? 'Memulihkan...' : 'Ya, Pulihkan Versi Ini'}
             </button>
@@ -697,15 +705,15 @@ export const AuditLogViewer: React.FC = () => {
         }
       >
         {rollbackTarget && (
-          <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300">
+          <div className="space-y-4 text-xs text-[#4A3B63] dark:text-[#D9CCF2]">
             <p className="leading-relaxed">
               Anda akan memulihkan konfigurasi global{' '}
-              <strong className="font-mono text-[#0F172A] dark:text-white">{rollbackTarget.config_key}</strong> ke
+              <strong className="font-mono text-[#1E1035] dark:text-white">{rollbackTarget.config_key}</strong> ke
               snapshot versi <strong className="font-mono">v{rollbackTarget.version}</strong>. Sistem akan membuat versi
               baru yang bersifat append-only dan menyiarkan pembaruan ke seluruh pengguna aktif.
             </p>
             <div className="space-y-1.5">
-              <label className="font-bold text-[#0F172A] dark:text-white block">
+              <label className="font-bold text-[#1E1035] dark:text-white block">
                 Catatan Rollback (Opsional):
               </label>
               <input
@@ -713,7 +721,7 @@ export const AuditLogViewer: React.FC = () => {
                 value={rollbackNotes}
                 onChange={e => setRollbackNotes(e.target.value)}
                 placeholder="Contoh: Kembalikan ke layout sebelum revisi siang"
-                className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#1E293B] text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full px-3 py-2.5 min-h-[44px] rounded-xl text-[#1E1035] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               />
             </div>
           </div>

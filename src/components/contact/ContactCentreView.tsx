@@ -108,7 +108,7 @@ const renderHighlightedText = (text: string, isMe: boolean): React.ReactNode => 
               ? 'bg-white/20 text-white'
               : isCritical
               ? 'bg-[#ffdad6] text-[#93000a] dark:bg-rose-950/80 dark:text-rose-200'
-              : 'bg-[#e7eeff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
+              : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#27104A] dark:text-[#D8B4FE]'
           }`}
         >
           {part}
@@ -122,7 +122,7 @@ const renderHighlightedText = (text: string, isMe: boolean): React.ReactNode => 
           className={`inline-block px-1.5 py-0.5 rounded font-mono text-[11.5px] font-bold mx-0.5 ${
             isMe
               ? 'bg-white/20 text-white'
-              : 'bg-[#f0f3ff] text-[#006194] dark:bg-[#261942] dark:text-sky-300'
+              : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#27104A] dark:text-[#D8B4FE]'
           }`}
         >
           {part}
@@ -753,7 +753,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     switch (role) {
       case 'dispatch':
         return (
-          <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/70 text-[#2563EB] dark:text-[#38BDF8] font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+          <span className="px-1.5 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] border border-[#DFC7FF] dark:border-[#5B35B1] font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
             DISPATCH
           </span>
         );
@@ -771,7 +771,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         );
       default:
         return (
-          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 dark:bg-[#1E293B] dark:text-slate-200 font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+          <span className="px-1.5 py-0.5 rounded bg-[#6b103b] text-white font-sans text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
             SUPER ADMIN
           </span>
         );
@@ -819,32 +819,32 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         }}
         className={`relative w-full text-left p-3.5 rounded-2xl transition-all duration-150 cursor-pointer border ${
           isSelected
-            ? 'bg-blue-50/80 dark:bg-[#1E293B] border-[#2563EB]/40 dark:border-[#38BDF8]/50 shadow-sm'
-            : 'bg-white dark:bg-[#0F172A] border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#1E293B]/60'
+            ? 'bg-[#F8F1FF] dark:bg-[#241145] border-[#7135B5]/50 dark:border-[#A380FE]/60 shadow-[0_3px_0_#E8DDFF,0_8px_16px_-6px_rgba(88,20,156,0.14)] dark:shadow-[0_3px_0_#130826]'
+            : 'bg-white dark:bg-[#1E1238] border-[#E8DDFF] dark:border-[#3B1D78] hover:bg-[#FDF7FF] dark:hover:bg-[#27104A]/80'
         }`}
       >
         {isSelected && (
           <span
             aria-hidden="true"
-            className="absolute left-1.5 top-3 bottom-3 w-1 rounded-full bg-[#2563EB] dark:bg-[#38BDF8]"
+            className="absolute left-1.5 top-3 bottom-3 w-1 rounded-full bg-[#7135B5] dark:bg-[#D8B4FE]"
           />
         )}
         <div className={`${isSelected ? 'pl-3' : ''} flex flex-col gap-1`}>
           <div className="flex items-center justify-between gap-2">
             <span
               className={`text-[11px] font-mono font-bold tracking-wider truncate tabular-nums ${
-                isSelected ? 'text-[#2563EB] dark:text-[#38BDF8]' : 'text-slate-600 dark:text-slate-400'
+                isSelected ? 'text-[#58149C] dark:text-[#D8B4FE]' : 'text-[#7D7484] dark:text-[#C5B3DF]'
               }`}
             >
               {t.woNumber}
             </span>
-            <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 shrink-0 tabular-nums">
+            <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A493C2] shrink-0 tabular-nums">
               {lastTime ? formatWibTime(lastTime) : t.slotTime || '-'}
             </span>
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <h4 className="font-display text-[13.5px] font-bold text-slate-900 dark:text-white truncate">
+            <h4 className="font-display text-[13.5px] font-bold text-[#1F1638] dark:text-white truncate">
               {t.customerName}
             </h4>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -854,24 +854,24 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 </span>
               )}
               {!isUrgent && isB2B && (
-                <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] text-[9.5px] font-bold">
+                <span className="px-1.5 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] text-[9.5px] font-bold">
                   B2B
                 </span>
               )}
               {unread > 0 ? (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#2563EB] text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs tabular-nums">
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#7135B5] text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs tabular-nums">
                   {unread > 99 ? '99+' : unread}
                 </span>
               ) : (
-                <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                <span className="w-2 h-2 rounded-full bg-[#D8CCF3] dark:bg-[#4B386B]" />
               )}
             </div>
           </div>
 
-          <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
+          <p className="text-xs text-[#4B4452] dark:text-[#C5B3DF] truncate">
             {lastMsg ? (
               <>
-                <span className={`font-semibold ${isSelected ? 'text-[#2563EB] dark:text-[#38BDF8]' : 'text-slate-800 dark:text-slate-200'}`}>
+                <span className={`font-semibold ${isSelected ? 'text-[#58149C] dark:text-[#D8B4FE]' : 'text-[#1F1638] dark:text-white'}`}>
                   {lastMsg.senderName?.split(' ')[0]}:
                 </span>{' '}
                 {lastMsg.text || (lastMsg.attachments?.length ? `[${lastMsg.attachments.length} Foto Bukti]` : '')}
@@ -888,15 +888,15 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {t.slotTime && (
-              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#0B1220] text-slate-600 dark:text-slate-300 text-[10px] font-medium tracking-wide truncate max-w-[110px]">
+              <span className="px-1.5 py-0.5 rounded bg-[#F8F1FF] dark:bg-[#160D29] text-[#4B4452] dark:text-[#C5B3DF] text-[10px] font-medium tracking-wide truncate max-w-[110px]">
                 {t.slotTime}
               </span>
             )}
             <span
               className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
                 isSelected
-                  ? 'bg-blue-100 text-[#2563EB] dark:bg-blue-950/70 dark:text-[#38BDF8]'
-                  : 'bg-slate-100 text-slate-600 dark:bg-[#1E293B] dark:text-slate-300'
+                  ? 'bg-[#EEDBFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                  : 'bg-[#F3EAFF] text-[#4B4452] dark:bg-[#27104A] dark:text-[#C5B3DF]'
               }`}
             >
               {t.statusWOInstaller || 'ASSIGNED'}
@@ -909,7 +909,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
             {categoryLabel && (
               <span
                 className="font-mono text-[10px] font-bold truncate"
-                style={{ color: catConfig?.color || '#2563EB' }}
+                style={{ color: catConfig?.color || '#5B35B1' }}
               >
                 #{categoryLabel}
               </span>
@@ -921,9 +921,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full min-h-0 flex-1 overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1220]">
+    <div className="flex flex-col w-full h-full min-h-0 flex-1 overflow-hidden bg-[#FDF7FF] dark:bg-[#140827]">
       {/* Main Fullscreen Workspace */}
-      <div className="flex-1 flex min-h-0 overflow-hidden relative bg-[#F8FAFC] dark:bg-[#0B1220]">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative bg-[#FDF7FF] dark:bg-[#140827]">
         {/* LEFT PANEL: Live Feeds Queue Strip */}
         <aside
           className={`${
@@ -932,10 +932,10 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 ? 'flex w-full'
                 : 'hidden'
               : 'flex w-72 lg:w-80 xl:w-96'
-          } flex-shrink-0 flex-col bg-white dark:bg-[#0F172A] shadow-sm z-10 min-h-0 overflow-hidden border-r border-slate-200 dark:border-slate-800`}
+          } flex-shrink-0 flex-col bg-white dark:bg-[#160D29] shadow-sm z-10 min-h-0 overflow-hidden border-r border-[#E8DDFF] dark:border-[#35105E]`}
         >
           {/* Panel Header: Search, Live Counts & Filter Chips */}
-          <div className="p-3 bg-white dark:bg-[#0F172A] flex flex-col gap-2.5 border-b border-slate-200 dark:border-slate-800 shrink-0 relative">
+          <div className="p-3 bg-white dark:bg-[#160D29] flex flex-col gap-2.5 border-b border-[#E8DDFF] dark:border-[#35105E] shrink-0 relative">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span
@@ -944,10 +944,10 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   }`}
                   title={isStreamLive ? 'SSE Stream & Supabase Terhubung' : 'Mode Lokal / Offline'}
                 />
-                <span className="font-display text-sm font-bold text-slate-900 dark:text-white truncate">
+                <span className="font-display text-sm font-bold text-[#1F1638] dark:text-white truncate">
                   Live Feeds
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] text-[11px] font-bold tabular-nums shrink-0 border border-blue-100 dark:border-slate-700">
+                <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] text-[11px] font-bold tabular-nums shrink-0 border border-[#DFC7FF] dark:border-[#5B35B1]">
                   {availableTickets.length} Aktif
                 </span>
               </div>
@@ -958,8 +958,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   onClick={() => setIsFilterPopoverOpen(prev => !prev)}
                   className={`w-10 h-10 rounded-xl border flex items-center justify-center cursor-pointer transition-colors ${
                     isFilterPopoverOpen || !['all', 'all_unread', 'approval', 'field'].includes(activeCategoryFilter)
-                      ? 'bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] border-[#2563EB]/40'
-                      : 'bg-slate-50 dark:bg-[#1E293B] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                      ? 'bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] border-[#7135B5]/50'
+                      : 'btn-3d-icon'
                   }`}
                   title="Filter Lanjutan & Kategori Chat"
                   aria-label="Filter Lanjutan"
@@ -971,9 +971,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
             {/* Category Popover Menu */}
             {isFilterPopoverOpen && (
-              <div className="absolute right-3 top-14 z-30 w-64 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 shadow-xl p-2.5 space-y-1.5">
-                <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-200 dark:border-slate-800">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="card-3d-lavender absolute right-3 top-14 z-30 w-64 rounded-xl p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between px-1 pb-1 border-b border-[#E8DDFF] dark:border-[#35105E]">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
                     Topik Operasional
                   </span>
                   {canManageCategories && (
@@ -983,7 +983,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         setIsFilterPopoverOpen(false);
                         setIsSettingsOpen(true);
                       }}
-                      className="text-[11px] font-mono font-bold text-[#2563EB] dark:text-[#38BDF8] hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-mono font-bold text-[#58149C] dark:text-[#D8B4FE] hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Settings className="w-3 h-3" />
                       <span>Kelola Tag</span>
@@ -1003,8 +1003,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         }}
                         className={`w-full flex items-center justify-between px-2.5 min-h-[38px] rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                           isCatSelected
-                            ? 'bg-[#2563EB] text-white'
-                            : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1E293B]'
+                            ? 'bg-[#58149C] text-white'
+                            : 'text-[#1F1638] dark:text-[#E8DDFF] hover:bg-[#F3EAFF] dark:hover:bg-[#27104A]'
                         }`}
                       >
                         <span className="truncate">#{g.category.name}</span>
@@ -1020,20 +1020,20 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
             {/* Search Well */}
             <div className="relative w-full flex items-center">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A493C2] absolute left-3.5 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Cari WO, ID Pelanggan, Teknisi..."
-                className="w-full min-h-[44px] pl-10 pr-9 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:bg-white dark:focus:bg-[#0F172A] transition-all"
+                className="tactile-debossed-input w-full min-h-[44px] pl-10 pr-9 py-2 bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#4B386B] rounded-xl text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5] focus:bg-white dark:focus:bg-[#160D29] transition-all"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                  className="absolute right-2.5 p-1 text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
                   aria-label="Hapus pencarian"
                 >
                   <X className="w-4 h-4" />
@@ -1048,8 +1048,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 onClick={() => setActiveCategoryFilter('all')}
                 className={`px-3 min-h-[38px] rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all shrink-0 ${
                   activeCategoryFilter === 'all'
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'tactile-chip-active'
+                    : 'tactile-chip text-[#4B4452]'
                 }`}
               >
                 Semua ({searchFilteredTickets.length})
@@ -1059,8 +1059,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 onClick={() => setActiveCategoryFilter('all_unread')}
                 className={`px-3 min-h-[38px] rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all shrink-0 ${
                   activeCategoryFilter === 'all_unread'
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'tactile-chip-active'
+                    : 'tactile-chip text-[#4B4452]'
                 }`}
               >
                 Unread ({allUnreadTickets.length})
@@ -1081,8 +1081,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 onClick={() => setActiveCategoryFilter('field')}
                 className={`px-3 min-h-[38px] rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer tabular-nums transition-all shrink-0 ${
                   activeCategoryFilter === 'field'
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] border border-blue-200 dark:border-slate-700'
+                    ? 'tactile-chip-active'
+                    : 'tactile-chip text-[#58149C] dark:text-[#D8B4FE]'
                 }`}
               >
                 Lapangan ({fieldTickets.length})
@@ -1091,13 +1091,13 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
           </div>
 
           {/* Scrollable Ticket List */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2.5 space-y-2.5 bg-[#F8FAFC] dark:bg-[#0B1220]">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2.5 space-y-2.5 bg-[#FDF7FF] dark:bg-[#140827]">
             {conversationList.length === 0 ? (
-              <div className="p-7 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2.5">
+              <div className="p-7 text-center text-xs text-[#7D7484] dark:text-[#C5B3DF] space-y-2.5">
                 {activeCategoryFilter === 'all_unread' ? (
                   <>
                     <CheckCircle2 className="w-8 h-8 text-[#16A36A] mx-auto" />
-                    <div className="font-bold text-slate-900 dark:text-white">
+                    <div className="font-bold text-[#1F1638] dark:text-white">
                       Semua Pesan Baru Telah Dibaca
                     </div>
                     <p className="text-[11px] leading-relaxed">
@@ -1106,15 +1106,15 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setActiveCategoryFilter('all')}
-                      className="px-4 min-h-[40px] rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[11px] font-bold cursor-pointer"
+                      className="btn-3d-primary px-4 min-h-[40px] rounded-xl text-[11px] font-bold cursor-pointer"
                     >
                       Lihat Semua ({searchFilteredTickets.length})
                     </button>
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="w-7 h-7 text-[#2563EB] dark:text-[#38BDF8] mx-auto" />
-                    <div className="font-bold text-slate-900 dark:text-white">
+                    <AlertCircle className="w-7 h-7 text-[#58149C] dark:text-[#D8B4FE] mx-auto" />
+                    <div className="font-bold text-[#1F1638] dark:text-white">
                       Tidak Ada Tiket di Antrean
                     </div>
                     <p className="text-[11px] leading-relaxed">
@@ -1126,7 +1126,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setActiveCategoryFilter('all')}
-                        className="px-4 min-h-[40px] rounded-xl bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold cursor-pointer"
+                        className="btn-3d-lilac px-4 min-h-[40px] rounded-xl text-[11px] font-bold cursor-pointer"
                       >
                         Reset Filter
                       </button>
@@ -1140,23 +1140,23 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
           </div>
 
           {/* Quick Operator Footprint */}
-          <div className="px-3.5 py-2.5 bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 shrink-0 gap-2">
+          <div className="px-3.5 py-2.5 bg-white dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between text-[11px] text-[#7D7484] dark:text-[#C5B3DF] shrink-0 gap-2">
             <span className="flex items-center gap-1.5 min-w-0 truncate">
-              <Headphones className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+              <Headphones className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
               <span className="truncate font-medium">
                 {currentUser?.role === 'installer' ? 'Teknisi' : currentUser?.role === 'leader' ? 'Korlap' : 'Dispatcher'}:{' '}
-                <strong className="text-slate-900 dark:text-white">{currentUser?.name || '-'}</strong>
+                <strong className="text-[#1F1638] dark:text-white">{currentUser?.name || '-'}</strong>
               </span>
             </span>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500 uppercase">
+              <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A493C2] uppercase">
                 {currentUser?.area || activeTicket?.area || `${activeTechnicianCount} TECH`}
               </span>
               <button
                 type="button"
                 onClick={handleRefreshQueue}
                 disabled={isRefreshing}
-                className="w-8 h-8 rounded-lg text-[#2563EB] dark:text-[#38BDF8] hover:bg-slate-100 dark:hover:bg-[#1E293B] font-bold flex items-center justify-center cursor-pointer disabled:opacity-50"
+                className="btn-3d-icon w-8 h-8 !text-[#58149C] dark:!text-[#D8B4FE] font-bold cursor-pointer disabled:opacity-50"
                 title="Sinkronkan antrean chat"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -1169,12 +1169,12 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         <section
           className={`${
             isCompactUI && mobilePane === 'queue' ? 'hidden' : 'flex'
-          } flex-1 flex-col h-full bg-[#F8FAFC] dark:bg-[#0B1220] min-w-0 relative overflow-hidden`}
+          } flex-1 flex-col h-full bg-[#FDF7FF] dark:bg-[#140827] min-w-0 relative overflow-hidden`}
         >
           {activeTicket ? (
             <>
               {/* TOP CONVERSATION HEADER + FLOATING CONTEXT STRIP */}
-              <header className="bg-white dark:bg-[#0F172A] px-3.5 sm:px-5 py-2.5 z-20 flex-shrink-0 border-b border-slate-200 dark:border-slate-800 space-y-2 shadow-2xs">
+              <header className="bg-white dark:bg-[#160D29] px-3.5 sm:px-5 py-2.5 z-20 flex-shrink-0 border-b border-[#E8DDFF] dark:border-[#35105E] space-y-2 shadow-2xs">
                 <div className="flex items-center justify-between gap-2">
                   {/* Left: Back (mobile), Monogram Avatar, War Room Title & Live Status */}
                   <div className="flex items-center gap-2 min-w-0">
@@ -1182,7 +1182,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setMobilePane('queue')}
-                        className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-900 dark:text-white transition-colors shrink-0 cursor-pointer"
+                        className="btn-3d-icon w-11 h-11 rounded-xl shrink-0 cursor-pointer"
                         aria-label="Kembali ke daftar antrean"
                       >
                         <ArrowLeft className="w-4 h-4" />
@@ -1190,11 +1190,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     )}
 
                     <div className="relative shrink-0">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] font-display font-bold text-xs flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                      <div className="w-10 h-10 rounded-xl bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] font-display font-bold text-xs flex items-center justify-center border border-[#DFC7FF] dark:border-[#5B35B1]">
                         {getInitials(activeTicket.installerName || activeTicket.customerName)}
                       </div>
                       <span
-                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#0F172A] ${
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#160D29] ${
                           isStreamLive ? 'bg-[#16A36A]' : 'bg-amber-500'
                         }`}
                       />
@@ -1202,20 +1202,20 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-display text-sm sm:text-[15px] font-bold text-slate-900 dark:text-white truncate">
+                        <span className="font-display text-sm sm:text-[15px] font-bold text-[#1F1638] dark:text-white truncate">
                           Dispatch War Room Chat
                         </span>
-                        <BadgeCheck className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                        <BadgeCheck className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
                       </div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#7D7484] dark:text-[#C5B3DF] truncate">
                         <span
                           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            isStreamLive ? 'bg-[#2563EB] dark:bg-[#38BDF8]' : 'bg-amber-500'
+                            isStreamLive ? 'bg-[#7135B5] dark:bg-[#D8B4FE]' : 'bg-amber-500'
                           }`}
                         />
                         <span className="truncate font-medium">
                           {isStreamLive ? 'Radio & Dispatch Active' : 'Mode Sinkronisasi Lokal'} ·{' '}
-                          <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">
+                          <span className="font-mono font-bold text-[#58149C] dark:text-[#D8B4FE]">
                             {activeTicket.woNumber}
                           </span>
                         </span>
@@ -1224,11 +1224,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   </div>
 
                   {/* Right: Action Icons & Detail Drawer Toggle */}
-                  <div className="flex items-center gap-1 flex-shrink-0 relative">
+                  <div className="flex items-center gap-1.5 flex-shrink-0 relative">
                     <button
                       type="button"
                       onClick={handleCallKorlap}
-                      className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                      className="btn-3d-icon w-10 h-10 rounded-xl cursor-pointer"
                       title={korlapContact ? `Hubungi ${korlapContact.label}: ${korlapContact.phone}` : 'Nomor Korlap belum tersedia'}
                       aria-label="Panggilan Korlap"
                     >
@@ -1238,10 +1238,10 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsDetailDrawerOpen(prev => !prev)}
-                      className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
                         isDetailDrawerOpen
-                          ? 'bg-blue-50 text-[#2563EB] dark:bg-[#1E293B] dark:text-[#38BDF8]'
-                          : 'hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-700 dark:text-slate-200'
+                          ? 'bg-[#F3EAFF] text-[#58149C] border border-[#7135B5]/40 dark:bg-[#27104A] dark:text-[#D8B4FE]'
+                          : 'btn-3d-icon'
                       }`}
                       title="Buka / Tutup Ringkasan WO (Shift + D)"
                       aria-label="Toggle Ringkasan WO"
@@ -1253,7 +1253,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectTicket(activeTicket, 'overview')}
-                        className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 text-[#2563EB] dark:text-[#38BDF8] text-xs font-bold cursor-pointer whitespace-nowrap transition-colors"
+                        className="btn-3d-lilac hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>Detail WO</span>
@@ -1263,7 +1263,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsMoreMenuOpen(prev => !prev)}
-                      className="w-11 h-11 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1E293B] flex items-center justify-center text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                      className="btn-3d-icon w-10 h-10 rounded-xl cursor-pointer"
                       aria-label="Opsi lainnya"
                       title="Opsi Lainnya"
                     >
@@ -1271,16 +1271,16 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     </button>
 
                     {isMoreMenuOpen && (
-                      <div className="absolute right-0 top-12 z-30 w-56 rounded-2xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 shadow-xl p-1.5 space-y-1 text-xs">
+                      <div className="card-3d-lavender absolute right-0 top-12 z-30 w-56 rounded-2xl p-1.5 space-y-1 text-xs">
                         <button
                           type="button"
                           onClick={() => {
                             setIsMoreMenuOpen(false);
                             setIsDetailDrawerOpen(prev => !prev);
                           }}
-                          className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer"
+                          className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#1F1638] dark:text-white hover:bg-[#F3EAFF] dark:hover:bg-[#27104A] cursor-pointer"
                         >
-                          <PanelRightOpen className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                          <PanelRightOpen className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
                           <span>{isDetailDrawerOpen ? 'Tutup Ringkasan WO' : 'Buka Ringkasan WO'}</span>
                         </button>
                         {onSelectTicket && (
@@ -1290,9 +1290,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               setIsMoreMenuOpen(false);
                               onSelectTicket(activeTicket, 'report');
                             }}
-                            className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer"
+                            className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#1F1638] dark:text-white hover:bg-[#F3EAFF] dark:hover:bg-[#27104A] cursor-pointer"
                           >
-                            <FileText className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                            <FileText className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
                             <span>Buka Tab Laporan Teknisi</span>
                           </button>
                         )}
@@ -1302,12 +1302,12 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                             setIsMoreMenuOpen(false);
                             handleCopyWoSummary();
                           }}
-                          className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer"
+                          className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#1F1638] dark:text-white hover:bg-[#F3EAFF] dark:hover:bg-[#27104A] cursor-pointer"
                         >
                           {copiedWoId === activeTicket.id ? (
                             <Check className="w-3.5 h-3.5 text-[#16A36A]" />
                           ) : (
-                            <Copy className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                            <Copy className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
                           )}
                           <span>Salin Ringkasan WO</span>
                         </button>
@@ -1318,9 +1318,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               setIsMoreMenuOpen(false);
                               setIsSettingsOpen(true);
                             }}
-                            className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer"
+                            className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#1F1638] dark:text-white hover:bg-[#F3EAFF] dark:hover:bg-[#27104A] cursor-pointer"
                           >
-                            <Settings className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                            <Settings className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
                             <span>Kelola Kategori Chat</span>
                           </button>
                         )}
@@ -1330,9 +1330,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                             setIsMoreMenuOpen(false);
                             handleRefreshQueue();
                           }}
-                          className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer"
+                          className="w-full min-h-[40px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-left font-semibold text-[#1F1638] dark:text-white hover:bg-[#F3EAFF] dark:hover:bg-[#27104A] cursor-pointer"
                         >
-                          <RefreshCw className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                          <RefreshCw className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
                           <span>Sinkronkan LiveChat</span>
                         </button>
                       </div>
@@ -1341,18 +1341,18 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 </div>
 
                 {/* FLOATING OPERATIONAL CONTEXT STRIP */}
-                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-[11px]">
+                <div className="mj-tactile-well flex flex-wrap items-center justify-between gap-2 px-3 py-2 border border-[#E8DDFF] dark:border-[#35105E] text-[11px]">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <ShieldCheck className="w-4 h-4 text-[#16A36A] shrink-0" />
-                    <span className="font-semibold text-slate-900 dark:text-white truncate">
+                    <span className="font-semibold text-[#1F1638] dark:text-white truncate">
                       {activeTicket.customerName}
                     </span>
-                    <span className="hidden sm:inline text-slate-400">•</span>
-                    <span className="hidden sm:inline font-medium text-slate-500 dark:text-slate-400 truncate">
+                    <span className="hidden sm:inline text-[#A493C2]">•</span>
+                    <span className="hidden sm:inline font-medium text-[#7D7484] dark:text-[#C5B3DF] truncate">
                       {activeTicket.installerName || 'Unassigned'} · {activeTicket.area || activeTicket.clusterName || '-'}
                     </span>
                     {activeTicket.fatCode && (
-                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] shrink-0">
+                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-white dark:bg-[#27104A] border border-[#DFC7FF] dark:border-[#5B35B1] text-[#58149C] dark:text-[#D8B4FE] shrink-0">
                         {activeTicket.fatCode}
                       </span>
                     )}
@@ -1363,7 +1363,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenWhatsApp(activeTicket)}
-                        className="px-2.5 min-h-[32px] py-1 rounded-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] font-bold text-[10.5px] flex items-center gap-1 hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
+                        className="btn-3d-icon-wa px-2.5 min-h-[32px] py-1 font-bold text-[10.5px] gap-1 cursor-pointer"
                       >
                         <MessageSquare className="w-3 h-3" />
                         <span>WhatsApp</span>
@@ -1373,7 +1373,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         href={`https://wa.me/${activeTicket.customerPhone.replace(/\D/g, '').replace(/^0/, '62')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2.5 min-h-[32px] py-1 rounded-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] font-bold text-[10.5px] flex items-center gap-1 hover:bg-blue-50 dark:hover:bg-slate-800"
+                        className="btn-3d-icon-wa px-2.5 min-h-[32px] py-1 font-bold text-[10.5px] gap-1"
                       >
                         <MessageSquare className="w-3 h-3" />
                         <span>WhatsApp</span>
@@ -1386,7 +1386,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                           ? 'bg-rose-600 text-white'
                           : activeTicket.approvalStatus === 'APPROVED'
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
-                          : 'bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8]'
+                          : 'bg-[#EEDBFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#D8B4FE]'
                       }`}
                     >
                       {activeTicket.approvalStatus === 'BUTUH APPROVAL'
@@ -1401,8 +1401,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 sm:px-5 lg:px-8 py-4 space-y-4">
                 {/* Timeline Date & Checkpoint Pill */}
                 <div className="flex items-center justify-center my-1">
-                  <div className="px-4 py-1.5 rounded-full bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs max-w-full">
-                    <MapPin className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                  <div className="px-4 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3B1D78] text-[#4B4452] dark:text-[#E8DDFF] text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs max-w-full">
+                    <MapPin className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
                     <span className="truncate">
                       {activeTicket.checkInAt
                         ? `${activeTicket.installerName || 'Teknisi'} tiba & Check-in (${formatJakartaTimeOnly(
@@ -1416,22 +1416,22 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 {/* Real System Telemetry Event: Assignment / Distribution */}
                 {(activeTicket.assignedAt || activeTicket.dateAssignTechnician || activeTicket.installerName) && (
                   <div className="flex items-start gap-2.5 max-w-3xl mx-auto w-full">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1E293B] border border-blue-100 dark:border-slate-700 flex items-center justify-center text-[#2563EB] dark:text-[#38BDF8] shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-[#F3EAFF] dark:bg-[#27104A] border border-[#DFC7FF] dark:border-[#5B35B1] flex items-center justify-center text-[#58149C] dark:text-[#D8B4FE] shrink-0 mt-0.5">
                       <Bot className="w-4 h-4" />
                     </div>
-                    <div className="flex-1 bg-white dark:bg-[#0F172A] rounded-2xl rounded-tl-sm p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                    <div className="card-3d-lavender flex-1 rounded-2xl rounded-tl-sm p-3.5">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10.5px] font-bold text-[#2563EB] dark:text-[#38BDF8] uppercase tracking-wider">
+                        <span className="text-[10.5px] font-bold text-[#58149C] dark:text-[#D8B4FE] uppercase tracking-wider">
                           Telemetri Penugasan Work Order
                         </span>
-                        <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">
+                        <span className="font-mono text-[11px] text-[#7D7484] dark:text-[#A493C2] tabular-nums">
                           {activeTicket.assignedAt
                             ? formatWibTime(activeTicket.assignedAt)
                             : activeTicket.dateAssignTechnician || activeTicket.slotTime || '-'}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed">
-                        <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">[SYSTEM]</span>{' '}
+                      <p className="text-xs sm:text-[13px] text-[#1F1638] dark:text-[#E8DDFF] leading-relaxed">
+                        <span className="font-mono font-bold text-[#58149C] dark:text-[#D8B4FE]">[SYSTEM]</span>{' '}
                         {activeTicket.woNumber} terdistribusi ke mitra{' '}
                         <strong>{activeTicket.contactorName || activeTicket.contractorName || '-'}</strong>. Teknisi{' '}
                         <strong>{activeTicket.installerName || 'Unassigned'}</strong> ditugaskan pada{' '}
@@ -1444,7 +1444,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         )}
                       </p>
                       {(activeTicket.fatCode || activeTicket.fatPort || activeTicket.area) && (
-                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                        <div className="mt-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E] flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#7D7484] dark:text-[#C5B3DF] font-mono">
                           {activeTicket.area && <span>Area: {activeTicket.area}</span>}
                           {activeTicket.fatCode && (
                             <span>
@@ -1465,12 +1465,12 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                 {/* Chat Message Stream */}
                 {activeMessages.length === 0 ? (
-                  <div className="max-w-xl mx-auto my-8 p-6 rounded-2xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 shadow-xs text-center space-y-2.5">
-                    <MessageSquare className="w-9 h-9 text-[#2563EB] dark:text-[#38BDF8] mx-auto" />
-                    <div className="font-display font-bold text-sm text-slate-900 dark:text-white">
+                  <div className="card-3d-lavender max-w-xl mx-auto my-8 p-6 rounded-2xl text-center space-y-2.5">
+                    <MessageSquare className="w-9 h-9 text-[#58149C] dark:text-[#D8B4FE] mx-auto" />
+                    <div className="font-display font-bold text-sm text-[#1F1638] dark:text-white">
                       Belum Ada Pesan pada Channel {activeTicket.woNumber}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <p className="text-xs text-[#7D7484] dark:text-[#C5B3DF] leading-relaxed">
                       {isLeader
                         ? 'Menunggu komunikasi antara Dispatch dan Teknisi Lapangan. Anda berada dalam mode pemantauan (Read-Only).'
                         : 'Mulai koordinasi lapangan antara Dispatch dan Teknisi. Unggah foto redaman OPM, perangkat ONT, atau kendala fisik.'}
@@ -1494,12 +1494,12 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               className={`w-8 h-8 rounded-full font-display text-[11px] font-bold flex items-center justify-center ${
                                 isTechBubble
                                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
-                                  : 'bg-blue-50 text-[#2563EB] dark:bg-[#1E293B] dark:text-[#38BDF8]'
+                                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#27104A] dark:text-[#D8B4FE]'
                               }`}
                             >
                               {getInitials(msg.senderName)}
                             </div>
-                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A36A] border-2 border-[#F8FAFC] dark:border-[#0B1220]" />
+                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A36A] border-2 border-[#FDF7FF] dark:border-[#140827]" />
                           </div>
                         )}
 
@@ -1511,20 +1511,20 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                           <div className="flex flex-wrap items-center gap-1.5 text-xs px-0.5">
                             {isMe ? (
                               <>
-                                <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500 tabular-nums">
+                                <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A493C2] tabular-nums">
                                   {formatWibTime(msg.timestamp)}
                                 </span>
-                                <span className="font-display font-bold text-[#2563EB] dark:text-[#38BDF8]">
+                                <span className="font-display font-bold text-[#58149C] dark:text-[#D8B4FE]">
                                   Anda ({msg.senderName?.split(' ')[0] || 'User'})
                                 </span>
                               </>
                             ) : (
                               <>
-                                <span className="font-display font-bold text-slate-900 dark:text-white">
+                                <span className="font-display font-bold text-[#1F1638] dark:text-white">
                                   {msg.senderName}
                                 </span>
                                 {getRoleBadge(msg.senderRole)}
-                                <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500 tabular-nums">
+                                <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A493C2] tabular-nums">
                                   {formatWibTime(msg.timestamp)}
                                 </span>
                               </>
@@ -1535,8 +1535,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                           <div
                             className={`p-3.5 rounded-2xl text-[13.5px] leading-relaxed space-y-2 ${
                               isMe
-                                ? 'rounded-tr-sm bg-[#2563EB] text-white shadow-sm'
-                                : 'rounded-tl-sm bg-white dark:bg-[#0F172A] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 shadow-2xs'
+                                ? 'rounded-tr-sm bg-gradient-to-br from-[#7135B5] to-[#58149C] text-white shadow-[0_3px_0_#35105E,0_6px_14px_rgba(53,16,94,0.22)]'
+                                : 'rounded-tl-sm bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-[#F5EEFF] border border-[#E8DDFF] dark:border-[#3B1D78] shadow-[0_2px_0_#E8DDFF] dark:shadow-[0_2px_0_#130826]'
                             }`}
                           >
                             {msg.category && String(msg.category).toUpperCase() !== 'UNCLASSIFIED' && (
@@ -1545,7 +1545,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
                                     isMe
                                       ? 'bg-white/20 text-white'
-                                      : 'bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8]'
+                                      : 'bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE]'
                                   }`}
                                 >
                                   <Radio className="w-3 h-3" />
@@ -1557,7 +1557,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                 {activeTicket.fatCode && msg.isCheckIn && (
                                   <span
                                     className={`font-mono text-[10.5px] font-bold ${
-                                      isMe ? 'text-sky-100' : 'text-[#2563EB] dark:text-[#38BDF8]'
+                                      isMe ? 'text-[#EEDBFF]' : 'text-[#58149C] dark:text-[#D8B4FE]'
                                     }`}
                                   >
                                     {activeTicket.fatCode}
@@ -1581,19 +1581,19 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                   return (
                                     <div
                                       key={att.id}
-                                      className="rounded-xl overflow-hidden bg-white dark:bg-[#0B1220] p-1.5 border border-slate-200 dark:border-slate-700 shadow-2xs"
+                                      className="rounded-xl overflow-hidden bg-white dark:bg-[#160D29] p-1.5 border border-[#DFC7FF] dark:border-[#4B386B] shadow-2xs"
                                     >
                                       {isBroken || !previewUrl ? (
-                                        <div className="h-36 rounded-lg bg-slate-100 dark:bg-[#1E293B] flex flex-col items-center justify-center p-3 text-center gap-1">
-                                          <ImageIcon className="w-6 h-6 text-[#2563EB] dark:text-[#38BDF8]" />
-                                          <span className="text-[11px] font-semibold truncate max-w-full text-slate-900 dark:text-white">
+                                        <div className="h-36 rounded-lg bg-[#F8F1FF] dark:bg-[#241145] flex flex-col items-center justify-center p-3 text-center gap-1">
+                                          <ImageIcon className="w-6 h-6 text-[#58149C] dark:text-[#D8B4FE]" />
+                                          <span className="text-[11px] font-semibold truncate max-w-full text-[#1F1638] dark:text-white">
                                             {att.fileName}
                                           </span>
                                         </div>
                                       ) : (
                                         <div
                                           onClick={() => setZoomImage(previewUrl)}
-                                          className="relative w-full h-36 rounded-lg overflow-hidden bg-slate-900/10 dark:bg-[#0B1220] group cursor-pointer"
+                                          className="relative w-full h-36 rounded-lg overflow-hidden bg-[#160D29]/10 dark:bg-[#140827] group cursor-pointer"
                                         >
                                           <img
                                             src={previewUrl}
@@ -1605,7 +1605,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                           />
                                           <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between gap-2">
-                                            <span className="px-2 py-0.5 rounded bg-black/70 text-white font-mono text-[10px] font-bold truncate">
+                                            <span className="px-2 py-0.5 rounded bg-[#160D29]/80 text-white font-mono text-[10px] font-bold truncate">
                                               {att.fileSize > 0 ? formatFileSize(att.fileSize) : 'Bukti Lapangan'}
                                             </span>
                                             <span className="px-2 py-0.5 rounded-full bg-[#16A36A] text-white text-[9.5px] font-bold shrink-0">
@@ -1615,14 +1615,14 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                         </div>
                                       )}
                                       <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
-                                        <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
+                                        <span className="text-[11px] font-medium text-[#4B4452] dark:text-[#C5B3DF] truncate">
                                           {att.fileName}
                                         </span>
                                         {previewUrl && !isBroken && (
                                           <button
                                             type="button"
                                             onClick={() => setZoomImage(previewUrl)}
-                                            className="px-2.5 min-h-[30px] py-0.5 rounded-lg bg-blue-50 dark:bg-[#1E293B] text-[#2563EB] dark:text-[#38BDF8] text-[10.5px] font-bold flex items-center gap-1 shrink-0 cursor-pointer hover:bg-blue-100"
+                                            className="btn-3d-lilac px-2.5 min-h-[30px] py-0.5 rounded-lg text-[10.5px] font-bold flex items-center gap-1 shrink-0 cursor-pointer"
                                           >
                                             <Maximize2 className="w-3 h-3" />
                                             <span>Perbesar</span>
@@ -1654,8 +1654,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                 {/* Live Device / OPM / Check-in Telemetry Terminal Card (Real Data Only) */}
                 {(activeTicket.ontSerialNumber || activeTicket.rosetRedamanDbm !== undefined) && (
-                  <div className="max-w-xl ml-auto rounded-2xl bg-[#0F172A] dark:bg-[#1E293B] text-slate-100 p-3.5 font-mono text-[11px] space-y-1.5 shadow-sm border border-slate-700/80">
-                    <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-[#38BDF8]">
+                  <div className="max-w-xl ml-auto rounded-2xl bg-[#160D29] text-[#F5EEFF] p-3.5 font-mono text-[11px] space-y-1.5 shadow-sm border border-[#4B386B]">
+                    <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-[#D8B4FE]">
                       <span className="flex items-center gap-1.5 font-bold">
                         <Router className="w-3.5 h-3.5" />
                         <span>Telemetry Diagnostik Lapangan</span>
@@ -1706,11 +1706,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
               {/* Pending Attachments Strip */}
               {pendingAttachments.length > 0 && (
-                <div className="px-4 py-2 bg-slate-50 dark:bg-[#1E293B] border-t border-slate-200 dark:border-slate-700 flex items-center gap-2.5 overflow-x-auto shrink-0">
+                <div className="px-4 py-2 bg-[#F8F1FF] dark:bg-[#1E1238] border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center gap-2.5 overflow-x-auto shrink-0">
                   {pendingAttachments.map(att => (
                     <div
                       key={att.id}
-                      className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-[#2563EB] shrink-0"
+                      className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-[#7135B5] shrink-0"
                     >
                       <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                       <button
@@ -1723,7 +1723,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       </button>
                     </div>
                   ))}
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  <span className="text-xs font-semibold text-[#1F1638] dark:text-[#E8DDFF]">
                     {pendingAttachments.length} foto siap dikirim
                   </span>
                 </div>
@@ -1731,7 +1731,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
               {/* BOTTOM INTERACTION CONSOLE: Read-Only Leader OR Quick Chips + Composer */}
               {isLeader ? (
-                <div className="p-4 bg-amber-50 dark:bg-[#0F172A] border-t border-amber-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pb-safe">
+                <div className="p-4 bg-amber-50 dark:bg-[#1E1238] border-t border-amber-200 dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pb-safe">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
                       <Shield className="w-4 h-4" />
@@ -1743,7 +1743,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                           Hanya Pantau Percakapan
                         </span>
                       </div>
-                      <p className="text-[11px] text-amber-800 dark:text-slate-300 mt-0.5 truncate">
+                      <p className="text-[11px] text-amber-800 dark:text-[#C5B3DF] mt-0.5 truncate">
                         Korlap memantau percakapan area {currentUser?.area || activeTicket.area || '-'} ·{' '}
                         {currentUser?.contractor || activeTicket.contactorName || activeTicket.contractorName || '-'}.
                         Pengiriman pesan dibatasi untuk Dispatch & Teknisi Lapangan.
@@ -1756,14 +1756,14 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   </div>
                 </div>
               ) : (
-                <footer className="bg-white dark:bg-[#0F172A] px-3.5 lg:px-6 pt-2.5 pb-safe flex flex-col gap-2 shadow-sm z-20 flex-shrink-0 border-t border-slate-200 dark:border-slate-800">
+                <footer className="bg-white dark:bg-[#160D29] px-3.5 lg:px-6 pt-2.5 pb-safe flex flex-col gap-2 shadow-sm z-20 flex-shrink-0 border-t border-[#E8DDFF] dark:border-[#35105E]">
                   {/* QUICK ACTION CHIPS ROW */}
                   <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
                     <button
                       type="button"
                       onClick={handleShareGps}
                       disabled={isLocating}
-                      className="inline-flex items-center gap-1.5 px-3 min-h-[38px] rounded-full bg-blue-50 dark:bg-[#1E293B] hover:bg-blue-100 dark:hover:bg-slate-700 text-[#2563EB] dark:text-[#38BDF8] text-xs font-bold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                      className="tactile-chip inline-flex items-center gap-1.5 px-3 min-h-[38px] rounded-full text-[#58149C] dark:text-[#D8B4FE] text-xs font-bold whitespace-nowrap cursor-pointer shrink-0"
                     >
                       {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crosshair className="w-3.5 h-3.5" />}
                       <span>Share GPS</span>
@@ -1781,7 +1781,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 min-h-[38px] rounded-full bg-blue-50 dark:bg-[#1E293B] hover:bg-blue-100 dark:hover:bg-slate-700 text-[#2563EB] dark:text-[#38BDF8] text-xs font-bold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                      className="tactile-chip inline-flex items-center gap-1.5 px-3 min-h-[38px] rounded-full text-[#58149C] dark:text-[#D8B4FE] text-xs font-bold whitespace-nowrap cursor-pointer shrink-0"
                     >
                       <ImageIcon className="w-3.5 h-3.5" />
                       <span>Foto Bukti</span>
@@ -1796,16 +1796,16 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <span>Kendala</span>
                     </button>
 
-                    <span className="h-4 w-px bg-slate-200 dark:bg-slate-700 shrink-0 mx-0.5" />
+                    <span className="h-4 w-px bg-[#E8DDFF] dark:bg-[#4B386B] shrink-0 mx-0.5" />
 
                     {quickReplyChips.map(chip => (
                       <button
                         key={chip.id}
                         type="button"
                         onClick={() => insertQuickReply(chip.text)}
-                        className="inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold whitespace-nowrap cursor-pointer shrink-0 transition-colors"
+                        className="tactile-chip inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full text-[#4B4452] dark:text-[#E8DDFF] text-xs font-semibold whitespace-nowrap cursor-pointer shrink-0"
                       >
-                        <Zap className="w-3 h-3 text-[#2563EB] dark:text-[#38BDF8]" />
+                        <Zap className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE]" />
                         <span>{chip.label}</span>
                       </button>
                     ))}
@@ -1817,7 +1817,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       className={`px-3 py-2 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
                         !installerCategory || installerCategory.toUpperCase() === 'UNCLASSIFIED'
                           ? 'bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
-                          : 'bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                          : 'mj-tactile-well border border-[#E8DDFF] dark:border-[#35105E] text-[#4B4452] dark:text-[#E8DDFF]'
                       }`}
                     >
                       <div className="flex items-center gap-2 font-semibold">
@@ -1838,8 +1838,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               onClick={() => handleCategoryChangeForActiveTicket(cat.name)}
                               className={`px-3 min-h-[36px] rounded-full text-[10.5px] font-bold uppercase cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-[#2563EB] text-white shadow-2xs'
-                                  : 'bg-white dark:bg-[#0F172A] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+                                  ? 'tactile-chip-active shadow-2xs'
+                                  : 'tactile-chip text-[#4B4452]'
                               }`}
                             >
                               #{cat.name}
@@ -1870,11 +1870,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                   {/* ERGONOMIC CHAT COMPOSER */}
                   <form onSubmit={handleSendMessage} className="flex items-center gap-2 w-full relative">
-                    <div className="flex items-center gap-1.5 flex-1 min-w-0 bg-slate-50 dark:bg-[#1E293B] rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700 shadow-inner">
+                    <div className="tactile-debossed-input flex items-center gap-1.5 flex-1 min-w-0 bg-[#F8F1FF] dark:bg-[#1E1238] rounded-2xl p-1.5 border border-[#E8DDFF] dark:border-[#4B386B]">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-11 h-11 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center flex-shrink-0 cursor-pointer shadow-2xs"
+                        className="btn-3d-icon w-11 h-11 rounded-xl !text-[#58149C] dark:!text-[#D8B4FE] flex-shrink-0 cursor-pointer"
                         title="Lampirkan Berkas Foto"
                         aria-label="Lampirkan Berkas"
                       >
@@ -1884,7 +1884,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <button
                         type="button"
                         onClick={() => cameraInputRef.current?.click()}
-                        className="hidden sm:flex w-11 h-11 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] hover:bg-slate-100 dark:hover:bg-slate-800 items-center justify-center flex-shrink-0 cursor-pointer shadow-2xs"
+                        className="btn-3d-icon hidden sm:flex w-11 h-11 rounded-xl !text-[#58149C] dark:!text-[#D8B4FE] flex-shrink-0 cursor-pointer"
                         title="Ambil Foto Lapangan"
                         aria-label="Ambil Foto"
                       >
@@ -1894,7 +1894,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowTemplateMenu(prev => !prev)}
-                        className="hidden md:flex w-11 h-11 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] hover:bg-slate-100 dark:hover:bg-slate-800 items-center justify-center flex-shrink-0 cursor-pointer shadow-2xs"
+                        className="btn-3d-icon hidden md:flex w-11 h-11 rounded-xl !text-[#58149C] dark:!text-[#D8B4FE] flex-shrink-0 cursor-pointer"
                         title="Sisipkan Template SOP"
                         aria-label="Template SOP"
                       >
@@ -1902,8 +1902,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       </button>
 
                       {showTemplateMenu && (
-                        <div className="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-2 z-30 space-y-1">
-                          <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] border-b border-slate-200 dark:border-slate-800">
+                        <div className="card-3d-lavender absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-2 z-30 space-y-1">
+                          <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-[#58149C] dark:text-[#D8B4FE] border-b border-[#E8DDFF] dark:border-[#35105E]">
                             <span>Template Cepat SOP</span>
                             <button
                               type="button"
@@ -1918,7 +1918,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                               key={tpl.id}
                               type="button"
                               onClick={() => insertQuickReply(tpl.text)}
-                              className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors cursor-pointer"
+                              className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-[#1F1638] dark:text-[#E8DDFF] hover:bg-[#F3EAFF] dark:hover:bg-[#27104A] transition-colors cursor-pointer"
                             >
                               {tpl.text}
                             </button>
@@ -1938,13 +1938,13 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                           }
                         }}
                         placeholder={`Ketik pesan koordinasi operasional ${activeTicket.woNumber}...`}
-                        className="flex-1 min-w-0 bg-transparent px-2 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none resize-none"
+                        className="flex-1 min-w-0 bg-transparent px-2 py-2.5 text-xs sm:text-sm text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none resize-none"
                       />
 
                       <button
                         type="submit"
                         disabled={isSubmitting || (!inputText.trim() && pendingAttachments.length === 0)}
-                        className="h-11 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center gap-1.5 font-display text-xs sm:text-sm font-bold disabled:opacity-45 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer whitespace-nowrap shadow-sm transition-colors"
+                        className="btn-3d-primary h-11 px-4 rounded-xl flex items-center justify-center gap-1.5 font-display text-xs sm:text-sm font-bold disabled:opacity-45 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer whitespace-nowrap"
                       >
                         {isSubmitting ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -1961,18 +1961,18 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               )}
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-slate-400 space-y-3">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#7D7484] dark:text-[#C5B3DF] space-y-3">
               {isCompactUI && (
                 <button
                   type="button"
                   onClick={() => setMobilePane('queue')}
-                  className="px-4 min-h-[44px] rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold cursor-pointer shadow-sm"
+                  className="btn-3d-primary px-4 min-h-[44px] rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Lihat Daftar Antrean WO
                 </button>
               )}
-              <MessageSquare className="w-12 h-12 text-[#2563EB] dark:text-[#38BDF8]" />
-              <div className="font-display font-bold text-base text-slate-900 dark:text-white">
+              <MessageSquare className="w-12 h-12 text-[#58149C] dark:text-[#D8B4FE]" />
+              <div className="font-display font-bold text-base text-[#1F1638] dark:text-white">
                 Pilih Work Order untuk Memulai LiveChat
               </div>
               <p className="text-xs max-w-md leading-relaxed">
@@ -2005,7 +2005,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         title="Bukti Foto Lapangan"
       >
         {zoomImage && (
-          <div className="flex items-center justify-center min-h-[260px] bg-slate-950/90 rounded-xl p-2 sm:p-4">
+          <div className="flex items-center justify-center min-h-[260px] bg-[#160D29]/95 rounded-xl p-2 sm:p-4">
             <img
               src={zoomImage}
               alt="Bukti Foto Zoom"
@@ -2036,7 +2036,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               setIsSettingsOpen(false);
               setEditingCategory(null);
             }}
-            className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl cursor-pointer min-h-[44px]"
+            className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl cursor-pointer min-h-[44px]"
           >
             Selesai
           </button>
@@ -2044,10 +2044,10 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
       >
         <div className="space-y-4">
           {/* Create / Edit Category Form */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 space-y-3">
+          <div className="mj-tactile-well p-4 border border-[#E8DDFF] dark:border-[#35105E] space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
-                <label className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                <label className="text-[10.5px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] block mb-1">
                   Nama Kategori (Wajib)
                 </label>
                 <input
@@ -2055,11 +2055,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   placeholder="Mis. PROGRESS, KENDALA_REDAMAN..."
                   value={newCatName}
                   onChange={e => setNewCatName(e.target.value)}
-                  className="w-full min-h-[42px] px-3 py-1.5 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  className="tactile-debossed-input w-full min-h-[42px] px-3 py-1.5 bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] rounded-lg text-xs text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
                 />
               </div>
               <div>
-                <label className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                <label className="text-[10.5px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] block mb-1">
                   Warna Tag
                 </label>
                 <div className="flex items-center gap-2">
@@ -2067,15 +2067,15 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     type="color"
                     value={newCatColor}
                     onChange={e => setNewCatColor(e.target.value)}
-                    className="w-10 h-10 rounded border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    className="w-10 h-10 rounded border border-[#E8DDFF] dark:border-[#4B386B] cursor-pointer"
                   />
-                  <span className="text-xs font-mono text-slate-900 dark:text-white">{newCatColor}</span>
+                  <span className="text-xs font-mono text-[#1F1638] dark:text-white">{newCatColor}</span>
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+              <label className="text-[10.5px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] block mb-1">
                 Deskripsi Operasional (Opsional)
               </label>
               <input
@@ -2083,7 +2083,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                 placeholder="Keterangan alur penanganan tiket..."
                 value={newCatDesc}
                 onChange={e => setNewCatDesc(e.target.value)}
-                className="w-full min-h-[42px] px-3 py-1.5 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full min-h-[42px] px-3 py-1.5 bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] rounded-lg text-xs text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               />
             </div>
 
@@ -2095,9 +2095,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     setEditingCategory(null);
                     setNewCatName('');
                     setNewCatDesc('');
-                    setNewCatColor('#2563EB');
+                    setNewCatColor('#5B35B1');
                   }}
-                  className="px-3 min-h-[40px] py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer"
+                  className="btn-3d-ceramic px-3 min-h-[40px] py-1.5 text-xs rounded-lg cursor-pointer"
                 >
                   Batal Edit
                 </button>
@@ -2127,9 +2127,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   setEditingCategory(null);
                   setNewCatName('');
                   setNewCatDesc('');
-                  setNewCatColor('#2563EB');
+                  setNewCatColor('#5B35B1');
                 }}
-                className="px-4 min-h-[40px] py-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-lg shadow-2xs cursor-pointer"
+                className="btn-3d-primary px-4 min-h-[40px] py-1.5 text-xs font-bold rounded-lg cursor-pointer"
               >
                 {editingCategory ? 'Simpan Perubahan' : 'Tambahkan Kategori'}
               </button>

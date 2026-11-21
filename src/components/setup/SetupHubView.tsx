@@ -156,14 +156,14 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
 
   if (!canAccessSetupHub) {
     return (
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl p-6 sm:p-8 border border-rose-200 dark:border-rose-900 text-center max-w-lg mx-auto space-y-4 shadow-sm my-8">
-        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto">
+      <div className="card-3d-lavender rounded-2xl p-6 sm:p-8 border border-rose-200 dark:border-rose-900/70 text-center max-w-lg mx-auto space-y-4 my-8">
+        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <h3 className="font-display font-extrabold text-[#1F1638] dark:text-white text-base">
           Akses Ditolak: SETUP TERPUSAT MORAJAWS
         </h3>
-        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+        <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
           Pusat Setup Terpusat MoraJaws dilindungi dan tidak dapat diakses oleh peran <strong>{userRole}</strong>.
         </p>
       </div>
@@ -181,22 +181,19 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
     : 'Belum disinkronkan';
 
   return (
-    <div className="space-y-4">
-      {/* Sticky Sub-Header & Numbered Tab Ribbon */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl px-4 sm:px-5 pt-4 pb-3.5 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+    <div className="space-y-5">
+      {/* Sticky Sub-Header & 3D Tactile Tab Ribbon */}
+      <div className="card-3d-lavender rounded-2xl px-4 sm:px-6 pt-5 pb-4 text-[#1F1638] dark:text-white">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-display text-base sm:text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                SETUP TERPUSAT MORAJAWS
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#2563EB]/10 dark:bg-[#38BDF8]/15 text-[#2563EB] dark:text-[#38BDF8] border border-[#2563EB]/20 dark:border-[#38BDF8]/30 whitespace-nowrap">
-                PUSAT KONFIGURASI SISTEM {accessibleTabs.length}-TAB
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_2px_0_#260112] whitespace-nowrap">
+                SETUP TERPUSAT · {accessibleTabs.length}-TAB
               </span>
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border whitespace-nowrap ${
                   isCloudSyncing
-                    ? 'bg-blue-50 text-[#2563EB] border-blue-200 dark:bg-blue-950/60 dark:text-[#38BDF8] dark:border-blue-800'
+                    ? 'bg-[#F3EAFF] text-[#58149C] border-[#D8CCF3] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
                     : cloudSyncStatus === 'synced'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
                     : cloudSyncStatus === 'error'
@@ -217,27 +214,31 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               </span>
             </div>
 
+            <h1 className="font-display text-lg sm:text-2xl font-extrabold tracking-tight text-[#1F1638] dark:text-white">
+              SETUP TERPUSAT MORAJAWS
+            </h1>
+
             {/* Metadata Line */}
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
               <span className="inline-flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                <Database className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                 <span>Supabase PostgreSQL (</span>
-                <strong className="font-mono text-slate-900 dark:text-white">Cluster: JKT-01</strong>
+                <strong className="font-mono text-[#1F1638] dark:text-white">Cluster: JKT-01</strong>
                 <span>)</span>
               </span>
-              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <span className="text-[#CEC3D4] dark:text-[#4B386B]">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>
                   Sinkronisasi Otomatis {cloudSyncStatus === 'synced' ? 'Aktif' : 'Siaga'}
                 </span>
               </span>
-              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <span className="text-[#CEC3D4] dark:text-[#4B386B]">·</span>
               <span className="inline-flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <Clock className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#CABDE8]" />
                 <span>
-                  Last Modified: {formattedLastModified} oleh{' '}
-                  <strong className="text-slate-900 dark:text-white">
+                  Last Modified: <span className="font-mono tabular-nums">{formattedLastModified}</span> oleh{' '}
+                  <strong className="text-[#1F1638] dark:text-white">
                     {currentUser?.name || 'Super Admin'}
                   </strong>
                 </span>
@@ -245,17 +246,17 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start lg:self-auto bg-slate-100 dark:bg-[#1E293B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs shrink-0">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-slate-500 dark:text-slate-400">Hak Akses:</span>
-            <span className="font-bold font-mono uppercase text-[#2563EB] dark:text-[#38BDF8]">
+          <div className="flex items-center gap-2 self-start lg:self-auto bg-[#F8F1FF] dark:bg-[#160D29] px-3.5 py-2 rounded-xl border border-[#E8DDFF] dark:border-[#3B1D78] text-xs shrink-0 shadow-[inset_0_1px_2px_rgba(31,22,56,0.05)]">
+            <ShieldCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+            <span className="text-[#4B4452] dark:text-[#CABDE8]">Hak Akses:</span>
+            <span className="font-extrabold font-mono uppercase text-[#58149C] dark:text-[#DAB9FF]">
               {currentUser?.role?.replace('_', ' ')}
             </span>
           </div>
         </div>
 
-        {/* Numbered 01..NN Tab Navigation Ribbon */}
-        <div className="mt-4 p-1.5 bg-slate-100 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        {/* Numbered 01..NN 3D Tactile Tab Navigation Ribbon */}
+        <div className="mt-4 mj-tactile-tab-bar p-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {accessibleTabs.map((tab, idx) => {
             const Icon = tab.icon;
             const isActive = currentTab === tab.key;
@@ -265,25 +266,25 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-lg text-xs whitespace-nowrap transition-colors cursor-pointer shrink-0 ${
+                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[36px] rounded-lg text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                   isActive
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 font-semibold hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-[#0F172A]/60'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
                 }`}
               >
                 <span
                   className={`font-mono text-[10.5px] font-bold tabular-nums ${
-                    isActive ? 'text-sky-200' : 'text-slate-400 dark:text-slate-500'
+                    isActive ? 'text-[#EEDBFF]' : 'text-[#7D7484] dark:text-[#A79BC0]'
                   }`}
                 >
                   {tabNumber}
                 </span>
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-sky-100' : 'text-slate-400 dark:text-slate-400'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#EEDBFF]' : 'text-[#58149C] dark:text-[#DAB9FF]'}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold font-mono tabular-nums ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-[#2563EB]/10 text-[#2563EB] dark:text-[#38BDF8]'
+                      isActive ? 'bg-white/20 text-white' : 'bg-[#EEDBFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
                     }`}
                   >
                     {tab.badge}
@@ -314,7 +315,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {/* 2. Manajemen Pengguna */}
         {currentTab === 'users' && isSuperadmin && (
           <div className="space-y-4">
-            <UserManagementView />
+            <UserManagementView onOpenRolesTab={() => setActiveTab('roles')} />
           </div>
         )}
 
@@ -359,14 +360,14 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {currentTab === 'database' && (isSuperadmin || isManagement) && (
           <div className="space-y-4">
             {/* Sub-tab Switcher for Database */}
-            <div className="bg-slate-100 dark:bg-[#1E293B] rounded-xl flex items-center gap-1.5 p-1.5 border border-slate-200 dark:border-slate-700 text-xs font-semibold overflow-x-auto no-scrollbar">
+            <div className="mj-tactile-tab-bar rounded-xl flex items-center gap-1.5 p-1.5 text-xs font-semibold overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setDbSubTab('management')}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   dbSubTab === 'management'
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                 }`}
               >
                 <Database className="w-3.5 h-3.5" />
@@ -375,10 +376,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDbSubTab('monitoring')}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   dbSubTab === 'monitoring'
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                 }`}
               >
                 <Server className="w-3.5 h-3.5" />
@@ -387,13 +388,13 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDbSubTab('sheets')}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   dbSubTab === 'sheets'
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                 }`}
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
+                <FileSpreadsheet className={`w-3.5 h-3.5 ${dbSubTab === 'sheets' ? 'text-[#EEDBFF]' : 'text-emerald-600 dark:text-emerald-400'}`} />
                 <span>Google Sheets Live Sync</span>
               </button>
             </div>
@@ -415,14 +416,14 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {currentTab === 'health_logs' && isSuperadmin && (
           <div className="space-y-4">
             {/* Sub-tab Switcher for Logs */}
-            <div className="bg-slate-100 dark:bg-[#1E293B] rounded-xl flex items-center gap-1.5 p-1.5 border border-slate-200 dark:border-slate-700 text-xs font-semibold overflow-x-auto no-scrollbar">
+            <div className="mj-tactile-tab-bar rounded-xl flex items-center gap-1.5 p-1.5 text-xs font-semibold overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setLogSubTab('health')}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   logSubTab === 'health'
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
@@ -431,10 +432,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setLogSubTab('audit')}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   logSubTab === 'audit'
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -443,10 +444,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setLogSubTab('login')}
-                className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   logSubTab === 'login'
-                    ? 'bg-[#2563EB] text-white font-bold shadow-xs'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    ? 'btn-3d-primary font-bold'
+                    : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                 }`}
               >
                 <Lock className="w-3.5 h-3.5" />

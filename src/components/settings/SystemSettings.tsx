@@ -139,18 +139,18 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
   if (currentUser.role !== 'super_admin' && currentUser.role !== 'management_data') {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-slate-200 dark:border-slate-800 text-center max-w-lg mx-auto space-y-4 shadow-sm my-8">
-        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto">
+      <div className="card-3d-lavender rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8">
+        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/80 text-[#BA1A1A] dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-900">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <h3 className="font-display font-bold text-[#1F1638] dark:text-white text-base">
           Akses Ditolak: Otoritas Setup Terpusat Dibatasi
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
           Parameter kontraktor, cakupan area, dan pemetaan kolom dalam Setup Terpusat MoraJaws hanya dapat diakses oleh <strong>Super Admin</strong> dan <strong>Management Data</strong>.
         </p>
-        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-300 font-medium">
-          Akun Anda: <span className="font-bold capitalize">{currentUser.name} ({currentUser.role})</span>.
+        <div className="p-3 mj-tactile-well text-xs text-[#4B4452] dark:text-[#D8B4FE] font-medium">
+          Akun Anda: <span className="font-bold capitalize text-[#1F1638] dark:text-white">{currentUser.name} ({currentUser.role})</span>.
         </div>
       </div>
     );
@@ -353,17 +353,25 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
     <div className="space-y-6">
       {/* Top Banner (Hidden when embedded cleanly in Setup Terpusat MoraJaws) */}
       {!embeddedInSetupHub && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-md bg-slate-800 text-white flex items-center justify-center shrink-0">
-              <Settings className="w-4 h-4" />
+        <div className="card-3d-lavender rounded-2xl p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#35105E] to-[#7135B5] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(88,20,156,0.28)]">
+              <Settings className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Parameter Sistem & Master Data Operasional
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#6b103b] to-[#480123] text-white shadow-xs">
+                  MASTER DATA • SUPERADMIN
+                </span>
+                <span className="text-[11px] font-bold text-[#7D7484] dark:text-[#D8B4FE]/75">
+                  MORAJAWS OPS COMMAND
+                </span>
+              </div>
+              <h3 className="font-display text-base sm:text-lg font-extrabold text-[#1F1638] dark:text-white">
+                Parameter Sistem &amp; Master Data Operasional
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Kelola master vendor kontraktor, cakupan coverage area, taksonomi kendala & root cause Wi-Fi teknisi, kamus alias header impor, dan identitas operasional.
+              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
+                Kelola master vendor kontraktor, cakupan coverage area, taksonomi kendala &amp; root cause Wi-Fi teknisi, kamus alias header impor, dan identitas operasional.
               </p>
             </div>
           </div>
@@ -392,33 +400,33 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-[#E9E5F0] dark:border-[#35105E] text-xs font-semibold overflow-x-auto pb-1.5">
+      <div className="mj-tactile-tab-bar p-1.5 rounded-2xl flex items-center gap-1.5 text-xs font-semibold overflow-x-auto no-scrollbar">
         {!embeddedInSetupHub && (
           <>
             <button
               type="button"
               onClick={() => setActiveTab('report_dropdowns')}
-              className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
                 activeTab === 'report_dropdowns'
-                  ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-                  : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+                  ? 'btn-3d-primary text-white font-bold'
+                  : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
               }`}
             >
-              <ListFilter className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
+              <ListFilter className="w-4 h-4" />
               <span>Kategori Report</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('sound_settings')}
-              className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
                 activeTab === 'sound_settings'
-                  ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-                  : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+                  ? 'btn-3d-primary text-white font-bold'
+                  : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
               }`}
             >
-              <Volume2 className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
-              <span>Sound & Notifikasi</span>
+              <Volume2 className="w-4 h-4" />
+              <span>Sound &amp; Notifikasi</span>
             </button>
           </>
         )}
@@ -426,23 +434,23 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('core_config')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'core_config'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <SlidersHorizontal className="w-4 h-4" />
-          <span>Operasional Core & Telemetri</span>
+          <span>Operasional Core &amp; Telemetri</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('contractors')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'contractors'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <Building2 className="w-4 h-4" />
@@ -452,23 +460,23 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('coverage')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'coverage'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <MapPin className="w-4 h-4" />
-          <span>Coverage Area & Cluster ({coverageAreas.length})</span>
+          <span>Coverage Area &amp; Cluster ({coverageAreas.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('root_causes')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'root_causes'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <Wrench className="w-4 h-4" />
@@ -478,10 +486,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('header_mapping')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'header_mapping'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <FileSpreadsheet className="w-4 h-4" />
@@ -491,27 +499,27 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('branding')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'branding'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <Palette className="w-4 h-4" />
-          <span>Branding & Tema</span>
+          <span>Branding &amp; Tema</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('system_session')}
-          className={`px-3 py-2 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'system_session'
-              ? 'bg-[#F5F1FF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] font-bold'
-              : 'text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] dark:hover:text-white'
+              ? 'btn-3d-primary text-white font-bold'
+              : 'text-[#4B4452] hover:text-[#35105E] hover:bg-white/70 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          <span>Sesi Staf & WIB</span>
+          <span>Sesi Staf &amp; WIB</span>
         </button>
       </div>
 
@@ -946,59 +954,59 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           </div>
 
           {showAddContractor && isSuperAdmin && (
-            <form onSubmit={handleCreateContractor} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-              <h5 className="font-bold text-slate-900 dark:text-white text-xs">Form Kontraktor Baru</h5>
+            <form onSubmit={handleCreateContractor} className="p-4 mj-tactile-well border border-[#D8CCF3] dark:border-[#35105E] rounded-xl space-y-3">
+              <h5 className="font-display font-bold text-[#1F1638] dark:text-white text-xs">Form Kontraktor Baru</h5>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Nama Kontraktor *</label>
+                  <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">Nama Kontraktor *</label>
                   <input
                     type="text"
                     required
                     placeholder="Contoh: PT Fiber Optik Mandiri"
                     value={newCName}
                     onChange={e => setNewCName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs"
+                    className="w-full px-3 py-2 rounded-xl tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Kode Singkatan *</label>
+                  <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">Kode Singkatan *</label>
                   <input
                     type="text"
                     required
                     placeholder="Contoh: FOM"
                     value={newCCode}
                     onChange={e => setNewCCode(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white text-xs font-mono focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Coverage Area (Pisahkan Koma)</label>
+                  <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">Coverage Area (Pisahkan Koma)</label>
                   <input
                     type="text"
                     placeholder="Contoh: Jakarta Selatan, Depok"
                     value={newCAreas}
                     onChange={e => setNewCAreas(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs"
+                    className="w-full px-3 py-2 rounded-xl tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">No. Kontak / Hotline</label>
+                  <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">No. Kontak / Hotline</label>
                   <input
                     type="text"
                     placeholder="0812xxxxxxxx"
                     value={newCPhone}
                     onChange={e => setNewCPhone(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white text-xs font-mono focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Email Operasional</label>
+                  <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">Email Operasional</label>
                   <input
                     type="email"
                     placeholder="ops@fibermandiri.co.id"
                     value={newCEmail}
                     onChange={e => setNewCEmail(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border rounded bg-white dark:bg-slate-900 text-xs"
+                    className="w-full px-3 py-2 rounded-xl tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white text-xs focus:outline-none"
                   />
                 </div>
               </div>
@@ -1006,13 +1014,13 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddContractor(false)}
-                  className="px-3 py-1.5 border rounded text-slate-600 dark:text-slate-400"
+                  className="btn-3d-lilac px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#7135B5] hover:bg-[#5B35B1] text-white rounded-xl font-bold cursor-pointer"
+                  className="btn-3d-primary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Simpan Kontraktor
                 </button>
@@ -1540,28 +1548,28 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       {activeTab === 'system_session' && (
         <div className="space-y-5">
           {/* Operational Date WIB Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
+          <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#F5F1FF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#7135B5]/40 text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
                 <Clock className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Tanggal & Zona Waktu Operasional (Asia/Jakarta — WIB)
+                <h4 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+                  Tanggal &amp; Zona Waktu Operasional (Asia/Jakarta — WIB)
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
                   Filter jadwal Appointment Date (Hari Ini, Kemarin, Besok) dihitung presisi berdasarkan zona waktu Indonesia Barat tanpa pergeseran UTC. Sistem otomatis berjalan dinamis sesuai kalender nyata.
                 </p>
               </div>
             </div>
 
-            <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="p-4 bg-[#F8F1FF] dark:bg-[#22123F] rounded-xl border border-[#D8CCF3] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <div className="text-xs text-purple-800 dark:text-purple-300 font-semibold">
+                <div className="text-[11px] uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE] font-bold">
                   Tanggal Operasional Aktif Sistem
                 </div>
-                <div className="text-xl font-extrabold text-[#3B1D78] dark:text-[#E9E1FF] font-mono mt-0.5">
-                  {operationalDate} <span className="text-xs font-normal text-purple-600 dark:text-purple-400">(WIB)</span>
+                <div className="text-xl font-extrabold text-[#1F1638] dark:text-white font-mono tabular-nums mt-0.5">
+                  {operationalDate} <span className="text-xs font-semibold text-[#7135B5] dark:text-[#D8B4FE]">(WIB)</span>
                 </div>
               </div>
 
@@ -1571,7 +1579,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                   disabled={!isSuperAdmin || isSaving}
                   value={operationalDateInput}
                   onChange={e => setOperationalDateInput(e.target.value)}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white disabled:opacity-60"
+                  className="px-3 py-2 tactile-debossed-input bg-white dark:bg-[#160D29] rounded-xl text-xs font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -1590,7 +1598,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                       setIsSaving(false);
                     }
                   }}
-                  className="px-4 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                  className="btn-3d-primary px-4 py-2 text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSaving ? 'Menyimpan...' : 'Terapkan'}
                 </button>
@@ -1613,7 +1621,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                       setIsSaving(false);
                     }
                   }}
-                  className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                  className="btn-3d-lilac px-3.5 py-2 text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Reset Hari Ini (Aktual WIB)
                 </button>
@@ -1622,29 +1630,29 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           </div>
 
           {/* Session Management Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
+          <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#F5F1FF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#7135B5]/40 text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
                 <KeyRound className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Manajemen Sesi Staf (Dispatch, Leader, Installer) & Idle Timeout
+                <h4 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+                  Manajemen Sesi Staf (Dispatch, Leader, Installer) &amp; Idle Timeout
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
                   Pantau sesi staf yang aktif, revokasi akses perangkat yang mencurigakan, dan atur batas waktu inaktivitas (idle timeout) serta batas sesi bersamaan.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-              <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 mj-tactile-well border border-[#E8DDFF] dark:border-[#35105E] rounded-xl">
+              <div className="space-y-1.5 text-xs text-[#4B4452] dark:text-[#CEC0E8]">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   <span>Autentikasi role server-side tanpa token rahasia di client</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                  <span className="w-2 h-2 rounded-full bg-[#7135B5] dark:bg-[#A855F7]" />
                   <span>Sesi otomatis kedaluwarsa setelah idle timeout tercapai</span>
                 </div>
               </div>
@@ -1652,7 +1660,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSessionModalOpen(true)}
-                className="px-5 py-2.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold text-xs rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="btn-3d-primary px-5 py-2.5 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer"
               >
                 <KeyRound className="w-4 h-4" />
                 <span>Buka Panel Manajemen Sesi Staf</span>

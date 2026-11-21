@@ -116,29 +116,29 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="wo-filter-sheet-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0B1220]/70 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#160D29]/75 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="mj-sheet-enter w-full sm:max-w-lg bg-white dark:bg-[#0F172A] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[88dvh] flex flex-col overflow-hidden"
+        className="mj-sheet-enter w-full sm:max-w-lg bg-white dark:bg-[#1E1238] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-[#E8DDFF] dark:border-[#35105E] max-h-[88dvh] flex flex-col overflow-hidden"
       >
         {/* Drag Handle + Header */}
-        <div className="pt-3 pb-3 px-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
-          <div aria-hidden="true" className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 mx-auto mb-3 sm:hidden" />
+        <div className="pt-3 pb-3 px-4 border-b border-[#E8DDFF] dark:border-[#35105E] bg-[#FAF5FF] dark:bg-[#160D29] shrink-0">
+          <div aria-hidden="true" className="w-12 h-1.5 rounded-full bg-[#D8CCF3] dark:bg-[#4B386B] mx-auto mb-3 sm:hidden" />
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#27104A] border border-[#E8DDFF] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                 <SlidersHorizontal className="w-4 h-4" />
               </div>
               <div className="min-w-0">
                 <h3
                   id="wo-filter-sheet-title"
-                  className="font-display font-bold text-[15px] text-slate-900 dark:text-white truncate"
+                  className="font-display font-bold text-[15px] text-[#1F1638] dark:text-white truncate"
                 >
                   Filter Work Order Lanjutan
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                <p className="text-[11px] text-[#7D7484] dark:text-[#C5B3DF] truncate">
                   {activeFilterCount > 0
                     ? `${activeFilterCount} filter aktif • ${totalMatchedCount} WO cocok`
                     : `Menampilkan ${totalMatchedCount} WO sesuai cakupan akses`}
@@ -150,7 +150,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Tutup filter"
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-100 dark:bg-[#1E293B] text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer shrink-0"
+              className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] rounded-full cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -161,7 +161,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 text-xs">
           {/* Approval Dispatch Pills */}
           <div className="space-y-2">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
               Status Approval Dispatch
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -179,9 +179,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
                     type="button"
                     onClick={() => onApprovalStatusChange(opt.value)}
                     className={`min-h-[38px] px-3 py-1.5 rounded-full font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5 ${
-                      active
-                        ? 'bg-[#2563EB] text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      active ? 'tactile-chip-active' : 'tactile-chip text-[#4B4452] dark:text-[#E8DDFF]'
                     }`}
                   >
                     {active && <Check className="w-3 h-3 shrink-0" />}
@@ -194,7 +192,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
 
           {/* Installer Status Pills */}
           <div className="space-y-2">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
               Status Lapangan Teknisi (statusWOInstaller)
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -206,9 +204,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
                     type="button"
                     onClick={() => onInstallerStatusChange(opt.value)}
                     className={`min-h-[36px] px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                      active
-                        ? 'bg-[#2563EB] text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      active ? 'tactile-chip-active' : 'tactile-chip text-[#4B4452] dark:text-[#E8DDFF]'
                     }`}
                   >
                     {opt.label}
@@ -221,13 +217,13 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
           {/* Agent Status & WhatsApp Status Selectors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
                 Status WO Agent
               </label>
               <select
                 value={selectedAgentStatus}
                 onChange={e => onAgentStatusChange(e.target.value)}
-                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 dark:bg-[#1E293B] text-slate-900 dark:text-white font-semibold border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full min-h-[44px] px-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               >
                 {AGENT_STATUS_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -238,13 +234,13 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
                 WhatsApp Handshake
               </label>
               <select
                 value={selectedWhatsAppStatus}
                 onChange={e => onWhatsAppStatusChange(e.target.value)}
-                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 dark:bg-[#1E293B] text-slate-900 dark:text-white font-semibold border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full min-h-[44px] px-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               >
                 {WHATSAPP_STATUS_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -258,13 +254,13 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
           {/* Area, Mitra Kontraktor & Kategori */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
                 Area Servis
               </label>
               <select
                 value={selectedArea}
                 onChange={e => onAreaChange(e.target.value)}
-                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 dark:bg-[#1E293B] text-slate-900 dark:text-white font-semibold border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full min-h-[44px] px-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               >
                 <option value="ALL">Semua Area ({areaOptions.length})</option>
                 {areaOptions.map(a => (
@@ -276,13 +272,13 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
                 Mitra Kontraktor
               </label>
               <select
                 value={selectedContractor}
                 onChange={e => onContractorChange(e.target.value)}
-                className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 dark:bg-[#1E293B] text-slate-900 dark:text-white font-semibold border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                className="tactile-debossed-input w-full min-h-[44px] px-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
               >
                 <option value="ALL">Semua Kontraktor ({contractorOptions.length})</option>
                 {contractorOptions.map(c => (
@@ -295,13 +291,13 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
 
             {ticketCategories.length > 0 && (
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#C5B3DF]">
                   Kategori Tiket
                 </label>
                 <select
                   value={selectedCategory}
                   onChange={e => onCategoryChange(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl bg-slate-50 dark:bg-[#1E293B] text-slate-900 dark:text-white font-semibold border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  className="tactile-debossed-input w-full min-h-[44px] px-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
                 >
                   <option value="ALL">Semua Kategori ({ticketCategories.length})</option>
                   {ticketCategories.map(cat => (
@@ -316,11 +312,11 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
         </div>
 
         {/* Sticky Footer Actions */}
-        <div className="px-4 py-3 pb-safe bg-slate-50 dark:bg-[#0B1220] border-t border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shrink-0">
+        <div className="px-4 py-3 pb-safe bg-[#FAF5FF] dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onResetAll}
-            className="min-h-[46px] px-4 rounded-xl bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer hover:bg-slate-100 shrink-0"
+            className="btn-3d-lilac min-h-[46px] px-4 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
@@ -328,7 +324,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 min-h-[46px] px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            className="btn-3d-primary flex-1 min-h-[46px] px-4 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
           >
             <Check className="w-4 h-4" />
             <span>Terapkan Filter ({totalMatchedCount} WO)</span>

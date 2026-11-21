@@ -68,7 +68,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           : isFullscreenMobile
           ? 'items-stretch justify-center p-0'
           : 'items-center justify-center p-3 sm:p-5'
-      } bg-[#0B1220]/75 backdrop-blur-sm transition-opacity`}
+      } bg-[#160D29]/75 backdrop-blur-sm transition-opacity`}
       onClick={() => {
         if (closeOnBackdropClick) onClose();
       }}
@@ -79,8 +79,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
         onClick={e => e.stopPropagation()}
         className={`relative w-full border shadow-2xl flex flex-col overflow-hidden ${
           isDarkTech
-            ? 'bg-[#0F172A] text-white border-slate-700'
-            : 'bg-white dark:bg-[#0F172A] border-slate-200 dark:border-slate-800'
+            ? 'bg-[#160D29] text-white border-[#4B386B] shadow-[0_8px_0_#0D061A,0_24px_48px_rgba(13,6,26,0.65)]'
+            : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#3B1D78] shadow-[0_6px_0_#E8DDFF,0_24px_48px_-12px_rgba(53,16,94,0.28)] dark:shadow-[0_6px_0_#0D061A,0_24px_48px_rgba(0,0,0,0.65)]'
         } ${
           isFullscreenMobile
             ? 'h-dvh rounded-none'
@@ -91,7 +91,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
       >
         {isSheetMobile && (
           <div className="pt-2.5 pb-1 flex justify-center shrink-0">
-            <div className={`w-10 h-1 rounded-full ${isDarkTech ? 'bg-slate-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
+            <div className={`w-10 h-1 rounded-full ${isDarkTech ? 'bg-[#5B35B1]' : 'bg-[#D8CCF3] dark:bg-[#5B35B1]'}`} />
           </div>
         )}
 
@@ -99,8 +99,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           <div
             className={`px-4 sm:px-5 py-3.5 border-b flex items-start justify-between gap-3 shrink-0 ${
               isDarkTech
-                ? 'border-slate-800 bg-[#0B1220]'
-                : 'border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-[#0B1220]'
+                ? 'border-[#35105E] bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#1A0D36]'
+                : 'border-[#E8DDFF] dark:border-[#35105E] bg-[#F8F1FF]/95 dark:bg-[#1E1238]'
             }`}
           >
             <div className="flex items-center gap-3 min-w-0">
@@ -108,8 +108,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                     isDarkTech
-                      ? 'bg-[#1E293B] text-[#38BDF8] border border-slate-700'
-                      : 'bg-blue-50 dark:bg-blue-950/60 text-[#2563EB] dark:text-[#38BDF8] border border-blue-100 dark:border-blue-900/50'
+                      ? 'bg-[#35105E] text-[#D8B4FE] border border-[#5B35B1]'
+                      : 'bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] border border-[#DFC7FF] dark:border-[#5B35B1]'
                   }`}
                 >
                   {icon}
@@ -119,7 +119,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
                 {title && (
                   <h2
                     className={`font-display font-bold text-sm sm:text-base truncate ${
-                      isDarkTech ? 'text-white' : 'text-slate-900 dark:text-white'
+                      isDarkTech ? 'text-white' : 'text-[#1F1638] dark:text-white'
                     }`}
                   >
                     {title}
@@ -128,7 +128,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
                 {subtitle && (
                   <p
                     className={`text-[11px] truncate mt-0.5 ${
-                      isDarkTech ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'
+                      isDarkTech ? 'text-[#C5B3DF]' : 'text-[#7D7484] dark:text-[#C5B3DF]'
                     }`}
                   >
                     {subtitle}
@@ -145,8 +145,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
                 aria-label="Tutup dialog"
                 className={`min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-[36px] sm:min-h-[36px] rounded-xl flex items-center justify-center cursor-pointer transition-colors ${
                   isDarkTech
-                    ? 'bg-[#1E293B] hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700'
-                    : 'bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                    ? 'bg-[#27104A] hover:bg-[#35105E] text-[#D8B4FE] hover:text-white border border-[#5B35B1]'
+                    : 'btn-3d-icon'
                 }`}
               >
                 <X className="w-4 h-4" />
@@ -163,8 +163,8 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           <div
             className={`px-4 sm:px-5 py-3 border-t flex flex-wrap items-center justify-end gap-2 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
               isDarkTech
-                ? 'border-slate-800 bg-[#0B1220]'
-                : 'border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-[#0B1220]'
+                ? 'border-[#35105E] bg-[#1E1238]'
+                : 'border-[#E8DDFF] dark:border-[#35105E] bg-[#F8F1FF]/90 dark:bg-[#1E1238]'
             }`}
           >
             {footer}

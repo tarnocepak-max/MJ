@@ -360,31 +360,31 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
       role="dialog"
       aria-modal="true"
       aria-labelledby="wo-quick-update-title"
-      className="fixed inset-0 z-65 flex items-end sm:items-center justify-center bg-[#0B1220]/70 backdrop-blur-sm"
+      className="fixed inset-0 z-65 flex items-end sm:items-center justify-center bg-[#160D29]/75 backdrop-blur-sm"
       onClick={onClose}
     >
       <section
         onClick={e => e.stopPropagation()}
-        className="mj-sheet-enter w-full sm:max-w-lg bg-white dark:bg-[#0F172A] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90dvh] flex flex-col overflow-hidden"
+        className="mj-sheet-enter w-full sm:max-w-lg bg-white dark:bg-[#1E1238] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-[#E8DDFF] dark:border-[#35105E] max-h-[90dvh] flex flex-col overflow-hidden"
       >
         {/* Drag Handle & Sticky Header */}
-        <header className="sticky top-0 z-20 bg-white dark:bg-[#0F172A] pt-3 pb-3 px-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <header className="sticky top-0 z-20 bg-[#FAF5FF] dark:bg-[#160D29] pt-3 pb-3 px-4 border-b border-[#E8DDFF] dark:border-[#35105E] shrink-0">
           <div
             aria-hidden="true"
-            className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 mx-auto mb-3 sm:hidden"
+            className="w-12 h-1.5 rounded-full bg-[#D8CCF3] dark:bg-[#4B386B] mx-auto mb-3 sm:hidden"
           />
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 pr-2">
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#2563EB] dark:bg-[#38BDF8] shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-[#7135B5] dark:bg-[#DAB9FF] shrink-0" />
                 <h2
                   id="wo-quick-update-title"
-                  className="font-display text-[16px] font-bold text-slate-900 dark:text-white truncate"
+                  className="font-display text-[16px] font-bold text-[#1F1638] dark:text-white truncate"
                 >
                   Update Status Work Order
                 </h2>
               </div>
-              <p className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">
+              <p className="font-mono text-[11px] font-semibold text-[#7D7484] dark:text-[#C5B3DF] truncate mt-0.5">
                 {ticket.woNumber} • {ticket.customerName}
               </p>
             </div>
@@ -392,7 +392,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
               type="button"
               onClick={onClose}
               aria-label="Tutup form update"
-              className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 text-slate-600 dark:text-slate-300 cursor-pointer shrink-0"
+              className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] rounded-full cursor-pointer shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -402,14 +402,14 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
         {/* Scrollable Sheet Body */}
         <form id="wo-quick-update-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
           {ticketClosed && (
-            <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="mj-tactile-well p-3 rounded-xl text-[#4B4452] dark:text-[#CEC0E8] text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-[#58149C] dark:text-[#DAB9FF]" />
               <span>Work Order ini berstatus CLOSED dan bersifat read-only.</span>
             </div>
           )}
 
           {isReadOnlyLeader && (
-            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>Role Leader hanya dapat memantau progres. Perubahan status dilakukan Teknisi atau Dispatch.</span>
             </div>
@@ -417,11 +417,11 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
 
           {/* Field 1: Touch-Friendly Radio Status Options */}
           <fieldset className="flex flex-col gap-2" disabled={ticketClosed || isReadOnlyLeader}>
-            <legend className="text-xs font-bold text-slate-900 dark:text-white mb-1 flex items-center justify-between w-full">
+            <legend className="text-xs font-bold text-[#1F1638] dark:text-white mb-1 flex items-center justify-between w-full">
               <span>
                 Pilih Status Eksekusi Lapangan <span className="text-rose-600">*</span>
               </span>
-              <span className="text-[10px] font-bold text-[#2563EB] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-[#58149C] dark:text-[#DAB9FF] bg-[#F3EAFF] dark:bg-[#2E1459] px-2 py-0.5 rounded-full border border-[#D8B4FE]/60 dark:border-[#5B35B1]">
                 Wajib Diisi
               </span>
             </legend>
@@ -440,8 +440,8 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                         ? 'bg-rose-50 dark:bg-rose-950/70 border-rose-500 ring-2 ring-rose-500/25'
                         : 'bg-rose-50/50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 hover:bg-rose-50'
                       : isChecked
-                      ? 'bg-blue-50 dark:bg-blue-950/40 border-[#2563EB] ring-2 ring-[#2563EB]/25 shadow-2xs'
-                      : 'bg-slate-50 dark:bg-[#1E293B] border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-[#F3EAFF] dark:bg-[#2E1459] border-[#7135B5] ring-2 ring-[#7135B5]/25 shadow-2xs'
+                      : 'bg-[#FAF5FF] dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E] hover:bg-[#F3EAFF]/60 dark:hover:bg-[#241145]'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
@@ -450,8 +450,8 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                         isWarn
                           ? 'text-rose-600 dark:text-rose-300'
                           : isChecked
-                          ? 'text-[#2563EB] dark:text-[#38BDF8]'
-                          : 'text-slate-500 dark:text-slate-300'
+                          ? 'text-[#58149C] dark:text-[#DAB9FF]'
+                          : 'text-[#7D7484] dark:text-[#C5B3DF]'
                       }`}
                     />
                     <div className="flex flex-col min-w-0">
@@ -460,13 +460,13 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                           className={`text-[13.5px] font-bold ${
                             isWarn
                               ? 'text-rose-900 dark:text-rose-200'
-                              : 'text-slate-900 dark:text-white'
+                              : 'text-[#1F1638] dark:text-white'
                           }`}
                         >
                           {opt.label}
                         </span>
                         {opt.badge && (
-                          <span className="bg-[#2563EB] text-white text-[9.5px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="bg-[#58149C] text-white text-[9.5px] font-bold px-2 py-0.5 rounded-full">
                             {opt.badge}
                           </span>
                         )}
@@ -475,7 +475,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                         className={`text-[11px] leading-snug ${
                           isWarn
                             ? 'text-rose-800/80 dark:text-rose-300/80'
-                            : 'text-slate-500 dark:text-slate-400'
+                            : 'text-[#7D7484] dark:text-[#C5B3DF]'
                         }`}
                       >
                         {opt.description}
@@ -489,7 +489,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                     checked={isChecked}
                     onChange={() => setSelectedStatus(opt.value)}
                     className={`w-5 h-5 shrink-0 cursor-pointer ${
-                      isWarn ? 'accent-rose-600' : 'accent-[#2563EB]'
+                      isWarn ? 'accent-rose-600' : 'accent-[#58149C]'
                     }`}
                   />
                 </label>
@@ -503,22 +503,22 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                   onClose();
                   onOpenFullReport(ticket);
                 }}
-                className="flex items-center justify-between min-h-[54px] p-3 rounded-xl bg-blue-50/70 dark:bg-[#1E293B] hover:bg-blue-100/80 text-left cursor-pointer border border-blue-200 dark:border-slate-700 transition-all"
+                className="btn-3d-lilac flex items-center justify-between min-h-[54px] p-3 rounded-xl text-left cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <FileCheck2 className="w-5 h-5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+                  <FileCheck2 className="w-5 h-5 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-[13px] font-bold text-[#1D4ED8] dark:text-[#38BDF8]">
+                    <div className="text-[13px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
                       Buka Form Technical Report Lengkap (3-Tier &amp; QC)
                     </div>
-                    <div className="text-[11px] text-slate-600 dark:text-slate-300 truncate">
+                    <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] truncate">
                       {hasProgressCheckIn
                         ? 'Check-in #PROGRESS aktif — siap isi L1/L2/L3 & Redaman OPM'
                         : 'Membutuhkan Check-in #PROGRESS & verifikasi 4 titik foto SOP'}
                     </div>
                   </div>
                 </div>
-                <span className="text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] shrink-0 ml-2">
+                <span className="text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0 ml-2">
                   Buka →
                 </span>
               </button>
@@ -529,16 +529,16 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="quick-update-notes"
-              className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between"
+              className="text-xs font-bold text-[#1F1638] dark:text-white flex items-center justify-between"
             >
               <span className="flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
+                <FileText className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                 <span>Catatan Progres Lapangan &amp; Temuan Teknis</span>
               </span>
               <span className="text-rose-600">*</span>
             </label>
 
-            <div className="bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl p-3 focus-within:ring-2 focus-within:ring-[#2563EB]/30 focus-within:border-[#2563EB] transition-all">
+            <div className="tactile-debossed-input rounded-xl p-3 focus-within:ring-2 focus-within:ring-[#7135B5]/40 transition-all">
               <textarea
                 id="quick-update-notes"
                 rows={3}
@@ -547,10 +547,10 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Tuliskan progres pemasangan dropcore, akses FAT, hasil pengukuran OPM, atau kendala..."
-                className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none resize-none leading-relaxed"
+                className="w-full bg-transparent text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] dark:placeholder:text-[#C5B3DF] focus:outline-none resize-none leading-relaxed"
               />
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1 text-[#2563EB] dark:text-[#38BDF8]">
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-semibold text-[#4B4452] dark:text-[#CEC0E8]">
+                <span className="flex items-center gap-1 text-[#58149C] dark:text-[#DAB9FF]">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>
                     {hasProgressCheckIn
@@ -568,14 +568,14 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
           {/* Field 3: Evidence Upload (Real Photos + Compression) */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Camera className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8]" />
+              <label className="text-xs font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                 <span>
                   Lampiran Bukti Kerja ({attachments.length}/5 baru
                   {existingPhotoUrls.length > 0 ? ` • ${existingPhotoUrls.length} tersimpan` : ''})
                 </span>
               </label>
-              <span className="text-[10.5px] font-mono text-slate-500 dark:text-slate-400">Maks 10MB</span>
+              <span className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#C5B3DF]">Maks 10MB</span>
             </div>
 
             {attachments.length > 0 && (
@@ -583,25 +583,25 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                 {attachments.map(att => (
                   <div
                     key={att.id}
-                    className="relative bg-slate-100 dark:bg-[#1E293B] rounded-xl overflow-hidden shadow-xs"
+                    className="relative bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-xl overflow-hidden shadow-xs"
                   >
                     <img
                       src={getSafePreviewUrl(att.url)}
                       alt={att.fileName}
                       className="w-full h-24 object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0B1220]/85 via-[#0B1220]/20 to-transparent flex flex-col justify-between p-2">
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#160D29]/85 via-[#160D29]/20 to-transparent flex flex-col justify-between p-2">
                       <button
                         type="button"
                         onClick={() => setAttachments(prev => prev.filter(item => item.id !== att.id))}
                         aria-label={`Hapus ${att.fileName}`}
-                        className="self-end w-8 h-8 bg-[#0B1220]/80 rounded-full flex items-center justify-center text-white cursor-pointer hover:bg-rose-600"
+                        className="self-end w-8 h-8 bg-[#160D29]/80 rounded-full flex items-center justify-center text-white cursor-pointer hover:bg-rose-600"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[10px] text-white font-semibold truncate">{att.fileName}</span>
-                        <span className="text-[9.5px] text-slate-300 font-mono">{formatBytes(att.fileSize)}</span>
+                        <span className="text-[9.5px] text-[#E8DDFF] font-mono">{formatBytes(att.fileSize)}</span>
                       </div>
                     </div>
                   </div>
@@ -623,7 +623,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
               type="button"
               disabled={ticketClosed || isReadOnlyLeader || isCompressingPhoto}
               onClick={() => fileInputRef.current?.click()}
-              className="w-full min-h-[48px] rounded-xl bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[#2563EB] dark:text-[#38BDF8] text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              className="btn-3d-lilac w-full min-h-[48px] rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isCompressingPhoto ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -635,9 +635,9 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
           </div>
 
           {/* Field 4: Interactive Digital Signature Pad */}
-          <div className="flex flex-col gap-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
+          <div className="mj-tactile-well flex flex-col gap-2 p-3 rounded-xl">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <label className="text-xs font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
                 <PenTool className="w-4 h-4 text-amber-600 dark:text-amber-300" />
                 <span>Tanda Tangan Digital Pelanggan / PIC</span>
               </label>
@@ -653,7 +653,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
               )}
             </div>
 
-            <div className="relative w-full h-28 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-inner">
+            <div className="relative w-full h-28 bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-xl overflow-hidden shadow-inner">
               <canvas
                 ref={signatureCanvasRef}
                 width={420}
@@ -667,7 +667,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                 }`}
               />
               {!signatureDataUrl && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] text-slate-400">
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] text-[#7D7484] dark:text-[#C5B3DF]">
                   Sentuh area ini untuk tanda tangan PIC / Pelanggan...
                 </div>
               )}
@@ -678,17 +678,17 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                   className="pointer-events-none absolute inset-0 w-full h-full object-contain opacity-85"
                 />
               )}
-              <span className="pointer-events-none absolute bottom-1.5 right-3 text-[10px] font-mono text-slate-400">
+              <span className="pointer-events-none absolute bottom-1.5 right-3 text-[10px] font-mono text-[#7D7484] dark:text-[#C5B3DF]">
                 {signatureDataUrl ? 'Tersedia' : 'Opsional'}
               </span>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="quick-pic-name" className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+              <label htmlFor="quick-pic-name" className="text-[10.5px] font-semibold text-[#4B4452] dark:text-[#CEC0E8]">
                 Nama Pelanggan / PIC Penandatangan
               </label>
               <div className="relative flex items-center">
-                <UserCheck className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                <UserCheck className="w-4 h-4 text-[#7D7484] dark:text-[#C5B3DF] absolute left-3 pointer-events-none" />
                 <input
                   id="quick-pic-name"
                   type="text"
@@ -696,7 +696,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                   value={signerName}
                   onChange={e => setSignerName(e.target.value)}
                   placeholder="Nama pelanggan atau PIC di lokasi..."
-                  className="w-full min-h-[44px] pl-9 pr-3 rounded-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  className="tactile-debossed-input w-full min-h-[44px] pl-9 pr-3 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
                 />
               </div>
             </div>
@@ -704,19 +704,19 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
 
           {/* Field 5: LiveChat Sync Toggle (Auto Check-in #PROGRESS) */}
           {canSendChat && !ticketClosed && (
-            <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#1E293B] cursor-pointer transition-colors">
+            <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-[#FAF5FF] dark:hover:bg-[#241145] cursor-pointer transition-colors">
               <input
                 type="checkbox"
                 checked={syncToLiveChat}
                 onChange={e => setSyncToLiveChat(e.target.checked)}
-                className="mt-0.5 w-5 h-5 rounded accent-[#2563EB] cursor-pointer"
+                className="mt-0.5 w-5 h-5 rounded accent-[#58149C] cursor-pointer"
               />
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8]" />
+                <span className="text-xs font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                   <span>Kirim log otomatis ke LiveChat Dispatch</span>
                 </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] text-[#7D7484] dark:text-[#C5B3DF]">
                   {selectedStatus === 'Pending Technical'
                     ? 'Terkirim dengan kategori #ISSUE untuk eskalasi cepat ke Dispatch.'
                     : 'Terkirim dengan kategori #PROGRESS (otomatis mencatat Check-in lapangan).'}
@@ -727,13 +727,13 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
         </form>
 
         {/* Sticky Ergonomic Footer */}
-        <div className="sticky bottom-0 z-30 bg-white/95 dark:bg-[#0B1220]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-3 pb-safe flex flex-col gap-2 shrink-0">
+        <div className="sticky bottom-0 z-30 bg-[#FAF5FF]/95 dark:bg-[#160D29]/95 backdrop-blur-md border-t border-[#E8DDFF] dark:border-[#35105E] px-4 py-3 pb-safe flex flex-col gap-2 shrink-0">
           {!ticketClosed && !isReadOnlyLeader && (
             <button
               type="submit"
               form="wo-quick-update-form"
               disabled={isSubmitting}
-              className="w-full min-h-[48px] h-12 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+              className="btn-3d-primary w-full min-h-[48px] h-12 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
             >
               {isSubmitting ? (
                 <>
@@ -752,7 +752,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="w-full min-h-[44px] h-11 rounded-xl bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 hover:bg-slate-200 text-xs font-bold flex items-center justify-center active:scale-[0.98] transition-all cursor-pointer"
+            className="btn-3d-ceramic w-full min-h-[44px] h-11 rounded-xl text-xs font-bold flex items-center justify-center cursor-pointer"
           >
             Batal / Kembali ke Work Order
           </button>

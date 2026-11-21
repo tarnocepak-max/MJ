@@ -9,33 +9,32 @@ import {
   AlertCircle,
   Trash2,
   Edit,
-  ArrowRight,
   Sparkles,
   Info,
   ShieldAlert,
   Sliders,
   Database,
   Building2,
-  UserCheck,
   Upload,
-  FileUp,
   AlertTriangle,
-  Clock,
   ShieldCheck,
   Check,
   Download,
   FileDown,
-  Filter,
   Wrench,
-  MapPin,
-  Users,
   RefreshCw,
   History,
   Calendar,
   Lock,
   Unlock,
   Search,
-  X
+  X,
+  RotateCcw,
+  FileWarning,
+  ClipboardPaste,
+  ChevronDown,
+  ChevronUp,
+  Inbox
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '../../context/ToastContext';
@@ -59,13 +58,24 @@ const SAMPLE_DATA_WO_OPERATIONAL = `|Date|File Name|Date Upload|Agent ID|ID Cust
 |2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-108|7399336|WO20267399336|Mega Utami|087812345678|Keluarga Ada di Rumah Siang|PT Kencana Solusindo|Jakarta Barat||14:00 - 16:00 WIB|Permata Hijau 2|FDT-JB-014|FAT-JB-014-06|Upgrade Speed 200M|Unassigned||
 |2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-109|7399337|WO20267399337|Syamsul Bahri|081377889900|Titip Kunci di Pos Satpam|PT Mitra Jaringan Solusi|Jakarta Selatan|Andi Saputra|16:00 - 18:00 WIB|Grand Melati Residence|FDT-JS-022|FAT-JS-022-01|Maintenance LOS Red Light|Assigned|Bawa kabel dropcore cadangan|`;
 
+const REQUIRED_FIELD_PILLS = [
+  'WO Number',
+  'Customer ID',
+  'Nama Pelanggan',
+  'Alamat',
+  'Area/Cluster',
+  'Tanggal Appointment',
+  'FDT / FAT',
+  'Kontraktor'
+];
+
 export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImportSuccess }) => {
   const { isCompactUI } = useResponsiveViewport();
   const {
     bulkImportTickets,
     headerMappings,
-    canonicalFields,
     tickets,
+    auditLogs,
     contractors,
     coverageAreas,
     currentUser,
@@ -78,7 +88,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const { showToast } = useToast();
 
   const [isPullingFromSheets, setIsPullingFromSheets] = useState(false);
-
   const [rawText, setRawText] = useState('');
   const [parseResult, setParseResult] = useState<TextToTableResult | null>(null);
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
@@ -92,7 +101,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     undistributedCount?: number;
   } | null>(null);
   const [showMappingCatalog, setShowMappingCatalog] = useState(false);
-  const [sourceFileName, setSourceFileName] = useState('Input_Text_Table.txt');
+  const [showTextEditor, setShowTextEditor] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [sourceFileName, setSourceFileName] = useState('Belum ada berkas');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isExecutingImport, setIsExecutingImport] = useState(false);
   const [contractorEnrollNotice, setContractorEnrollNotice] = useState<string | null>(null);
@@ -104,7 +115,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   // Role visibility check: Deleting imported data is strictly restricted to Management Data
   const isManagementData = currentUser.role === 'management_data';
 
-  // Security guard: Automatically redirect away from history_delete if user is not management_data
   useEffect(() => {
     if (!isManagementData && mainTab === 'history_delete') {
       setMainTab('import');
@@ -125,16 +135,83 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [dateToPurge, setDateToPurge] = useState<string | null>(null);
   const [purgeCount, setPurgeCount] = useState<number>(0);
 
-  // Auto-register New Contractors Toggle
+  // Policies
   const [autoRegisterNewContractors, setAutoRegisterNewContractors] = useState<boolean>(true);
-  // Duplicate WO Policy Toggle ('skip' or 'update_allowed')
   const [duplicatePolicy, setDuplicatePolicy] = useState<'skip' | 'update_allowed'>('skip');
 
-  // Ticket Category Search & Filter for Preview
+  // Preview filters
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'VALID' | 'DUPLICATE' | 'ERROR'>('ALL');
   const [previewCategoryFilter, setPreviewCategoryFilter] = useState<string>('ALL');
   const [previewCategorySearch, setPreviewCategorySearch] = useState<string>('');
 
-  // Detect New Contractors from parsed rows that do not exist in master data
+  // Validation counts derived strictly from parseResult
+  const validationSummary = useMemo(() => {
+    if (!parseResult) {
+      return { total: 0, valid: 0, duplicate: 0, error: 0, validPct: '0.0' };
+    }
+    const rows = parseResult.parsedRows;
+    const total = parseResult.totalDetected || rows.length;
+    const valid = rows.filter(r => r.isValid && !r.isDuplicate).length;
+    const duplicate = rows.filter(r => r.isDuplicate || r.statusType === 'WO DUPLIKAT').length;
+    const error = rows.filter(r => !r.isValid && !r.isDuplicate && r.statusType !== 'WO DUPLIKAT').length;
+    const validPct = total > 0 ? ((valid / total) * 100).toFixed(1) : '0.0';
+    return { total, valid, duplicate, error, validPct };
+  }, [parseResult]);
+
+  // Real Recent Import History derived from live tickets & auditLogs (ZERO fake/hardcoded batches)
+  const recentImportBatches = useMemo(() => {
+    const batchMap = new Map<
+      string,
+      { key: string; label: string; timeLabel: string; sortTs: number; performer: string; count: number; statusLabel: string }
+    >();
+
+    tickets.forEach(t => {
+      if (t.isArchived) return;
+      if (!t.fileName && !t.importDate && !t.dateUpload) return;
+      const fName = (t.fileName || `Import_${t.importDate || t.date}`).trim();
+      const dKey = (t.dateUpload || t.importDate || t.date || '').slice(0, 16);
+      const mapKey = `${fName}__${dKey}`;
+      const ts = new Date(t.importedAt || t.createdAt || t.date || Date.now()).getTime() || 0;
+      const existing = batchMap.get(mapKey);
+      if (existing) {
+        existing.count += 1;
+        if (ts > existing.sortTs) existing.sortTs = ts;
+      } else {
+        batchMap.set(mapKey, {
+          key: mapKey,
+          label: fName,
+          timeLabel: t.importedAt || t.createdAt || t.dateUpload || t.importDate || t.date,
+          sortTs: ts,
+          performer: t.agentId || 'Superadmin / Data',
+          count: 1,
+          statusLabel: 'TERSIMPAN'
+        });
+      }
+    });
+
+    auditLogs
+      .filter(l => l.entity === 'import_batch' || String(l.action || '').toUpperCase().includes('IMPORT'))
+      .forEach(l => {
+        const ts = new Date(l.timestamp).getTime() || 0;
+        const mapKey = `audit_${l.id}`;
+        const matchWoCount = String(l.details || '').match(/(\d+)\s*(?:WO|tiket|baris)/i);
+        batchMap.set(mapKey, {
+          key: mapKey,
+          label: l.entityId && l.entityId !== 'bulk' ? l.entityId : l.action,
+          timeLabel: l.timestamp,
+          sortTs: ts,
+          performer: l.performedBy || 'Operator',
+          count: matchWoCount ? Number(matchWoCount[1]) : 0,
+          statusLabel: 'SUKSES'
+        });
+      });
+
+    return Array.from(batchMap.values())
+      .sort((a, b) => b.sortTs - a.sortTs)
+      .slice(0, 4);
+  }, [tickets, auditLogs]);
+
+  // Detect New Contractors from parsed rows
   const newContractorsFound = useMemo(() => {
     if (!parseResult) return [];
     const existingNames = new Set(contractors.map(c => c.name.trim().toLowerCase()));
@@ -164,10 +241,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     return Array.from(set).sort();
   }, [parseResult]);
 
-  // Filtered rows for pre-import table preview based on ticket category & search
+  // Filtered rows for pre-import table preview
   const displayedPreviewRows = useMemo(() => {
     if (!parseResult) return [];
     return parseResult.parsedRows.filter(row => {
+      if (statusFilter === 'VALID' && (!row.isValid || row.isDuplicate)) return false;
+      if (statusFilter === 'DUPLICATE' && !row.isDuplicate && row.statusType !== 'WO DUPLIKAT') return false;
+      if (statusFilter === 'ERROR' && (row.isValid || row.isDuplicate || row.statusType === 'WO DUPLIKAT')) return false;
+
       if (previewCategoryFilter !== 'ALL') {
         if ((row.mapped.ticketCategory || '') !== previewCategoryFilter) return false;
       }
@@ -181,9 +262,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       }
       return true;
     });
-  }, [parseResult, previewCategoryFilter, previewCategorySearch]);
+  }, [parseResult, statusFilter, previewCategoryFilter, previewCategorySearch]);
 
-  // Register detected contractors immediately into master data
   const handleEnrollContractorsNow = () => {
     if (!parseResult || !parseResult.detectedContractors) return;
     const toRegister = parseResult.detectedContractors.map(c => ({
@@ -199,11 +279,22 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     }));
 
     const result = autoRegisterContractors(toRegister);
-    setContractorEnrollNotice(`Berhasil mendaftarkan ${result.addedCount} kontraktor baru dan memperbarui ${result.updatedCount} kontraktor di Master Data!`);
+    const msg = `Berhasil mendaftarkan ${result.addedCount} kontraktor baru dan memperbarui ${result.updatedCount} kontraktor di Master Data!`;
+    setContractorEnrollNotice(msg);
+    showToast(msg, 'success', 'Mitra Terdaftar');
     setTimeout(() => setContractorEnrollNotice(null), 4000);
   };
 
   const handleSyncFromGoogleSheetsNow = async () => {
+    if (!googleSheetsConfig.spreadsheetId) {
+      showToast(
+        'Google Sheets belum terhubung. Buka tab Setup -> Database & Sync -> Google Sheets Live Sync untuk menautkan spreadsheet.',
+        'info',
+        'Google Sheets Belum Terkonfigurasi'
+      );
+      return;
+    }
+
     setIsPullingFromSheets(true);
     try {
       const res = await syncGoogleSheetsNow('import_only');
@@ -214,17 +305,21 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           enrolledContractors: res.newContractorsCount || 0,
           newContractors: res.newContractorsCount || 0
         });
+        showToast(
+          `Sinkronisasi Google Sheets selesai (${res.pulledCount || 0} WO ditarik).`,
+          'success',
+          'Sync Google Sheets Berhasil'
+        );
       } else {
-        alert(res.message);
+        showToast(res.message || 'Gagal sinkronisasi data dari Google Sheets.', 'error', 'Sync Gagal');
       }
     } catch (err: any) {
-      alert(err?.message || 'Gagal sinkronisasi data dari Google Sheets.');
+      showToast(err?.message || 'Gagal sinkronisasi data dari Google Sheets.', 'error', 'Sync Gagal');
     } finally {
       setIsPullingFromSheets(false);
     }
   };
 
-  // Export Work Orders to Excel / CSV
   const handleExportFile = (fileType: 'xlsx' | 'csv') => {
     let list = tickets.filter(t => !t.isArchived);
     if (exportContractor !== 'ALL') {
@@ -238,6 +333,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
     if (list.length === 0) {
       setExportNotice('Tidak ada data tiket yang cocok dengan filter untuk diekspor.');
+      showToast('Tidak ada data tiket yang cocok dengan filter untuk diekspor.', 'warning', 'Data Kosong');
       setTimeout(() => setExportNotice(null), 3000);
       return;
     }
@@ -274,7 +370,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         'Remarks WO Installer': t.remarksWOInstaller || ''
       }));
     } else {
-      // Full 46 Columns
       rows = list.map(t => ({
         'No': t.id,
         'WO Number': t.woNumber,
@@ -311,10 +406,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     const fileName = `MoraJaws_WO_Export_${exportFormat}_${new Date().toISOString().slice(0, 10)}.${fileType}`;
     XLSX.writeFile(wb, fileName, { bookType: fileType });
     setExportNotice(`Berhasil mengekspor ${rows.length} data Work Order ke ${fileName}`);
+    showToast(`Berhasil mengekspor ${rows.length} data Work Order ke ${fileName}`, 'success', 'Export Berhasil');
     setTimeout(() => setExportNotice(null), 4000);
   };
 
-  // Download Blank Templates
   const handleDownloadBlankTemplate = (type: 'master_46' | 'korlap' | 'teknisi') => {
     let rows: Record<string, any>[] = [];
     let sheetName = 'Template';
@@ -391,27 +486,57 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, fileName);
     setExportNotice(`Template blank "${fileName}" berhasil diunduh.`);
+    showToast(`Template "${fileName}" berhasil diunduh.`, 'success', 'Template Diunduh');
     setTimeout(() => setExportNotice(null), 4000);
   };
 
-  // RBAC Access Restriction: Only Super Admin and Management Data can perform imports (App Flow 1 & 3)
+  // Download Excel Error Report for non-valid / duplicate rows
+  const handleDownloadErrorReport = () => {
+    if (!parseResult) return;
+    const problematicRows = parseResult.parsedRows.filter(r => !r.isValid || r.isDuplicate);
+    if (problematicRows.length === 0) {
+      showToast('Tidak ada baris duplikat atau error untuk diunduh.', 'info', 'Semua Baris Valid');
+      return;
+    }
+
+    const rows = problematicRows.map(r => ({
+      'Baris': r.rowIndex + 1,
+      'Status Validasi': r.statusType || (r.isDuplicate ? 'WO DUPLIKAT' : 'ERROR'),
+      'WO Number': r.mapped.woNumber || '',
+      'Customer ID': r.mapped.idCustomer || '',
+      'Nama Pelanggan': r.mapped.customerName || '',
+      'Kontraktor': r.mapped.contactorName || r.mapped.contractorName || '',
+      'Area': r.mapped.area || '',
+      'Appointment Date': r.mapped.appointmentDate || '',
+      'Kolom Bermasalah': (r.problematicColumns || []).join(', '),
+      'Detail Keterangan': (r.validationErrors || []).join(' | ')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan_Error_Validasi');
+    const fileName = `MoraJaws_Laporan_Error_Import_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    showToast(`Laporan ${rows.length} baris bermasalah diunduh ke ${fileName}.`, 'success', 'Laporan Error Diunduh');
+  };
+
   const canImport = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
 
   if (!canImport) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-slate-200 dark:border-slate-800 text-center max-w-lg mx-auto space-y-4 shadow-sm my-8">
-        <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+      <div className="card-3d-lavender rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8">
+        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/60 text-[#BA1A1A] dark:text-rose-300 rounded-2xl flex items-center justify-center mx-auto">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <h3 className="font-display font-extrabold text-[#1F1638] dark:text-white text-base">
           Akses Ditolak: Otoritas Import Work Order Dibatasi
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
           Berdasarkan App Flow MoraJaws, proses import Work Order (Text-to-Table, XLSX, CSV)
           hanya dapat dilakukan oleh peran <strong>Super Admin</strong> dan <strong>Management Data</strong>.
         </p>
-        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-300 font-medium">
-          Akun Anda: <span className="font-bold capitalize">{currentUser.name} ({currentUser.role})</span>. Akses import ditolak pada level UI dan Backend Server.
+        <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl text-xs text-[#4B4452] dark:text-[#CABDE8] font-medium">
+          Akun Anda: <span className="font-bold capitalize text-[#1F1638] dark:text-white">{currentUser.name} ({currentUser.role})</span>. Akses import ditolak pada level UI dan Backend Server.
         </div>
       </div>
     );
@@ -421,6 +546,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
   const handleParse = (textToParse?: string) => {
     const text = textToParse !== undefined ? textToParse : rawText;
+    if (!text.trim()) {
+      showToast('Masukkan data teks/tabel atau unggah file Excel/CSV terlebih dahulu.', 'warning', 'Data Kosong');
+      return;
+    }
     const result = parseWorkOrderText(text, {
       customMappings: headerMappings,
       existingWoNumbers: existingWos,
@@ -429,17 +558,27 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     });
     setParseResult(result);
     setImportReport(null);
+    setStatusFilter('ALL');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processUploadedFile = (file: File) => {
+    const lowerName = file.name.toLowerCase();
+    if (
+      !lowerName.endsWith('.xlsx') &&
+      !lowerName.endsWith('.xls') &&
+      !lowerName.endsWith('.csv') &&
+      !lowerName.endsWith('.txt')
+    ) {
+      showToast('Format file harus .xlsx, .xls, .csv, atau .txt.', 'error', 'Format Tidak Didukung');
+      return;
+    }
 
     setSourceFileName(file.name);
+    setStatusFilter('ALL');
     const reader = new FileReader();
 
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      reader.onload = (event) => {
+    if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+      reader.onload = event => {
         const buffer = event.target?.result as ArrayBuffer;
         if (buffer) {
           const result = parseWorkOrderFile(buffer, {
@@ -450,22 +589,38 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           });
           setParseResult(result);
           setImportReport(null);
+          showToast(`Berkas "${file.name}" terbaca (${result.parsedRows.length} baris).`, 'success', 'Berkas Diparsing');
         }
       };
       reader.readAsArrayBuffer(file);
     } else {
-      // Text or CSV
-      reader.onload = (event) => {
+      reader.onload = event => {
         const text = event.target?.result as string;
         if (text) {
           setRawText(text);
           handleParse(text);
+          showToast(`Berkas "${file.name}" berhasil dibaca.`, 'success', 'Berkas Diparsing');
         }
       };
       reader.readAsText(file);
     }
+  };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processUploadedFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDropFile = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processUploadedFile(file);
+    }
   };
 
   const handleLoadBaseDataSample = () => {
@@ -480,6 +635,18 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     handleParse(SAMPLE_DATA_WO_OPERATIONAL);
   };
 
+  const handleResetWorkspace = () => {
+    setParseResult(null);
+    setRawText('');
+    setImportReport(null);
+    setStatusFilter('ALL');
+    setPreviewCategoryFilter('ALL');
+    setPreviewCategorySearch('');
+    setEditingRowIndex(null);
+    setSourceFileName('Belum ada berkas');
+    setShowConfirmModal(false);
+  };
+
   const handleDeleteRow = (rowIndex: number) => {
     if (!parseResult) return;
     const updatedRows = parseResult.parsedRows.filter(r => r.rowIndex !== rowIndex);
@@ -490,6 +657,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       totalDetected: updatedRows.length,
       validCount,
       problematicCount,
+      duplicateCount: updatedRows.filter(r => r.isDuplicate).length,
       parsedRows: updatedRows
     });
   };
@@ -497,13 +665,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const handleStartEditRow = (row: ParsedRowData) => {
     setEditingRowIndex(row.rowIndex);
     setEditingRowData({ ...(row.mapped as any) });
-  };
-
-
-  const handleCancelImport = () => {
-    setParseResult(null);
-    setRawText('');
-    setShowConfirmModal(false);
   };
 
   const handleSaveEditRow = (rowIndex: number) => {
@@ -514,12 +675,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       const woVal = (updatedMapped.woNumber || '').trim().toUpperCase();
       const isDup = existingWos.includes(woVal);
 
-      // Re-validate mandatory fields strictly according to Bagian 1
       const emptyCols: string[] = [];
       const formatErrs: string[] = [];
       const probCols: string[] = [];
 
-      // 1. Customer ID
       const custId = (updatedMapped.idCustomer || updatedMapped.customerId || '').trim();
       if (!custId) {
         emptyCols.push('Customer ID');
@@ -529,7 +688,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         probCols.push('Customer ID');
       }
 
-      // 2. WO Number
       if (!woVal) {
         emptyCols.push('WO Number');
         probCols.push('WO Number');
@@ -538,31 +696,26 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         probCols.push('WO Number');
       }
 
-      // 3. Street Name
       if (!(updatedMapped.streetName || '').trim()) {
         emptyCols.push('Street Name');
         probCols.push('Street Name');
       }
 
-      // 4. Cluster Name
       if (!(updatedMapped.clusterName || '').trim()) {
         emptyCols.push('Cluster Name');
         probCols.push('Cluster Name');
       }
 
-      // 5. FAT
       if (!(updatedMapped.fatCode || updatedMapped.fat || '').trim()) {
         emptyCols.push('FAT');
         probCols.push('FAT');
       }
 
-      // 6. FDT
       if (!(updatedMapped.fdtCode || updatedMapped.fdt || '').trim()) {
         emptyCols.push('FDT');
         probCols.push('FDT');
       }
 
-      // 7. Customer Phone
       const phone = (updatedMapped.customerPhone || updatedMapped.customerContact1 || '').trim().replace(/\D/g, '');
       if (!phone) {
         emptyCols.push('Customer Phone');
@@ -572,19 +725,16 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         probCols.push('Customer Phone');
       }
 
-      // 8. Contractor Name
       if (!(updatedMapped.contactorName || updatedMapped.contractorName || '').trim()) {
         emptyCols.push('Contractor Name');
         probCols.push('Contractor Name');
       }
 
-      // 9. Area
       if (!(updatedMapped.area || '').trim()) {
         emptyCols.push('Area');
         probCols.push('Area');
       }
 
-      // 10. Appointment Date
       const dateVal = (updatedMapped.appointmentDate || '').trim();
       if (!dateVal) {
         emptyCols.push('Appointment Date');
@@ -634,15 +784,22 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     if (!parseResult || parseResult.parsedRows.length === 0) return;
 
     if (parseResult.headerCheckPassed === false) {
-      alert(`Proses import dihentikan: Header wajib tidak ditemukan (${parseResult.missingMandatoryHeaders?.join(', ')}).`);
+      showToast(
+        `Proses import dihentikan: Header wajib tidak ditemukan (${parseResult.missingMandatoryHeaders?.join(', ')}).`,
+        'error',
+        'Header Wajib Tidak Ditemukan'
+      );
       return;
     }
 
-    // Only import valid rows that are not duplicates (BAGIAN 1 - C & E)
     const rowsToImport = parseResult.parsedRows.filter(r => r.isValid && !r.isDuplicate);
 
     if (rowsToImport.length === 0) {
-      alert('Tidak ada baris data valid yang siap diimpor. Semua baris ditolak karena data kosong, format tidak valid, atau nomor WO duplikat.');
+      showToast(
+        'Tidak ada baris data valid yang siap diimpor. Semua baris ditolak karena data kosong, format tidak valid, atau nomor WO duplikat.',
+        'warning',
+        'Tidak Ada Data Valid'
+      );
       return;
     }
 
@@ -651,7 +808,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       fileName: sourceFileName
     }));
 
-    // Auto-register new contractors if toggle is enabled
     let enrolledNewCount = 0;
     if (autoRegisterNewContractors) {
       const contractorsToRegister = newContractorsFound.length > 0
@@ -694,6 +850,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       distributedCount: report.distributedCount,
       undistributedCount: report.undistributedCount
     });
+    showToast(`${report.importedCount} Work Order valid berhasil disimpan ke database.`, 'success', 'Batch Import Selesai');
     setParseResult(null);
     setRawText('');
     setShowConfirmModal(false);
@@ -703,1216 +860,1476 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Tab Switcher: Import vs Export */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold pb-1">
+    <div className="space-y-5">
+      {/* Top 3D Tactile Tab Ribbon: Import vs Export vs Riwayat & Hapus */}
+      <div className="mj-tactile-tab-bar p-1.5 inline-flex flex-wrap items-center gap-1.5 text-xs max-w-full">
         <button
+          type="button"
           onClick={() => setMainTab('import')}
-          className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors ${
+          className={`px-4 py-2 min-h-[38px] rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
             mainTab === 'import'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'btn-3d-primary font-bold'
+              : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
           }`}
         >
-          <Upload className="w-4 h-4" />
+          <Upload className="w-3.5 h-3.5" />
           <span>Import Work Order</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setMainTab('export')}
-          className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors ${
+          className={`px-4 py-2 min-h-[38px] rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
             mainTab === 'export'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'btn-3d-primary font-bold'
+              : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
           }`}
         >
-          <Download className="w-4 h-4" />
-          <span>Export Work Order & Template</span>
+          <Download className="w-3.5 h-3.5" />
+          <span>Export Work Order &amp; Template</span>
         </button>
 
         {isManagementData && (
           <button
+            type="button"
             onClick={() => setMainTab('history_delete')}
-            className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 min-h-[38px] rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               mainTab === 'history_delete'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                ? 'btn-3d-maroon font-bold'
+                : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
             }`}
           >
-            <History className="w-4 h-4" />
-            <span>Riwayat & Hapus Data Import (7 Hari)</span>
+            <History className="w-3.5 h-3.5" />
+            <span>Riwayat &amp; Hapus Data Import (7 Hari)</span>
           </button>
         )}
       </div>
 
+      {/* ============================================================ */}
+      {/* TAB 1: IMPORT WORK ORDER (STITCH SCREENSHOT 2 LAYOUT)        */}
+      {/* ============================================================ */}
       {mainTab === 'import' && (
-        <div className="space-y-6">
-          {/* Top Banner & Control Zone */}
-          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
-              <span>WOFieldMappingEngine — Central Work Order Importer</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Mendukung file Excel (.xlsx), CSV, dan Text-to-Table deterministik. Sesuai template master 46 kolom (BASE_DATA_WO) dan data operasional (data_wo_20261018) termasuk kolom tanpa nama header.
-            </p>
-          </div>
+        <div className="space-y-5">
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".xlsx,.xls,.csv,.txt"
+            className="hidden"
+            id="file-upload-input"
+          />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleLoadBaseDataSample}
-              className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>1. BASE_DATA_WO (46 Kolom)</span>
-            </button>
-            <button
-              onClick={handleLoadOperationalSample}
-              className="px-2.5 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1.5 transition-colors"
-            >
-              <Database className="w-3.5 h-3.5 text-amber-600" />
-              <span>2. data_wo_20261018 (45 Kolom)</span>
-            </button>
-            <button
-              onClick={() => setShowMappingCatalog(!showMappingCatalog)}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Katalog 46 Kolom</span>
-            </button>
+          {/* Top Header Card */}
+          <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+              <div className="space-y-2 min-w-0 flex-1">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_2px_0_#260112] whitespace-nowrap">
+                    {currentUser.role === 'super_admin' ? 'SUPERADMIN ONLY' : 'MANAGEMENT DATA'}
+                  </span>
+                  <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-[#4B4452] dark:text-[#CABDE8] truncate">
+                    {sourceFileName !== 'Belum ada berkas' ? `${sourceFileName} • ` : ''}
+                    {parseResult ? 'STAGING VALIDATION' : 'WOFIELD MAPPING ENGINE'}
+                  </span>
+                </div>
 
-            {googleSheetsConfig.spreadsheetId && (
-              <button
-                onClick={handleSyncFromGoogleSheetsNow}
-                disabled={isPullingFromSheets}
-                className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                title={`Tarik data terkini dari Google Sheet: ${googleSheetsConfig.sheetName}`}
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isPullingFromSheets ? 'animate-spin' : ''}`} />
-                <span>{isPullingFromSheets ? 'Menyinkronkan...' : 'Sync dari Google Sheet'}</span>
-              </button>
-            )}
-          </div>
-        </div>
+                <h2 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#1F1638] dark:text-white">
+                  Import Data Work Order (WO)
+                </h2>
 
-        {/* Upload Zone & Text Input */}
-        <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'md:grid-cols-3'} gap-4 mb-3`}>
-          <div className={`${isCompactUI ? '' : 'md:col-span-1'} p-4 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center space-y-2`}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".xlsx,.xls,.csv,.txt"
-              className="hidden"
-              id="file-upload-input"
-            />
-            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center">
-              <Upload className="w-5 h-5" />
-            </div>
-            <div>
-              <label
-                htmlFor="file-upload-input"
-                className="cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                Pilih File Excel / CSV
-              </label>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Mendukung .xlsx, .xls, .csv (termasuk kolom tanpa nama)
-              </p>
-            </div>
-            {sourceFileName && (
-              <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border text-[10px] font-mono text-slate-600 dark:text-slate-300">
-                {sourceFileName}
-              </span>
-            )}
-          </div>
+                <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] max-w-2xl leading-relaxed">
+                  Unggah berkas CSV/Excel, sinkronisasi Google Sheets, atau gunakan Text-to-Table deterministik untuk validasi massal sebelum masuk ke antrean dispatch FTTH.
+                </p>
+              </div>
 
-          <div className={`${isCompactUI ? '' : 'md:col-span-2'} space-y-2`}>
-            <textarea
-              rows={6}
-              placeholder="|WO Number|Customer Name|ID Customer|Customer Phone|Area|Cluster Name|Contactor Name|Slot Time|Ticket Category|&#10;|WO20267399330|Haji Sulaiman|7399330|081299883344|Jakarta Selatan|Grand Melati Residence|PT Mitra Jaringan Solusi|09:00 - 11:00 WIB|New Installation FTTH|"
-              value={rawText}
-              onChange={e => {
-                setRawText(e.target.value);
-                setSourceFileName('Text_Input.txt');
-              }}
-              className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
-            />
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <span className="text-slate-400 text-[11px]">
-                Validasi ketat: Customer ID wajib tepat 7 digit (^[0-9]&#123;7&#125;$). Nomor WO wajib unik.
-              </span>
-              <div className="flex items-center gap-2">
-                {rawText && (
-                  <button
-                    onClick={() => {
-                      setRawText('');
-                      setParseResult(null);
-                    }}
-                    className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700"
-                  >
-                    Kosongkan
-                  </button>
-                )}
+              {/* 4 Action Buttons matching Stitch Screenshot 2 */}
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0 lg:max-w-[420px] lg:justify-end">
                 <button
-                  onClick={() => handleParse()}
-                  disabled={!rawText.trim()}
-                  className="px-4 py-1.5 font-bold text-white bg-[#6D28D9] hover:bg-[#5B21B6] disabled:opacity-40 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                  title="Periksa dan validasi data teks/tabel sebelum import"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-3d-primary min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>1. Periksa Data</span>
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>+ Upload File CSV / Excel</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSyncFromGoogleSheetsNow}
+                  disabled={isPullingFromSheets}
+                  className="btn-3d-primary min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  title={
+                    googleSheetsConfig.spreadsheetId
+                      ? `Tarik data terkini dari Google Sheet: ${googleSheetsConfig.sheetName}`
+                      : 'Lihat status integrasi Google Sheets'
+                  }
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isPullingFromSheets ? 'animate-spin' : ''}`} />
+                  <span>{isPullingFromSheets ? 'Menyinkronkan...' : 'Sync Google Sheets'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadBlankTemplate('master_46')}
+                  className="btn-3d-lilac min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Template</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetWorkspace}
+                  className="btn-3d-lilac min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Catalog Modal / Accordion */}
-      {showMappingCatalog && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-3 text-xs">
-          <div className="flex items-center justify-between border-b pb-2">
-            <div>
-              <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Database className="w-4 h-4 text-indigo-600" />
-                <span>Katalog Master Canonical Field WOFieldMappingEngine ({MASTER_CANONICAL_FIELDS.length} Master Fields)</span>
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Baseline 46 kolom mencakup Identitas, Jadwal Appointment, Hardware Jaringan (OLT/FDT/FAT/ONT/STB), Kontraktor, Leader, dan Teknisi.
-              </p>
+            {/* MoraJaws Quick Sample & Catalog Utility Strip */}
+            <div className="pt-3 border-t border-[#e8ddff] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadBaseDataSample}
+                  className="tactile-chip px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>1. BASE_DATA_WO (46 Kolom)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadOperationalSample}
+                  className="tactile-chip px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  <span>2. data_wo_20261018 (45 Kolom)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMappingCatalog(!showMappingCatalog)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${
+                    showMappingCatalog ? 'tactile-chip-active' : 'tactile-chip text-[#4B4452] dark:text-[#E9D5FF]'
+                  }`}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Katalog 46 Kolom</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTextEditor(!showTextEditor)}
+                className="btn-3d-lilac px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <ClipboardPaste className="w-3.5 h-3.5" />
+                <span>Mode Paste Text-to-Table</span>
+                {showTextEditor || rawText ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
             </div>
-            <button
-              onClick={() => setShowMappingCatalog(false)}
-              className="text-slate-400 hover:text-slate-600 text-xs px-2 py-1"
+          </div>
+
+          {/* Drag-and-Drop Dropzone Well */}
+          <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4">
+            <div
+              onDragOver={e => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDropFile}
+              onClick={() => fileInputRef.current?.click()}
+              className={`rounded-2xl border-2 border-dashed p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                isDragOver
+                  ? 'border-[#58149C] bg-[#f3eaff] dark:bg-[#2a154b] scale-[0.998]'
+                  : 'border-[#c9b6ea] dark:border-[#4b386b] bg-[#f8f1ff] dark:bg-[#160d29] hover:border-[#7135B5]'
+              }`}
             >
-              Tutup
+              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] shadow-[0_3px_0_#d8ccf3] dark:shadow-[0_3px_0_#160d29] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center mb-3">
+                <Upload className="w-5 h-5" />
+              </div>
+
+              <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white">
+                Tarik &amp; Lepas Berkas CSV atau Excel (.xlsx) di Sini
+              </h3>
+
+              <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-1">
+                Berkas aktif saat ini:{' '}
+                <strong className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{sourceFileName}</strong>
+                {parseResult && (
+                  <span className="ml-1 font-mono tabular-nums">
+                    ({validationSummary.total} baris terdeteksi)
+                  </span>
+                )}
+              </p>
+
+              {/* Canonical Required Field Pills */}
+              <div className="flex flex-wrap items-center justify-center gap-1.5 mt-4">
+                {REQUIRED_FIELD_PILLS.map(fieldLabel => (
+                  <span
+                    key={fieldLabel}
+                    className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-white dark:bg-[#1e1238] border border-[#e8ddff] dark:border-[#3b1d78] text-[#4B4452] dark:text-[#CABDE8] shadow-[0_1.5px_0_#e8ddff] dark:shadow-none"
+                  >
+                    {fieldLabel}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Integrated Text-to-Table Editor (auto-open when text loaded or toggled) */}
+            {(showTextEditor || Boolean(rawText.trim())) && (
+              <div className="pt-2 space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
+                    <ClipboardPaste className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <span>Editor Text-to-Table (Paste dari Excel / Pipe-Separated)</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A79BC0]">
+                    Customer ID wajib 7 digit (^[0-9]&#123;7&#125;$)
+                  </span>
+                </div>
+
+                <textarea
+                  rows={5}
+                  placeholder="|WO Number|Customer Name|ID Customer|Customer Phone|Area|Cluster Name|Contactor Name|Slot Time|Ticket Category|&#10;|WO20267399330|Haji Sulaiman|7399330|081299883344|Jakarta Selatan|Grand Melati Residence|PT Mitra Jaringan Solusi|09:00 - 11:00 WIB|New Installation FTTH|"
+                  value={rawText}
+                  onChange={e => {
+                    setRawText(e.target.value);
+                    setSourceFileName('Text_Input.txt');
+                  }}
+                  className="tactile-debossed-input w-full p-3 font-mono text-xs bg-[#f8f1ff] dark:bg-[#160d29] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7135B5]/30"
+                />
+
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {rawText && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRawText('');
+                        setParseResult(null);
+                        setSourceFileName('Belum ada berkas');
+                      }}
+                      className="btn-3d-lilac px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
+                    >
+                      Kosongkan Teks
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleParse()}
+                    disabled={!rawText.trim()}
+                    className="btn-3d-primary px-4 py-2 disabled:opacity-40 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>1. Periksa Data</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4 Validation KPI Bento Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Total Baris */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ALL')}
+              className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
+                statusFilter === 'ALL' && parseResult ? 'ring-2 ring-[#58149C] dark:ring-[#DAB9FF]' : 'hover:border-[#a78bfa]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#4B4452] dark:text-[#CABDE8]">
+                  TOTAL BARIS
+                </span>
+                <span className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#1F1638] dark:text-white leading-none my-1">
+                {validationSummary.total}
+              </div>
+              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                {parseResult ? '100% terbaca sistem' : 'Menunggu berkas / teks'}
+              </div>
+            </button>
+
+            {/* Siap Import / Valid */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'VALID' ? 'ALL' : 'VALID')}
+              className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
+                statusFilter === 'VALID' ? 'ring-2 ring-[#58149C] dark:ring-[#DAB9FF]' : 'hover:border-[#a78bfa]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#4B4452] dark:text-[#CABDE8]">
+                  SIAP IMPORT / VALID
+                </span>
+                <span className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#58149C] dark:text-[#DAB9FF] leading-none my-1">
+                {validationSummary.valid}
+              </div>
+              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                {validationSummary.validPct}% lolos validasi
+              </div>
+            </button>
+
+            {/* Duplikat / Peringatan */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'DUPLICATE' ? 'ALL' : 'DUPLICATE')}
+              className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
+                statusFilter === 'DUPLICATE' ? 'ring-2 ring-[#58149C] dark:ring-[#DAB9FF]' : 'hover:border-[#a78bfa]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#4B4452] dark:text-[#CABDE8]">
+                  DUPLIKAT / PERINGATAN
+                </span>
+                <span className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#58149C] dark:text-[#DAB9FF] leading-none my-1">
+                {validationSummary.duplicate}
+              </div>
+              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                WO sudah terdaftar
+              </div>
+            </button>
+
+            {/* Error Format / Kosong */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'ERROR' ? 'ALL' : 'ERROR')}
+              className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
+                statusFilter === 'ERROR' ? 'ring-2 ring-[#BA1A1A] dark:ring-rose-400' : 'hover:border-rose-300'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#BA1A1A] dark:text-rose-300">
+                  ERROR FORMAT / KOSONG
+                </span>
+                <span className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-[#BA1A1A] dark:text-rose-300 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#BA1A1A] dark:text-rose-300 leading-none my-1">
+                {validationSummary.error}
+              </div>
+              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                Perlu perbaikan kolom
+              </div>
             </button>
           </div>
 
-          <ResponsiveDataTable
-            data={MASTER_CANONICAL_FIELDS}
-            getRowKey={f => f.canonicalField}
-            maxTableHeightClass="max-h-72"
-            mobileTitle={f => <span className="font-mono text-indigo-600 dark:text-indigo-400">{f.canonicalField}</span>}
-            mobileSubtitle={f => f.displayLabel}
-            mobileStatus={f =>
-              f.required ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                  Wajib
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  Opsional
-                </span>
-              )
-            }
-            columns={[
-              {
-                key: 'index',
-                label: '#',
-                priority: 'hidden_mobile',
-                numeric: true,
-                render: (_f, i) => <span className="text-slate-400">{i + 1}</span>
-              },
-              {
-                key: 'canonicalField',
-                label: 'Canonical Field',
-                priority: 'primary',
-                numeric: true,
-                render: f => <span className="font-bold text-indigo-600 dark:text-indigo-400">{f.canonicalField}</span>
-              },
-              {
-                key: 'displayLabel',
-                label: 'Display Label',
-                priority: 'primary',
-                render: f => <span className="text-slate-800 dark:text-slate-200">{f.displayLabel}</span>
-              },
-              {
-                key: 'category',
-                label: 'Kategori',
-                priority: 'secondary',
-                render: f => <span className="capitalize text-slate-500">{f.category}</span>
-              },
-              {
-                key: 'dataType',
-                label: 'Tipe Data',
-                priority: 'secondary',
-                numeric: true,
-                render: f => <span className="text-slate-500">{f.dataType}</span>
-              },
-              {
-                key: 'required',
-                label: 'Wajib',
-                priority: 'hidden_mobile',
-                render: f =>
-                  f.required ? (
-                    <span className="text-rose-500 font-bold">Wajib</span>
-                  ) : (
-                    <span className="text-slate-400">Opsional</span>
-                  )
-              },
-              {
-                key: 'aliases',
-                label: 'Alias Terverifikasi',
-                priority: 'secondary',
-                render: f => (
-                  <span className="text-[10.5px] text-slate-600 dark:text-slate-400 max-w-xs block truncate">
-                    {f.aliases.join(', ')}
-                  </span>
-                )
-              }
-            ]}
-          />
-        </div>
-      )}
-
-      {/* Import Success Banner */}
-      {importReport && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
-          <div>
-            <p className="font-semibold text-sm">Proses Import Berhasil!</p>
-            <p className="mt-0.5">
-              {importReport.imported} tiket baru berhasil ditambahkan ({importReport.distributedCount ?? 0} terdistribusi ke Leader
-              {(importReport.undistributedCount ?? 0) > 0 ? `, ${importReport.undistributedCount} Belum Terdistribusi` : ''}).
-              {importReport.enrolledContractors !== undefined && importReport.enrolledContractors > 0 && (
-                <span className="font-medium text-emerald-900 dark:text-emerald-200">
-                  {' '}{importReport.enrolledContractors} kategori kontraktor ({importReport.newContractors || 0} baru) telah terdaftar di Master Data.
-                </span>
-              )}
-              {importReport.duplicates > 0 && (
-                <span className="block mt-1 text-amber-700 dark:text-amber-300 font-medium">
-                  ⚠️ {importReport.duplicates} tiket dengan nomor WO yang sama (duplikat) otomatis ditolak dan tidak dimasukkan ke dalam sistem demi menjaga keunikan data.
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Parse Preview Section */}
-      {parseResult && (
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 shadow-2xs space-y-4">
-          {/* Summary KPIs - Mandated 5 counts (Bagian 1 D) */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                Pre-Import Verification & Auto-Distribution Preview
-              </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                File Sumber: <strong className="font-mono text-indigo-600 dark:text-indigo-400">{sourceFileName}</strong>. Operator: <strong>{currentUser.name} ({currentUser.role})</strong>.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
-                <span className="text-slate-500 block text-[10px]">TOTAL BARIS DITEMUKAN</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                  {parseResult.totalDetected}
-                </span>
-              </div>
-              <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800">
-                <span className="block text-[10px]">TOTAL DATA VALID</span>
-                <span className="font-bold text-sm">{parseResult.validCount}</span>
-              </div>
-              <div className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 rounded border border-rose-200 dark:border-rose-800">
-                <span className="block text-[10px]">TOTAL TIDAK VALID</span>
-                <span className="font-bold text-sm">{parseResult.problematicCount}</span>
-              </div>
-              <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded border border-amber-200 dark:border-amber-800">
-                <span className="block text-[10px]">TOTAL WO DUPLIKAT</span>
-                <span className="font-bold text-sm">{parseResult.duplicateCount}</span>
-              </div>
-              <div className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 text-[#6D28D9] dark:text-purple-300 rounded border border-purple-200 dark:border-purple-800">
-                <span className="block text-[10px]">SIAP DIIMPORT</span>
-                <span className="font-bold text-sm">
-                  {parseResult.parsedRows.filter(r => r.isValid && !r.isDuplicate).length}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Critical Alert: Missing Mandatory Headers (Bagian 1 B) */}
-          {(!parseResult.headerCheckPassed || (parseResult.missingMandatoryHeaders && parseResult.missingMandatoryHeaders.length > 0)) && (
-            <div className="p-4 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-400 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <h5 className="font-bold text-sm text-rose-700 dark:text-rose-300">
-                  HEADER WAJIB TIDAK DITEMUKAN - PROSES IMPORT DIHENTIKAN!
-                </h5>
-                <p>
-                  Setiap baris data wajib memiliki 9 kolom: <strong>Customer ID, WO Number, Street Name, Cluster Name, FAT, FDT, Customer Phone, Contractor Name, Area</strong> serta <strong>Appointment Date</strong> yang valid.
-                </p>
-                <div className="mt-2 p-2 bg-rose-100 dark:bg-rose-900/60 rounded font-mono font-bold text-rose-800 dark:text-rose-200">
-                  Header wajib yang bermasalah / hilang: {parseResult.missingMandatoryHeaders?.join(', ')}
+          {/* Katalog Master Canonical Fields */}
+          {showMappingCatalog && (
+            <div className="card-3d-lavender rounded-2xl p-5 space-y-3 text-xs">
+              <div className="flex items-center justify-between border-b border-[#e8ddff] dark:border-[#3b1d78] pb-2.5">
+                <div>
+                  <h4 className="font-display font-bold text-[#1F1638] dark:text-white flex items-center gap-2">
+                    <Database className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <span>Katalog Master Canonical Field WOFieldMappingEngine ({MASTER_CANONICAL_FIELDS.length} Master Fields)</span>
+                  </h4>
+                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                    Baseline 46 kolom mencakup Identitas, Jadwal Appointment, Hardware Jaringan (OLT/FDT/FAT/ONT/STB), Kontraktor, Leader, dan Teknisi.
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMappingCatalog(false)}
+                  className="btn-3d-lilac px-3 py-1 rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  Tutup
+                </button>
               </div>
+
+              <ResponsiveDataTable
+                data={MASTER_CANONICAL_FIELDS}
+                getRowKey={f => f.canonicalField}
+                maxTableHeightClass="max-h-72"
+                mobileTitle={f => <span className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
+                mobileSubtitle={f => f.displayLabel}
+                mobileStatus={f =>
+                  f.required ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-[#BA1A1A] dark:bg-rose-950 dark:text-rose-300">
+                      Wajib
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f3eaff] text-[#4B4452] dark:bg-[#261942] dark:text-[#CABDE8]">
+                      Opsional
+                    </span>
+                  )
+                }
+                columns={[
+                  {
+                    key: 'index',
+                    label: '#',
+                    priority: 'hidden_mobile',
+                    numeric: true,
+                    render: (_f, i) => <span className="text-[#7D7484]">{i + 1}</span>
+                  },
+                  {
+                    key: 'canonicalField',
+                    label: 'Canonical Field',
+                    priority: 'primary',
+                    numeric: true,
+                    render: f => <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">{f.canonicalField}</span>
+                  },
+                  {
+                    key: 'displayLabel',
+                    label: 'Display Label',
+                    priority: 'primary',
+                    render: f => <span className="text-[#1F1638] dark:text-white">{f.displayLabel}</span>
+                  },
+                  {
+                    key: 'category',
+                    label: 'Kategori',
+                    priority: 'secondary',
+                    render: f => <span className="capitalize text-[#4B4452] dark:text-[#CABDE8]">{f.category}</span>
+                  },
+                  {
+                    key: 'dataType',
+                    label: 'Tipe Data',
+                    priority: 'secondary',
+                    numeric: true,
+                    render: f => <span className="text-[#4B4452] dark:text-[#CABDE8]">{f.dataType}</span>
+                  },
+                  {
+                    key: 'required',
+                    label: 'Wajib',
+                    priority: 'hidden_mobile',
+                    render: f =>
+                      f.required ? (
+                        <span className="text-[#BA1A1A] font-bold">Wajib</span>
+                      ) : (
+                        <span className="text-[#7D7484]">Opsional</span>
+                      )
+                  },
+                  {
+                    key: 'aliases',
+                    label: 'Alias Terverifikasi',
+                    priority: 'secondary',
+                    render: f => (
+                      <span className="text-[10.5px] text-[#4B4452] dark:text-[#CABDE8] max-w-xs block truncate">
+                        {f.aliases.join(', ')}
+                      </span>
+                    )
+                  }
+                ]}
+              />
             </div>
           )}
 
-          {/* Unnamed & Unrecognized Headers Notification */}
-          {parseResult.unrecognizedHeaders.length > 0 && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          {/* Import Success Banner */}
+          {importReport && (
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
               <div>
-                <p className="font-semibold">Kolom Khusus / Tanpa Nama Header Terdeteksi ({parseResult.unrecognizedHeaders.length}):</p>
+                <p className="font-display font-bold text-sm">Proses Import Berhasil!</p>
                 <p className="mt-0.5">
-                  Kolom: <span className="font-mono">{parseResult.unrecognizedHeaders.join(', ')}</span>. Seluruh nilai kolom disimpan utuh dalam <code className="font-mono text-xs">additionalFields</code> agar tidak ada data yang hilang.
+                  {importReport.imported} tiket baru berhasil ditambahkan ({importReport.distributedCount ?? 0} terdistribusi ke Leader
+                  {(importReport.undistributedCount ?? 0) > 0 ? `, ${importReport.undistributedCount} Belum Terdistribusi` : ''}).
+                  {importReport.enrolledContractors !== undefined && importReport.enrolledContractors > 0 && (
+                    <span className="font-medium text-emerald-900 dark:text-emerald-200">
+                      {' '}{importReport.enrolledContractors} kategori kontraktor ({importReport.newContractors || 0} baru) telah terdaftar di Master Data.
+                    </span>
+                  )}
+                  {importReport.duplicates > 0 && (
+                    <span className="block mt-1 text-amber-700 dark:text-amber-300 font-medium">
+                      {importReport.duplicates} tiket dengan nomor WO yang sama (duplikat) otomatis ditolak demi menjaga keunikan data.
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* DETECTED & AUTO-ENROLLED CONTRACTORS                     */}
-          {/* ======================================================== */}
-          {parseResult.detectedContractors && parseResult.detectedContractors.length > 0 && (
-            <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-indigo-100 dark:border-indigo-900/40">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Building2 className="w-4 h-4" />
+          {/* Parse Preview Section */}
+          {parseResult && (
+            <>
+              <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 space-y-4">
+                {/* Header + 4 Status Filter Pills */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[#e8ddff] dark:border-[#3b1d78]">
+                  <div>
+                    <h3 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white">
+                      Preview &amp; Validasi Data WO
+                    </h3>
+                    <p className="text-xs text-[#4B4452] dark:text-[#CABDE8]">
+                      Periksa status setiap baris sebelum mengeksekusi penyimpanan ke database produksi.
+                    </p>
+                  </div>
+
+                  {/* Status Filter Tabs: Semua / Valid / Duplikat / Error */}
+                  <div className="mj-tactile-tab-bar p-1 inline-flex flex-wrap items-center gap-1 self-start lg:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                        statusFilter === 'ALL'
+                          ? 'btn-3d-primary'
+                          : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                      }`}
+                    >
+                      Semua ({validationSummary.total})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('VALID')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                        statusFilter === 'VALID'
+                          ? 'btn-3d-primary'
+                          : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                      }`}
+                    >
+                      Valid ({validationSummary.valid})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('DUPLICATE')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                        statusFilter === 'DUPLICATE'
+                          ? 'btn-3d-primary'
+                          : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                      }`}
+                    >
+                      Duplikat ({validationSummary.duplicate})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('ERROR')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                        statusFilter === 'ERROR'
+                          ? 'btn-3d-crimson'
+                          : 'text-[#BA1A1A] dark:text-rose-300 hover:bg-white/75 dark:hover:bg-[#261942]'
+                      }`}
+                    >
+                      Error ({validationSummary.error})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Critical Alert: Missing Mandatory Headers */}
+                {(!parseResult.headerCheckPassed || (parseResult.missingMandatoryHeaders && parseResult.missingMandatoryHeaders.length > 0)) && (
+                  <div className="p-4 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-400 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 text-xs flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-[#BA1A1A] shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h5 className="font-bold text-sm text-[#BA1A1A] dark:text-rose-300">
+                        HEADER WAJIB TIDAK DITEMUKAN - PROSES IMPORT DIHENTIKAN!
+                      </h5>
+                      <p>
+                        Setiap baris data wajib memiliki 9 kolom: <strong>Customer ID, WO Number, Street Name, Cluster Name, FAT, FDT, Customer Phone, Contractor Name, Area</strong> serta <strong>Appointment Date</strong> yang valid.
+                      </p>
+                      <div className="mt-2 p-2 bg-rose-100 dark:bg-rose-900/60 rounded-lg font-mono font-bold text-[#BA1A1A] dark:text-rose-200">
+                        Header wajib yang bermasalah / hilang: {parseResult.missingMandatoryHeaders?.join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Unnamed & Unrecognized Headers Notification */}
+                {parseResult.unrecognizedHeaders.length > 0 && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+                    <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">Kolom Khusus / Tanpa Nama Header Terdeteksi ({parseResult.unrecognizedHeaders.length}):</p>
+                      <p className="mt-0.5">
+                        Kolom: <span className="font-mono">{parseResult.unrecognizedHeaders.join(', ')}</span>. Seluruh nilai kolom disimpan utuh dalam <code className="font-mono text-xs">additionalFields</code> agar tidak ada data yang hilang.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Detected & Auto-Enrolled Contractors */}
+                {parseResult.detectedContractors && parseResult.detectedContractors.length > 0 && (
+                  <div className="p-4 rounded-xl border border-[#d8ccf3] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29] space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#3b1d78]">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shrink-0">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-2 flex-wrap">
+                            <span>Kategori Kontraktor Terdeteksi ({parseResult.detectedContractors.length} Mitra)</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] bg-[#e8ddff] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-bold">
+                              Auto-Enrolled
+                            </span>
+                          </h5>
+                          <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                            Mitra baru otomatis terdaftar ke Master Data MoraJaws saat import dieksekusi.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <div className="flex items-center gap-2 bg-white dark:bg-[#1e1238] px-3 py-1.5 rounded-xl border border-[#e8ddff] dark:border-[#3b1d78]">
+                          <span className="text-[11px] font-semibold text-[#1F1638] dark:text-white">
+                            Auto-register Mitra Baru:
+                          </span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={autoRegisterNewContractors}
+                              onChange={e => setAutoRegisterNewContractors(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-8 h-4 bg-[#cec3d4] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#cec3d4] after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#58149C]"></div>
+                          </label>
+                          <span className={`text-[10px] font-bold ${autoRegisterNewContractors ? 'text-[#58149C] dark:text-[#DAB9FF]' : 'text-[#7D7484]'}`}>
+                            {autoRegisterNewContractors ? 'ON' : 'OFF'}
+                          </span>
+                        </div>
+
+                        {parseResult.detectedContractors.some(c => c.isNew) && (
+                          <button
+                            type="button"
+                            onClick={handleEnrollContractorsNow}
+                            className="btn-3d-emerald px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Daftarkan Sekarang</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {contractorEnrollNotice && (
+                      <div className="p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2 font-medium">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>{contractorEnrollNotice}</span>
+                      </div>
+                    )}
+
+                    <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-3`}>
+                      {parseResult.detectedContractors.map((c, cIdx) => (
+                        <div
+                          key={`detected-contractor-card-${c.id || c.name}-${cIdx}`}
+                          className={`p-3 rounded-xl border text-xs bg-white dark:bg-[#1e1238] ${
+                            c.isNew
+                              ? 'border-emerald-300 dark:border-emerald-800 ring-1 ring-emerald-400/30'
+                              : 'border-[#e8ddff] dark:border-[#3b1d78]'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="font-bold text-[#1F1638] dark:text-white truncate" title={c.name}>
+                              {c.name}
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                                c.isNew
+                                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF]'
+                              }`}
+                            >
+                              {c.isNew ? 'Baru' : 'Terdaftar'}
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#7D7484]">Kode Vendor:</span>
+                              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">[{c.code}]</span>
+                            </div>
+                            <div className="flex items-start justify-between gap-1">
+                              <span className="text-[#7D7484] shrink-0">Cakupan Area:</span>
+                              <span className="font-medium text-[#1F1638] dark:text-white text-right truncate">
+                                {c.coverageAreas.length > 0 ? c.coverageAreas.join(', ') : 'Semua Area'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-[#e8ddff] dark:border-[#3b1d78]">
+                              <span className="text-[#7D7484]">Alokasi WO:</span>
+                              <span className="font-bold text-[#1F1638] dark:text-white">{c.woCount} Work Orders</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Search & Category Filter Toolbar */}
+                <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Cari Kategori Tiket, WO, Pelanggan, Mitra..."
+                        value={previewCategorySearch}
+                        onChange={e => setPreviewCategorySearch(e.target.value)}
+                        className="tactile-debossed-input w-full pl-8.5 pr-3 py-1.5 text-xs bg-white dark:bg-[#1e1238] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CABDE8] shrink-0">
+                        Kategori:
+                      </span>
+                      <select
+                        value={previewCategoryFilter}
+                        onChange={e => setPreviewCategoryFilter(e.target.value)}
+                        className="tactile-debossed-input px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-[#1e1238] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white"
+                      >
+                        <option value="ALL">Semua Kategori ({detectedTicketCategories.length})</option>
+                        {detectedTicketCategories.map((cat: string) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      {(previewCategoryFilter !== 'ALL' || previewCategorySearch || statusFilter !== 'ALL') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewCategoryFilter('ALL');
+                            setPreviewCategorySearch('');
+                            setStatusFilter('ALL');
+                          }}
+                          className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] shrink-0 self-end sm:self-auto font-mono tabular-nums">
+                    Menampilkan <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">{displayedPreviewRows.length}</span> dari {parseResult.parsedRows.length} baris
+                  </div>
+                </div>
+
+                {/* Responsive Preview Table */}
+                <ResponsiveDataTable<ParsedRowData>
+                  data={displayedPreviewRows}
+                  getRowKey={row => String(row.rowIndex)}
+                  maxTableHeightClass="max-h-96"
+                  getRowClassName={row =>
+                    !row.isValid || row.isDuplicate ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
+                  }
+                  mobileTitle={row => (
+                    <span className="font-mono">
+                      Baris #{row.rowIndex + 1} · {row.mapped.woNumber || '[WO Kosong]'}
+                    </span>
+                  )}
+                  mobileSubtitle={row => row.mapped.customerName || row.mapped.contactorName || row.mapped.contractorName || undefined}
+                  mobileStatus={row => {
+                    const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
+                    if (status === 'VALID') {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#58149C] dark:bg-emerald-950 dark:text-emerald-300 border border-[#e8ddff] dark:border-emerald-800">
+                          <CheckCircle2 className="w-3 h-3" /> VALID
+                        </span>
+                      );
+                    }
+                    if (status === 'WO DUPLIKAT') {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#7135B5] dark:bg-purple-950 dark:text-purple-300 border border-[#d8ccf3] dark:border-purple-800">
+                          <AlertTriangle className="w-3 h-3" /> WO DUPLIKAT
+                        </span>
+                      );
+                    }
+                    if (status === 'HEADER TIDAK DITEMUKAN') {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                          <ShieldAlert className="w-3 h-3" /> HEADER TIDAK DITEMUKAN
+                        </span>
+                      );
+                    }
+                    if (status === 'DATA KOSONG') {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                          <AlertCircle className="w-3 h-3" /> DATA KOSONG
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-[#BA1A1A] dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                        <AlertCircle className="w-3 h-3" /> FORMAT TIDAK VALID
+                      </span>
+                    );
+                  }}
+                  columns={
+                    [
+                      {
+                        key: 'rowIndex',
+                        label: 'NO',
+                        priority: 'hidden_mobile',
+                        numeric: true,
+                        render: row => (
+                          <span className="font-mono text-[#7D7484] dark:text-[#A79BC0] font-bold">
+                            {String(row.rowIndex + 1).padStart(2, '0')}
+                          </span>
+                        )
+                      },
+                      {
+                        key: 'woNumber',
+                        label: 'WO NUMBER',
+                        priority: 'primary',
+                        numeric: true,
+                        render: row =>
+                          editingRowIndex === row.rowIndex ? (
+                            <input
+                              type="text"
+                              value={editingRowData.woNumber || ''}
+                              onChange={e => setEditingRowData({ ...editingRowData, woNumber: e.target.value })}
+                              className="p-1.5 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                            />
+                          ) : (
+                            <span
+                              className={`font-mono font-bold ${
+                                !row.isValid && !row.isDuplicate ? 'text-[#BA1A1A] dark:text-rose-300' : 'text-[#58149C] dark:text-[#DAB9FF]'
+                              }`}
+                            >
+                              {row.mapped.woNumber || <span className="text-[#BA1A1A] font-bold">[Kosong]</span>}
+                            </span>
+                          )
+                      },
+                      {
+                        key: 'customer',
+                        label: 'PELANGGAN',
+                        priority: 'primary',
+                        render: row =>
+                          editingRowIndex === row.rowIndex ? (
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                maxLength={7}
+                                value={editingRowData.idCustomer || ''}
+                                onChange={e => setEditingRowData({ ...editingRowData, idCustomer: e.target.value })}
+                                placeholder="ID 7 digit"
+                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-28 text-xs bg-white dark:bg-[#160d29]"
+                              />
+                              <input
+                                type="text"
+                                value={editingRowData.customerPhone || ''}
+                                onChange={e => setEditingRowData({ ...editingRowData, customerPhone: e.target.value })}
+                                placeholder="Telepon"
+                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-28 text-xs bg-white dark:bg-[#160d29]"
+                              />
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="font-bold text-[#1F1638] dark:text-white">
+                                {row.mapped.customerName || <span className="text-[#BA1A1A]">[Nama Kosong]</span>}
+                              </div>
+                              <div className="text-[11px] font-mono text-[#7D7484] dark:text-[#A79BC0]">
+                                <span className={row.mapped.idCustomer?.length === 7 ? 'text-[#58149C] dark:text-[#DAB9FF] font-semibold' : 'text-[#BA1A1A] font-bold'}>
+                                  {row.mapped.idCustomer || '[ID Kosong]'}
+                                </span>
+                                {' · '}
+                                {row.mapped.customerPhone || '[No HP Kosong]'}
+                              </div>
+                            </div>
+                          )
+                      },
+                      {
+                        key: 'areaCluster',
+                        label: 'AREA / CLUSTER & MITRA',
+                        priority: 'secondary',
+                        render: row =>
+                          editingRowIndex === row.rowIndex ? (
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={editingRowData.area || ''}
+                                onChange={e => setEditingRowData({ ...editingRowData, area: e.target.value })}
+                                placeholder="Area"
+                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                              />
+                              <input
+                                type="text"
+                                value={editingRowData.clusterName || ''}
+                                onChange={e => setEditingRowData({ ...editingRowData, clusterName: e.target.value })}
+                                placeholder="Cluster"
+                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                              />
+                              <input
+                                type="text"
+                                value={editingRowData.contactorName || ''}
+                                onChange={e => setEditingRowData({ ...editingRowData, contactorName: e.target.value })}
+                                placeholder="Kontraktor"
+                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                              />
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="font-medium text-[#1F1638] dark:text-white">
+                                {row.mapped.area || <span className="text-[#BA1A1A] font-bold">[Area Kosong]</span>}
+                                {row.mapped.clusterName ? ` / ${row.mapped.clusterName}` : ''}
+                              </div>
+                              <div className="text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                                {row.mapped.contactorName || row.mapped.contractorName || '[Mitra Kosong]'}
+                                {(row.mapped.fatCode || row.mapped.fdtCode) && ` · ${row.mapped.fatCode || row.mapped.fdtCode}`}
+                              </div>
+                            </div>
+                          )
+                      },
+                      {
+                        key: 'appointmentDate',
+                        label: 'TANGGAL JANJI',
+                        priority: 'secondary',
+                        render: row =>
+                          editingRowIndex === row.rowIndex ? (
+                            <input
+                              type="date"
+                              value={editingRowData.appointmentDate || ''}
+                              onChange={e => setEditingRowData({ ...editingRowData, appointmentDate: e.target.value })}
+                              className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-auto text-xs bg-white dark:bg-[#160d29]"
+                            />
+                          ) : (
+                            <div>
+                              <div className="font-semibold text-[#1F1638] dark:text-[#E9D5FF] font-mono tabular-nums">
+                                {row.mapped.appointmentDate || <span className="text-[#BA1A1A] font-bold">[Kosong]</span>}
+                              </div>
+                              {row.mapped.slotTime && (
+                                <div className="text-[10.5px] text-[#7D7484]">{row.mapped.slotTime}</div>
+                              )}
+                            </div>
+                          )
+                      },
+                      {
+                        key: 'status',
+                        label: 'STATUS VALIDASI',
+                        priority: 'hidden_mobile',
+                        render: row => {
+                          const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
+                          return status === 'VALID' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#58149C] dark:bg-emerald-950 dark:text-emerald-300 border border-[#e8ddff] dark:border-emerald-800 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#7135B5] dark:bg-emerald-400" />
+                              VALID
+                            </span>
+                          ) : status === 'WO DUPLIKAT' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#7135B5] dark:bg-purple-950 dark:text-purple-300 border border-[#d8ccf3] dark:border-purple-800 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#A380FE]" />
+                              WO DUPLIKAT
+                            </span>
+                          ) : status === 'HEADER TIDAK DITEMUKAN' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800 whitespace-nowrap">
+                              <ShieldAlert className="w-3 h-3" />
+                              HEADER HILANG
+                            </span>
+                          ) : status === 'DATA KOSONG' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              DATA KOSONG
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-[#BA1A1A] dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#BA1A1A]" />
+                              ERROR FORMAT
+                            </span>
+                          );
+                        }
+                      },
+                      {
+                        key: 'problematicColumns',
+                        label: 'KETERANGAN',
+                        priority: 'primary',
+                        render: row =>
+                          row.isValid && !row.isDuplicate ? (
+                            <span className="text-[11px] font-medium text-[#4B4452] dark:text-[#CABDE8]">
+                              Siap diproses ke sistem dispatch
+                            </span>
+                          ) : (
+                            <div className={`text-[11px] font-semibold max-w-xs ${row.isDuplicate ? 'text-[#58149C] dark:text-[#DAB9FF]' : 'text-[#BA1A1A] dark:text-rose-300'}`}>
+                              {row.validationErrors[0] || (row.problematicColumns?.length ? `Periksa: ${row.problematicColumns.join(', ')}` : 'Perlu perbaikan kolom')}
+                            </div>
+                          )
+                      },
+                      {
+                        key: 'streetName',
+                        label: 'ALAMAT',
+                        priority: 'secondary',
+                        render: row =>
+                          editingRowIndex === row.rowIndex ? (
+                            <input
+                              type="text"
+                              value={editingRowData.streetName || ''}
+                              onChange={e => setEditingRowData({ ...editingRowData, streetName: e.target.value })}
+                              placeholder="Alamat / Street Name"
+                              className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-44 text-xs bg-white dark:bg-[#160d29]"
+                            />
+                          ) : (
+                            <span className="max-w-[180px] block truncate text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                              {row.mapped.streetName || <span className="text-[#BA1A1A] font-bold">[Kosong]</span>}
+                            </span>
+                          )
+                      }
+                    ] as ResponsiveColumn<ParsedRowData>[]
+                  }
+                  getRowActions={row =>
+                    editingRowIndex === row.rowIndex
+                      ? [
+                          {
+                            id: 'save',
+                            label: 'Simpan Perbaikan',
+                            icon: <Check className="w-3.5 h-3.5" />,
+                            tone: 'success',
+                            onClick: () => handleSaveEditRow(row.rowIndex)
+                          },
+                          {
+                            id: 'cancel',
+                            label: 'Batal Edit',
+                            icon: <X className="w-3.5 h-3.5" />,
+                            onClick: () => setEditingRowIndex(null)
+                          }
+                        ]
+                      : [
+                          {
+                            id: 'edit',
+                            label: 'Edit Baris',
+                            icon: <Edit className="w-3.5 h-3.5" />,
+                            onClick: () => handleStartEditRow(row)
+                          },
+                          {
+                            id: 'delete',
+                            label: 'Hapus Baris',
+                            icon: <Trash2 className="w-3.5 h-3.5" />,
+                            tone: 'danger',
+                            onClick: () => handleDeleteRow(row.rowIndex)
+                          }
+                        ]
+                  }
+                  renderDesktopActions={row =>
+                    editingRowIndex === row.rowIndex ? (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditRow(row.rowIndex)}
+                          className="btn-3d-emerald px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          title="Simpan perbaikan data"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Simpan</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingRowIndex(null)}
+                          className="btn-3d-lilac px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer"
+                          title="Batalkan edit"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditRow(row)}
+                          className="btn-3d-icon p-1.5 cursor-pointer"
+                          title="Edit data baris ini"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(row.rowIndex)}
+                          className="btn-3d-icon p-1.5 text-[#BA1A1A] hover:text-[#BA1A1A] cursor-pointer"
+                          title="Hapus baris data ini"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )
+                  }
+                />
+              </div>
+
+              {/* Bottom Batch Confirmation Card (Stitch Screenshot 2 Style) */}
+              <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#5b35b1] flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
-                    <h5 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-2">
-                      <span>Kategori Kontraktor Terdaftar dari Import ({parseResult.detectedContractors.length} Mitra)</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold">
-                        Auto-Enrolled
-                      </span>
-                    </h5>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Kategori kontraktor yang diidentifikasi dari file / text converter. Mitra baru otomatis terdaftar ke Master Data MoraJaws saat import dieksekusi.
+                    <h4 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
+                      Konfirmasi Eksekusi Batch
+                    </h4>
+                    <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                      Hanya <strong className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{validationSummary.valid} baris berstatus VALID</strong> yang akan diproses ke sistem dispatch &amp; Supabase PostgreSQL.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  {/* Auto-register toggle in contractor preview */}
-                  <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 shadow-2xs">
-                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                      Auto-register New Contractors:
-                    </span>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={
+                      parseResult.headerCheckPassed === false ||
+                      (parseResult.missingMandatoryHeaders && parseResult.missingMandatoryHeaders.length > 0) ||
+                      validationSummary.valid === 0
+                    }
+                    onClick={() => setShowConfirmModal(true)}
+                    className="btn-3d-primary min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Proses &amp; Simpan {validationSummary.valid} WO Valid</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={validationSummary.error + validationSummary.duplicate === 0}
+                    onClick={handleDownloadErrorReport}
+                    className="btn-3d-lilac min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <FileWarning className="w-3.5 h-3.5" />
+                    <span>Unduh Laporan Error</span>
+                  </button>
+
+                  {rawText.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => handleParse()}
+                      className="btn-3d-lilac min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Periksa Ulang</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleResetWorkspace}
+                    className="btn-3d-crimson min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Batalkan Batch</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Riwayat Import Terakhir Card (100% Real Data from Tickets & AuditLogs) */}
+          <div className="card-3d-lavender rounded-2xl p-5 space-y-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white flex items-center gap-2">
+                <History className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                <span>Riwayat Import Terakhir</span>
+              </h4>
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                LOG SUPERADMIN &amp; DATA
+              </span>
+            </div>
+
+            {recentImportBatches.length === 0 ? (
+              <div className="p-5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] text-center text-xs text-[#7D7484] dark:text-[#A79BC0] flex flex-col items-center gap-1.5">
+                <Inbox className="w-5 h-5 text-[#58149C] dark:text-[#DAB9FF] opacity-75" />
+                <span>Belum ada riwayat batch import yang tercatat pada database aktif saat ini.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recentImportBatches.map(batch => (
+                  <div
+                    key={batch.key}
+                    className="p-3.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-display font-bold text-xs text-[#1F1638] dark:text-white truncate">
+                          {batch.label}
+                        </div>
+                        <div className="text-[11px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                          {new Date(batch.timeLabel).toLocaleString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}{' '}
+                          • oleh {batch.performer}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0 space-y-1">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase bg-[#f3eaff] text-[#58149C] dark:bg-emerald-950/70 dark:text-emerald-300 border border-[#e8ddff] dark:border-emerald-800">
+                        {batch.statusLabel}
+                      </span>
+                      {batch.count > 0 && (
+                        <div className="text-xs font-extrabold font-mono tabular-nums text-[#58149C] dark:text-[#DAB9FF]">
+                          {batch.count} WO Masuk
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Confirmation Modal */}
+          {parseResult && (
+            <ResponsiveModal
+              isOpen={showConfirmModal}
+              onClose={() => {
+                if (!isExecutingImport) setShowConfirmModal(false);
+              }}
+              closeOnBackdropClick={!isExecutingImport}
+              size="md"
+              mobileVariant="sheet"
+              zIndexClass="z-70"
+              icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+              title="Konfirmasi Import Work Order"
+              subtitle="Periksa ringkasan validasi sebelum data disimpan permanen ke database"
+              footer={
+                <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                  <button
+                    type="button"
+                    disabled={isExecutingImport}
+                    onClick={() => setShowConfirmModal(false)}
+                    className="btn-3d-lilac px-4 py-2 rounded-xl cursor-pointer font-bold disabled:opacity-50 text-xs min-h-[38px]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isExecutingImport}
+                    onClick={async () => {
+                      setIsExecutingImport(true);
+                      try {
+                        await handleExecuteImport();
+                      } finally {
+                        setIsExecutingImport(false);
+                      }
+                    }}
+                    className="btn-3d-emerald px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer text-xs disabled:opacity-60 disabled:cursor-not-allowed min-h-[38px]"
+                  >
+                    {isExecutingImport ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Menyimpan ke Database...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Konfirmasi &amp; Simpan ({validationSummary.valid} WO Valid)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              }
+            >
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="p-2.5 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl">
+                    <div className="text-[10.5px] text-[#7D7484]">Total Baris Dibaca</div>
+                    <div className="text-base font-extrabold text-[#1F1638] dark:text-white">{parseResult.parsedRows.length}</div>
+                  </div>
+                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                    <div className="text-[10.5px] text-emerald-700 dark:text-emerald-300">Baris Valid</div>
+                    <div className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">
+                      {validationSummary.valid}
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
+                    <div className="text-[10.5px] text-amber-700 dark:text-amber-300">Gagal Validasi</div>
+                    <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">{parseResult.problematicCount}</div>
+                  </div>
+                  <div className="p-2.5 bg-[#f3eaff] dark:bg-[#2a154b] border border-[#d8ccf3] dark:border-[#5b35b1] rounded-xl">
+                    <div className="text-[10.5px] text-[#58149C] dark:text-[#DAB9FF]">Kontraktor Baru</div>
+                    <div className="text-base font-extrabold text-[#58149C] dark:text-[#DAB9FF]">
+                      {parseResult.detectedContractors?.filter(c => c.isNew).length || newContractorsFound.length}
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl">
+                    <div className="text-[10.5px] text-purple-700 dark:text-purple-300">Kontraktor Terdaftar</div>
+                    <div className="text-base font-extrabold text-purple-700 dark:text-purple-300">
+                      {parseResult.detectedContractors?.filter(c => !c.isNew).length || 0}
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl">
+                    <div className="text-[10.5px] text-[#BA1A1A] dark:text-rose-300">Data Duplikat</div>
+                    <div className="text-base font-extrabold text-[#BA1A1A] dark:text-rose-300">{parseResult.duplicateCount}</div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-[#7D7484]">File Sumber:</span>
+                    <span className="font-mono font-bold text-[#1F1638] dark:text-white truncate">{sourceFileName}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-[#7D7484]">Operator:</span>
+                    <span className="font-bold text-[#1F1638] dark:text-white truncate">{currentUser.name} ({currentUser.role})</span>
+                  </div>
+                </div>
+
+                {parseResult.unrecognizedHeaders && parseResult.unrecognizedHeaders.length > 0 && (
+                  <div className="p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs space-y-1">
+                    <div className="font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Header Tidak Terpetakan ({parseResult.unrecognizedHeaders.length}):</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {parseResult.unrecognizedHeaders.map(h => (
+                        <span key={h} className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 rounded text-[10.5px] font-mono">
+                          {h}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {((parseResult.detectedContractors && parseResult.detectedContractors.length > 0) || newContractorsFound.length > 0) && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                        <span>Daftar Kontraktor Terdeteksi:</span>
+                      </span>
+                      <span className="text-[11px] text-[#7D7484]">
+                        {parseResult.detectedContractors?.length || newContractorsFound.length} Mitra
+                      </span>
+                    </div>
+                    <div className="max-h-36 overflow-y-auto p-2.5 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex flex-wrap gap-1.5">
+                      {parseResult.detectedContractors && parseResult.detectedContractors.length > 0
+                        ? parseResult.detectedContractors.map((c, cIdx) => (
+                            <span
+                              key={`modal-detected-cont-${c.id || c.name}-${cIdx}`}
+                              className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 ${
+                                c.isNew
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  : 'bg-[#e8ddff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF]'
+                              }`}
+                            >
+                              <span>{c.name}</span>
+                              {c.isNew && <span className="font-bold text-[9.5px] text-emerald-600 dark:text-emerald-400 uppercase">(Baru)</span>}
+                              <span className="text-[10px] opacity-75">· {c.woCount || 1} WO</span>
+                            </span>
+                          ))
+                        : newContractorsFound.map((c: any, cIdx: number) => (
+                            <span
+                              key={`modal-new-cont-${c.name}-${cIdx}`}
+                              className="px-2 py-1 rounded-lg text-[11px] font-medium bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1"
+                            >
+                              <span>{c.name}</span>
+                              <span className="font-bold text-[9.5px] uppercase">(Baru)</span>
+                              <span className="text-[10px] opacity-75">· {c.woCount} WO</span>
+                            </span>
+                          ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-[#f3eaff] dark:bg-[#2a154b] border border-[#d8ccf3] dark:border-[#5b35b1] rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+                      <span className="font-bold text-[#1F1638] dark:text-white text-xs">
+                        Pendaftaran Otomatis Kontraktor Baru
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input
                         type="checkbox"
                         checked={autoRegisterNewContractors}
                         onChange={e => setAutoRegisterNewContractors(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                      <div className="w-9 h-5 bg-[#cec3d4] dark:bg-[#342b4e] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#cec3d4] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#58149C]"></div>
                     </label>
-                    <span className={`text-[10px] font-bold ${autoRegisterNewContractors ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
-                      {autoRegisterNewContractors ? 'ON' : 'OFF'}
-                    </span>
                   </div>
-
-                  {parseResult.detectedContractors.some(c => c.isNew) && (
-                    <button
-                      type="button"
-                      onClick={handleEnrollContractorsNow}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Daftarkan Sekarang</span>
-                    </button>
-                  )}
+                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                    {autoRegisterNewContractors
+                      ? 'Aktif — Kontraktor yang belum ada di master data akan langsung didaftarkan otomatis saat import disimpan.'
+                      : 'Nonaktif — Kontraktor baru tidak ditambahkan ke Master Database.'}
+                  </p>
                 </div>
-              </div>
 
-              {contractorEnrollNotice && (
-                <div className="p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2 font-medium">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{contractorEnrollNotice}</span>
-                </div>
-              )}
-
-              <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-3`}>
-                {parseResult.detectedContractors.map((c, cIdx) => {
-                  return (
-                    <div
-                      key={`detected-contractor-card-${c.id || c.name}-${cIdx}`}
-                      className={`p-3 rounded-lg border text-xs transition-all ${
-                        c.isNew
-                          ? 'bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-800 ring-1 ring-emerald-400/30'
-                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] space-y-2">
+                  <span className="font-bold text-[#1F1638] dark:text-white text-xs block">
+                    Kebijakan Duplikasi Nomor WO:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label
+                      className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
+                        duplicatePolicy === 'skip'
+                          ? 'bg-white dark:bg-[#1e1238] border-[#58149C] font-bold text-[#58149C] dark:text-[#DAB9FF] ring-1 ring-[#58149C]/30'
+                          : 'bg-[#f8f1ff] dark:bg-[#160d29] border-[#e8ddff] dark:border-[#3b1d78] text-[#4B4452] dark:text-[#CABDE8]'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="font-bold text-slate-900 dark:text-white truncate" title={c.name}>
-                          {c.name}
-                        </div>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                            c.isNew
-                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                          }`}
-                        >
-                          {c.isNew ? '★ Baru Terdaftar' : 'Sudah di Master'}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">Kode Vendor:</span>
-                          <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">[{c.code}]</span>
-                        </div>
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="text-slate-400 shrink-0">Cakupan Area:</span>
-                          <span className="font-medium text-slate-800 dark:text-slate-200 text-right truncate">
-                            {c.coverageAreas.length > 0 ? c.coverageAreas.join(', ') : 'Semua Area'}
-                          </span>
-                        </div>
-                        {c.leaderName && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-400">Leader / Korlap:</span>
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">{c.leaderName}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
-                          <span className="text-slate-400">Alokasi WO:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{c.woCount} Work Orders</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      <input
+                        type="radio"
+                        name="dupPolicy"
+                        checked={duplicatePolicy === 'skip'}
+                        onChange={() => setDuplicatePolicy('skip')}
+                        className="text-[#58149C]"
+                      />
+                      <span>Lewati Duplikat (Skip)</span>
+                    </label>
+                    <label
+                      className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
+                        duplicatePolicy === 'update_allowed'
+                          ? 'bg-white dark:bg-[#1e1238] border-[#58149C] font-bold text-[#58149C] dark:text-[#DAB9FF] ring-1 ring-[#58149C]/30'
+                          : 'bg-[#f8f1ff] dark:bg-[#160d29] border-[#e8ddff] dark:border-[#3b1d78] text-[#4B4452] dark:text-[#CABDE8]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="dupPolicy"
+                        checked={duplicatePolicy === 'update_allowed'}
+                        onChange={() => setDuplicatePolicy('update_allowed')}
+                        className="text-[#58149C]"
+                      />
+                      <span>Perbarui WO (Update)</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-            </div>
+            </ResponsiveModal>
           )}
-
-          {/* Ticket Category Search & Filter Toolbar for Preview */}
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cari Kategori Tiket, WO, Pelanggan, Mitra..."
-                  value={previewCategorySearch}
-                  onChange={e => setPreviewCategorySearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 shrink-0">
-                  Filter Kategori Tiket:
-                </span>
-                <select
-                  value={previewCategoryFilter}
-                  onChange={e => setPreviewCategoryFilter(e.target.value)}
-                  className="px-2.5 py-1.5 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-slate-200"
-                >
-                  <option value="ALL">Semua Kategori ({detectedTicketCategories.length})</option>
-                  {detectedTicketCategories.map((cat: string) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                {(previewCategoryFilter !== 'ALL' || previewCategorySearch) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreviewCategoryFilter('ALL');
-                      setPreviewCategorySearch('');
-                    }}
-                    className="px-2 py-1 text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border rounded"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-500 shrink-0 self-end sm:self-auto font-mono">
-              Menampilkan <span className="font-bold text-slate-800 dark:text-slate-200">{displayedPreviewRows.length}</span> dari {parseResult.parsedRows.length} baris
-            </div>
-          </div>
-
-          {/* Responsive Preview Table with Mandated 5 Statuses and Problematic Columns (Bagian 1 D) */}
-          <ResponsiveDataTable<ParsedRowData>
-            data={displayedPreviewRows}
-            getRowKey={row => String(row.rowIndex)}
-            maxTableHeightClass="max-h-96"
-            getRowClassName={row =>
-              !row.isValid || row.isDuplicate ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
-            }
-            mobileTitle={row => (
-              <span className="font-mono">
-                Baris #{row.rowIndex + 1} · {row.mapped.woNumber || '[WO Kosong]'}
-              </span>
-            )}
-            mobileSubtitle={row => row.mapped.customerName || row.mapped.contactorName || row.mapped.contractorName || undefined}
-            mobileStatus={row => {
-              const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
-              if (status === 'VALID') {
-                return (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                    <CheckCircle2 className="w-3 h-3" /> VALID
-                  </span>
-                );
-              }
-              if (status === 'WO DUPLIKAT') {
-                return (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
-                    <AlertTriangle className="w-3 h-3" /> WO DUPLIKAT
-                  </span>
-                );
-              }
-              if (status === 'HEADER TIDAK DITEMUKAN') {
-                return (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                    <ShieldAlert className="w-3 h-3" /> HEADER TIDAK DITEMUKAN
-                  </span>
-                );
-              }
-              if (status === 'DATA KOSONG') {
-                return (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                    <AlertCircle className="w-3 h-3" /> DATA KOSONG
-                  </span>
-                );
-              }
-              return (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                  <AlertCircle className="w-3 h-3" /> FORMAT TIDAK VALID
-                </span>
-              );
-            }}
-            columns={
-              [
-                {
-                  key: 'rowIndex',
-                  label: '#',
-                  priority: 'hidden_mobile',
-                  numeric: true,
-                  render: row => <span className="font-mono text-slate-400 font-bold">{row.rowIndex + 1}</span>
-                },
-                {
-                  key: 'status',
-                  label: 'Status Validasi',
-                  priority: 'hidden_mobile',
-                  render: row => {
-                    const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
-                    return status === 'VALID' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                        <CheckCircle2 className="w-3 h-3" />
-                        VALID
-                      </span>
-                    ) : status === 'WO DUPLIKAT' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
-                        <AlertTriangle className="w-3 h-3" />
-                        WO DUPLIKAT
-                      </span>
-                    ) : status === 'HEADER TIDAK DITEMUKAN' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                        <ShieldAlert className="w-3 h-3" />
-                        HEADER TIDAK DITEMUKAN
-                      </span>
-                    ) : status === 'DATA KOSONG' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                        <AlertCircle className="w-3 h-3" />
-                        DATA KOSONG
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                        <AlertCircle className="w-3 h-3" />
-                        FORMAT TIDAK VALID
-                      </span>
-                    );
-                  }
-                },
-                {
-                  key: 'problematicColumns',
-                  label: 'Kolom Bermasalah',
-                  priority: 'primary',
-                  render: row =>
-                    row.problematicColumns && row.problematicColumns.length > 0 ? (
-                      <div className="font-semibold text-rose-700 dark:text-rose-300 max-w-xs text-[11px]">
-                        {row.problematicColumns.join(', ')}
-                        {row.validationErrors.length > 0 && (
-                          <div className="text-[10px] text-slate-500 font-normal mt-0.5">
-                            {row.validationErrors[0]}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 font-mono">-</span>
-                    )
-                },
-                {
-                  key: 'woNumber',
-                  label: 'WO Number',
-                  priority: 'primary',
-                  numeric: true,
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <input
-                        type="text"
-                        value={editingRowData.woNumber || ''}
-                        onChange={e => setEditingRowData({ ...editingRowData, woNumber: e.target.value })}
-                        className="p-1 border rounded w-full sm:w-32 text-xs bg-white dark:bg-slate-800"
-                      />
-                    ) : (
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {row.mapped.woNumber || <span className="text-rose-500 font-bold">[Kosong]</span>}
-                      </span>
-                    )
-                },
-                {
-                  key: 'idCustomer',
-                  label: 'Customer ID',
-                  priority: 'secondary',
-                  numeric: true,
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <input
-                        type="text"
-                        maxLength={7}
-                        value={editingRowData.idCustomer || ''}
-                        onChange={e => setEditingRowData({ ...editingRowData, idCustomer: e.target.value })}
-                        className="p-1 border rounded w-full sm:w-24 text-xs bg-white dark:bg-slate-800"
-                      />
-                    ) : (
-                      <span
-                        className={
-                          row.mapped.idCustomer?.length === 7
-                            ? 'text-[#6D28D9] dark:text-purple-400 font-semibold'
-                            : 'text-rose-600 font-bold'
-                        }
-                      >
-                        {row.mapped.idCustomer || <span className="text-rose-500 font-bold">[Kosong]</span>}
-                      </span>
-                    )
-                },
-                {
-                  key: 'appointmentDate',
-                  label: 'Appointment Date',
-                  priority: 'secondary',
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <input
-                        type="date"
-                        value={editingRowData.appointmentDate || ''}
-                        onChange={e => setEditingRowData({ ...editingRowData, appointmentDate: e.target.value })}
-                        className="p-1 border rounded w-full sm:w-auto text-xs bg-white dark:bg-slate-800"
-                      />
-                    ) : (
-                      <div className="font-semibold text-slate-700 dark:text-slate-300">
-                        {row.mapped.appointmentDate || <span className="text-rose-500 font-bold">[Kosong / Tidak Valid]</span>}
-                      </div>
-                    )
-                },
-                {
-                  key: 'customerPhone',
-                  label: 'Customer Phone',
-                  priority: 'secondary',
-                  numeric: true,
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <input
-                        type="text"
-                        value={editingRowData.customerPhone || ''}
-                        onChange={e => setEditingRowData({ ...editingRowData, customerPhone: e.target.value })}
-                        className="p-1 border rounded w-full sm:w-28 text-xs bg-white dark:bg-slate-800"
-                      />
-                    ) : (
-                      <span className="text-slate-600 dark:text-slate-300">
-                        {row.mapped.customerPhone || <span className="text-rose-500 font-bold">[Kosong]</span>}
-                      </span>
-                    )
-                },
-                {
-                  key: 'contractor',
-                  label: 'Contractor Name',
-                  priority: 'secondary',
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <input
-                        type="text"
-                        value={editingRowData.contactorName || ''}
-                        onChange={e => setEditingRowData({ ...editingRowData, contactorName: e.target.value })}
-                        placeholder="Nama Kontraktor"
-                        className="p-1 border rounded w-full sm:w-32 text-xs bg-white dark:bg-slate-800"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-1 font-medium text-slate-800 dark:text-slate-200">
-                        <Building2 className="w-3 h-3 text-[#6D28D9] shrink-0" />
-                        <span>
-                          {row.mapped.contactorName || row.mapped.contractorName || (
-                            <span className="text-rose-500 font-bold">[Kosong]</span>
-                          )}
-                        </span>
-                      </div>
-                    )
-                },
-                {
-                  key: 'areaCluster',
-                  label: 'Area & Cluster',
-                  priority: 'secondary',
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <div className="space-y-1">
-                        <input
-                          type="text"
-                          value={editingRowData.area || ''}
-                          onChange={e => setEditingRowData({ ...editingRowData, area: e.target.value })}
-                          placeholder="Area"
-                          className="p-1 border rounded w-full sm:w-28 text-xs bg-white dark:bg-slate-800"
-                        />
-                        <input
-                          type="text"
-                          value={editingRowData.clusterName || ''}
-                          onChange={e => setEditingRowData({ ...editingRowData, clusterName: e.target.value })}
-                          placeholder="Cluster"
-                          className="p-1 border rounded w-full sm:w-28 text-xs bg-white dark:bg-slate-800"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="font-medium">
-                          {row.mapped.area || <span className="text-rose-500 font-bold">[Area Kosong]</span>}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {row.mapped.clusterName || <span className="text-rose-500 font-bold">[Cluster Kosong]</span>}
-                        </div>
-                      </>
-                    )
-                },
-                {
-                  key: 'fatFdt',
-                  label: 'FAT / FDT',
-                  priority: 'secondary',
-                  numeric: true,
-                  render: row => (
-                    <div className="text-[11px]">
-                      <div>FAT: {row.mapped.fatCode || row.mapped.fat || <span className="text-rose-500 font-bold">[-]</span>}</div>
-                      <div>FDT: {row.mapped.fdtCode || row.mapped.fdt || <span className="text-rose-500 font-bold">[-]</span>}</div>
-                    </div>
-                  )
-                },
-                {
-                  key: 'streetName',
-                  label: 'Street Name',
-                  priority: 'secondary',
-                  render: row =>
-                    editingRowIndex === row.rowIndex ? (
-                      <input
-                        type="text"
-                        value={editingRowData.streetName || ''}
-                        onChange={e => setEditingRowData({ ...editingRowData, streetName: e.target.value })}
-                        placeholder="Alamat / Street Name"
-                        className="p-1 border rounded w-full sm:w-44 text-xs bg-white dark:bg-slate-800"
-                      />
-                    ) : (
-                      <span className="max-w-xs block truncate text-[11px]">
-                        {row.mapped.streetName || <span className="text-rose-500 font-bold">[Street Name Kosong]</span>}
-                      </span>
-                    )
-                }
-              ] as ResponsiveColumn<ParsedRowData>[]
-            }
-            getRowActions={row =>
-              editingRowIndex === row.rowIndex
-                ? [
-                    {
-                      id: 'save',
-                      label: 'Simpan Perbaikan',
-                      icon: <Check className="w-3.5 h-3.5" />,
-                      tone: 'success',
-                      onClick: () => handleSaveEditRow(row.rowIndex)
-                    },
-                    {
-                      id: 'cancel',
-                      label: 'Batal Edit',
-                      icon: <X className="w-3.5 h-3.5" />,
-                      onClick: () => setEditingRowIndex(null)
-                    }
-                  ]
-                : [
-                    {
-                      id: 'edit',
-                      label: 'Edit Baris',
-                      icon: <Edit className="w-3.5 h-3.5" />,
-                      onClick: () => handleStartEditRow(row)
-                    },
-                    {
-                      id: 'delete',
-                      label: 'Hapus Baris',
-                      icon: <Trash2 className="w-3.5 h-3.5" />,
-                      tone: 'danger',
-                      onClick: () => handleDeleteRow(row.rowIndex)
-                    }
-                  ]
-            }
-            renderDesktopActions={row =>
-              editingRowIndex === row.rowIndex ? (
-                <div className="flex items-center justify-end gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveEditRow(row.rowIndex)}
-                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
-                    title="Simpan perbaikan data"
-                  >
-                    <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    <span>Simpan</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingRowIndex(null)}
-                    className="px-2 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded text-xs font-medium cursor-pointer"
-                    title="Batalkan edit"
-                  >
-                    Batal
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-end gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleStartEditRow(row)}
-                    className="p-1.5 text-slate-400 hover:text-[#6D28D9] hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded transition-colors cursor-pointer"
-                    title="Edit data baris ini"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteRow(row.rowIndex)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded transition-colors cursor-pointer"
-                    title="Hapus baris data ini"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )
-            }
-          />
-
-          {/* Action Row - Sediakan 3 Tombol Mandat (Bagian 1 D) */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="text-[11px] text-slate-500">
-              Kebijakan Keamanan: Baris tidak valid atau duplikat otomatis ditolak dan tidak akan disimpan ke Supabase PostgreSQL.
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Tombol 1: Periksa Data */}
-              <button
-                type="button"
-                onClick={() => handleParse()}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Periksa ulang dan validasi data"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                <span>1. Periksa Data</span>
-              </button>
-
-              {/* Tombol 3: Batalkan Import */}
-              <button
-                type="button"
-                onClick={handleCancelImport}
-                className="px-3.5 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Batalkan proses import dan hapus preview"
-              >
-                <X className="w-3.5 h-3.5 text-rose-600" />
-                <span>3. Batalkan Import</span>
-              </button>
-
-              {/* Tombol 2: Import Data Valid */}
-              <button
-                type="button"
-                disabled={
-                  parseResult.headerCheckPassed === false ||
-                  (parseResult.missingMandatoryHeaders && parseResult.missingMandatoryHeaders.length > 0) ||
-                  parseResult.parsedRows.filter(r => r.isValid && !r.isDuplicate).length === 0
-                }
-                onClick={() => setShowConfirmModal(true)}
-                className="px-5 py-2 font-bold text-white bg-[#6D28D9] hover:bg-[#5B21B6] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all text-xs flex items-center justify-center gap-2 cursor-pointer"
-                title="Import hanya baris data yang berstatus valid dan tidak duplikat"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>2. Import Data Valid ({parseResult.parsedRows.filter(r => r.isValid && !r.isDuplicate).length} WO)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal */}
-      {parseResult && (
-        <ResponsiveModal
-          isOpen={showConfirmModal}
-          onClose={() => {
-            if (!isExecutingImport) setShowConfirmModal(false);
-          }}
-          closeOnBackdropClick={!isExecutingImport}
-          size="md"
-          mobileVariant="sheet"
-          zIndexClass="z-70"
-          icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-          title="Konfirmasi Import Work Order"
-          subtitle="Periksa ringkasan validasi sebelum data disimpan permanen ke database"
-          footer={
-            <div className="w-full flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-              <button
-                type="button"
-                disabled={isExecutingImport}
-                onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer font-semibold transition-colors disabled:opacity-50 text-xs min-h-[38px]"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={isExecutingImport}
-                onClick={async () => {
-                  setIsExecutingImport(true);
-                  try {
-                    await handleExecuteImport();
-                  } finally {
-                    setIsExecutingImport(false);
-                  }
-                }}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all text-xs disabled:opacity-60 disabled:cursor-not-allowed min-h-[38px]"
-              >
-                {isExecutingImport ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Menyimpan ke Database...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>Konfirmasi & Simpan ({parseResult.parsedRows.filter(r => r.isValid && !r.isDuplicate).length} WO Valid)</span>
-                  </>
-                )}
-              </button>
-            </div>
-          }
-        >
-          <div className="space-y-4 text-xs">
-            {/* Validation Summary Matrix */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl">
-                <div className="text-[10.5px] text-slate-500 dark:text-slate-400">Total Baris Dibaca</div>
-                <div className="text-base font-extrabold text-slate-900 dark:text-white">{parseResult.parsedRows.length}</div>
-              </div>
-              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                <div className="text-[10.5px] text-emerald-700 dark:text-emerald-300">Baris Valid</div>
-                <div className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">
-                  {parseResult.validCount > 0 ? parseResult.validCount : parseResult.parsedRows.length}
-                </div>
-              </div>
-              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
-                <div className="text-[10.5px] text-amber-700 dark:text-amber-300">Gagal Validasi</div>
-                <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">{parseResult.problematicCount}</div>
-              </div>
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl">
-                <div className="text-[10.5px] text-blue-700 dark:text-blue-300">Kontraktor Baru</div>
-                <div className="text-base font-extrabold text-blue-700 dark:text-blue-300">
-                  {parseResult.detectedContractors?.filter(c => c.isNew).length || newContractorsFound.length}
-                </div>
-              </div>
-              <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl">
-                <div className="text-[10.5px] text-purple-700 dark:text-purple-300">Kontraktor Terdaftar</div>
-                <div className="text-base font-extrabold text-purple-700 dark:text-purple-300">
-                  {parseResult.detectedContractors?.filter(c => !c.isNew).length || 0}
-                </div>
-              </div>
-              <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl">
-                <div className="text-[10.5px] text-rose-700 dark:text-rose-300">Data Duplikat</div>
-                <div className="text-base font-extrabold text-rose-700 dark:text-rose-300">{parseResult.duplicateCount}</div>
-              </div>
-            </div>
-
-            {/* Source & Operator metadata */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-slate-500">File Sumber:</span>
-                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 truncate">{sourceFileName}</span>
-              </div>
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-slate-500">Operator:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{currentUser.name} ({currentUser.role})</span>
-              </div>
-            </div>
-
-            {/* Unrecognized Headers Warning if any */}
-            {parseResult.unrecognizedHeaders && parseResult.unrecognizedHeaders.length > 0 && (
-              <div className="p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs space-y-1">
-                <div className="font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Header Tidak Terpetakan ({parseResult.unrecognizedHeaders.length}):</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {parseResult.unrecognizedHeaders.map(h => (
-                    <span key={h} className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 rounded text-[10.5px] font-mono">
-                      {h}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[10.5px] text-amber-700 dark:text-amber-300 pt-0.5">
-                  Header di atas tetap disimpan aman dalam kolom dinamis tambahan (additionalFields).
-                </p>
-              </div>
-            )}
-
-            {/* Scrollable Contractor Preview Box */}
-            {((parseResult.detectedContractors && parseResult.detectedContractors.length > 0) || newContractorsFound.length > 0) && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>Daftar Kontraktor Terdeteksi (Scrollable):</span>
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    {parseResult.detectedContractors?.length || newContractorsFound.length} Mitra
-                  </span>
-                </div>
-                <div className="max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-1.5">
-                  {parseResult.detectedContractors && parseResult.detectedContractors.length > 0
-                    ? parseResult.detectedContractors.map((c, cIdx) => (
-                        <span
-                          key={`modal-detected-cont-${c.id || c.name}-${cIdx}`}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 ${
-                            c.isNew
-                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                              : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          <span>{c.name}</span>
-                          {c.isNew && <span className="font-bold text-[9.5px] text-emerald-600 dark:text-emerald-400 uppercase">(Baru)</span>}
-                          <span className="text-[10px] opacity-75">· {c.woCount || 1} WO</span>
-                        </span>
-                      ))
-                    : newContractorsFound.map((c: any, cIdx: number) => (
-                        <span
-                          key={`modal-new-cont-${c.name}-${cIdx}`}
-                          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1"
-                        >
-                          <span>{c.name}</span>
-                          <span className="font-bold text-[9.5px] uppercase">(Baru)</span>
-                          <span className="text-[10px] opacity-75">· {c.woCount} WO</span>
-                        </span>
-                      ))}
-                </div>
-              </div>
-            )}
-
-            {/* Auto-register Toggle */}
-            <div className="p-3 bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <span className="font-bold text-slate-900 dark:text-white text-xs">
-                    Pendaftaran Otomatis Kontraktor Baru
-                  </span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={autoRegisterNewContractors}
-                    onChange={e => setAutoRegisterNewContractors(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                {autoRegisterNewContractors
-                  ? 'Aktif — Kontraktor yang belum ada di master data akan langsung didaftarkan secara otomatis saat import disimpan.'
-                  : 'Nonaktif — Kontraktor baru tidak akan ditambahkan ke Master Database.'}
-              </p>
-            </div>
-
-            {/* Duplicate Handling Policy */}
-            <div className="p-3 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-              <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block">
-                Kebijakan Duplikasi Nomor WO:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
-                  duplicatePolicy === 'skip'
-                    ? 'bg-white dark:bg-slate-900 border-indigo-600 font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
-                    : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                }`}>
-                  <input
-                    type="radio"
-                    name="dupPolicy"
-                    checked={duplicatePolicy === 'skip'}
-                    onChange={() => setDuplicatePolicy('skip')}
-                    className="text-indigo-600"
-                  />
-                  <span>Lewati Duplikat (Skip)</span>
-                </label>
-                <label className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
-                  duplicatePolicy === 'update_allowed'
-                    ? 'bg-white dark:bg-slate-900 border-indigo-600 font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500/30'
-                    : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                }`}>
-                  <input
-                    type="radio"
-                    name="dupPolicy"
-                    checked={duplicatePolicy === 'update_allowed'}
-                    onChange={() => setDuplicatePolicy('update_allowed')}
-                    className="text-indigo-600"
-                  />
-                  <span>Perbarui WO (Update)</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </ResponsiveModal>
-      )}
-
-      {/* End of Import Tab */}
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* EXPORT WORK ORDER & TEMPLATES TAB                            */}
+      {/* TAB 3: HISTORY & DELETE IMPORT (7-DAY RETENTION - MGMT DATA) */}
       {/* ============================================================ */}
-      {/* Tab 3: History & Delete Import Data by Date (7-day Retention Window) - Strictly Management Data */}
       {mainTab === 'history_delete' && isManagementData && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div className="space-y-5">
+          <div className="card-3d-lavender rounded-2xl p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e8ddff] dark:border-[#3b1d78] pb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <History className="w-4 h-4 text-rose-600" />
-                  <span>Riwayat & Hapus Data Import per Tanggal</span>
+                <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white flex items-center gap-2">
+                  <History className="w-4 h-4 text-[#BA1A1A]" />
+                  <span>Riwayat &amp; Hapus Data Import per Tanggal</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-1">
                   Filter dan hapus data tiket hasil import berdasarkan tanggal import. Batas rentang data yang dapat dihapus adalah <strong>maksimal 7 hari kalender</strong> sejak data diimpor.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded text-amber-800 dark:text-amber-300 text-xs">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-bold">
                 <Lock className="w-3.5 h-3.5 shrink-0" />
                 <span>Aturan Retensi: Maksimal 7 Hari</span>
               </div>
             </div>
 
-            {/* Quick Filter Custom Date */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="p-4 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="flex-1">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-[11px] font-bold text-[#1F1638] dark:text-white mb-1">
                   Pilih / Filter Tanggal Import untuk Dihapus
                 </label>
                 <input
                   type="date"
                   value={selectedPurgeDate}
                   onChange={e => setSelectedPurgeDate(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                  className="tactile-debossed-input w-full px-3 py-2 text-xs border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl bg-white dark:bg-[#1e1238] text-[#1F1638] dark:text-white"
                 />
               </div>
 
               {selectedPurgeDate && (
                 <div className="flex items-end gap-2">
                   <button
+                    type="button"
                     onClick={() => {
                       const count = tickets.filter(t => (t.importDate === selectedPurgeDate || t.date === selectedPurgeDate) && !t.isArchived).length;
                       if (count === 0) {
@@ -1936,15 +2353,16 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       setPurgeConfirmPhrase('');
                       setShowPurgeModal(true);
                     }}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors"
+                    className="btn-3d-crimson px-4 py-2 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Hapus Data Tanggal Ini</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setSelectedPurgeDate('')}
-                    className="px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300"
+                    className="btn-3d-lilac px-3 py-2 text-xs rounded-xl font-bold cursor-pointer"
                   >
                     Reset
                   </button>
@@ -1952,14 +2370,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               )}
             </div>
 
-            {/* List of dates with imported data */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              <h4 className="text-xs font-extrabold text-[#4B4452] dark:text-[#CABDE8] uppercase tracking-wider">
                 Daftar Tanggal Import Tersimpan di Sistem
               </h4>
 
               {(() => {
-                // Group tickets by importDate or fallback date
                 const dateMap: Record<string, number> = {};
                 for (const t of tickets) {
                   if (t.isArchived) continue;
@@ -1973,14 +2389,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
                 if (sortedDates.length === 0) {
                   return (
-                    <div className="p-6 text-center text-slate-400 italic text-xs border border-slate-200 dark:border-slate-800 rounded-lg">
+                    <div className="p-6 text-center text-[#7D7484] italic text-xs border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl">
                       Belum ada data tiket yang tersimpan di sistem.
                     </div>
                   );
                 }
 
                 return (
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl overflow-hidden divide-y divide-[#e8ddff] dark:divide-[#3b1d78]">
                     {sortedDates.map(dateStr => {
                       const count = dateMap[dateStr];
                       const target = new Date(dateStr);
@@ -1991,32 +2407,34 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       return (
                         <div
                           key={dateStr}
-                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#f8f1ff] dark:hover:bg-[#160d29] transition-colors"
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                              isEligible
-                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                            }`}>
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                isEligible
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
+                                  : 'bg-[#f3eaff] dark:bg-[#261942] text-[#7D7484]'
+                              }`}
+                            >
                               <Calendar className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="font-bold text-slate-800 dark:text-slate-100 text-xs flex items-center gap-2">
-                                <span>{dateStr}</span>
+                              <div className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-2 flex-wrap">
+                                <span className="font-mono">{dateStr}</span>
                                 {isEligible ? (
-                                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                                     <Unlock className="w-3 h-3" />
                                     <span>Dalam Rentang 7 Hari ({diffDays === 0 ? 'Hari Ini' : `${diffDays} hari lalu`})</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                                  <span className="text-[10px] bg-[#f3eaff] dark:bg-[#261942] text-[#7D7484] dark:text-[#A79BC0] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                                     <Lock className="w-3 h-3" />
                                     <span>Terkunci ({diffDays} hari lalu, &gt; 7 hari)</span>
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
+                              <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
                                 Total {count} data Work Order tersimpan pada tanggal ini.
                               </p>
                             </div>
@@ -2025,6 +2443,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                           <div className="flex items-center gap-2 self-end sm:self-auto">
                             {isEligible ? (
                               <button
+                                type="button"
                                 onClick={() => {
                                   setDateToPurge(dateStr);
                                   setPurgeCount(count);
@@ -2032,7 +2451,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                                   setPurgeConfirmPhrase('');
                                   setShowPurgeModal(true);
                                 }}
-                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                                className="btn-3d-crimson px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 <span>Hapus Data Import ({count} WO)</span>
@@ -2040,7 +2459,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                             ) : (
                               <span
                                 title="Data telah melewati batas retensi 7 hari kalender dan dilindungi dari penghapusan massal"
-                                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 text-xs rounded border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 cursor-not-allowed"
+                                className="px-3 py-1.5 bg-[#f8f1ff] dark:bg-[#160d29] text-[#7D7484] text-xs rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex items-center gap-1.5 cursor-not-allowed"
                               >
                                 <Lock className="w-3.5 h-3.5" />
                                 <span>Terkunci (Proteksi Audit)</span>
@@ -2069,11 +2488,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           size="sm"
           mobileVariant="sheet"
           zIndexClass="z-70"
-          icon={<Trash2 className="w-5 h-5 text-rose-600" />}
+          icon={<Trash2 className="w-5 h-5 text-[#BA1A1A]" />}
           title="Konfirmasi Hapus Data Import"
           subtitle={
             <>
-              Tanggal Import: <span className="font-semibold text-rose-600 dark:text-rose-400">{dateToPurge}</span>
+              Tanggal Import: <span className="font-semibold text-[#BA1A1A] dark:text-rose-400">{dateToPurge}</span>
             </>
           }
           footer={
@@ -2084,7 +2503,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   setShowPurgeModal(false);
                   setDateToPurge(null);
                 }}
-                className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer"
+                className="btn-3d-lilac px-3.5 py-1.5 text-xs font-bold rounded-xl cursor-pointer"
               >
                 Batal
               </button>
@@ -2101,7 +2520,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     showToast(res.error || 'Gagal menghapus data import.', 'error');
                   }
                 }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-bold rounded shadow-xs transition-colors flex items-center gap-1.5 text-xs cursor-pointer"
+                className="btn-3d-crimson px-4 py-2 disabled:opacity-40 font-bold rounded-xl flex items-center gap-1.5 text-xs cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Ya, Hapus Data Import ({purgeCount} WO)</span>
@@ -2110,12 +2529,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           }
         >
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-900 dark:text-rose-200 leading-relaxed text-[11px]">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-200 leading-relaxed text-[11px]">
               Tindakan ini akan menghapus <strong>{purgeCount} Work Order</strong> yang diimpor pada tanggal {dateToPurge}. Penghapusan ini dicatat pada audit log resmi.
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">
                 Alasan Penghapusan (Wajib diisi):
               </label>
               <textarea
@@ -2123,82 +2542,82 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 placeholder="misal: Salah input file import, data duplikat dari vendor..."
                 value={purgeReason}
                 onChange={e => setPurgeReason(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+                className="tactile-debossed-input w-full p-2.5 border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] text-[#1F1638] dark:text-white"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Ketik <span className="font-mono text-rose-600 font-bold">HAPUS IMPORT</span> untuk konfirmasi:
+              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">
+                Ketik <span className="font-mono text-[#BA1A1A] font-bold">HAPUS IMPORT</span> untuk konfirmasi:
               </label>
               <input
                 type="text"
                 placeholder="HAPUS IMPORT"
                 value={purgeConfirmPhrase}
                 onChange={e => setPurgeConfirmPhrase(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-mono"
+                className="tactile-debossed-input w-full px-3 py-2 border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] text-[#1F1638] dark:text-white font-mono"
               />
             </div>
           </div>
         </ResponsiveModal>
       )}
 
+      {/* ============================================================ */}
+      {/* TAB 2: EXPORT WORK ORDER & TEMPLATES                         */}
+      {/* ============================================================ */}
       {mainTab === 'export' && (
-        <div className="space-y-6">
-          {/* Export Header */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="space-y-5">
+          <div className="card-3d-lavender rounded-2xl p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#e8ddff] dark:border-[#3b1d78]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center font-bold shadow-[0_2px_0_#35105E] shrink-0">
                   <Download className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Pusat Ekspor Data Work Order & Template Blank Lapangan
+                  <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white">
+                    Pusat Ekspor Data Work Order &amp; Template Blank Lapangan
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Ekspor seluruh data Work Order ke format Excel (.xlsx) atau CSV deterministik, serta unduh template penugasan Korlap & Teknisi.
+                  <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                    Ekspor seluruh data Work Order ke format Excel (.xlsx) atau CSV deterministik, serta unduh template penugasan Korlap &amp; Teknisi.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">Total Tiket Tersimpan:</span>
-                <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950 font-mono font-bold text-xs text-indigo-700 dark:text-indigo-300">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-[#4B4452] dark:text-[#CABDE8]">Total Tiket Tersimpan:</span>
+                <span className="px-3 py-1 rounded-full bg-[#f3eaff] dark:bg-[#2e1459] font-mono font-bold text-xs text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#5b35b1]">
                   {tickets.filter(t => !t.isArchived).length} WO
                 </span>
               </div>
             </div>
 
             {exportNotice && (
-              <div className="mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
+              <div className="mt-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{exportNotice}</span>
               </div>
             )}
 
-            {/* Export Settings Grid */}
             <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'lg:grid-cols-3'} gap-6 pt-5 text-xs`}>
-              
               {/* Card 1: Format Template Ekspor */}
               <div className="space-y-3">
-                <label className="block font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                <label className="block font-extrabold text-[#1F1638] dark:text-white uppercase tracking-wider text-[11px]">
                   1. Pilih Format Kolom Ekspor:
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <button
                     type="button"
                     onClick={() => setExportFormat('full_46')}
-                    className={`w-full text-left p-3 rounded-xl border flex items-start gap-3 transition-all ${
+                    className={`w-full text-left p-3.5 rounded-xl border flex items-start gap-3 transition-all cursor-pointer ${
                       exportFormat === 'full_46'
-                        ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/30'
-                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                        ? 'border-[#58149C] bg-[#f3eaff] dark:bg-[#2e1459] text-[#1F1638] dark:text-white ring-2 ring-[#7135B5]/30'
+                        : 'border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff]/60 dark:bg-[#160d29] hover:border-[#a78bfa] text-[#4B4452] dark:text-[#CABDE8]'
                     }`}
                   >
-                    <FileSpreadsheet className="w-5 h-5 text-indigo-600 mt-0.5 shrink-0" />
+                    <FileSpreadsheet className="w-5 h-5 text-[#58149C] dark:text-[#DAB9FF] mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-bold">Format Master 46 Kolom</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      <div className="font-bold text-[#1F1638] dark:text-white">Format Master 46 Kolom</div>
+                      <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
                         Sesuai standar template BASE_DATA_WO (semua field identitas, teknis, jadwal, mitra).
                       </div>
                     </div>
@@ -2207,16 +2626,16 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   <button
                     type="button"
                     onClick={() => setExportFormat('korlap_template')}
-                    className={`w-full text-left p-3 rounded-xl border flex items-start gap-3 transition-all ${
+                    className={`w-full text-left p-3.5 rounded-xl border flex items-start gap-3 transition-all cursor-pointer ${
                       exportFormat === 'korlap_template'
                         ? 'border-amber-600 bg-amber-50/70 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/30'
-                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                        : 'border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff]/60 dark:bg-[#160d29] hover:border-[#a78bfa] text-[#4B4452] dark:text-[#CABDE8]'
                     }`}
                   >
                     <Building2 className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-bold">Template WO Korlap</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      <div className="font-bold text-[#1F1638] dark:text-white">Template WO Korlap</div>
+                      <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
                         Format ringkas koordinator: WO Number, ID Cust, Lokasi, Mitra, Leader, Slot Time.
                       </div>
                     </div>
@@ -2225,16 +2644,16 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   <button
                     type="button"
                     onClick={() => setExportFormat('teknisi_template')}
-                    className={`w-full text-left p-3 rounded-xl border flex items-start gap-3 transition-all ${
+                    className={`w-full text-left p-3.5 rounded-xl border flex items-start gap-3 transition-all cursor-pointer ${
                       exportFormat === 'teknisi_template'
                         ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/30'
-                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                        : 'border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff]/60 dark:bg-[#160d29] hover:border-[#a78bfa] text-[#4B4452] dark:text-[#CABDE8]'
                     }`}
                   >
                     <Wrench className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-bold">Template Assigned Teknisi</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      <div className="font-bold text-[#1F1638] dark:text-white">Template Assigned Teknisi</div>
+                      <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
                         Format penugasan teknisi: WO Number, FAT/Port, Installer Name, Slot Time, Status.
                       </div>
                     </div>
@@ -2244,18 +2663,18 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
               {/* Card 2: Filter Data yang Diekspor */}
               <div className="space-y-3">
-                <label className="block font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                <label className="block font-extrabold text-[#1F1638] dark:text-white uppercase tracking-wider text-[11px]">
                   2. Filter Data Work Order:
                 </label>
-                <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                <div className="space-y-3 p-4 rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29]">
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                    <label className="block text-[#4B4452] dark:text-[#CABDE8] font-bold mb-1">
                       Filter Mitra Kontraktor:
                     </label>
                     <select
                       value={exportContractor}
                       onChange={e => setExportContractor(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium"
+                      className="tactile-debossed-input w-full px-3 py-2 rounded-xl border border-[#d8ccf3] dark:border-[#3b1d78] bg-white dark:bg-[#1e1238] text-[#1F1638] dark:text-white font-semibold"
                     >
                       <option value="ALL">Semua Mitra Kontraktor</option>
                       {contractors.map((c, cIdx) => (
@@ -2265,13 +2684,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
 
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                    <label className="block text-[#4B4452] dark:text-[#CABDE8] font-bold mb-1">
                       Filter Status Penugasan:
                     </label>
                     <select
                       value={exportStatus}
                       onChange={e => setExportStatus(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-medium"
+                      className="tactile-debossed-input w-full px-3 py-2 rounded-xl border border-[#d8ccf3] dark:border-[#3b1d78] bg-white dark:bg-[#1e1238] text-[#1F1638] dark:text-white font-semibold"
                     >
                       <option value="ALL">Semua Status</option>
                       <option value="UNASSIGNED">Belum Ditugaskan ke Teknisi</option>
@@ -2280,10 +2699,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     </select>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 text-[11.5px] text-slate-500">
+                  <div className="pt-2 border-t border-[#e8ddff] dark:border-[#3b1d78] text-[11.5px] text-[#4B4452] dark:text-[#CABDE8]">
                     <div>
                       WO Siap Ekspor:{' '}
-                      <strong className="text-slate-800 dark:text-slate-200 font-mono font-bold">
+                      <strong className="text-[#58149C] dark:text-[#DAB9FF] font-mono font-bold">
                         {
                           tickets.filter(t => {
                             if (t.isArchived) return false;
@@ -2300,12 +2719,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
                 </div>
 
-                {/* Export Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
                   <button
                     type="button"
                     onClick={() => handleExportFile('xlsx')}
-                    className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                    className="btn-3d-emerald py-2.5 px-3 font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <FileSpreadsheet className="w-4 h-4" />
                     <span>Ekspor Excel (.xlsx)</span>
@@ -2314,7 +2732,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   <button
                     type="button"
                     onClick={() => handleExportFile('csv')}
-                    className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                    className="btn-3d-primary py-2.5 px-3 font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
                     <span>Ekspor CSV (.csv)</span>
@@ -2324,66 +2742,64 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
               {/* Card 3: Download Blank Templates */}
               <div className="space-y-3">
-                <label className="block font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                <label className="block font-extrabold text-[#1F1638] dark:text-white uppercase tracking-wider text-[11px]">
                   3. Unduh Template Blank:
                 </label>
-                <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
-                  <p className="text-[11px] text-slate-500">
+                <div className="space-y-2.5 p-4 rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29]">
+                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
                     Unduh file spreadsheet template kosong berheader resmi untuk diisi secara offline sebelum diimpor kembali:
                   </p>
 
                   <button
                     type="button"
                     onClick={() => handleDownloadBlankTemplate('master_46')}
-                    className="w-full text-left p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between transition-colors"
+                    className="btn-3d-lilac w-full text-left p-2.5 rounded-xl flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <FileDown className="w-4 h-4 text-indigo-600" />
+                      <FileDown className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                       <div>
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">Template Master BASE_DATA_WO</div>
-                        <div className="text-[10px] text-slate-400">46 Kolom resmi standar</div>
+                        <div className="font-bold text-[#1F1638] dark:text-white">Template Master BASE_DATA_WO</div>
+                        <div className="text-[10px] text-[#7D7484]">46 Kolom resmi standar</div>
                       </div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-slate-400" />
+                    <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleDownloadBlankTemplate('korlap')}
-                    className="w-full text-left p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between transition-colors"
+                    className="btn-3d-lilac w-full text-left p-2.5 rounded-xl flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
                       <FileDown className="w-4 h-4 text-amber-600" />
                       <div>
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">Template WO Korlap</div>
-                        <div className="text-[10px] text-slate-400">Untuk bulk assign Leader / Korlap</div>
+                        <div className="font-bold text-[#1F1638] dark:text-white">Template WO Korlap</div>
+                        <div className="text-[10px] text-[#7D7484]">Untuk bulk assign Leader / Korlap</div>
                       </div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-slate-400" />
+                    <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleDownloadBlankTemplate('teknisi')}
-                    className="w-full text-left p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between transition-colors"
+                    className="btn-3d-lilac w-full text-left p-2.5 rounded-xl flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
                       <FileDown className="w-4 h-4 text-emerald-600" />
                       <div>
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">Template Assigned Teknisi</div>
-                        <div className="text-[10px] text-slate-400">Untuk bulk assign teknisi di lapangan</div>
+                        <div className="font-bold text-[#1F1638] dark:text-white">Template Assigned Teknisi</div>
+                        <div className="text-[10px] text-[#7D7484]">Untuk bulk assign teknisi di lapangan</div>
                       </div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-slate-400" />
+                    <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };

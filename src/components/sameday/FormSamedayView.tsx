@@ -96,12 +96,12 @@ export const FormSamedayView: React.FC = () => {
   // WO Same Day is strictly exclusive to Dispatch role
   if (currentUser.role !== 'dispatch') {
     return (
-      <div className="p-8 text-center bg-white dark:bg-[#0F172A] rounded-2xl border border-red-200 dark:border-red-900/50 max-w-lg mx-auto shadow-sm my-8 space-y-3">
-        <div className="w-12 h-12 bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto">
+      <div className="p-8 text-center card-3d-lavender rounded-2xl border border-rose-200 dark:border-rose-900/50 max-w-lg mx-auto my-8 space-y-3">
+        <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto">
           <AlertTriangle className="w-6 h-6" />
         </div>
-        <h2 className="text-base font-bold text-slate-900 dark:text-white">Akses Khusus Dispatcher</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <h2 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white">Akses Khusus Dispatcher</h2>
+        <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
           Fitur pendaftaran WO Same Day khusus diperuntukkan bagi role Dispatch. Peran Anda saat ini ({currentUser.role}) tidak memiliki izin akses.
         </p>
       </div>
@@ -111,19 +111,19 @@ export const FormSamedayView: React.FC = () => {
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex items-center justify-between gap-3">
+      <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center font-bold shadow-[0_3px_0_#78350f] shrink-0">
             <Zap className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-[#0F172A] dark:text-white flex flex-wrap items-center gap-2">
+            <h2 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white flex flex-wrap items-center gap-2">
               <span>Formulir Pendaftaran WO Sameday (Hari Ini)</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 whitespace-nowrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] whitespace-nowrap">
                 Prioritas Tinggi (Express)
               </span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">
+            <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
               Pendaftaran tiket urgent dengan target pengerjaan di hari yang sama ({todayStr}).
             </p>
           </div>
@@ -131,10 +131,10 @@ export const FormSamedayView: React.FC = () => {
       </div>
 
       {/* Main Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-5 text-xs">
+      <form onSubmit={handleSubmit} className="card-3d-lavender rounded-2xl p-4 sm:p-6 space-y-5 text-xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Nomor Work Order (WO Number) *
             </label>
             <input
@@ -142,11 +142,11 @@ export const FormSamedayView: React.FC = () => {
               required
               value={woNumber}
               onChange={e => setWoNumber(e.target.value.toUpperCase())}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-[#2563EB] dark:text-[#38BDF8] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Customer ID (7 Digit Angka) *
             </label>
             <input
@@ -156,11 +156,11 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Contoh: 7399501"
               value={customerId}
               onChange={e => setCustomerId(e.target.value.replace(/\D/g, ''))}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-semibold text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono font-semibold text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Nama Lengkap Pelanggan *
             </label>
             <input
@@ -169,11 +169,11 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Nama customer"
               value={customerName}
               onChange={e => setCustomerName(e.target.value)}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-medium text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Nomor Telepon / WhatsApp Pelanggan *
             </label>
             <input
@@ -182,17 +182,17 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Contoh: 081299887766"
               value={customerPhone}
               onChange={e => setCustomerPhone(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Mitra Kontraktor Pelaksana *
             </label>
             <select
               value={contractorName}
               onChange={e => setContractorName(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               {contractors.map(c => (
                 <option key={c.id} value={c.name}>{c.name}</option>
@@ -200,13 +200,13 @@ export const FormSamedayView: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Slot Waktu Pengerjaan *
             </label>
             <select
               value={slotTime}
               onChange={e => setSlotTime(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-medium text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               <option value="09:00 - 11:00 WIB">09:00 - 11:00 WIB (Pagi)</option>
               <option value="11:00 - 13:00 WIB">11:00 - 13:00 WIB (Siang)</option>
@@ -215,13 +215,13 @@ export const FormSamedayView: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Area / Wilayah *
             </label>
             <select
               value={area}
               onChange={e => setArea(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             >
               {coverageAreas.map(a => (
                 <option key={a.id} value={a.name}>{a.name}</option>
@@ -229,7 +229,7 @@ export const FormSamedayView: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Cluster / Komplek
             </label>
             <input
@@ -237,24 +237,24 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Nama cluster"
               value={clusterName}
               onChange={e => setClusterName(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Kategori Tiket
             </label>
             <input
               type="text"
               value={ticketCategory}
               onChange={e => setTicketCategory(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
         </div>
 
         <div>
-          <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+          <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
             Alamat Lengkap Pemasangan *
           </label>
           <input
@@ -263,13 +263,13 @@ export const FormSamedayView: React.FC = () => {
             placeholder="Jalan, nomor rumah, RT/RW"
             value={streetName}
             onChange={e => setStreetName(e.target.value)}
-            className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl"
+            className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Patokan / Landmark
             </label>
             <input
@@ -277,38 +277,38 @@ export const FormSamedayView: React.FC = () => {
               placeholder="Dekat masjid / seberang ruko..."
               value={streetAlternatif}
               onChange={e => setStreetAlternatif(e.target.value)}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Kode FDT
             </label>
             <input
               type="text"
               value={fdtCode}
               onChange={e => setFdtCode(e.target.value.toUpperCase())}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
               Kode FAT
             </label>
             <input
               type="text"
               value={fatCode}
               onChange={e => setFatCode(e.target.value.toUpperCase())}
-              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono"
+              className="w-full min-h-[42px] sm:min-h-[38px] px-3 py-2 bg-[#FAF5FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl font-mono text-[#1F1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-3 border-t">
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E8DDFF] dark:border-[#35105E]">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full sm:w-auto justify-center px-6 py-2.5 min-h-[44px] bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+            className="btn-3d-amber w-full sm:w-auto justify-center px-6 py-2.5 min-h-[44px] font-extrabold rounded-xl cursor-pointer flex items-center gap-2 disabled:opacity-60"
           >
             <Zap className="w-4 h-4" />
             <span>{isSubmitting ? 'Mendaftarkan...' : 'Kirim & Terbitkan WO Sameday'}</span>

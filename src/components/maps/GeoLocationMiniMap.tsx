@@ -90,7 +90,7 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
         ? '#059669'
         : markerVariant === 'fat'
         ? '#D97706'
-        : '#2563EB';
+        : '#58149C';
 
     const markerIcon = L.divIcon({
       className: 'morajaws-custom-map-pin',
@@ -161,8 +161,8 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
 
   if (!isValid) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-[#0F172A]/60 p-3 flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <MapPin className="w-4 h-4 shrink-0 text-slate-400" />
+      <div className="mj-tactile-well border border-dashed border-[#CEC3D4] dark:border-[#4B386B] p-3 flex items-center gap-2.5 text-[11px] text-[#7D7484] dark:text-[#C5B3DF]">
+        <MapPin className="w-4 h-4 shrink-0 text-[#7135B5] dark:text-[#D8B4FE]" />
         <span>Koordinat GPS belum tersedia untuk peta lokasi ini.</span>
       </div>
     );
@@ -172,13 +172,13 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
   const isWeak = geotagStatus === 'weak' || (typeof accuracyMeters === 'number' && accuracyMeters > 50);
 
   return (
-    <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-[#0F172A] shadow-xs">
+    <div className="card-3d-lavender rounded-xl overflow-hidden">
       {/* Interactive Leaflet Map Viewport (bounded z-index so it never overlays modals) */}
-      <div className={`relative w-full ${heightClass} bg-slate-100 dark:bg-[#0B1222] isolate z-0`}>
+      <div className={`relative w-full ${heightClass} bg-[#F3EAFF] dark:bg-[#160D29] isolate z-0`}>
         <div ref={mapContainerRef} className="w-full h-full z-0" />
 
         {tileWarning && (
-          <div className="absolute inset-x-2 top-2 z-[450] px-2 py-1 rounded-md bg-slate-900/85 text-white text-[10px] font-mono text-center pointer-events-none">
+          <div className="absolute inset-x-2 top-2 z-[450] px-2 py-1 rounded-md bg-[#160D29]/90 text-white text-[10px] font-mono text-center pointer-events-none">
             Pin aktif di {formatCoordinates(latNum, lngNum)} (Layer peta offline)
           </div>
         )}
@@ -189,7 +189,7 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
             type="button"
             onClick={handleZoomIn}
             title="Zoom In"
-            className="w-7 h-7 rounded-lg bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 shadow-xs flex items-center justify-center hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
+            className="btn-3d-icon w-7 h-7 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -197,7 +197,7 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
             type="button"
             onClick={handleZoomOut}
             title="Zoom Out"
-            className="w-7 h-7 rounded-lg bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 shadow-xs flex items-center justify-center hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
+            className="btn-3d-icon w-7 h-7 cursor-pointer"
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
@@ -205,7 +205,7 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
             type="button"
             onClick={handleRecenter}
             title="Pusatkan Pin"
-            className="w-7 h-7 rounded-lg bg-white/95 dark:bg-slate-900/95 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 shadow-xs flex items-center justify-center hover:bg-blue-50 dark:hover:bg-slate-800 cursor-pointer"
+            className="btn-3d-icon w-7 h-7 !text-[#58149C] dark:!text-[#D8B4FE] cursor-pointer"
           >
             <Crosshair className="w-3.5 h-3.5" />
           </button>
@@ -216,8 +216,8 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
           <span
             className={`absolute bottom-2 left-2 z-[450] px-2 py-0.5 rounded-md font-mono text-[10px] font-bold shadow-xs border backdrop-blur-xs ${
               isWeak
-                ? 'bg-amber-950/85 text-amber-200 border-amber-500/40'
-                : 'bg-slate-950/85 text-emerald-300 border-emerald-500/40'
+                ? 'bg-amber-950/90 text-amber-200 border-amber-500/40'
+                : 'bg-[#160D29]/90 text-emerald-300 border-emerald-500/40'
             }`}
           >
             GPS ±{Math.round(accuracyMeters)}m
@@ -227,16 +227,16 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
 
       {/* Coordinate & Google Maps Action Bar */}
       {showActions && (
-        <div className="px-2.5 py-2 flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-[#111C33] border-t border-slate-200 dark:border-slate-800 text-[11px]">
-          <div className="min-w-0 flex items-center gap-1.5 font-mono text-slate-700 dark:text-slate-200 truncate">
-            <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+        <div className="px-2.5 py-2 flex flex-wrap items-center justify-between gap-2 bg-[#F8F1FF] dark:bg-[#1E1238] border-t border-[#E8DDFF] dark:border-[#35105E] text-[11px]">
+          <div className="min-w-0 flex items-center gap-1.5 font-mono text-[#1F1638] dark:text-[#E8DDFF] truncate">
+            <MapPin className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
             <span className="truncate font-semibold tabular-nums">{formatCoordinates(latNum, lngNum)}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={handleCopyCoords}
-              className="px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-[10px] flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+              className="btn-3d-lilac px-2 py-1 rounded-md font-semibold text-[10px] flex items-center gap-1 cursor-pointer"
               title="Salin Koordinat"
             >
               {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
@@ -248,7 +248,7 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs"
+                className="btn-3d-primary px-2 py-1 rounded-md font-bold text-[10px] flex items-center gap-1"
               >
                 <ExternalLink className="w-3 h-3" />
                 <span>Google Maps</span>

@@ -682,7 +682,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
 
           const regIcon = L.divIcon({
             className: 'mj-reg-pin',
-            html: `<div style="width:14px;height:14px;border-radius:9999px;background:#2563EB;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`,
+            html: `<div style="width:14px;height:14px;border-radius:9999px;background:#58149C;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(22,13,41,0.45);"></div>`,
             iconSize: [14, 14],
             iconAnchor: [7, 7]
           });
@@ -845,7 +845,13 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
         : `Halo ${ticket.installerName || 'Teknisi'}, mohon update progres lapangan untuk WO ${ticket.woNumber} (${ticket.customerName}).`;
     const waRes = buildWhatsAppClickToChatUrl(phone, greeting);
     if (waRes.url) {
-      window.open(waRes.url, '_blank', 'noopener,noreferrer');
+      const link = document.createElement('a');
+      link.href = waRes.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } else {
       toast.warning(waRes.error || `Format nomor telepon ${label} tidak valid (${phone}).`, 'Kontak');
     }
@@ -1454,8 +1460,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'ALL' : 'in_progress')}
               className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                 statusFilter === 'in_progress'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-blue-700 dark:text-blue-300'
+                  ? 'bg-[#5B289B] text-white border-[#5B289B]'
+                  : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#5B289B] dark:text-[#D8B4FE]'
               }`}
             >
               Bertugas: <strong className="font-mono">{kpiStats.inProgress + kpiStats.checkin}</strong>
@@ -1741,7 +1747,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             {/* Empty / Offline Map Banner */}
             {mappedEntries.length === 0 && (
               <div className="absolute inset-x-4 top-4 z-[450] pointer-events-none flex justify-center">
-                <div className="px-3.5 py-2 rounded-xl bg-slate-900/90 text-white text-xs font-semibold shadow-lg border border-white/15 flex items-center gap-2">
+                <div className="px-3.5 py-2 rounded-xl bg-[#160D29]/95 text-white text-xs font-semibold shadow-lg border border-[#D8B4FE]/25 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                   <span>
                     {visibleTickets.length === 0
@@ -1753,7 +1759,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             )}
 
             {tileOfflineWarning && (
-              <div className="absolute top-3 left-3 z-[450] px-2.5 py-1 rounded-lg bg-slate-900/85 text-amber-300 font-mono text-[10px] pointer-events-none">
+              <div className="absolute top-3 left-3 z-[450] px-2.5 py-1 rounded-lg bg-[#160D29]/90 text-amber-300 font-mono text-[10px] pointer-events-none border border-[#D8B4FE]/20">
                 Layer tile sedang memuat / offline — pin GPS tetap aktif
               </div>
             )}
@@ -1763,10 +1769,10 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setMapStyle(prev => (prev === 'street' ? 'satellite' : 'street'))}
-                className="px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white shadow-md flex items-center gap-1.5 hover:bg-purple-50 dark:hover:bg-slate-800 cursor-pointer"
+                className="btn-3d-lilac px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 title="Ganti Layer Peta Jalan / Satelit"
               >
-                <Layers className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <Layers className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#D8B4FE]" />
                 <span>{mapStyle === 'satellite' ? 'Satelit' : 'Peta Jalan'}</span>
               </button>
               <button
@@ -1774,8 +1780,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 onClick={() => setShowOpticalLayer(v => !v)}
                 className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer ${
                   showOpticalLayer
-                    ? 'bg-[#7C3AED] border-[#6D28D9] text-white'
-                    : 'bg-white/95 dark:bg-slate-900/95 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                    ? 'btn-3d-primary border-[#6D28D9]'
+                    : 'btn-3d-lilac'
                 }`}
                 title="Tampilkan / Sembunyikan Garis & Node FAT"
               >
@@ -1790,7 +1796,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 type="button"
                 onClick={() => mapInstanceRef.current?.zoomIn()}
                 aria-label="Zoom In"
-                className="w-9 h-9 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white shadow-md flex items-center justify-center hover:bg-purple-50 cursor-pointer"
+                className="btn-3d-icon w-9 h-9 rounded-xl cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -1798,7 +1804,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 type="button"
                 onClick={() => mapInstanceRef.current?.zoomOut()}
                 aria-label="Zoom Out"
-                className="w-9 h-9 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-white shadow-md flex items-center justify-center hover:bg-purple-50 cursor-pointer"
+                className="btn-3d-icon w-9 h-9 rounded-xl cursor-pointer"
               >
                 <Minus className="w-4 h-4" />
               </button>
@@ -1807,7 +1813,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 onClick={handleRecenterBounds}
                 aria-label="Pusatkan Peta"
                 title="Pusatkan Semua Pin WO"
-                className="w-9 h-9 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-300 dark:border-slate-700 text-[#7C3AED] dark:text-[#DAB9FF] shadow-md flex items-center justify-center hover:bg-purple-50 cursor-pointer"
+                className="btn-3d-icon w-9 h-9 rounded-xl !text-[#7C3AED] dark:!text-[#DAB9FF] cursor-pointer"
               >
                 <Crosshair className="w-4 h-4" />
               </button>
@@ -1926,14 +1932,14 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
       {/* FULLSCREEN PHOTO LIGHTBOX */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-[130] bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[130] bg-[#160D29]/90 flex items-center justify-center p-4 backdrop-blur-xs"
           onClick={() => setLightboxImage(null)}
         >
           <div className="relative max-w-3xl max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setLightboxImage(null)}
-              className="absolute -top-3 -right-3 p-2 rounded-full bg-slate-900 text-white border border-white/25 hover:bg-rose-600 cursor-pointer"
+              className="absolute -top-3 -right-3 p-2 rounded-full bg-[#27104A] text-white border border-[#D8B4FE]/30 hover:bg-rose-600 cursor-pointer"
               aria-label="Tutup Lightbox"
             >
               <X className="w-4 h-4" />
@@ -1941,7 +1947,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             <img
               src={lightboxImage.url}
               alt={lightboxImage.title}
-              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-white/15 shadow-2xl"
+              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-[#D8B4FE]/25 shadow-2xl"
             />
             <div className="mt-2 text-center text-xs font-bold text-white">{lightboxImage.title}</div>
           </div>

@@ -28,13 +28,24 @@ export function buildGoogleMapsCoordinateUrl(lat?: number | null, lng?: number |
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`)}`;
 }
 
+function openExternalUrl(url: string): void {
+  if (typeof document === 'undefined') return;
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 /**
  * Opens exact GPS coordinates in Google Maps (new tab or native Google Maps app on mobile).
  */
 export function openCoordinatesInGoogleMaps(lat?: number | null, lng?: number | null): boolean {
   const url = buildGoogleMapsCoordinateUrl(lat, lng);
   if (!url) return false;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  openExternalUrl(url);
   return true;
 }
 
@@ -157,6 +168,6 @@ export function openCustomerAddressInGoogleMaps(ticket: Partial<Ticket>, onEmpty
     return false;
   }
 
-  window.open(url, '_blank', 'noopener,noreferrer');
+  openExternalUrl(url);
   return true;
 }
