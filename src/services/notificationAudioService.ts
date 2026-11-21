@@ -207,6 +207,8 @@ interface NoteSpec {
  * Uses gentle high-pass filtering, controlled envelopes, and a DynamicsCompressorNode
  * to deliver crisp enterprise chime clarity without clipping, distortion, or harsh buzz.
  */
+export type AudioEngineState = 'running' | 'suspended' | 'idle' | 'unavailable';
+
 class MoraJawsNotificationAudioService {
   private ctx: AudioContext | null = null;
   private compressor: DynamicsCompressorNode | null = null;
@@ -220,8 +222,79 @@ class MoraJawsNotificationAudioService {
     category: NotificationSoundCategory;
     settings: SoundSettings;
   } | null = null;
+  private deferredUntilUnlock: {
+    category: NotificationSoundCategory;
+    masterLinearGain: number;
+    expiresAt: number;
+  } | null = null;
   private queueTimer: ReturnType<typeof setTimeout> | null = null;
   private unlockListenersBound = false;
+  private stateListeners = new Set<(state: AudioEngineState) => void>();
+  private lastEmittedState: AudioEngineState | null = null;
+
+  public subscribeEngineState(listener: (state: AudioEngineState) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(this.getEngineState());
+    return () => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  private notifyEngineState(): void {
+    const current = this.getEngineState();
+    if (this.lastEmittedState === current) return;
+    this.lastEmittedState = current;
+    this.stateListeners.forEach(listener => {
+      try {
+        listener(current);
+      } catch {}
+    });
+  }
+
+  private warmupSilentBuffer(ctx: AudioContext): void {
+    try {
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    } catch {}
+  }
+
+  private flushDeferredAfterUnlock(ctx: AudioContext): void {
+    const pending = this.deferredUntilUnlock;
+    if (!pending) return;
+    this.deferredUntilUnlock = null;
+    if (Date.now() > pending.expiresAt) return;
+    if (ctx.state === 'running') {
+      this.scheduleNoteSequence(ctx, pending.category, pending.masterLinearGain);
+    }
+  }
+
+  public async unlock(): Promise<AudioEngineState> {
+    if (typeof window === 'undefined') return 'unavailable';
+    const ctx = this.ensureContext();
+    if (!ctx) {
+      this.notifyEngineState();
+      return 'unavailable';
+    }
+
+    this.warmupSilentBuffer(ctx);
+
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {}
+    }
+
+    if (ctx.state === 'running') {
+      this.unlocked = true;
+      this.flushDeferredAfterUnlock(ctx);
+    }
+
+    this.notifyEngineState();
+    return this.getEngineState();
+  }
 
   public bindAutoplayUnlock(): () => void {
     if (typeof window === 'undefined' || this.unlockListenersBound) {
@@ -229,36 +302,56 @@ class MoraJawsNotificationAudioService {
     }
     this.unlockListenersBound = true;
 
-    const unlock = () => {
-      if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().then(() => {
-          this.unlocked = true;
-        }).catch(() => {});
-      } else if (this.ctx && this.ctx.state === 'running') {
-        this.unlocked = true;
-      }
-      if (this.unlocked) {
-        cleanup();
-      }
-    };
-
     const cleanup = () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('click', unlock);
-      window.removeEventListener('touchstart', unlock);
-      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('pointerdown', unlockOnGesture, true);
+      window.removeEventListener('click', unlockOnGesture, true);
+      window.removeEventListener('touchstart', unlockOnGesture, true);
+      window.removeEventListener('keydown', unlockOnGesture, true);
       this.unlockListenersBound = false;
     };
 
-    window.addEventListener('pointerdown', unlock, { passive: true });
-    window.addEventListener('click', unlock, { passive: true });
-    window.addEventListener('touchstart', unlock, { passive: true });
-    window.addEventListener('keydown', unlock, { passive: true });
+    const unlockOnGesture = () => {
+      const ctx = this.ensureContext();
+      if (!ctx) {
+        this.notifyEngineState();
+        return;
+      }
+
+      this.warmupSilentBuffer(ctx);
+
+      if (ctx.state === 'running') {
+        this.unlocked = true;
+        this.notifyEngineState();
+        this.flushDeferredAfterUnlock(ctx);
+        cleanup();
+        return;
+      }
+
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+          .then(() => {
+            if (ctx.state === 'running') {
+              this.unlocked = true;
+              this.notifyEngineState();
+              this.flushDeferredAfterUnlock(ctx);
+              cleanup();
+            }
+          })
+          .catch(() => {
+            this.notifyEngineState();
+          });
+      }
+    };
+
+    window.addEventListener('pointerdown', unlockOnGesture, { capture: true, passive: true });
+    window.addEventListener('click', unlockOnGesture, { capture: true, passive: true });
+    window.addEventListener('touchstart', unlockOnGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', unlockOnGesture, { capture: true, passive: true });
 
     return cleanup;
   }
 
-  public getEngineState(): 'running' | 'suspended' | 'idle' | 'unavailable' {
+  public getEngineState(): AudioEngineState {
     if (typeof window === 'undefined') return 'unavailable';
     const AudioCtxClass =
       window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -277,14 +370,15 @@ class MoraJawsNotificationAudioService {
           (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (!AudioCtxClass) return null;
         this.ctx = new AudioCtxClass();
-      }
-
-      if (this.ctx.state === 'suspended') {
-        this.ctx.resume().then(() => {
-          this.unlocked = true;
-        }).catch(() => {});
-      } else if (this.ctx.state === 'running') {
-        this.unlocked = true;
+        this.ctx.onstatechange = () => {
+          this.unlocked = this.ctx?.state === 'running';
+          this.notifyEngineState();
+          if (this.ctx && this.ctx.state === 'running') {
+            this.flushDeferredAfterUnlock(this.ctx);
+          } else if (this.ctx && this.ctx.state === 'suspended' && !this.unlockListenersBound) {
+            this.bindAutoplayUnlock();
+          }
+        };
       }
 
       if (!this.compressor || !this.sparkleFilter || !this.lowCutFilter) {
@@ -312,6 +406,7 @@ class MoraJawsNotificationAudioService {
         this.compressor.connect(this.ctx.destination);
       }
 
+      this.notifyEngineState();
       return this.ctx;
     } catch {
       return null;
@@ -538,13 +633,49 @@ class MoraJawsNotificationAudioService {
     }
   }
 
+  private queueDeferredUntilUnlock(category: NotificationSoundCategory, masterLinearGain: number): void {
+    this.deferredUntilUnlock = {
+      category,
+      masterLinearGain,
+      expiresAt: Date.now() + 15000
+    };
+  }
+
   private renderNoteSequence(category: NotificationSoundCategory, masterLinearGain: number): void {
     if (masterLinearGain <= 0.001) return;
     const ctx = this.ensureContext();
     if (!ctx || !this.lowCutFilter) return;
 
+    if (ctx.state === 'running') {
+      this.scheduleNoteSequence(ctx, category, masterLinearGain);
+      return;
+    }
+
+    if (ctx.state === 'suspended') {
+      this.queueDeferredUntilUnlock(category, masterLinearGain);
+      ctx.resume()
+        .then(() => {
+          if (ctx.state === 'running') {
+            this.unlocked = true;
+            this.notifyEngineState();
+            this.flushDeferredAfterUnlock(ctx);
+          }
+        })
+        .catch(() => {
+          this.notifyEngineState();
+        });
+    }
+  }
+
+  private scheduleNoteSequence(
+    ctx: AudioContext,
+    category: NotificationSoundCategory,
+    masterLinearGain: number
+  ): void {
+    if (!this.lowCutFilter || masterLinearGain <= 0.001) return;
+
     try {
-      const baseTime = ctx.currentTime + 0.008;
+      const baseTime = ctx.currentTime + 0.012;
       const busGain = ctx.createGain();
       busGain.gain.setValueAtTime(masterLinearGain, baseTime);
       busGain.connect(this.lowCutFilter);
@@ -562,7 +693,7 @@ class MoraJawsNotificationAudioService {
         osc.type = note.waveform || 'sine';
         osc.frequency.setValueAtTime(note.freq, start);
 
-        // Fast crisp attack (5ms) + smooth exponential release to silence
+        // Fast crisp attack (6ms) + smooth exponential release to silence
         env.gain.setValueAtTime(0.0001, start);
         env.gain.linearRampToValueAtTime(note.gain, start + 0.006);
         env.gain.exponentialRampToValueAtTime(Math.max(0.02, note.gain * 0.36), start + note.durationSec * 0.32);
@@ -697,6 +828,7 @@ class MoraJawsNotificationAudioService {
       this.queueTimer = null;
     }
     this.pendingQueuedCategory = null;
+    this.deferredUntilUnlock = null;
   }
 }
 

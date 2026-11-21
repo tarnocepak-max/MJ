@@ -1380,3 +1380,105 @@ export interface WoClassificationSummary {
   todayTotalAllStatuses: number;
   overdueBreakdown: OverdueSummaryMetrics;
 }
+
+// -------------------------------------------------------------
+// Automatic Installer Login & Live GPS Tracking Types
+// -------------------------------------------------------------
+export type InstallerOnlineStatus = 'Online' | 'Offline';
+
+export type InstallerLocationStatus =
+  | 'Location Fresh'
+  | 'Location Stale'
+  | 'GPS Disabled'
+  | 'Permission Denied'
+  | 'No Signal'
+  | 'Waiting for GPS';
+
+export type InstallerSessionLifecycleStatus = 'active' | 'ended' | 'expired' | 'superseded';
+
+export interface GpsTrackingConfig {
+  enabled: boolean;
+  autoStartOnLogin: boolean;
+  syncIntervalSeconds: number;
+  minDistanceMeters: number;
+  heartbeatIntervalSeconds: number;
+  heartbeatTimeoutSeconds: number;
+  locationStaleThresholdSeconds: number;
+  historyRetentionDays: number;
+  offlineQueueMaxEntries: number;
+  maxAcceptableAccuracyMeters: number;
+}
+
+export interface InstallerSessionRecord {
+  id: string;
+  installerId: string;
+  sessionId: string;
+  deviceId?: string;
+  userAgent?: string;
+  loginAt: string;
+  lastHeartbeatAt: string;
+  lastLocationAt?: string | null;
+  logoutAt?: string | null;
+  onlineStatus: InstallerOnlineStatus;
+  locationStatus: InstallerLocationStatus;
+  sessionStatus: InstallerSessionLifecycleStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InstallerCurrentLocationRecord {
+  id: string;
+  installerId: string;
+  sessionId: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy?: number | null;
+  speed?: number | null;
+  heading?: number | null;
+  recordedAt: string;
+  locationStatus: InstallerLocationStatus;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface InstallerLocationHistoryEntry {
+  id: string;
+  installerId: string;
+  sessionId: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number | null;
+  speed?: number | null;
+  heading?: number | null;
+  recordedAt: string;
+  createdAt?: string;
+}
+
+export interface InstallerLiveLocationView {
+  installerId: string;
+  installerName: string;
+  username: string;
+  phone?: string;
+  contractor?: string;
+  contractorId?: string;
+  area?: string;
+  sessionId: string;
+  sessionStatus: InstallerSessionLifecycleStatus;
+  loginAt: string;
+  lastHeartbeatAt: string;
+  lastLocationAt: string | null;
+  logoutAt?: string | null;
+  onlineStatus: InstallerOnlineStatus;
+  locationStatus: InstallerLocationStatus;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  speed?: number | null;
+  heading?: number | null;
+  recordedAt: string | null;
+  hasValidCoordinates: boolean;
+  isActiveLocation: boolean;
+  secondsSinceHeartbeat: number | null;
+  secondsSinceLocation: number | null;
+}
+

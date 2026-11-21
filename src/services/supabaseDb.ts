@@ -108,7 +108,7 @@ export interface WorkOrderFilterOptions {
 }
 
 export interface RealtimeSubscriptionOptions {
-  table?: 'work_orders' | 'ticket_messages' | 'progress_reports' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date';
+  table?: 'work_orders' | 'ticket_messages' | 'progress_reports' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date' | 'installer_tracking';
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   filter?: string;
   onPayload: (payload: any) => void;

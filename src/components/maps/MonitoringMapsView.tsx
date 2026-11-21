@@ -32,13 +32,26 @@ import {
   ShieldCheck,
   UserCheck,
   Users2,
+  Wifi,
+  WifiOff,
+  Clock,
+  LocateFixed,
   Wrench,
   X
 } from 'lucide-react';
-import { Ticket, User } from '../../types/index.ts';
+import {
+  GpsTrackingConfig,
+  InstallerLiveLocationView,
+  InstallerLocationStatus,
+  Ticket,
+  User
+} from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { useToast } from '../../context/ToastContext';
+import { getAuthHeaders } from '../../services/authService';
+import { supabaseDb } from '../../services/supabaseDb';
+import { subscribeToGlobalConfigUpdates } from '../../services/globalConfigService';
 import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
 import {
   getTicketCanonicalApprovalStatus,
@@ -252,6 +265,114 @@ function escapeHtml(raw: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function formatRelativeSecondsId(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds)) return '-';
+  if (seconds < 5) return 'Baru saja';
+  if (seconds < 60) return `${seconds} dtk lalu`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `${mins} mnt lalu`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs} jam ${mins % 60} mnt lalu`;
+}
+
+function getLocationStatusBadgeMeta(status: InstallerLocationStatus): {
+  bgCls: string;
+  textCls: string;
+  dotColor: string;
+} {
+  switch (status) {
+    case 'Location Fresh':
+      return {
+        bgCls: 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-200 dark:border-emerald-800',
+        textCls: 'text-emerald-700 dark:text-emerald-300',
+        dotColor: '#10B981'
+      };
+    case 'Location Stale':
+      return {
+        bgCls: 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-800',
+        textCls: 'text-amber-700 dark:text-amber-300',
+        dotColor: '#F59E0B'
+      };
+    case 'Permission Denied':
+    case 'GPS Disabled':
+      return {
+        bgCls: 'bg-rose-50 dark:bg-rose-950/70 border-rose-200 dark:border-rose-800',
+        textCls: 'text-rose-700 dark:text-rose-300',
+        dotColor: '#E11D48'
+      };
+    case 'No Signal':
+      return {
+        bgCls: 'bg-orange-50 dark:bg-orange-950/70 border-orange-200 dark:border-orange-800',
+        textCls: 'text-orange-700 dark:text-orange-300',
+        dotColor: '#F97316'
+      };
+    default:
+      return {
+        bgCls: 'bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700',
+        textCls: 'text-slate-700 dark:text-slate-300',
+        dotColor: '#64748B'
+      };
+  }
+}
+
+function evaluateInstallerLiveView(
+  item: InstallerLiveLocationView,
+  cfg: GpsTrackingConfig | null,
+  nowMs: number
+): InstallerLiveLocationView {
+  const hbTimeout = cfg?.heartbeatTimeoutSeconds ?? 60;
+  const staleThreshold = cfg?.locationStaleThresholdSeconds ?? 90;
+
+  const hbMs = item.lastHeartbeatAt ? Date.parse(item.lastHeartbeatAt) : NaN;
+  const secondsSinceHeartbeat = Number.isFinite(hbMs)
+    ? Math.max(0, Math.floor((nowMs - hbMs) / 1000))
+    : item.secondsSinceHeartbeat;
+
+  const locIso = item.lastLocationAt || item.recordedAt;
+  const locMs = locIso ? Date.parse(locIso) : NaN;
+  const secondsSinceLocation = Number.isFinite(locMs)
+    ? Math.max(0, Math.floor((nowMs - locMs) / 1000))
+    : item.secondsSinceLocation;
+
+  let onlineStatus = item.onlineStatus;
+  if (
+    item.sessionStatus !== 'active' ||
+    Boolean(item.logoutAt) ||
+    (secondsSinceHeartbeat !== null && secondsSinceHeartbeat > hbTimeout)
+  ) {
+    onlineStatus = 'Offline';
+  }
+
+  let locationStatus = item.locationStatus;
+  if (onlineStatus === 'Offline') {
+    if (locationStatus === 'Location Fresh') {
+      locationStatus = 'Location Stale';
+    }
+  } else if (
+    locationStatus === 'Location Fresh' &&
+    secondsSinceLocation !== null &&
+    secondsSinceLocation > staleThreshold
+  ) {
+    locationStatus = 'Location Stale';
+  }
+
+  const hasValidCoordinates = Boolean(
+    typeof item.latitude === 'number' &&
+      typeof item.longitude === 'number' &&
+      isValidCoordinatePair(item.latitude, item.longitude)
+  );
+
+  return {
+    ...item,
+    onlineStatus,
+    locationStatus,
+    secondsSinceHeartbeat,
+    secondsSinceLocation,
+    hasValidCoordinates,
+    isActiveLocation: onlineStatus === 'Online' && item.sessionStatus === 'active'
+  };
+}
+
 export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
   onSelectTicket,
   onNavigate
@@ -287,17 +408,81 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
   // Map Layer & UI State
   const [mapStyle, setMapStyle] = useState<'street' | 'satellite'>('street');
   const [showOpticalLayer, setShowOpticalLayer] = useState<boolean>(true);
+  const [layerMode, setLayerMode] = useState<'ALL' | 'TECHNICIANS' | 'WO'>('ALL');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedInstallerId, setSelectedInstallerId] = useState<string | null>(null);
   const [showNoGpsDrawer, setShowNoGpsDrawer] = useState<boolean>(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
   const [isSyncingMap, setIsSyncingMap] = useState<boolean>(false);
   const [tileOfflineWarning, setTileOfflineWarning] = useState<boolean>(false);
+
+  // Live Installer GPS Tracking State
+  const [liveInstallers, setLiveInstallers] = useState<InstallerLiveLocationView[]>([]);
+  const [trackingConfig, setTrackingConfig] = useState<GpsTrackingConfig | null>(null);
+  const [nowTickMs, setNowTickMs] = useState<number>(() => Date.now());
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const featureLayerRef = useRef<L.LayerGroup | null>(null);
   const hasAutoFittedRef = useRef<boolean>(false);
+
+  const fetchLiveInstallers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/installer-tracking/live', {
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) return;
+      const json = await res.json().catch(() => null);
+      if (json && json.success === true) {
+        if (Array.isArray(json.installers)) {
+          setLiveInstallers(json.installers);
+        }
+        if (json.config) {
+          setTrackingConfig(json.config);
+        }
+      }
+    } catch {
+      // silent fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchLiveInstallers();
+
+    const unsubTracking = supabaseDb.subscribeToChanges({
+      table: 'installer_tracking',
+      onPayload: payload => {
+        const record = payload?.record as InstallerLiveLocationView | undefined;
+        if (!record || !record.installerId) return;
+        setLiveInstallers(prev => {
+          const idx = prev.findIndex(item => item.installerId === record.installerId);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = record;
+            return next;
+          }
+          return [record, ...prev];
+        });
+      }
+    });
+
+    const unsubConfig = subscribeToGlobalConfigUpdates(evt => {
+      if (evt.key === 'gps_tracking_config' && evt.value) {
+        setTrackingConfig(evt.value as GpsTrackingConfig);
+      }
+    });
+
+    const tickTimer = window.setInterval(() => {
+      setNowTickMs(Date.now());
+    }, 15000);
+
+    return () => {
+      unsubTracking();
+      unsubConfig();
+      window.clearInterval(tickTimer);
+    };
+  }, [fetchLiveInstallers]);
 
   // Authoritative Base Tickets Pool (Enforcing strict Leader Scope Isolation)
   const roleBaseTickets = useMemo(() => {
@@ -521,6 +706,82 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
     return mappedEntries[0]?.ticket || visibleTickets[0] || null;
   }, [selectedTicketId, visibleTickets, roleBaseTickets, mappedEntries]);
 
+  // Scoped & Filtered Live Installer Telemetry
+  const evaluatedInstallers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return liveInstallers
+      .map(item => evaluateInstallerLiveView(item, trackingConfig, nowTickMs))
+      .filter(item => {
+        if (isLeaderMode) {
+          if (leaderContractor && !isScopeTextMatch(item.contractor, leaderContractor)) return false;
+          if (leaderArea && item.area && !isScopeTextMatch(item.area, leaderArea)) return false;
+        } else {
+          if (vendorFilter !== 'ALL' && !isScopeTextMatch(item.contractor, vendorFilter)) return false;
+          if (areaFilter !== 'ALL' && !isScopeTextMatch(item.area, areaFilter)) return false;
+        }
+        if (techFilter !== 'ALL' && !isScopeTextMatch(item.installerName, techFilter)) return false;
+        if (q) {
+          const hay = [
+            item.installerName,
+            item.username,
+            item.contractor,
+            item.area,
+            item.onlineStatus,
+            item.locationStatus
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.onlineStatus !== b.onlineStatus) return a.onlineStatus === 'Online' ? -1 : 1;
+        if (a.locationStatus !== b.locationStatus) return a.locationStatus === 'Location Fresh' ? -1 : 1;
+        return a.installerName.localeCompare(b.installerName);
+      });
+  }, [
+    liveInstallers,
+    trackingConfig,
+    nowTickMs,
+    isLeaderMode,
+    leaderContractor,
+    leaderArea,
+    vendorFilter,
+    areaFilter,
+    techFilter,
+    searchQuery
+  ]);
+
+  const plottableInstallers = useMemo(
+    () =>
+      evaluatedInstallers.filter(
+        item => item.hasValidCoordinates && isValidCoordinatePair(item.latitude, item.longitude)
+      ),
+    [evaluatedInstallers]
+  );
+
+  const liveTechStats = useMemo(() => {
+    const online = evaluatedInstallers.filter(i => i.onlineStatus === 'Online').length;
+    const fresh = evaluatedInstallers.filter(
+      i => i.onlineStatus === 'Online' && i.locationStatus === 'Location Fresh'
+    ).length;
+    const offline = evaluatedInstallers.filter(i => i.onlineStatus === 'Offline').length;
+    return {
+      total: evaluatedInstallers.length,
+      online,
+      fresh,
+      offline,
+      plotted: plottableInstallers.length
+    };
+  }, [evaluatedInstallers, plottableInstallers.length]);
+
+  const selectedInstaller = useMemo(() => {
+    if (!selectedInstallerId) return null;
+    return evaluatedInstallers.find(i => i.installerId === selectedInstallerId) || null;
+  }, [selectedInstallerId, evaluatedInstallers]);
+
   // Scoped Activity Feed (Leader mode & quick monitor)
   const scopedRecentActivities = useMemo(() => {
     const visibleIds = new Set(roleBaseTickets.map(t => t.id));
@@ -598,7 +859,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
     tileLayerRef.current = layer;
   }, [mapStyle, isCompactUI]);
 
-  // Render Markers, Optical Links, Perimeter Polygon & Selected Geofence
+  // Render Markers, Optical Links, Perimeter Polygon, Selected Geofence & Live Technician Pins
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layer = featureLayerRef.current;
@@ -606,175 +867,291 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
 
     layer.clearLayers();
 
-    // 1. Leader Operational Perimeter Polygon
-    if (isLeaderMode && mappedEntries.length >= 3) {
-      const hull = buildBoundingPolygon(mappedEntries.map(e => [e.pos.latitude, e.pos.longitude]));
-      if (hull.length >= 3) {
-        L.polygon(hull, {
-          color: '#7C3AED',
-          weight: 2,
-          dashArray: '8 6',
-          fillColor: '#7C3AED',
-          fillOpacity: 0.08
-        }).addTo(layer);
-      }
-    }
-
-    // 2. Optical FAT Links & Registered-vs-CheckIn Verification Lines
-    mappedEntries.forEach(({ ticket, pos }) => {
-      const isSelected = selectedTicket?.id === ticket.id;
-
-      // FAT to House optical path when FAT coords exist
-      if (
-        showOpticalLayer &&
-        ticket.fatLocation &&
-        isValidCoordinatePair(ticket.fatLocation.latitude, ticket.fatLocation.longitude)
-      ) {
-        const fatLat = ticket.fatLocation.latitude;
-        const fatLng = ticket.fatLocation.longitude;
-
-        L.polyline(
-          [
-            [fatLat, fatLng],
-            [pos.latitude, pos.longitude]
-          ],
-          {
-            color: isSelected ? '#F59E0B' : '#9333EA',
-            weight: isSelected ? 3 : 1.75,
-            dashArray: '5 5',
-            opacity: isSelected ? 0.95 : 0.6
-          }
-        ).addTo(layer);
-
-        const fatIcon = L.divIcon({
-          className: 'mj-fat-pin',
-          html: `<div style="padding:2px 6px;border-radius:6px;background:#1E1238;color:#FCD34D;border:1.5px solid #F59E0B;font-family:monospace;font-size:9.5px;font-weight:800;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);">FAT ${escapeHtml(
-            ticket.fatCode || '-'
-          )}</div>`,
-          iconSize: [74, 22],
-          iconAnchor: [37, 11]
-        });
-
-        L.marker([fatLat, fatLng], { icon: fatIcon })
-          .on('click', () => setSelectedTicketId(ticket.id))
-          .addTo(layer);
+    if (layerMode !== 'TECHNICIANS') {
+      // 1. Leader Operational Perimeter Polygon
+      if (isLeaderMode && mappedEntries.length >= 3) {
+        const hull = buildBoundingPolygon(mappedEntries.map(e => [e.pos.latitude, e.pos.longitude]));
+        if (hull.length >= 3) {
+          L.polygon(hull, {
+            color: '#7C3AED',
+            weight: 2,
+            dashArray: '8 6',
+            fillColor: '#7C3AED',
+            fillOpacity: 0.08
+          }).addTo(layer);
+        }
       }
 
-      // If selected WO has BOTH Registered Order Coords AND House Check-in Coords, highlight delta!
-      if (isSelected) {
-        const reg = getTicketRegisteredCoordinates(ticket);
+      // 2. Optical FAT Links & Registered-vs-CheckIn Verification Lines
+      mappedEntries.forEach(({ ticket, pos }) => {
+        const isSelected = !selectedInstallerId && selectedTicket?.id === ticket.id;
+
+        // FAT to House optical path when FAT coords exist
         if (
-          reg &&
-          ticket.houseLocation &&
-          isValidCoordinatePair(ticket.houseLocation.latitude, ticket.houseLocation.longitude)
+          showOpticalLayer &&
+          ticket.fatLocation &&
+          isValidCoordinatePair(ticket.fatLocation.latitude, ticket.fatLocation.longitude)
         ) {
+          const fatLat = ticket.fatLocation.latitude;
+          const fatLng = ticket.fatLocation.longitude;
+
           L.polyline(
             [
-              [reg.latitude, reg.longitude],
-              [ticket.houseLocation.latitude, ticket.houseLocation.longitude]
+              [fatLat, fatLng],
+              [pos.latitude, pos.longitude]
             ],
             {
-              color: '#10B981',
-              weight: 2.5,
-              dashArray: '4 4'
+              color: isSelected ? '#F59E0B' : '#9333EA',
+              weight: isSelected ? 3 : 1.75,
+              dashArray: '5 5',
+              opacity: isSelected ? 0.95 : 0.6
             }
           ).addTo(layer);
 
-          const regIcon = L.divIcon({
-            className: 'mj-reg-pin',
-            html: `<div style="width:14px;height:14px;border-radius:9999px;background:#58149C;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(22,13,41,0.45);"></div>`,
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
+          const fatIcon = L.divIcon({
+            className: 'mj-fat-pin',
+            html: `<div style="padding:2px 6px;border-radius:6px;background:#1E1238;color:#FCD34D;border:1.5px solid #F59E0B;font-family:monospace;font-size:9.5px;font-weight:800;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);">FAT ${escapeHtml(
+              ticket.fatCode || '-'
+            )}</div>`,
+            iconSize: [74, 22],
+            iconAnchor: [37, 11]
           });
-          L.marker([reg.latitude, reg.longitude], { icon: regIcon })
-            .bindTooltip('Titik Order Terdaftar', { direction: 'top', offset: [0, -8] })
+
+          L.marker([fatLat, fatLng], { icon: fatIcon })
+            .on('click', () => {
+              setSelectedInstallerId(null);
+              setSelectedTicketId(ticket.id);
+            })
             .addTo(layer);
         }
 
-        // 50m SOP Geofence Circle
-        L.circle([pos.latitude, pos.longitude], {
-          radius: 50,
-          color: '#7C3AED',
-          fillColor: '#7C3AED',
-          fillOpacity: 0.12,
-          weight: 1.5,
-          dashArray: '4 4'
-        }).addTo(layer);
-      }
-    });
+        // If selected WO has BOTH Registered Order Coords AND House Check-in Coords, highlight delta!
+        if (isSelected) {
+          const reg = getTicketRegisteredCoordinates(ticket);
+          if (
+            reg &&
+            ticket.houseLocation &&
+            isValidCoordinatePair(ticket.houseLocation.latitude, ticket.houseLocation.longitude)
+          ) {
+            L.polyline(
+              [
+                [reg.latitude, reg.longitude],
+                [ticket.houseLocation.latitude, ticket.houseLocation.longitude]
+              ],
+              {
+                color: '#10B981',
+                weight: 2.5,
+                dashArray: '4 4'
+              }
+            ).addTo(layer);
 
-    // 3. Plot WO House / Customer Pins
-    mappedEntries.forEach(({ ticket, pos, bucket }) => {
-      const meta = STATUS_META[bucket];
-      const isSelected = selectedTicket?.id === ticket.id;
-      const pinSize = isSelected ? 36 : 28;
-      const ringShadow = isSelected
-        ? 'box-shadow:0 0 0 4px rgba(124,58,237,0.35),0 6px 14px rgba(0,0,0,0.45);transform:scale(1.06);'
-        : 'box-shadow:0 3px 10px rgba(0,0,0,0.38);';
-      const labelHtml = isSelected
-        ? `<div style="position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:#3B0764;color:#fff;padding:3px 8px;border-radius:8px;font-size:10px;font-weight:800;white-space:nowrap;border:1px solid rgba(255,255,255,0.28);box-shadow:0 4px 12px rgba(0,0,0,0.35);">#${escapeHtml(
+            const regIcon = L.divIcon({
+              className: 'mj-reg-pin',
+              html: `<div style="width:14px;height:14px;border-radius:9999px;background:#58149C;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(22,13,41,0.45);"></div>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            });
+            L.marker([reg.latitude, reg.longitude], { icon: regIcon })
+              .bindTooltip('Titik Order Terdaftar', { direction: 'top', offset: [0, -8] })
+              .addTo(layer);
+          }
+
+          // 50m SOP Geofence Circle
+          L.circle([pos.latitude, pos.longitude], {
+            radius: 50,
+            color: '#7C3AED',
+            fillColor: '#7C3AED',
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: '4 4'
+          }).addTo(layer);
+        }
+      });
+
+      // 3. Plot WO House / Customer Pins
+      mappedEntries.forEach(({ ticket, pos, bucket }) => {
+        const meta = STATUS_META[bucket];
+        const isSelected = !selectedInstallerId && selectedTicket?.id === ticket.id;
+        const pinSize = isSelected ? 36 : 28;
+        const ringShadow = isSelected
+          ? 'box-shadow:0 0 0 4px rgba(124,58,237,0.35),0 6px 14px rgba(0,0,0,0.45);transform:scale(1.06);'
+          : 'box-shadow:0 3px 10px rgba(0,0,0,0.38);';
+        const labelHtml = isSelected
+          ? `<div style="position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:#3B0764;color:#fff;padding:3px 8px;border-radius:8px;font-size:10px;font-weight:800;white-space:nowrap;border:1px solid rgba(255,255,255,0.28);box-shadow:0 4px 12px rgba(0,0,0,0.35);">#${escapeHtml(
+              ticket.woNumber
+            )} · ${escapeHtml((ticket.customerName || '').slice(0, 18))}</div>`
+          : '';
+
+        const icon = L.divIcon({
+          className: 'mj-wo-pin',
+          html: `<div style="position:relative;width:${pinSize}px;height:${pinSize}px;border-radius:9999px;background:${meta.color};border:3px solid #ffffff;${ringShadow}display:flex;align-items:center;justify-content:center;color:#ffffff;font-weight:800;font-size:11px;cursor:pointer;">${labelHtml}${
+            bucket === 'completed'
+              ? '✓'
+              : bucket === 'problem'
+              ? '!'
+              : bucket === 'checkin'
+              ? '★'
+              : '•'
+          }</div>`,
+          iconSize: [pinSize, pinSize],
+          iconAnchor: [pinSize / 2, pinSize / 2]
+        });
+
+        const marker = L.marker([pos.latitude, pos.longitude], { icon, zIndexOffset: isSelected ? 1000 : 0 });
+        marker.bindTooltip(
+          `<div style="font-family:sans-serif;font-size:11px;"><strong>${escapeHtml(
             ticket.woNumber
-          )} · ${escapeHtml((ticket.customerName || '').slice(0, 18))}</div>`
-        : '';
-
-      const icon = L.divIcon({
-        className: 'mj-wo-pin',
-        html: `<div style="position:relative;width:${pinSize}px;height:${pinSize}px;border-radius:9999px;background:${meta.color};border:3px solid #ffffff;${ringShadow}display:flex;align-items:center;justify-content:center;color:#ffffff;font-weight:800;font-size:11px;cursor:pointer;">${labelHtml}${
-          bucket === 'completed'
-            ? '✓'
-            : bucket === 'problem'
-            ? '!'
-            : bucket === 'checkin'
-            ? '★'
-            : '•'
-        }</div>`,
-        iconSize: [pinSize, pinSize],
-        iconAnchor: [pinSize / 2, pinSize / 2]
+          )}</strong><br/>${escapeHtml(ticket.customerName || '-')}<br/><span>${escapeHtml(
+            ticket.installerName || 'Belum Di-Assign'
+          )} · ${escapeHtml(meta.label)}</span></div>`,
+          { direction: 'top', offset: [0, -14] }
+        );
+        marker.on('click', () => {
+          setSelectedInstallerId(null);
+          setSelectedTicketId(ticket.id);
+        });
+        marker.addTo(layer);
       });
+    }
 
-      const marker = L.marker([pos.latitude, pos.longitude], { icon, zIndexOffset: isSelected ? 1000 : 0 });
-      marker.bindTooltip(
-        `<div style="font-family:sans-serif;font-size:11px;"><strong>${escapeHtml(
-          ticket.woNumber
-        )}</strong><br/>${escapeHtml(ticket.customerName || '-')}<br/><span>${escapeHtml(
-          ticket.installerName || 'Belum Di-Assign'
-        )} · ${escapeHtml(meta.label)}</span></div>`,
-        { direction: 'top', offset: [0, -14] }
-      );
-      marker.on('click', () => {
-        setSelectedTicketId(ticket.id);
+    // 4. Plot Live Installer GPS Pins (Strictly verified non-zero device coords)
+    if (layerMode !== 'WO') {
+      plottableInstallers.forEach(tech => {
+        if (typeof tech.latitude !== 'number' || typeof tech.longitude !== 'number') return;
+        const isSelected = selectedInstallerId === tech.installerId;
+        const isOnline = tech.onlineStatus === 'Online';
+        const isFresh = isOnline && tech.locationStatus === 'Location Fresh';
+        const badgeColor = isFresh ? '#10B981' : isOnline ? '#F59E0B' : '#64748B';
+        const initials = (tech.installerName || 'TK')
+          .split(/\s+/)
+          .slice(0, 2)
+          .map(w => w[0] || '')
+          .join('')
+          .toUpperCase();
+        const pinSize = isSelected ? 40 : 34;
+
+        const floatingLabel = isSelected
+          ? `<div style="position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);background:#160D29;color:#ffffff;padding:3px 9px;border-radius:8px;font-size:10px;font-weight:800;white-space:nowrap;border:1.5px solid ${badgeColor};box-shadow:0 4px 12px rgba(0,0,0,0.4);">${escapeHtml(
+              tech.installerName
+            )} · ${escapeHtml(tech.onlineStatus)}</div>`
+          : '';
+
+        const statusDot = `<span style="position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:9999px;background:${badgeColor};border:2px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></span>`;
+
+        const pulseRing = isFresh
+          ? `<span style="position:absolute;inset:-5px;border-radius:14px;border:2px solid rgba(16,185,129,0.55);pointer-events:none;"></span>`
+          : '';
+
+        const icon = L.divIcon({
+          className: 'mj-tech-live-pin',
+          html: `<div style="position:relative;width:${pinSize}px;height:${pinSize}px;border-radius:11px;background:${
+            isOnline ? '#58149C' : '#334155'
+          };border:2.5px solid #ffffff;box-shadow:${
+            isSelected
+              ? `0 0 0 4px rgba(16,185,129,0.35),0 6px 14px rgba(0,0,0,0.45)`
+              : '0 4px 12px rgba(22,13,41,0.45)'
+          };display:flex;align-items:center;justify-content:center;color:#ffffff;font-family:sans-serif;font-weight:800;font-size:11px;cursor:pointer;">${pulseRing}${floatingLabel}${statusDot}${escapeHtml(
+            initials || 'TK'
+          )}</div>`,
+          iconSize: [pinSize, pinSize],
+          iconAnchor: [pinSize / 2, pinSize / 2]
+        });
+
+        const marker = L.marker([tech.latitude, tech.longitude], {
+          icon,
+          zIndexOffset: isSelected ? 1200 : 800
+        });
+
+        marker.bindTooltip(
+          `<div style="font-family:sans-serif;font-size:11px;line-height:1.35;"><strong>${escapeHtml(
+            tech.installerName
+          )}</strong> (${escapeHtml(tech.contractor || '-')})<br/><span style="color:${badgeColor};font-weight:700;">${escapeHtml(
+            tech.onlineStatus
+          )} · ${escapeHtml(tech.locationStatus)}</span><br/><span>Update: ${escapeHtml(
+            formatRelativeSecondsId(tech.secondsSinceLocation)
+          )}${typeof tech.accuracy === 'number' ? ` · ±${Math.round(tech.accuracy)}m` : ''}</span></div>`,
+          { direction: 'top', offset: [0, -16] }
+        );
+
+        marker.on('click', () => {
+          setSelectedInstallerId(tech.installerId);
+        });
+        marker.addTo(layer);
+
+        if (isSelected && typeof tech.accuracy === 'number' && tech.accuracy > 0 && tech.accuracy <= 1000) {
+          L.circle([tech.latitude, tech.longitude], {
+            radius: Math.max(15, tech.accuracy),
+            color: badgeColor,
+            fillColor: badgeColor,
+            fillOpacity: 0.1,
+            weight: 1.25,
+            dashArray: '4 4'
+          }).addTo(layer);
+        }
       });
-      marker.addTo(layer);
-    });
+    }
 
-    // Auto-fit bounds when initial coordinates load or dataset shrinks dramatically
-    if (!hasAutoFittedRef.current && mappedEntries.length > 0) {
-      const bounds = L.latLngBounds(mappedEntries.map(e => [e.pos.latitude, e.pos.longitude]));
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
-        hasAutoFittedRef.current = true;
+    // Auto-fit bounds when initial coordinates load or dataset changes cleanly
+    if (!hasAutoFittedRef.current) {
+      const allPoints: Array<[number, number]> = [];
+      if (layerMode !== 'TECHNICIANS') {
+        mappedEntries.forEach(e => allPoints.push([e.pos.latitude, e.pos.longitude]));
+      }
+      if (layerMode !== 'WO') {
+        plottableInstallers.forEach(t => {
+          if (typeof t.latitude === 'number' && typeof t.longitude === 'number') {
+            allPoints.push([t.latitude, t.longitude]);
+          }
+        });
+      }
+      if (allPoints.length > 0) {
+        const bounds = L.latLngBounds(allPoints);
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
+          hasAutoFittedRef.current = true;
+        }
       }
     }
-  }, [mappedEntries, selectedTicket?.id, isLeaderMode, showOpticalLayer]);
+  }, [
+    mappedEntries,
+    plottableInstallers,
+    selectedTicket?.id,
+    selectedInstallerId,
+    isLeaderMode,
+    showOpticalLayer,
+    layerMode
+  ]);
 
   const handleRecenterBounds = useCallback(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    if (mappedEntries.length === 0) {
-      toast.info('Belum ada WO dengan koordinat GPS pada filter saat ini.', 'Monitoring Maps');
+    const allPoints: Array<[number, number]> = [];
+    if (layerMode !== 'TECHNICIANS') {
+      mappedEntries.forEach(e => allPoints.push([e.pos.latitude, e.pos.longitude]));
+    }
+    if (layerMode !== 'WO') {
+      plottableInstallers.forEach(t => {
+        if (typeof t.latitude === 'number' && typeof t.longitude === 'number') {
+          allPoints.push([t.latitude, t.longitude]);
+        }
+      });
+    }
+    if (allPoints.length === 0) {
+      toast.info('Belum ada pin WO maupun posisi GPS Teknisi pada filter saat ini.', 'Monitoring Maps');
       return;
     }
-    const bounds = L.latLngBounds(mappedEntries.map(e => [e.pos.latitude, e.pos.longitude]));
+    const bounds = L.latLngBounds(allPoints);
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: true });
     }
-  }, [mappedEntries, toast]);
+  }, [mappedEntries, plottableInstallers, layerMode, toast]);
 
   const handlePanToCluster = (lat: number, lng: number) => {
     mapInstanceRef.current?.setView([lat, lng], 15, { animate: true });
   };
 
   const handlePanToTicket = (t: Ticket) => {
+    setSelectedInstallerId(null);
     setSelectedTicketId(t.id);
     const pos = getTicketMapPosition(t);
     if (pos) {
@@ -782,11 +1159,23 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
     }
   };
 
+  const handlePanToInstaller = (tech: InstallerLiveLocationView) => {
+    setSelectedInstallerId(tech.installerId);
+    if (typeof tech.latitude === 'number' && typeof tech.longitude === 'number' && tech.hasValidCoordinates) {
+      mapInstanceRef.current?.setView([tech.latitude, tech.longitude], 16, { animate: true });
+    } else {
+      toast.info(
+        `${tech.installerName} belum memiliki koordinat GPS valid (${tech.locationStatus}).`,
+        'Live Technician Tracking'
+      );
+    }
+  };
+
   const handleSyncLive = async () => {
     setIsSyncingMap(true);
     try {
-      await refreshActiveTickets();
-      toast.success('Data peta & status Work Order diperbarui dari server.', 'Sinkronisasi Peta');
+      await Promise.all([refreshActiveTickets(), fetchLiveInstallers()]);
+      toast.success('Data peta, Live GPS Teknisi & Work Order diperbarui dari server.', 'Sinkronisasi Peta');
     } catch {
       toast.error('Gagal memuat data terbaru dari server.', 'Sinkronisasi Gagal');
     } finally {
@@ -900,17 +1289,217 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
     };
   }, [selectedTicket]);
 
+  // Helper Card Renderer for Selected Technician Live Telemetry
+  const renderSelectedInstallerCard = () => {
+    if (!selectedInstaller) return null;
+    const locMeta = getLocationStatusBadgeMeta(selectedInstaller.locationStatus);
+    const isOnline = selectedInstaller.onlineStatus === 'Online';
+    const assignedToday = roleBaseTickets.filter(
+      t =>
+        (selectedInstaller.installerId && t.installerId === selectedInstaller.installerId) ||
+        isScopeTextMatch(t.installerName, selectedInstaller.installerName)
+    );
+    const activeWo =
+      assignedToday.find(t => !isTicketClosed(t)) || assignedToday[0] || null;
+    const phone =
+      selectedInstaller.phone ||
+      users.find(u => u.id === selectedInstaller.installerId)?.phone ||
+      '';
+
+    return (
+      <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 space-y-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={`px-2 py-0.5 rounded-md border text-[10px] font-extrabold inline-flex items-center gap-1 ${
+                isOnline
+                  ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              <span>{selectedInstaller.onlineStatus}</span>
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded-md border text-[10px] font-bold ${locMeta.bgCls} ${locMeta.textCls}`}
+            >
+              {selectedInstaller.locationStatus}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedInstallerId(null)}
+            className="px-2 py-1 rounded-lg bg-[#f3eaff] dark:bg-[#261942] text-[10.5px] font-bold text-[#58149c] dark:text-[#dab9ff] hover:bg-[#e8ddff] cursor-pointer"
+          >
+            Lihat Detail WO
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center font-display font-extrabold text-sm text-white shrink-0 ${
+              isOnline ? 'bg-[#58149C]' : 'bg-slate-600'
+            }`}
+          >
+            {(selectedInstaller.installerName || 'TK').slice(0, 2).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-display font-extrabold text-base text-[#1f1638] dark:text-white truncate">
+              {selectedInstaller.installerName}
+            </h3>
+            <div className="text-xs text-[#4b4452] dark:text-[#cabde8] truncate">
+              @{selectedInstaller.username} · {selectedInstaller.contractor || 'Mitra'}
+              {selectedInstaller.area ? ` (${selectedInstaller.area})` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] text-xs">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]/70">
+              Update GPS Terakhir
+            </div>
+            <div className="font-mono font-bold text-[#1f1638] dark:text-white mt-0.5">
+              {selectedInstaller.lastLocationAt || selectedInstaller.recordedAt
+                ? `${formatJakartaTimeOnly(
+                    selectedInstaller.lastLocationAt || selectedInstaller.recordedAt || ''
+                  )} WIB`
+                : 'Belum Ada Sinyal'}
+            </div>
+            <div className="text-[10px] text-[#7d7484] dark:text-[#cabde8]">
+              {formatRelativeSecondsId(selectedInstaller.secondsSinceLocation)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]/70">
+              Heartbeat Sesi
+            </div>
+            <div className="font-mono font-bold text-[#1f1638] dark:text-white mt-0.5">
+              {selectedInstaller.lastHeartbeatAt
+                ? `${formatJakartaTimeOnly(selectedInstaller.lastHeartbeatAt)} WIB`
+                : '-'}
+            </div>
+            <div className="text-[10px] text-[#7d7484] dark:text-[#cabde8]">
+              {formatRelativeSecondsId(selectedInstaller.secondsSinceHeartbeat)}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[#e8ddff] dark:border-[#35105E] bg-white dark:bg-[#1e1135] p-3 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-extrabold uppercase tracking-wider text-[10px] text-[#7d7484] dark:text-[#cabde8]">
+              Koordinat Perangkat Aktual
+            </span>
+            {typeof selectedInstaller.accuracy === 'number' && (
+              <span className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                Akurasi ±{Math.round(selectedInstaller.accuracy)}m
+              </span>
+            )}
+          </div>
+          <div className="font-mono font-bold text-[#1f1638] dark:text-white tabular-nums">
+            {selectedInstaller.hasValidCoordinates &&
+            typeof selectedInstaller.latitude === 'number' &&
+            typeof selectedInstaller.longitude === 'number'
+              ? formatCoordinates(selectedInstaller.latitude, selectedInstaller.longitude)
+              : selectedInstaller.locationStatus === 'Permission Denied'
+              ? 'Location Permission Required (Izin GPS ditolak perangkat)'
+              : 'Menunggu koordinat GPS aktual dari perangkat teknisi'}
+          </div>
+          {typeof selectedInstaller.speed === 'number' && selectedInstaller.speed > 0 && (
+            <div className="text-[10.5px] font-mono text-[#4b4452] dark:text-[#cabde8]">
+              Kecepatan: {Math.round(selectedInstaller.speed * 3.6)} km/jam
+            </div>
+          )}
+        </div>
+
+        {activeWo && (
+          <div className="p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase text-[#7d7484] dark:text-[#cabde8]">
+                WO Ditangani ({assignedToday.length} total)
+              </div>
+              <div className="font-mono text-xs font-bold text-[#58149c] dark:text-[#DAB9FF] truncate">
+                #{activeWo.woNumber} · {activeWo.customerName}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectTicket(activeWo, 'overview')}
+              className="px-2.5 py-1.5 rounded-lg bg-[#58149C] text-white text-[10.5px] font-bold shrink-0 cursor-pointer"
+            >
+              Buka WO
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
+            disabled={!selectedInstaller.hasValidCoordinates}
+            onClick={() => {
+              if (
+                typeof selectedInstaller.latitude === 'number' &&
+                typeof selectedInstaller.longitude === 'number'
+              ) {
+                openCoordinatesInGoogleMaps(selectedInstaller.latitude, selectedInstaller.longitude);
+              }
+            }}
+            className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-45 cursor-pointer"
+          >
+            <Navigation className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <span>Buka Google Maps</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (!phone) {
+                toast.warning(
+                  `Nomor WhatsApp untuk ${selectedInstaller.installerName} belum tercatat.`,
+                  'Kontak Tidak Tersedia'
+                );
+                return;
+              }
+              const waRes = buildWhatsAppClickToChatUrl(
+                phone,
+                `Halo ${selectedInstaller.installerName}, mohon konfirmasi posisi & progres pemasangan hari ini.`
+              );
+              if (waRes.url) {
+                const link = document.createElement('a');
+                link.href = waRes.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+              } else {
+                toast.warning(waRes.error || `Nomor telepon tidak valid (${phone}).`, 'Kontak');
+              }
+            }}
+            className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Hubungi Teknisi</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Helper Card Renderer for Selected WO Side Panel (reused in both Global & Leader modes)
   const renderSelectedDetailCard = () => {
+    if (selectedInstaller) {
+      return renderSelectedInstallerCard();
+    }
     if (!selectedTicket || !selectedVerification) {
       return (
         <div className="mj-tactile-card p-6 text-center space-y-2.5 border border-[#e8ddff] dark:border-[#3b1d78]">
           <MapPin className="w-8 h-8 text-[#7C3AED] mx-auto opacity-70" />
           <div className="font-display font-bold text-sm text-[#1f1638] dark:text-white">
-            Pilih Pin atau WO di Peta
+            Pilih Pin WO atau Teknisi di Peta
           </div>
           <p className="text-xs text-[#4b4452] dark:text-[#cabde8]">
-            Klik salah satu pin pelanggan/FAT pada peta untuk melihat verifikasi Dual GPS dan Foto Rumah.
+            Klik salah satu pin pelanggan/FAT atau pin Teknisi Live pada peta untuk melihat telemetri lokasi & verifikasi Dual GPS.
           </p>
         </div>
       );
@@ -1254,7 +1843,10 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     RBAC Auth: Leader {currentUser.name}
                   </span>
-                  <span>• {scopedInstallers.length} Teknisi Aktif dalam Scope</span>
+                  <span>• {scopedInstallers.length} Teknisi Terdaftar</span>
+                  <span className="inline-flex items-center gap-1 text-[#58149C] dark:text-[#DAB9FF] font-bold">
+                    • {liveTechStats.online} Online ({liveTechStats.fresh} Live GPS)
+                  </span>
                 </div>
               </div>
             </div>
@@ -1449,9 +2041,9 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             <span className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold inline-flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>
-                Teknisi Bertugas:{' '}
+                Live GPS Teknisi:{' '}
                 <strong className="font-mono">
-                  {kpiStats.activeTechCount}/{kpiStats.totalTechCount}
+                  {liveTechStats.online} Online ({liveTechStats.fresh} Fresh)
                 </strong>
               </span>
             </span>
@@ -1745,12 +2337,16 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             />
 
             {/* Empty / Offline Map Banner */}
-            {mappedEntries.length === 0 && (
-              <div className="absolute inset-x-4 top-4 z-[450] pointer-events-none flex justify-center">
+            {((layerMode === 'ALL' && mappedEntries.length === 0 && plottableInstallers.length === 0) ||
+              (layerMode === 'WO' && mappedEntries.length === 0) ||
+              (layerMode === 'TECHNICIANS' && plottableInstallers.length === 0)) && (
+              <div className="absolute inset-x-4 top-14 z-[450] pointer-events-none flex justify-center">
                 <div className="px-3.5 py-2 rounded-xl bg-[#160D29]/95 text-white text-xs font-semibold shadow-lg border border-[#D8B4FE]/25 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                   <span>
-                    {visibleTickets.length === 0
+                    {layerMode === 'TECHNICIANS'
+                      ? 'Belum ada teknisi dengan koordinat GPS perangkat aktif pada filter ini.'
+                      : visibleTickets.length === 0
                       ? 'Tidak ada Work Order yang cocok dengan filter aktif.'
                       : `${visibleTickets.length} Work Order aktif belum memiliki koordinat GPS (menunggu Check-In Foto Rumah teknisi).`}
                   </span>
@@ -1759,10 +2355,47 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             )}
 
             {tileOfflineWarning && (
-              <div className="absolute top-3 left-3 z-[450] px-2.5 py-1 rounded-lg bg-[#160D29]/90 text-amber-300 font-mono text-[10px] pointer-events-none border border-[#D8B4FE]/20">
+              <div className="absolute top-14 left-3 z-[450] px-2.5 py-1 rounded-lg bg-[#160D29]/90 text-amber-300 font-mono text-[10px] pointer-events-none border border-[#D8B4FE]/20">
                 Layer tile sedang memuat / offline — pin GPS tetap aktif
               </div>
             )}
+
+            {/* Top-Left Layer Mode Switcher */}
+            <div className="absolute top-3 left-3 z-[450] flex items-center gap-1 bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md p-1 rounded-xl border border-[#e8ddff] dark:border-[#35105E] shadow-md">
+              <button
+                type="button"
+                onClick={() => setLayerMode('ALL')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
+                  layerMode === 'ALL'
+                    ? 'bg-[#58149C] text-white'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#261942]'
+                }`}
+              >
+                Semua Layer
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayerMode('TECHNICIANS')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
+                  layerMode === 'TECHNICIANS'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#261942]'
+                }`}
+              >
+                <span>Teknisi ({plottableInstallers.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayerMode('WO')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
+                  layerMode === 'WO'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#261942]'
+                }`}
+              >
+                WO ({mappedEntries.length})
+              </button>
+            </div>
 
             {/* Top-Right GIS Layer Switch */}
             <div className="absolute top-3 right-3 z-[450] flex items-center gap-1.5">
@@ -1812,7 +2445,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 type="button"
                 onClick={handleRecenterBounds}
                 aria-label="Pusatkan Peta"
-                title="Pusatkan Semua Pin WO"
+                title="Pusatkan Semua Pin WO & Teknisi"
                 className="btn-3d-icon w-9 h-9 rounded-xl !text-[#7C3AED] dark:!text-[#DAB9FF] cursor-pointer"
               >
                 <Crosshair className="w-4 h-4" />
@@ -1820,7 +2453,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             </div>
 
             {/* Status Legend Floating Card */}
-            <div className="hidden sm:block absolute bottom-3 left-3 z-[450] rounded-xl bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md border border-[#e8ddff] dark:border-[#35105E] p-2.5 shadow-lg max-w-[290px]">
+            <div className="hidden sm:block absolute bottom-3 left-3 z-[450] rounded-xl bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md border border-[#e8ddff] dark:border-[#35105E] p-2.5 shadow-lg max-w-[310px]">
               <div className="flex items-center justify-between gap-3 mb-1.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-white">
                   Status Legend
@@ -1840,14 +2473,77 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                   </div>
                 ))}
               </div>
+              <div className="mt-1.5 pt-1.5 border-t border-[#e8ddff] dark:border-[#35105E] grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-semibold text-[#4b4452] dark:text-[#cabde8]">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="w-2.5 h-2.5 rounded-[3px] bg-[#58149C] ring-2 ring-emerald-500 shrink-0" />
+                  <span className="truncate">Teknisi Live GPS</span>
+                </div>
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="w-2.5 h-2.5 rounded-[3px] bg-slate-600 ring-2 ring-amber-500 shrink-0" />
+                  <span className="truncate">GPS Stale / Offline</span>
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Horizontal Live Technician Quick-Pick Strip */}
+          {evaluatedInstallers.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#4b4452] dark:text-[#cabde8]">
+                <span className="flex items-center gap-1.5">
+                  <LocateFixed className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>
+                    Monitoring Live GPS Teknisi ({liveTechStats.online} Online · {liveTechStats.fresh} Fresh)
+                  </span>
+                </span>
+                <span className="font-mono text-[10px] text-[#7d7484]">
+                  {plottableInstallers.length}/{evaluatedInstallers.length} memiliki koordinat valid
+                </span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                {evaluatedInstallers.slice(0, 16).map(tech => {
+                  const isActive = selectedInstaller?.installerId === tech.installerId;
+                  const locMeta = getLocationStatusBadgeMeta(tech.locationStatus);
+                  const isOnline = tech.onlineStatus === 'Online';
+                  return (
+                    <button
+                      key={tech.installerId}
+                      type="button"
+                      onClick={() => handlePanToInstaller(tech)}
+                      className={`shrink-0 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-[#58149c] border-[#58149c] text-white shadow-sm'
+                          : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-white hover:border-[#7C3AED]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: isOnline ? locMeta.dotColor : '#64748B' }}
+                        />
+                        <span className="text-[11px] font-extrabold truncate max-w-[130px]">
+                          {tech.installerName}
+                        </span>
+                      </div>
+                      <div
+                        className={`text-[10px] font-mono truncate max-w-[165px] mt-0.5 ${
+                          isActive ? 'text-purple-100' : 'text-[#4b4452] dark:text-[#cabde8]'
+                        }`}
+                      >
+                        {tech.onlineStatus} · {tech.locationStatus}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Horizontal Plotted WO Quick-Pick Strip */}
           {mappedEntries.length > 0 && (
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
               {mappedEntries.slice(0, 14).map(({ ticket, bucket }) => {
-                const isActive = selectedTicket?.id === ticket.id;
+                const isActive = !selectedInstallerId && selectedTicket?.id === ticket.id;
                 const meta = STATUS_META[bucket];
                 return (
                   <button

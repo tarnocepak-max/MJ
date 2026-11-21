@@ -70,6 +70,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
     soundError,
     updateSoundSettings,
     restoreDefaultSoundSettings,
+    unlockAudio,
     playReadySound,
     previewSound
   } = useMoraJawsSound();
@@ -175,36 +176,39 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
         toast.success(
           `Konfirmasi sukses: ${liveTelemetry.completedToday} WO hari ini rampung (${liveTelemetry.completionPct}%).`,
           'Success',
-          { soundCategory: 'success' }
+          { soundCategory: 'success', withSound: false }
         );
         break;
       case 'live_chat':
         toast.info('Ada pesan baru dari Dispatch terkait jadwal instalasi pelanggan.', 'Live Chat', {
-          soundCategory: 'live_chat'
+          soundCategory: 'live_chat',
+          withSound: false
         });
         break;
       case 'wo_assignment':
         toast.info('WO #MJ-2026-1001 berhasil di-assign ke teknisi lapangan.', 'WO Assignment', {
-          soundCategory: 'wo_assignment'
+          soundCategory: 'wo_assignment',
+          withSound: false
         });
         break;
       case 'important':
         toast.warning(
           `${liveTelemetry.pendingApprovalCount} laporan instalasi menunggu review QC Desk.`,
           'Important Alert',
-          { soundCategory: 'important' }
+          { soundCategory: 'important', withSound: false }
         );
         break;
       case 'critical':
         toast.error(
           `Terdeteksi ${liveTelemetry.totalOverdue} WO Overdue yang memerlukan tindak lanjut segera.`,
           'Critical Alert',
-          { soundCategory: 'critical' }
+          { soundCategory: 'critical', withSound: false }
         );
         break;
       default:
         toast.info('Notifikasi sistem MoraJaws berjalan normal.', 'MoraJaws', {
-          soundCategory: 'normal'
+          soundCategory: 'normal',
+          withSound: false
         });
         break;
     }
@@ -1100,13 +1104,26 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
 
           {/* 6 Notification Sound Categories + Preview */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between px-0.5">
+            <div className="flex items-center justify-between gap-2 px-0.5">
               <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
                 Kategori Suara Notifikasi (6 Profil)
               </span>
-              <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">
-                Engine: {audioEngineState.toUpperCase()}
-              </span>
+              <div className="flex items-center gap-2">
+                {(audioEngineState === 'suspended' || audioEngineState === 'idle') && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void unlockAudio().then(() => previewSound('live_chat', draftMasterVol))
+                    }
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-200/80 transition-colors cursor-pointer"
+                  >
+                    Aktifkan Audio Browser
+                  </button>
+                )}
+                <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">
+                  Engine: {audioEngineState.toUpperCase()}
+                </span>
+              </div>
             </div>
 
             {SOUND_CATEGORY_CATALOG.map(cat => {

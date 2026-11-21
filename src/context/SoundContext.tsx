@@ -44,6 +44,7 @@ export interface SoundContextType {
   playErrorSound: () => void;
   playSyncSound: () => void;
   playLiveChatSound: () => void;
+  unlockAudio: () => Promise<'running' | 'suspended' | 'idle' | 'unavailable'>;
   playCategorySound: (
     category: NotificationSoundCategory,
     options?: { force?: boolean; dedupKey?: string; previewVolume?: number }
@@ -162,8 +163,10 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Bind autoplay unlock once for browser & Android gesture compliance
   useEffect(() => {
+    const unsubState = notificationAudioService.subscribeEngineState(setAudioEngineState);
     const unbind = notificationAudioService.bindAutoplayUnlock();
     return () => {
+      unsubState();
       unbind();
       notificationAudioService.dispose();
     };
@@ -397,7 +400,13 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
     playCategorySound('live_chat', { dedupKey: 'live-chat-incoming' });
   }, [playCategorySound]);
 
-  // Listen to explicit toast sound events from ToastProvider (avoids circular context dependency)
+  const unlockAudio = useCallback(async () => {
+    const nextState = await notificationAudioService.unlock();
+    setAudioEngineState(nextState);
+    return nextState;
+  }, []);
+
+  // Listen to explicit toast, LiveChat, and lifecycle sound events (avoids circular context dependency)
   useEffect(() => {
     const handleToastSound = (e: Event) => {
       const detail =
@@ -424,9 +433,80 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     };
 
+    const handleLiveChatSound = (e: Event) => {
+      const detail =
+        (e as CustomEvent<{
+          messageId?: string;
+          ticketId?: string;
+          senderRole?: string;
+          recipientRole?: string;
+        }>).detail || {};
+      const dedupKey = detail.messageId
+        ? `live-chat-${detail.messageId}`
+        : detail.ticketId
+        ? `live-chat-ticket-${detail.ticketId}`
+        : 'live-chat-incoming';
+      playCategorySound('live_chat', { dedupKey });
+    };
+
+    const handleEventSound = (e: Event) => {
+      const detail =
+        (e as CustomEvent<{
+          event?:
+            | 'loading'
+            | 'ready'
+            | 'report_saved'
+            | 'error'
+            | 'sync'
+            | 'wo_assignment'
+            | 'important'
+            | 'critical';
+          dedupKey?: string;
+        }>).detail || {};
+      switch (detail.event) {
+        case 'loading':
+          playLoadingSound();
+          break;
+        case 'ready':
+          playReadySound();
+          break;
+        case 'report_saved':
+          playReportSavedSound();
+          break;
+        case 'error':
+          playErrorSound();
+          break;
+        case 'sync':
+          playSyncSound();
+          break;
+        case 'wo_assignment':
+        case 'important':
+        case 'critical':
+          playCategorySound(detail.event, {
+            dedupKey: detail.dedupKey || `event-${detail.event}`
+          });
+          break;
+        default:
+          break;
+      }
+    };
+
     window.addEventListener('morajaws:toast-sound', handleToastSound);
-    return () => window.removeEventListener('morajaws:toast-sound', handleToastSound);
-  }, [playCategorySound]);
+    window.addEventListener('morajaws:livechat-sound', handleLiveChatSound);
+    window.addEventListener('morajaws:event-sound', handleEventSound);
+    return () => {
+      window.removeEventListener('morajaws:toast-sound', handleToastSound);
+      window.removeEventListener('morajaws:livechat-sound', handleLiveChatSound);
+      window.removeEventListener('morajaws:event-sound', handleEventSound);
+    };
+  }, [
+    playCategorySound,
+    playLoadingSound,
+    playReadySound,
+    playReportSavedSound,
+    playErrorSound,
+    playSyncSound
+  ]);
 
   const previewSound = useCallback(
     (type: LegacyPreviewType | NotificationSoundCategory, previewVolume?: number) => {
@@ -447,10 +527,12 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
           ? soundSettingsRef.current.volume
           : 55;
 
-      playCategorySound(resolvedCategory, {
-        force: true,
-        dedupKey: `preview-${resolvedCategory}`,
-        previewVolume: effectiveVol
+      void notificationAudioService.unlock().then(() => {
+        playCategorySound(resolvedCategory, {
+          force: true,
+          dedupKey: `preview-${resolvedCategory}`,
+          previewVolume: effectiveVol
+        });
       });
     },
     [playCategorySound]
@@ -477,6 +559,7 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
         playErrorSound,
         playSyncSound,
         playLiveChatSound,
+        unlockAudio,
         playCategorySound,
         previewSound
       }}

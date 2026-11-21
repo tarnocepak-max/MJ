@@ -25,7 +25,9 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
   const {
     soundSettings,
     soundScope,
+    audioEngineState,
     isSoundSaving,
+    unlockAudio,
     updateSoundSettings,
     restoreDefaultSoundSettings,
     previewSound
@@ -83,6 +85,26 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           <span>{soundSettings.enabled ? 'ON' : 'OFF'}</span>
         </button>
       </div>
+
+      {(audioEngineState === 'suspended' || audioEngineState === 'idle') && (
+        <button
+          type="button"
+          onClick={() => void unlockAudio().then(() => previewSound('live_chat', draftMasterVolume))}
+          className="w-full px-3 py-2 rounded-[12px] bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-950/80 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-[11px] font-bold flex items-center justify-between gap-2 transition-colors cursor-pointer"
+        >
+          <span className="inline-flex items-center gap-1.5 text-left">
+            <BellRing className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {audioEngineState === 'suspended'
+                ? 'Audio Terkunci Autoplay — Klik untuk Aktifkan'
+                : 'Aktifkan & Uji Suara Notifikasi'}
+            </span>
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-amber-200/80 dark:bg-amber-800/70 text-[10px] font-extrabold shrink-0">
+            Aktifkan
+          </span>
+        </button>
+      )}
 
       {/* Master Volume Slider (0-100%) */}
       <div className="rounded-[12px] bg-white/80 dark:bg-[#190B33]/85 border border-[#E2D4FF] dark:border-[#4B238F] p-2.5 space-y-1.5">

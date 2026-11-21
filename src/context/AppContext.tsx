@@ -36,6 +36,7 @@ import {
   classifyWorkOrder,
   summarizeWorkOrderClassifications
 } from '../services/woClassificationService';
+import { installerGpsTracker } from '../services/installerGpsTrackingService';
 
 import {
   INITIAL_SAMPLE_TICKETS,
@@ -810,15 +811,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   });
 
+  const isLoggedInRef = React.useRef<boolean>(isLoggedIn);
+  isLoggedInRef.current = isLoggedIn;
+
   const currentUserRef = React.useRef<User>(currentUser);
   currentUserRef.current = currentUser;
 
   const ticketsRef = React.useRef<Ticket[]>(tickets);
   ticketsRef.current = tickets;
 
+  const activeScopedLookupRef = React.useRef<{ byId: Set<string>; woToId: Map<string, string> }>({
+    byId: new Set(),
+    woToId: new Map()
+  });
+
   const deliveredTriggeredRef = React.useRef<Set<string>>(new Set());
   const hasHydratedChatMessagesRef = React.useRef<boolean>(false);
   const knownChatMessageIdsRef = React.useRef<Set<string>>(new Set());
+  const notifiedChatSoundIdsRef = React.useRef<Set<string>>(new Set());
+  const notifiedWoEventKeysRef = React.useRef<Set<string>>(new Set());
   const prevAuthSessionKeyRef = React.useRef<string>('');
 
   React.useEffect(() => {
@@ -827,8 +838,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prevAuthSessionKeyRef.current = nextKey;
       hasHydratedChatMessagesRef.current = false;
       knownChatMessageIdsRef.current.clear();
+      notifiedChatSoundIdsRef.current.clear();
+      notifiedWoEventKeysRef.current.clear();
     }
   }, [isLoggedIn, currentUser?.id]);
+
+  const notifyIncomingChatMessages = React.useCallback(
+    (msgs: TicketMessage[], options?: { fromSse?: boolean }) => {
+      const uid = String(currentUserRef.current?.id || '').trim();
+      const role = currentUserRef.current?.role;
+      if (!isLoggedInRef.current || !uid || !Array.isArray(msgs) || msgs.length === 0) return;
+
+      const lookup = activeScopedLookupRef.current;
+      const freshIncoming: Array<{ message: TicketMessage; ticketId: string }> = [];
+      const recencyCutoffMs = Date.now() - 5 * 60 * 1000;
+
+      for (const m of msgs) {
+        if (!m || !m.id) continue;
+        if (notifiedChatSoundIdsRef.current.has(m.id)) {
+          knownChatMessageIdsRef.current.add(m.id);
+          continue;
+        }
+        if (!options?.fromSse && knownChatMessageIdsRef.current.has(m.id)) continue;
+
+        let resolvedId: string | undefined;
+        if (m.ticketId && lookup.byId.has(m.ticketId)) {
+          resolvedId = m.ticketId;
+        } else if (m.woNumber) {
+          resolvedId = lookup.woToId.get(String(m.woNumber).trim().toUpperCase());
+        }
+
+        if (!resolvedId) {
+          const matchedTicket = ticketsRef.current.find(
+            t =>
+              t.id === m.ticketId ||
+              (m.woNumber && String(t.woNumber || '').trim().toUpperCase() === String(m.woNumber).trim().toUpperCase())
+          );
+
+          if (matchedTicket) {
+            if (matchedTicket.isDeleted || matchedTicket.isArchived) {
+              knownChatMessageIdsRef.current.add(m.id);
+              continue;
+            }
+            if (options?.fromSse && (role === 'dispatch' || role === 'super_admin' || role === 'management_data')) {
+              resolvedId = matchedTicket.id;
+            } else {
+              knownChatMessageIdsRef.current.add(m.id);
+              continue;
+            }
+          } else if (options?.fromSse && m.ticketId) {
+            // Backend SSE stream already enforced strict RBAC via checkTicketAccess
+            resolvedId = m.ticketId;
+          } else {
+            continue;
+          }
+        }
+
+        knownChatMessageIdsRef.current.add(m.id);
+
+        if (String(m.senderId || '').trim() === uid) continue;
+        const readers = Array.isArray(m.readBy) ? m.readBy : [];
+        if (readers.includes(uid)) continue;
+
+        const parsedTs = Date.parse(m.timestamp);
+        if (Number.isFinite(parsedTs) && parsedTs < recencyCutoffMs) continue;
+
+        notifiedChatSoundIdsRef.current.add(m.id);
+        freshIncoming.push({ message: m, ticketId: resolvedId });
+      }
+
+      if (freshIncoming.length === 0) return;
+
+      const latest = freshIncoming[freshIncoming.length - 1];
+      const targetTicket = ticketsRef.current.find(t => t.id === latest.ticketId);
+      const woLabel = targetTicket?.woNumber || latest.message.woNumber || '';
+      const senderLabel = latest.message.senderName || 'Tim Operasional';
+      const rawSnippet =
+        (latest.message.text || '').trim() ||
+        (latest.message.attachments && latest.message.attachments.length > 0
+          ? 'Mengirim lampiran foto'
+          : 'Pesan baru');
+
+      const bodyText =
+        freshIncoming.length === 1
+          ? `${senderLabel}${woLabel ? ` (${woLabel})` : ''}: ${rawSnippet}`
+          : `${freshIncoming.length} pesan baru — terakhir dari ${senderLabel}${woLabel ? ` (${woLabel})` : ''}.`;
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('morajaws:livechat-sound', {
+            detail: {
+              messageId: latest.message.id,
+              ticketId: latest.ticketId,
+              senderRole: latest.message.senderRole,
+              recipientRole: role
+            }
+          })
+        );
+      } catch {}
+
+      toast.info(bodyText, 'Live Chat', {
+        withSound: false,
+        soundCategory: 'live_chat',
+        actionLabel: 'Buka Chat',
+        onAction: () => {
+          try {
+            window.dispatchEvent(
+              new CustomEvent('morajaws:open-live-chat', {
+                detail: { ticketId: latest.ticketId }
+              })
+            );
+          } catch {}
+        }
+      });
+    },
+    [toast]
+  );
 
   const triggerDeliveryReceiptsForMessages = React.useCallback((msgs: TicketMessage[], uid?: string) => {
     const cleanUid = String(uid || currentUserRef.current?.id || '').trim();
@@ -936,7 +1061,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
               scheduleKpiRefreshRef.current?.();
             } else if (rec && rec.id) {
-              const wasPresent = ticketsRef.current.some(t => t.id === rec.id);
+              const prevMatch = ticketsRef.current.find(t => t.id === rec.id);
+              const wasPresent = Boolean(prevMatch);
               setTickets(prev => {
                 const idx = prev.findIndex(t => t.id === rec.id);
                 if (idx >= 0) {
@@ -947,6 +1073,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return [rec, ...prev];
               });
               scheduleKpiRefreshRef.current?.();
+
+              // Real-time Work Order assignment / approval / revision audio alerts via SSE
+              const activeUser = currentUserRef.current;
+              const actorName = String(rec.updatedBy || '').trim().toLowerCase();
+              const myName = String(activeUser?.name || '').trim().toLowerCase();
+              if (activeUser?.id && !rec.isDeleted && !rec.isArchived && (!actorName || actorName !== myName)) {
+                const woEventKey = `${rec.id}:${rec.updatedAt || ''}:${rec.approvalStatus || ''}:${rec.installerId || rec.installerName || ''}`;
+                if (!notifiedWoEventKeysRef.current.has(woEventKey)) {
+                  if (activeUser.role === 'installer') {
+                    if (!wasPresent) {
+                      notifiedWoEventKeysRef.current.add(woEventKey);
+                      toast.info(
+                        `Work Order baru ditugaskan: ${rec.woNumber || rec.id} (${rec.customerName || 'Pelanggan'}).`,
+                        'Penugasan WO Baru',
+                        { withSound: true, soundCategory: 'wo_assignment' }
+                      );
+                    } else if (
+                      rec.approvalStatus === 'REJECTED' &&
+                      prevMatch?.approvalStatus !== 'REJECTED'
+                    ) {
+                      notifiedWoEventKeysRef.current.add(woEventKey);
+                      toast.warning(
+                        `Laporan WO ${rec.woNumber || rec.id} memerlukan revisi dari Dispatch.`,
+                        'Revisi Laporan',
+                        { withSound: true, soundCategory: 'important' }
+                      );
+                    } else if (
+                      rec.approvalStatus === 'APPROVED' &&
+                      prevMatch?.approvalStatus !== 'APPROVED'
+                    ) {
+                      notifiedWoEventKeysRef.current.add(woEventKey);
+                      toast.success(
+                        `Laporan WO ${rec.woNumber || rec.id} telah disetujui Dispatch (Approved).`,
+                        'Laporan Disetujui',
+                        { withSound: true, soundCategory: 'success' }
+                      );
+                    }
+                  } else if (activeUser.role === 'dispatch' || activeUser.role === 'super_admin') {
+                    if (
+                      rec.approvalStatus === 'BUTUH APPROVAL' &&
+                      prevMatch?.approvalStatus !== 'BUTUH APPROVAL'
+                    ) {
+                      notifiedWoEventKeysRef.current.add(woEventKey);
+                      toast.warning(
+                        `${rec.installerName || 'Teknisi'} mengirim laporan WO ${rec.woNumber || rec.id} untuk verifikasi QC.`,
+                        'Laporan Siap Verifikasi',
+                        { withSound: true, soundCategory: 'important' }
+                      );
+                    }
+                  }
+                }
+              }
+
               // When a WO becomes newly accessible (e.g., reassignment to this Installer), fetch its messages immediately
               if (!wasPresent && !rec.isDeleted && !rec.isArchived) {
                 fetch(`/api/tickets/${encodeURIComponent(rec.id)}/messages`, { headers: getAuthHeaders() })
@@ -972,6 +1151,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         );
                       });
                       triggerDeliveryReceiptsForMessages(fetchedMsgs);
+                      notifyIncomingChatMessages(fetchedMsgs);
                     }
                   })
                   .catch(() => {});
@@ -1043,8 +1223,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
                 );
               });
-              // Trigger Delivered receipt immediately (NEVER marks readBy)
+              // Trigger Delivered receipt & LiveChat notification sound immediately (NEVER marks readBy)
               triggerDeliveryReceiptsForMessages([incomingMsg]);
+              notifyIncomingChatMessages([incomingMsg], { fromSse: true });
             }
           },
           onError: () => {}
@@ -1206,7 +1387,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubOperationalDate?.();
       unsubProgressReports?.();
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentUser?.id]);
+
+  // Automatic Installer Live GPS Tracking strictly bound to authenticated Installer session
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser?.id || currentUser.role !== 'installer') {
+      installerGpsTracker.stopTracking();
+      return;
+    }
+
+    let sessionIdFromStorage: string | null = null;
+    try {
+      const rawSess = localStorage.getItem('morajaws_auth_session');
+      if (rawSess) {
+        const parsed = JSON.parse(rawSess);
+        sessionIdFromStorage = parsed?.sessionId || null;
+      }
+    } catch {}
+
+    if (sessionIdFromStorage) {
+      installerGpsTracker
+        .startForAuthenticatedInstaller({
+          userId: currentUser.id,
+          role: currentUser.role,
+          sessionId: sessionIdFromStorage
+        })
+        .catch(() => {});
+    }
+  }, [isLoggedIn, currentUser?.id, currentUser?.role]);
 
   // Explicit Supabase PostgreSQL data refresh via Express proxy
   const refreshDatabaseData = async () => {
@@ -2043,7 +2251,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {}
 
       addAuditLog('Login Success', 'auth', authedUser.id, `Pengguna ${authedUser.name} (${authedUser.role}) berhasil login ke sistem via MoraJaws Custom Auth`);
+      if (authedUser.role === 'installer' && data.sessionId) {
+        installerGpsTracker
+          .startForAuthenticatedInstaller({
+            userId: authedUser.id,
+            role: authedUser.role,
+            sessionId: data.sessionId
+          })
+          .catch(() => {});
+      }
       await loadCentralData();
+      try {
+        window.dispatchEvent(new CustomEvent('morajaws:event-sound', { detail: { event: 'ready' } }));
+      } catch {}
       return { success: true, user: authedUser };
 
     } catch (err: any) {
@@ -2091,12 +2311,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => {
     addAuditLog('User Logout', 'auth', currentUser.id, `Pengguna ${currentUser.name} (${currentUser.role}) logout dari sistem`);
+    installerGpsTracker.stopTracking();
     const authHeaders = getAuthHeaders();
     setIsLoggedIn(false);
     setCurrentUser(UNAUTHENTICATED_USER);
     setTicketMessages([]);
     setTickets([]);
     deliveredTriggeredRef.current.clear();
+    notifiedChatSoundIdsRef.current.clear();
+    notifiedWoEventKeysRef.current.clear();
     try {
       localStorage.setItem('morajaws_logged_in', 'false');
       localStorage.removeItem('morajaws_auth_session');
@@ -4385,6 +4608,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (savedMessage.id) {
         knownChatMessageIdsRef.current.add(savedMessage.id);
+        notifiedChatSoundIdsRef.current.add(savedMessage.id);
       }
 
       setTicketMessages(prev => {
@@ -4562,6 +4786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return { byId, woToId };
   }, [scopedTickets]);
+  activeScopedLookupRef.current = activeScopedTicketLookup;
 
   const unreadCountsByTicket = React.useMemo(() => {
     const currentUserId = String(currentUser?.id || '').trim();
@@ -4593,82 +4818,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unreadCountsByTicket[ticketId] || 0;
   };
 
-  // Real-time incoming Live Chat notification + crisp double chime sound
+  // Fallback Live Chat incoming sound & toast for polling / reconnect / newly-assigned WO fetch
   React.useEffect(() => {
     const uid = String(currentUser?.id || '').trim();
     if (!isLoggedIn || !uid || !hasHydratedChatMessagesRef.current) return;
-
-    const freshIncoming: Array<{ message: TicketMessage; ticketId: string }> = [];
-    const recencyCutoffMs = Date.now() - 5 * 60 * 1000;
-
-    for (const m of ticketMessages) {
-      if (!m || !m.id) continue;
-      if (knownChatMessageIdsRef.current.has(m.id)) continue;
-
-      let resolvedId: string | undefined;
-      if (m.ticketId && activeScopedTicketLookup.byId.has(m.ticketId)) {
-        resolvedId = m.ticketId;
-      } else if (m.woNumber) {
-        resolvedId = activeScopedTicketLookup.woToId.get(String(m.woNumber).trim().toUpperCase());
-      }
-
-      // If ticket is present in global tickets but outside RBAC scope, mark seen and never alert
-      if (!resolvedId) {
-        const existsOutsideScope = ticketsRef.current.some(
-          t =>
-            t.id === m.ticketId ||
-            (m.woNumber && String(t.woNumber || '').trim().toUpperCase() === String(m.woNumber).trim().toUpperCase())
-        );
-        if (existsOutsideScope) {
-          knownChatMessageIdsRef.current.add(m.id);
-        }
-        continue;
-      }
-
-      knownChatMessageIdsRef.current.add(m.id);
-
-      if (String(m.senderId || '').trim() === uid) continue;
-      const readers = Array.isArray(m.readBy) ? m.readBy : [];
-      if (readers.includes(uid)) continue;
-
-      const parsedTs = Date.parse(m.timestamp);
-      if (Number.isFinite(parsedTs) && parsedTs < recencyCutoffMs) continue;
-
-      freshIncoming.push({ message: m, ticketId: resolvedId });
-    }
-
-    if (freshIncoming.length === 0) return;
-
-    const latest = freshIncoming[freshIncoming.length - 1];
-    const targetTicket = scopedTickets.find(t => t.id === latest.ticketId);
-    const woLabel = targetTicket?.woNumber || latest.message.woNumber || '';
-    const senderLabel = latest.message.senderName || 'Tim Operasional';
-    const rawSnippet =
-      (latest.message.text || '').trim() ||
-      (latest.message.attachments && latest.message.attachments.length > 0
-        ? 'Mengirim lampiran foto'
-        : 'Pesan baru');
-
-    const bodyText =
-      freshIncoming.length === 1
-        ? `${senderLabel}${woLabel ? ` (${woLabel})` : ''}: ${rawSnippet}`
-        : `${freshIncoming.length} pesan baru — terakhir dari ${senderLabel}${woLabel ? ` (${woLabel})` : ''}.`;
-
-    toast.info(bodyText, 'Live Chat', {
-      withSound: true,
-      soundCategory: 'live_chat',
-      actionLabel: 'Buka Chat',
-      onAction: () => {
-        try {
-          window.dispatchEvent(
-            new CustomEvent('morajaws:open-live-chat', {
-              detail: { ticketId: latest.ticketId }
-            })
-          );
-        } catch {}
-      }
-    });
-  }, [ticketMessages, activeScopedTicketLookup, scopedTickets, isLoggedIn, currentUser?.id, toast]);
+    notifyIncomingChatMessages(ticketMessages);
+  }, [ticketMessages, activeScopedTicketLookup, isLoggedIn, currentUser?.id, notifyIncomingChatMessages]);
 
   const totalLiveChatUnreadCount = React.useMemo(() => {
     return Object.values(unreadCountsByTicket).reduce((sum, count) => sum + count, 0);

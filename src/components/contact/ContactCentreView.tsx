@@ -46,9 +46,13 @@ import {
   Info,
   Crosshair,
   Gauge,
-  AlertTriangle
+  AlertTriangle,
+  Volume2,
+  VolumeX,
+  BellRing
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useMoraJawsSound } from '../../context/SoundContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
@@ -163,6 +167,56 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   } = useApp();
   const { isOnline } = useOfflineSync();
   const { toast } = useToast();
+  const {
+    soundSettings,
+    audioEngineState,
+    unlockAudio,
+    updateSoundSettings,
+    previewSound
+  } = useMoraJawsSound();
+
+  const isLiveChatSoundOn =
+    soundSettings.enabled &&
+    !soundSettings.muteNormal &&
+    (soundSettings.categories?.live_chat ?? true);
+
+  const handleToggleLiveChatSound = async () => {
+    await unlockAudio();
+    if (!isLiveChatSoundOn) {
+      await updateSoundSettings({
+        enabled: true,
+        muteNormal: false,
+        categories: {
+          ...soundSettings.categories,
+          live_chat: true
+        }
+      });
+      previewSound('live_chat');
+      toast.success('Notifikasi suara Live Chat diaktifkan.', 'Suara Chat Aktif', {
+        withSound: false
+      });
+    } else {
+      await updateSoundSettings({
+        categories: {
+          ...soundSettings.categories,
+          live_chat: false
+        }
+      });
+      toast.info('Notifikasi suara Live Chat dimatikan untuk perangkat ini.', 'Suara Chat Senyap', {
+        withSound: false
+      });
+    }
+  };
+
+  const handleUnlockLiveChatAudio = async () => {
+    const state = await unlockAudio();
+    if (state === 'running' || state === 'idle') {
+      previewSound('live_chat');
+      toast.success('Audio browser siap memutar notifikasi Live Chat.', 'Audio Aktif', {
+        withSound: false
+      });
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>(() =>
@@ -953,6 +1007,37 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5">
+                {audioEngineState === 'suspended' && isLiveChatSoundOn && (
+                  <button
+                    type="button"
+                    onClick={() => void handleUnlockLiveChatAudio()}
+                    className="h-10 px-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 flex items-center gap-1.5 text-[11px] font-bold cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/70 transition-colors shrink-0"
+                    title="Browser menahan audio otomatis. Klik untuk mengaktifkan suara Live Chat."
+                    aria-label="Aktifkan Suara Live Chat"
+                  >
+                    <BellRing className="w-3.5 h-3.5 animate-pulse" />
+                    <span className="hidden sm:inline">Aktifkan Suara</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => void handleToggleLiveChatSound()}
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center cursor-pointer transition-colors shrink-0 ${
+                    isLiveChatSoundOn
+                      ? 'bg-[#F3EAFF] dark:bg-[#27104A] text-[#58149C] dark:text-[#D8B4FE] border-[#7135B5]/40'
+                      : 'btn-3d-icon text-[#7D7484] dark:text-[#A493C2]'
+                  }`}
+                  title={
+                    isLiveChatSoundOn
+                      ? 'Suara Live Chat Aktif (Klik untuk senyapkan)'
+                      : 'Suara Live Chat Senyap (Klik untuk aktifkan & tes suara)'
+                  }
+                  aria-label={isLiveChatSoundOn ? 'Senyapkan Suara Live Chat' : 'Aktifkan Suara Live Chat'}
+                >
+                  {isLiveChatSoundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsFilterPopoverOpen(prev => !prev)}

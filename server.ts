@@ -123,6 +123,20 @@ import { realtimeSandboxHub, requireSandboxSuperAdmin, getSandboxSuperAdminAllow
 import { sandboxJournalEngine } from './server/sandbox/sandboxJournal.ts';
 import { sandboxOutboxStore } from './server/sandbox/sandboxOutbox.ts';
 import { SandboxRecoveryWorker } from './server/sandbox/sandboxRecoveryWorker.ts';
+import {
+  DEFAULT_GPS_TRACKING_CONFIG,
+  normalizeGpsTrackingConfig,
+  getEffectiveGpsTrackingConfig,
+  createInstallerTrackingSession,
+  endInstallerTrackingSession,
+  recordInstallerLocationStatusUpdate,
+  recordInstallerHeartbeat,
+  recordInstallerLocationUpdate,
+  recordInstallerLocationBatch,
+  getScopedInstallerLiveLocations,
+  getScopedInstallerLocationHistory,
+  checkInstallerTrackingReadAccess
+} from './server/installerGpsTrackingService.ts';
 import { sandboxReplayEngine } from './server/sandbox/sandboxReplay.ts';
 import { sandboxAccessController } from './server/sandbox/sandboxAccessControl.ts';
 import { sandboxRealtimeCoordinator } from './server/sandbox/sandboxRealtime.ts';
@@ -468,6 +482,9 @@ interface DatabaseSchema {
   rolePermissions?: Record<string, string[]>;
   userPreferences?: Record<string, any>;
   systemErrorLogs?: any[];
+  installerSessions?: any[];
+  installerCurrentLocations?: any[];
+  installerLocationHistory?: any[];
 }
 
 // Initial seed data so that a fresh deployment is immediately operational and non-empty
@@ -1874,6 +1891,11 @@ function validateGlobalConfigPayload(key: string, value: any): { valid: boolean;
       return { valid: false, code: 'INVALID_ROLE_PERMISSIONS_PAYLOAD', message: 'Payload role_permissions harus berupa objek mapping role -> permissions[].' };
     }
   }
+  if (key === 'gps_tracking_config') {
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      return { valid: false, code: 'INVALID_GPS_CONFIG_PAYLOAD', message: 'Payload gps_tracking_config harus berupa objek konfigurasi yang valid.' };
+    }
+  }
   return { valid: true };
 }
 
@@ -1987,6 +2009,8 @@ async function saveGlobalConfigUnified(
   let value = rawValue;
   if (key === 'role_permissions') {
     value = normalizeRolePermissionsMatrix(rawValue);
+  } else if (key === 'gps_tracking_config') {
+    value = normalizeGpsTrackingConfig(rawValue);
   }
 
   const actorName = user.name || user.username || 'Super Admin';
@@ -3167,6 +3191,24 @@ export async function createExpressApp(options?: {
 
     const { user, tokens, sessionId } = loginRes.data;
 
+    let trackingSession: any = null;
+    if (user.role === 'installer') {
+      trackingSession = await createInstallerTrackingSession({
+        installer: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          phone: user.phone,
+          contractor: user.contractor,
+          contractorId: user.contractorId,
+          area: user.area
+        },
+        sessionId,
+        deviceId: req.body?.deviceId ? String(req.body.deviceId) : undefined,
+        userAgent
+      });
+    }
+
     // Secure HttpOnly SameSite Cookies
     res.cookie('mora_access_token', tokens.accessToken, {
       httpOnly: true,
@@ -3190,6 +3232,7 @@ export async function createExpressApp(options?: {
       tokens,
       token: tokens.accessToken,
       sessionId,
+      trackingSession,
       user,
       sessionVersion: user.sessionVersion || 1
     });
@@ -3260,6 +3303,14 @@ export async function createExpressApp(options?: {
 
     if (rawToken) {
       await revokeSingleSession(rawToken);
+    }
+
+    if (req.user?.role === 'installer' || req.session?.sessionId) {
+      await endInstallerTrackingSession({
+        installerId: req.user?.role === 'installer' ? req.user.id : undefined,
+        sessionId: req.session?.sessionId,
+        reason: 'ended'
+      });
     }
 
     if (req.user) {
@@ -3385,6 +3436,9 @@ export async function createExpressApp(options?: {
 
     // Revoke other active sessions
     await revokeAllUserSessions(user.id);
+    if (user.role === 'installer') {
+      await endInstallerTrackingSession({ installerId: user.id, reason: 'ended' });
+    }
 
     await logServerAuditAsync(
       'USER_PASSWORD_CHANGED',
@@ -3517,6 +3571,9 @@ export async function createExpressApp(options?: {
 
     // Revoke ALL active sessions for this target user immediately
     await revokeAllUserSessions(targetUser.id, req.user!.id);
+    if (targetUser.role === 'installer') {
+      await endInstallerTrackingSession({ installerId: targetUser.id, reason: 'ended' });
+    }
 
     // Record audit log
     await logServerAuditAsync(
@@ -3807,6 +3864,9 @@ export async function createExpressApp(options?: {
     // If deactivating or locking, revoke all active sessions
     if (!willBeActive) {
       await revokeAllUserSessions(id, req.user!.id);
+      if (existingUser.role === 'installer') {
+        await endInstallerTrackingSession({ installerId: id, reason: 'ended' });
+      }
     }
 
     if (client) {
@@ -3851,6 +3911,7 @@ export async function createExpressApp(options?: {
   app.post('/api/admin/users/:id/revoke-sessions', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     await revokeAllUserSessions(id, req.user!.id);
+    await endInstallerTrackingSession({ installerId: id, reason: 'ended' });
 
     await logServerAuditAsync(
       'ADMIN_REVOKE_SESSIONS',
@@ -11373,6 +11434,11 @@ export async function createExpressApp(options?: {
             return;
           }
         }
+        if (event.table === 'installer_tracking' && event.record) {
+          if (!checkInstallerTrackingReadAccess(event.record, user)) {
+            return;
+          }
+        }
         const safePayload = {
           table: event.table,
           eventType: event.eventType,
@@ -12052,6 +12118,248 @@ export async function createExpressApp(options?: {
         report: t.technicalReport
       }));
     res.json({ success: true, count: reports.length, reports });
+  });
+
+  // ---------------------------------------------------------------------------
+  // AUTOMATIC INSTALLER LOGIN & LIVE GPS TRACKING API
+  // ---------------------------------------------------------------------------
+  const GPS_MAP_VIEW_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'installer']);
+
+  app.get('/api/installer-tracking/config', requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const config = await getEffectiveGpsTrackingConfig();
+      return res.json({ success: true, config, defaults: DEFAULT_GPS_TRACKING_CONFIG });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat konfigurasi GPS tracking.' });
+    }
+  });
+
+  app.post('/api/installer-tracking/location', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'installer') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Pengiriman koordinat Live GPS hanya untuk akun role Installer.',
+          code: 'INSTALLER_ROLE_REQUIRED'
+        });
+      }
+      const { sessionId, session_id, latitude, longitude, accuracy, speed, heading, timestamp } = req.body || {};
+      const resolvedSessionId = String(sessionId || session_id || req.session?.sessionId || '').trim();
+      if (!resolvedSessionId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Session ID wajib disertakan untuk sinkronisasi GPS Installer.',
+          code: 'MISSING_SESSION_ID'
+        });
+      }
+
+      const result = await recordInstallerLocationUpdate({
+        installer: user,
+        point: {
+          sessionId: resolvedSessionId,
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          accuracy: accuracy !== undefined && accuracy !== null ? Number(accuracy) : null,
+          speed: speed !== undefined && speed !== null ? Number(speed) : null,
+          heading: heading !== undefined && heading !== null ? Number(heading) : null,
+          timestamp
+        }
+      });
+
+      if (!result.success) {
+        return res.status(result.status || 400).json({
+          success: false,
+          error: result.message || 'Gagal mencatat lokasi GPS Installer.',
+          code: result.code || 'LOCATION_UPDATE_FAILED'
+        });
+      }
+
+      return res.json({
+        success: true,
+        deduplicated: Boolean(result.deduplicated),
+        location: result.view
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Terjadi kesalahan saat menyimpan lokasi GPS Installer.' });
+    }
+  });
+
+  app.post('/api/installer-tracking/location/batch', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'installer') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Batch resync GPS hanya untuk akun role Installer.',
+          code: 'INSTALLER_ROLE_REQUIRED'
+        });
+      }
+      const { sessionId, session_id, points } = req.body || {};
+      const resolvedSessionId = String(sessionId || session_id || req.session?.sessionId || '').trim();
+      if (!resolvedSessionId) {
+        return res.status(400).json({ success: false, error: 'Session ID wajib disertakan.', code: 'MISSING_SESSION_ID' });
+      }
+      if (!Array.isArray(points)) {
+        return res.status(400).json({ success: false, error: 'Field points wajib berupa array.', code: 'INVALID_BATCH_PAYLOAD' });
+      }
+
+      const result = await recordInstallerLocationBatch({
+        installer: user,
+        sessionId: resolvedSessionId,
+        points: points.slice(0, 250)
+      });
+
+      if (!result.success) {
+        return res.status(result.status || 400).json({
+          success: false,
+          error: result.message || 'Gagal melakukan resync batch GPS.',
+          code: result.code || 'BATCH_SYNC_FAILED'
+        });
+      }
+
+      return res.json({
+        success: true,
+        syncedCount: result.syncedCount,
+        skippedCount: result.skippedCount,
+        location: result.view
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Terjadi kesalahan saat resync batch GPS.' });
+    }
+  });
+
+  app.post('/api/installer-tracking/heartbeat', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'installer') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Heartbeat sesi GPS hanya untuk role Installer.',
+          code: 'INSTALLER_ROLE_REQUIRED'
+        });
+      }
+      const { sessionId, session_id, locationStatus } = req.body || {};
+      const resolvedSessionId = String(sessionId || session_id || req.session?.sessionId || '').trim();
+      if (!resolvedSessionId) {
+        return res.status(400).json({ success: false, error: 'Session ID wajib disertakan.', code: 'MISSING_SESSION_ID' });
+      }
+
+      const result = await recordInstallerHeartbeat({
+        installer: user,
+        sessionId: resolvedSessionId,
+        locationStatusHint: locationStatus
+      });
+
+      if (!result.success) {
+        return res.status(result.status || 400).json({
+          success: false,
+          error: result.message || 'Gagal memperbarui heartbeat Installer.',
+          code: result.code || 'HEARTBEAT_FAILED'
+        });
+      }
+
+      return res.json({ success: true, location: result.view });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memproses heartbeat GPS.' });
+    }
+  });
+
+  app.post('/api/installer-tracking/session/status', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'installer') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Pembaruan status izin GPS hanya untuk role Installer.',
+          code: 'INSTALLER_ROLE_REQUIRED'
+        });
+      }
+      const { sessionId, session_id, locationStatus, location_status } = req.body || {};
+      const resolvedSessionId = String(sessionId || session_id || req.session?.sessionId || '').trim();
+      const resolvedStatus = locationStatus || location_status;
+      if (!resolvedSessionId || !resolvedStatus) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parameter sessionId dan locationStatus wajib disertakan.',
+          code: 'INVALID_INPUT'
+        });
+      }
+
+      const result = await recordInstallerLocationStatusUpdate({
+        installer: user,
+        sessionId: resolvedSessionId,
+        locationStatus: resolvedStatus
+      });
+
+      if (!result.success) {
+        return res.status(result.status || 400).json({
+          success: false,
+          error: result.message || 'Gagal memperbarui status GPS Installer.',
+          code: result.code || 'STATUS_UPDATE_FAILED'
+        });
+      }
+
+      return res.json({ success: true, location: result.view });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memperbarui status GPS Installer.' });
+    }
+  });
+
+  app.get('/api/installer-tracking/live', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (!GPS_MAP_VIEW_ROLES.has(user.role)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Role Anda tidak memiliki izin memantau posisi live Installer.',
+          code: 'GPS_MONITORING_FORBIDDEN'
+        });
+      }
+
+      const result = await getScopedInstallerLiveLocations(user);
+      if (!result.success) {
+        return res.status(result.status || 503).json({
+          success: false,
+          error: result.message,
+          code: result.code
+        });
+      }
+
+      return res.json({
+        success: true,
+        config: result.config,
+        installers: result.installers,
+        serverTime: new Date().toISOString()
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat posisi live Installer.' });
+    }
+  });
+
+  app.get('/api/installer-tracking/history/:installerId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (!GPS_MAP_VIEW_ROLES.has(user.role)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Anda tidak memiliki izin melihat riwayat lokasi Installer.',
+          code: 'GPS_HISTORY_FORBIDDEN'
+        });
+      }
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 100;
+      const result = await getScopedInstallerLocationHistory(user, req.params.installerId, limit);
+      if (!result.success) {
+        return res.status(result.status || 400).json({
+          success: false,
+          error: result.message,
+          code: result.code
+        });
+      }
+      return res.json({ success: true, history: result.history });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat riwayat lokasi Installer.' });
+    }
   });
 
   // ---------------------------------------------------------------------------

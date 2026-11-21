@@ -265,7 +265,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setToasts(prev => [newToast, ...prev].slice(0, MAX_VISIBLE_TOASTS));
       }
 
-      if (opts.withSound) {
+      const shouldPlaySound =
+        opts.withSound === true ||
+        (opts.withSound !== false &&
+          (type === 'success' ||
+            type === 'warning' ||
+            type === 'error' ||
+            type === 'sync' ||
+            (opts.soundCategory !== undefined && opts.soundCategory !== 'normal')));
+
+      if (shouldPlaySound) {
         try {
           window.dispatchEvent(
             new CustomEvent('morajaws:toast-sound', {

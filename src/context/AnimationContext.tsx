@@ -55,8 +55,21 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const refreshTimeoutRef = useRef<any>(null);
 
+  const isLoadingRef = useRef(false);
+
+  const emitEventSound = (event: 'loading' | 'ready' | 'error') => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('morajaws:event-sound', {
+          detail: { event }
+        })
+      );
+    } catch {}
+  };
+
   const showGlobalError = useCallback((details: ErrorDetails) => {
     setActiveError(details);
+    emitEventSound('error');
     // Asynchronously log incident to backend PostgreSQL without blocking user
     logSystemError(details).catch(() => {});
   }, []);
@@ -85,10 +98,18 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         fullScreen: true
       });
     }
+    if (!isLoadingRef.current) {
+      isLoadingRef.current = true;
+      emitEventSound('loading');
+    }
     setIsLoading(true);
   }, []);
 
   const stopLoading = useCallback(() => {
+    if (isLoadingRef.current) {
+      isLoadingRef.current = false;
+      emitEventSound('ready');
+    }
     setIsLoading(false);
   }, []);
 

@@ -42,6 +42,7 @@ import { DatabaseManagementView } from './components/database/DatabaseManagement
 import { TextToTableImporter } from './components/textToTable/TextToTableImporter';
 import { GoogleSheetsSyncView } from './components/sheets/GoogleSheetsSyncView';
 import { MonitoringMapsView } from './components/maps/MonitoringMapsView';
+import { InstallerGpsSyncWidget } from './components/maps/InstallerGpsSyncWidget';
 
 import { StaffLoginPortal } from './components/auth/StaffLoginPortal';
 import { SessionManagementModal } from './components/settings/SessionManagementModal';
@@ -1190,6 +1191,9 @@ const MainLayout: React.FC = () => {
           />
         )
       )}
+
+      {/* Exclusive Live GPS Sync Pill for authenticated Installer */}
+      {isInstaller && <InstallerGpsSyncWidget />}
 
       {/* Modals & Offline Alerts */}
       <SessionManagementModal />

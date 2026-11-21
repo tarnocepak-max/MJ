@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { RootCauseCategory, Contractor, CoverageArea } from '../../types/index.ts';
+import { RootCauseCategory, Contractor, CoverageArea, GpsTrackingConfig } from '../../types/index.ts';
 import {
   Settings,
   Plus,
@@ -24,9 +24,13 @@ import {
   SlidersHorizontal,
   Info,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Satellite,
+  RotateCcw
 } from 'lucide-react';
 import { getJakartaDateString } from '../../services/appointmentDateParser';
+import { getGlobalConfig, saveGlobalConfig } from '../../services/globalConfigService';
+import { DEFAULT_FRONTEND_GPS_CONFIG } from '../../services/installerGpsTrackingService';
 import { DroplistManagementView } from './DroplistManagementView';
 import { SoundSettingsView } from './SoundSettingsView';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
@@ -136,6 +140,37 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   // Branding state
   const [appNameInput, setAppNameInput] = useState(config.global.appName || 'MoraJaws');
   const [appPrimaryColor, setAppPrimaryColor] = useState(config.global.primaryColor || 'indigo');
+
+  // GPS Tracking Config state (Superadmin configurable)
+  const [gpsConfig, setGpsConfig] = useState<GpsTrackingConfig>(() => ({ ...DEFAULT_FRONTEND_GPS_CONFIG }));
+  const [gpsConfigVersion, setGpsConfigVersion] = useState<number | undefined>(undefined);
+  const [isLoadingGpsConfig, setIsLoadingGpsConfig] = useState(false);
+
+  const loadGpsTrackingConfig = useCallback(async () => {
+    setIsLoadingGpsConfig(true);
+    try {
+      const res = await getGlobalConfig<Partial<GpsTrackingConfig>>('gps_tracking_config');
+      if (res.value) {
+        setGpsConfig({
+          ...DEFAULT_FRONTEND_GPS_CONFIG,
+          ...res.value
+        });
+      } else {
+        setGpsConfig({ ...DEFAULT_FRONTEND_GPS_CONFIG });
+      }
+      setGpsConfigVersion(res.version);
+    } catch {
+      // Keep default values silently
+    } finally {
+      setIsLoadingGpsConfig(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'system_session') {
+      void loadGpsTrackingConfig();
+    }
+  }, [activeTab, loadGpsTrackingConfig]);
 
   if (currentUser.role !== 'super_admin' && currentUser.role !== 'management_data') {
     return (
@@ -1714,6 +1749,195 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               >
                 <KeyRound className="w-4 h-4" />
                 <span>Buka Panel Manajemen Sesi Staf</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Automatic Installer Live GPS Tracking Config Card */}
+          <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F5F1FF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#7135B5]/40 text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+                  <Satellite className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+                    Konfigurasi Live GPS Tracking Installer (Otomatis Pasca-Login)
+                  </h4>
+                  <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
+                    Atur interval sinkronisasi posisi GPS, ambang pergerakan (Haversine), timeout heartbeat Online/Offline, ambang status Location Stale, dan retensi riwayat koordinat.
+                  </p>
+                </div>
+              </div>
+              {isLoadingGpsConfig && (
+                <Loader2 className="w-4 h-4 animate-spin text-[#7135B5] shrink-0" />
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <label className="flex items-center justify-between p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] cursor-pointer">
+                <div>
+                  <div className="font-bold text-[#1F1638] dark:text-white">Aktifkan Live GPS Tracking</div>
+                  <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">Global switch pelacakan GPS Installer</div>
+                </div>
+                <input
+                  type="checkbox"
+                  disabled={!isSuperAdmin || isSaving}
+                  checked={gpsConfig.enabled}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                  className="w-4 h-4 accent-[#58149C]"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] cursor-pointer">
+                <div>
+                  <div className="font-bold text-[#1F1638] dark:text-white">Otomatis Aktif Saat Login Installer</div>
+                  <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">Mulai watchPosition segera setelah login sukses</div>
+                </div>
+                <input
+                  type="checkbox"
+                  disabled={!isSuperAdmin || isSaving}
+                  checked={gpsConfig.autoStartOnLogin}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, autoStartOnLogin: e.target.checked }))}
+                  className="w-4 h-4 accent-[#58149C]"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">
+                  Interval Sinkronisasi GPS (detik)
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  max={300}
+                  disabled={!isSuperAdmin || isSaving}
+                  value={gpsConfig.syncIntervalSeconds}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, syncIntervalSeconds: Number(e.target.value) || 20 }))}
+                  className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">
+                  Jarak Minimal Perubahan (meter)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  disabled={!isSuperAdmin || isSaving}
+                  value={gpsConfig.minDistanceMeters}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, minDistanceMeters: Number(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">
+                  Interval Heartbeat Sesi (detik)
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  max={120}
+                  disabled={!isSuperAdmin || isSaving}
+                  value={gpsConfig.heartbeatIntervalSeconds}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, heartbeatIntervalSeconds: Number(e.target.value) || 20 }))}
+                  className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">
+                  Timeout Offline Heartbeat (detik)
+                </label>
+                <input
+                  type="number"
+                  min={15}
+                  max={600}
+                  disabled={!isSuperAdmin || isSaving}
+                  value={gpsConfig.heartbeatTimeoutSeconds}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, heartbeatTimeoutSeconds: Number(e.target.value) || 60 }))}
+                  className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">
+                  Ambang Location Stale (detik)
+                </label>
+                <input
+                  type="number"
+                  min={15}
+                  max={900}
+                  disabled={!isSuperAdmin || isSaving}
+                  value={gpsConfig.locationStaleThresholdSeconds}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, locationStaleThresholdSeconds: Number(e.target.value) || 90 }))}
+                  className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#4B4452] dark:text-[#CEC0E8] font-semibold mb-1">
+                  Retensi Riwayat Koordinat (hari)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  disabled={!isSuperAdmin || isSaving}
+                  value={gpsConfig.historyRetentionDays}
+                  onChange={e => setGpsConfig(prev => ({ ...prev, historyRetentionDays: Number(e.target.value) || 30 }))}
+                  className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl font-bold font-mono text-[#1F1638] dark:text-white disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
+              <button
+                type="button"
+                disabled={!isSuperAdmin || isSaving}
+                onClick={() => setGpsConfig({ ...DEFAULT_FRONTEND_GPS_CONFIG })}
+                className="btn-3d-lilac px-3.5 py-2 text-xs font-bold rounded-xl inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Default</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!isSuperAdmin || isSaving}
+                onClick={async () => {
+                  if (!isSuperAdmin) {
+                    triggerError('Akses ditolak: hanya Super Admin yang dapat menyimpan konfigurasi Live GPS.');
+                    return;
+                  }
+                  setIsSaving(true);
+                  try {
+                    const res = await saveGlobalConfig('gps_tracking_config', gpsConfig, {
+                      expectedVersion: gpsConfigVersion,
+                      module: 'gps_tracking',
+                      description: 'Installer Automatic Live GPS Tracking Configuration'
+                    });
+                    setGpsConfig(res.value);
+                    setGpsConfigVersion(res.version);
+                    triggerNotice('Konfigurasi Live GPS Tracking Installer berhasil disimpan & disiarkan real-time.');
+                  } catch (err: any) {
+                    triggerError(err?.message || 'Gagal menyimpan konfigurasi Live GPS Tracking.');
+                    if (err?.code === 'VERSION_CONFLICT') {
+                      await loadGpsTrackingConfig();
+                    }
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                className="mj-btn-superadmin-primary px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSaving ? 'Menyimpan...' : 'Simpan Konfigurasi Live GPS'}</span>
               </button>
             </div>
           </div>
