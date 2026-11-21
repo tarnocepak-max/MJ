@@ -1100,14 +1100,41 @@ export interface ReportDropdownCategory {
   isDeleted?: boolean;
 }
 
+export type NotificationSoundCategory =
+  | 'normal'
+  | 'success'
+  | 'live_chat'
+  | 'wo_assignment'
+  | 'important'
+  | 'critical';
+
+export interface SoundCategoryPreferences {
+  normal: boolean;
+  success: boolean;
+  live_chat: boolean;
+  wo_assignment: boolean;
+  important: boolean;
+  critical: boolean;
+}
+
+export interface SoundCategoryVolumes {
+  normal: number; // 0 to 100 (default 65)
+  important: number; // 0 to 100 (default 85)
+  critical: number; // 0 to 100 (default 90)
+}
+
 export interface SoundSettings {
   enabled: boolean;
-  volume: number; // 0 to 100
+  volume: number; // 0 to 100 (default 80)
   soundLoading: boolean;
   soundReady: boolean;
   soundReportSaved: boolean;
   soundError: boolean;
   soundSync: boolean;
+  muteNormal?: boolean;
+  criticalSeparate?: boolean;
+  categoryVolumes?: SoundCategoryVolumes;
+  categories?: SoundCategoryPreferences;
 }
 
 // -------------------------------------------------------------

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { SoundSettings } from '../types';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { NotificationSoundCategory, SoundSettings } from '../types';
 import {
   getGlobalConfig,
   saveGlobalConfig,
@@ -7,6 +7,12 @@ import {
   ConfigConflictError,
   GlobalConfigConflictDetails
 } from '../services/globalConfigService';
+import {
+  DEFAULT_SOUND_SETTINGS,
+  normalizeSoundSettings,
+  notificationAudioService,
+  resolveToastCategory
+} from '../services/notificationAudioService';
 
 export interface SoundUpdateResult {
   success: boolean;
@@ -14,65 +20,123 @@ export interface SoundUpdateResult {
   conflict?: GlobalConfigConflictDetails;
 }
 
+export type LegacyPreviewType = 'loading' | 'ready' | 'report_saved' | 'error' | 'sync';
+
 export interface SoundContextType {
   soundSettings: SoundSettings;
   soundVersion: number;
   isSoundSaving: boolean;
   soundError: string | null;
   soundConflict: GlobalConfigConflictDetails | null;
+  soundScope: 'global' | 'personal';
+  hasPersonalOverride: boolean;
+  audioEngineState: 'running' | 'suspended' | 'idle' | 'unavailable';
   clearSoundConflict: () => void;
   resolveSoundConflict: (strategy: 'reload' | 'overwrite') => Promise<void>;
   updateSoundSettings: (
     updates: Partial<SoundSettings>,
     options?: { forceOverwrite?: boolean }
   ) => Promise<SoundUpdateResult>;
+  restoreDefaultSoundSettings: () => Promise<SoundUpdateResult>;
   playLoadingSound: () => void;
   playReadySound: () => void;
   playReportSavedSound: () => void;
   playErrorSound: () => void;
   playSyncSound: () => void;
-  previewSound: (type: 'loading' | 'ready' | 'report_saved' | 'error' | 'sync') => void;
+  playLiveChatSound: () => void;
+  playCategorySound: (
+    category: NotificationSoundCategory,
+    options?: { force?: boolean; dedupKey?: string; previewVolume?: number }
+  ) => boolean;
+  previewSound: (
+    type: LegacyPreviewType | NotificationSoundCategory,
+    previewVolume?: number
+  ) => void;
 }
 
-const DEFAULT_SETTINGS: SoundSettings = {
-  enabled: true,
-  volume: 75,
-  soundLoading: true,
-  soundReady: true,
-  soundReportSaved: true,
-  soundError: true,
-  soundSync: true
-};
-
-function getSessionAuth(): { token: string; role: string } {
+function getSessionAuth(): { token: string; role: string; userId: string } {
   try {
     const raw = localStorage.getItem('morajaws_auth_session');
-    if (!raw) return { token: '', role: '' };
+    if (!raw) return { token: '', role: '', userId: 'guest' };
     const parsed = JSON.parse(raw);
     return {
       token: String(parsed?.token || ''),
-      role: String(parsed?.role || '')
+      role: String(parsed?.role || ''),
+      userId: String(parsed?.userId || parsed?.id || parsed?.username || 'guest')
     };
   } catch {
-    return { token: '', role: '' };
+    return { token: '', role: '', userId: 'guest' };
   }
+}
+
+function getPersonalPrefsKey(userId: string): string {
+  return `morajaws_personal_sound_prefs_${userId || 'guest'}`;
+}
+
+function readPersonalOverrides(userId: string): Partial<SoundSettings> | null {
+  try {
+    const raw = localStorage.getItem(getPersonalPrefsKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Partial<SoundSettings>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersonalOverrides(userId: string, overrides: Partial<SoundSettings> | null): void {
+  try {
+    const key = getPersonalPrefsKey(userId);
+    if (!overrides) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(overrides));
+    }
+  } catch {
+    // Ignore storage quota errors safely
+  }
+}
+
+function mergeSettings(
+  globalBase: SoundSettings,
+  personalOverride: Partial<SoundSettings> | null
+): SoundSettings {
+  if (!personalOverride) return normalizeSoundSettings(globalBase);
+  return normalizeSoundSettings({
+    ...globalBase,
+    ...personalOverride,
+    categoryVolumes: {
+      ...(globalBase.categoryVolumes || DEFAULT_SOUND_SETTINGS.categoryVolumes!),
+      ...(personalOverride.categoryVolumes || {})
+    },
+    categories: {
+      ...(globalBase.categories || DEFAULT_SOUND_SETTINGS.categories!),
+      ...(personalOverride.categories || {})
+    }
+  });
 }
 
 const SoundContext = createContext<SoundContextType | undefined>(undefined);
 
 export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [soundSettings, setSoundSettings] = useState<SoundSettings>(() => {
+  const [globalSoundSettings, setGlobalSoundSettings] = useState<SoundSettings>(() => {
     try {
       const stored = localStorage.getItem('morajaws_sound_preferences');
       if (stored) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+        return normalizeSoundSettings(JSON.parse(stored));
       }
     } catch {
       // Fallback
     }
-    return DEFAULT_SETTINGS;
+    return DEFAULT_SOUND_SETTINGS;
   });
 
+  const [personalOverride, setPersonalOverride] = useState<Partial<SoundSettings> | null>(() => {
+    const { userId } = getSessionAuth();
+    return readPersonalOverrides(userId);
+  });
+
+  const [authSnapshot, setAuthSnapshot] = useState(() => getSessionAuth());
   const [soundVersion, setSoundVersion] = useState<number>(1);
   const soundVersionRef = useRef<number>(1);
   const [isSoundSaving, setIsSoundSaving] = useState<boolean>(false);
@@ -80,8 +144,30 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
   const [soundConflict, setSoundConflict] = useState<GlobalConfigConflictDetails | null>(null);
   const pendingSoundDraftRef = useRef<SoundSettings | null>(null);
 
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const lastSoundTimeRef = useRef<Record<string, number>>({});
+  const isSuperAdmin = authSnapshot.role === 'super_admin';
+  const soundScope: 'global' | 'personal' = isSuperAdmin ? 'global' : 'personal';
+  const hasPersonalOverride = Boolean(!isSuperAdmin && personalOverride);
+
+  const soundSettings = useMemo(
+    () => (isSuperAdmin ? normalizeSoundSettings(globalSoundSettings) : mergeSettings(globalSoundSettings, personalOverride)),
+    [isSuperAdmin, globalSoundSettings, personalOverride]
+  );
+
+  const soundSettingsRef = useRef<SoundSettings>(soundSettings);
+  soundSettingsRef.current = soundSettings;
+
+  const [audioEngineState, setAudioEngineState] = useState<'running' | 'suspended' | 'idle' | 'unavailable'>(
+    () => notificationAudioService.getEngineState()
+  );
+
+  // Bind autoplay unlock once for browser & Android gesture compliance
+  useEffect(() => {
+    const unbind = notificationAudioService.bindAutoplayUnlock();
+    return () => {
+      unbind();
+      notificationAudioService.dispose();
+    };
+  }, []);
 
   // Hydrate & subscribe to global sound_settings via Express SSE whenever authenticated
   useEffect(() => {
@@ -93,14 +179,17 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
         activeUnsub();
         activeUnsub = null;
       }
-      const { token } = getSessionAuth();
-      if (!token) return;
+      const auth = getSessionAuth();
+      setAuthSnapshot(auth);
+      setPersonalOverride(auth.role === 'super_admin' ? null : readPersonalOverrides(auth.userId));
+
+      if (!auth.token) return;
 
       try {
         const res = await getGlobalConfig<SoundSettings>('sound_settings');
         if (!cancelled && res.value && typeof res.value === 'object') {
-          const merged = { ...DEFAULT_SETTINGS, ...res.value };
-          setSoundSettings(merged);
+          const merged = normalizeSoundSettings(res.value);
+          setGlobalSoundSettings(merged);
           soundVersionRef.current = res.version || 1;
           setSoundVersion(res.version || 1);
           try {
@@ -112,10 +201,10 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (cancelled) return;
-      activeUnsub = subscribeToGlobalConfigUpdates((ev) => {
+      activeUnsub = subscribeToGlobalConfigUpdates(ev => {
         if (ev.key !== 'sound_settings' || !ev.value || typeof ev.value !== 'object') return;
-        const merged = { ...DEFAULT_SETTINGS, ...ev.value };
-        setSoundSettings(merged);
+        const merged = normalizeSoundSettings(ev.value);
+        setGlobalSoundSettings(merged);
         if (typeof ev.version === 'number') {
           soundVersionRef.current = ev.version;
           setSoundVersion(ev.version);
@@ -140,432 +229,232 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  // Database-First global save (strict Super Admin only; no state commit until DB confirms)
-  const updateSoundSettings = useCallback(async (
-    updates: Partial<SoundSettings>,
-    options?: { forceOverwrite?: boolean }
-  ): Promise<SoundUpdateResult> => {
-    const { token, role } = getSessionAuth();
-    if (!token || role !== 'super_admin') {
-      const msg = 'Akses Ditolak: Hanya Super Admin yang dapat mengubah konfigurasi suara notifikasi global.';
-      setSoundError(msg);
-      return { success: false, error: msg };
-    }
+  const updateSoundSettings = useCallback(
+    async (
+      updates: Partial<SoundSettings>,
+      options?: { forceOverwrite?: boolean }
+    ): Promise<SoundUpdateResult> => {
+      const { token, role, userId } = getSessionAuth();
+      const currentMerged = mergeSettings(
+        globalSoundSettings,
+        role === 'super_admin' ? null : personalOverride
+      );
 
-    const next = { ...soundSettings, ...updates };
-    pendingSoundDraftRef.current = next;
-    setIsSoundSaving(true);
-    setSoundError(null);
-
-    try {
-      const res = await saveGlobalConfig<SoundSettings>('sound_settings', next, {
-        module: 'sound_settings',
-        expectedVersion: soundVersionRef.current,
-        forceOverwrite: Boolean(options?.forceOverwrite),
-        description: 'Global notification sound configuration'
+      const next = normalizeSoundSettings({
+        ...currentMerged,
+        ...updates,
+        categoryVolumes: {
+          ...(currentMerged.categoryVolumes || DEFAULT_SOUND_SETTINGS.categoryVolumes!),
+          ...(updates.categoryVolumes || {})
+        },
+        categories: {
+          ...(currentMerged.categories || DEFAULT_SOUND_SETTINGS.categories!),
+          ...(updates.categories || {})
+        }
       });
 
-      const confirmed = { ...DEFAULT_SETTINGS, ...(res.value || next) };
-      soundVersionRef.current = res.version;
-      setSoundVersion(res.version);
-      setSoundSettings(confirmed);
-      pendingSoundDraftRef.current = null;
-      setSoundConflict(null);
-      try {
-        localStorage.setItem('morajaws_sound_preferences', JSON.stringify(confirmed));
-      } catch {}
-      return { success: true };
-    } catch (err: any) {
-      if (err instanceof ConfigConflictError) {
-        setSoundConflict(err.conflict);
-        setSoundError(err.message);
-        return { success: false, error: err.message, conflict: err.conflict };
+      // Non-super-admin or offline guest stores personal device audio preferences cleanly
+      if (!token || role !== 'super_admin') {
+        setPersonalOverride(next);
+        writePersonalOverrides(userId, next);
+        setSoundError(null);
+        return { success: true };
       }
-      const errMsg = err?.message || 'Gagal menyimpan pengaturan notifikasi ke database.';
-      setSoundError(errMsg);
-      return { success: false, error: errMsg };
-    } finally {
-      setIsSoundSaving(false);
+
+      pendingSoundDraftRef.current = next;
+      setIsSoundSaving(true);
+      setSoundError(null);
+
+      try {
+        const res = await saveGlobalConfig<SoundSettings>('sound_settings', next, {
+          module: 'sound_settings',
+          expectedVersion: soundVersionRef.current,
+          forceOverwrite: Boolean(options?.forceOverwrite),
+          description: 'Global notification sound configuration'
+        });
+
+        const confirmed = normalizeSoundSettings(res.value || next);
+        soundVersionRef.current = res.version;
+        setSoundVersion(res.version);
+        setGlobalSoundSettings(confirmed);
+        pendingSoundDraftRef.current = null;
+        setSoundConflict(null);
+        try {
+          localStorage.setItem('morajaws_sound_preferences', JSON.stringify(confirmed));
+        } catch {}
+        return { success: true };
+      } catch (err: any) {
+        if (err instanceof ConfigConflictError) {
+          setSoundConflict(err.conflict);
+          setSoundError(err.message);
+          return { success: false, error: err.message, conflict: err.conflict };
+        }
+        const errMsg = err?.message || 'Gagal menyimpan pengaturan notifikasi ke database.';
+        setSoundError(errMsg);
+        return { success: false, error: errMsg };
+      } finally {
+        setIsSoundSaving(false);
+      }
+    },
+    [globalSoundSettings, personalOverride]
+  );
+
+  const restoreDefaultSoundSettings = useCallback(async (): Promise<SoundUpdateResult> => {
+    const { token, role, userId } = getSessionAuth();
+    if (!token || role !== 'super_admin') {
+      writePersonalOverrides(userId, null);
+      setPersonalOverride(null);
+      setSoundError(null);
+      return { success: true };
     }
-  }, [soundSettings]);
+    return updateSoundSettings(DEFAULT_SOUND_SETTINGS);
+  }, [updateSoundSettings]);
 
   const clearSoundConflict = useCallback(() => {
     setSoundConflict(null);
   }, []);
 
-  const resolveSoundConflict = useCallback(async (strategy: 'reload' | 'overwrite') => {
-    if (strategy === 'reload') {
-      try {
-        const res = await getGlobalConfig<SoundSettings>('sound_settings');
-        if (res.value) {
-          const merged = { ...DEFAULT_SETTINGS, ...res.value };
-          setSoundSettings(merged);
-          soundVersionRef.current = res.version || 1;
-          setSoundVersion(res.version || 1);
-          try {
-            localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
-          } catch {}
+  const resolveSoundConflict = useCallback(
+    async (strategy: 'reload' | 'overwrite') => {
+      if (strategy === 'reload') {
+        try {
+          const res = await getGlobalConfig<SoundSettings>('sound_settings');
+          if (res.value) {
+            const merged = normalizeSoundSettings(res.value);
+            setGlobalSoundSettings(merged);
+            soundVersionRef.current = res.version || 1;
+            setSoundVersion(res.version || 1);
+            try {
+              localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
+            } catch {}
+          }
+          pendingSoundDraftRef.current = null;
+          setSoundConflict(null);
+          setSoundError(null);
+        } catch (err: any) {
+          setSoundError(err?.message || 'Gagal memuat ulang versi terbaru dari database.');
         }
-        pendingSoundDraftRef.current = null;
+        return;
+      }
+
+      if (pendingSoundDraftRef.current) {
+        await updateSoundSettings(pendingSoundDraftRef.current, { forceOverwrite: true });
+      } else {
         setSoundConflict(null);
-        setSoundError(null);
-      } catch (err: any) {
-        setSoundError(err?.message || 'Gagal memuat ulang versi terbaru dari database.');
       }
-      return;
-    }
+    },
+    [updateSoundSettings]
+  );
 
-    if (pendingSoundDraftRef.current) {
-      await updateSoundSettings(pendingSoundDraftRef.current, { forceOverwrite: true });
-    } else {
-      setSoundConflict(null);
-    }
-  }, [updateSoundSettings]);
-
-  // Initialize or get Web Audio Context safely
-  const getAudioContext = useCallback((): AudioContext | null => {
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtxClass) {
-          audioCtxRef.current = new AudioCtxClass();
-        }
-      }
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      return audioCtxRef.current;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // Auto-resume AudioContext on first user interaction (Android Autoplay restriction fix)
-  useEffect(() => {
-    const unlockAudio = () => {
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
-    };
-
-    window.addEventListener('click', unlockAudio, { passive: true });
-    window.addEventListener('touchstart', unlockAudio, { passive: true });
-    window.addEventListener('keydown', unlockAudio, { passive: true });
-
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
-    };
-  }, []);
-
-  // Deduplication check
-  const canPlay = useCallback((soundKey: string, minIntervalMs = 350): boolean => {
-    const now = Date.now();
-    const last = lastSoundTimeRef.current[soundKey] || 0;
-    if (now - last < minIntervalMs) {
-      return false;
-    }
-    lastSoundTimeRef.current[soundKey] = now;
-    return true;
-  }, []);
-
-  // Helper to get master gain node scaled to volume
-  const createMasterGain = useCallback((ctx: AudioContext, customVol?: number) => {
-    const volPercent = customVol !== undefined ? customVol : soundSettings.volume;
-    const gainNode = ctx.createGain();
-    // Exponential curve for human ear perception
-    const normalizedVol = Math.max(0, Math.min(100, volPercent)) / 100;
-    gainNode.gain.setValueAtTime(normalizedVol * 0.28, ctx.currentTime);
-    gainNode.connect(ctx.destination);
-    return gainNode;
-  }, [soundSettings.volume]);
-
-  // 1. APPLICATION LOADING SOUND
-  // Futuristic soft digital intro with gentle swelling harmonic resonance
-  const playLoadingSoundInternal = useCallback((force = false) => {
-    if (!force && (!soundSettings.enabled || !soundSettings.soundLoading)) return;
-    if (!force && !canPlay('loading', 800)) return;
-
-    const ctx = getAudioContext();
-    if (!ctx) return;
-
-    try {
-      const now = ctx.currentTime;
-      const master = createMasterGain(ctx);
-
-      // Low warm pad
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(220, now); // A3
-      osc1.frequency.exponentialRampToValueAtTime(329.63, now + 0.35); // E4
-      gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.3, now + 0.12);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
-      osc1.connect(gain1);
-      gain1.connect(master);
-      osc1.start(now);
-      osc1.stop(now + 0.7);
-
-      // High digital shimmer
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(554.37, now + 0.08); // C#5
-      osc2.frequency.exponentialRampToValueAtTime(880, now + 0.4); // A5
-      gain2.gain.setValueAtTime(0, now);
-      gain2.gain.setValueAtTime(0, now + 0.08);
-      gain2.gain.linearRampToValueAtTime(0.2, now + 0.2);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-      osc2.connect(gain2);
-      gain2.connect(master);
-      osc2.start(now + 0.08);
-      osc2.stop(now + 0.65);
-    } catch {
-      // Safe catch
-    }
-  }, [soundSettings.enabled, soundSettings.soundLoading, canPlay, getAudioContext, createMasterGain]);
-
-  // 2. APPLICATION READY SOUND
-  // Sparkling ascending futuristic chime (C5 -> E5 -> G5 -> C6)
-  const playReadySoundInternal = useCallback((force = false) => {
-    if (!force && (!soundSettings.enabled || !soundSettings.soundReady)) return;
-    if (!force && !canPlay('ready', 800)) return;
-
-    const ctx = getAudioContext();
-    if (!ctx) return;
-
-    try {
-      const now = ctx.currentTime;
-      const master = createMasterGain(ctx);
-
-      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
-      notes.forEach((freq, idx) => {
-        const noteStart = now + idx * 0.07;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, noteStart);
-
-        gain.gain.setValueAtTime(0, noteStart);
-        gain.gain.linearRampToValueAtTime(0.25, noteStart + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.45);
-
-        osc.connect(gain);
-        gain.connect(master);
-
-        osc.start(noteStart);
-        osc.stop(noteStart + 0.5);
+  const playCategorySound = useCallback(
+    (
+      category: NotificationSoundCategory,
+      options?: { force?: boolean; dedupKey?: string; previewVolume?: number }
+    ): boolean => {
+      const played = notificationAudioService.playCategory(category, soundSettingsRef.current, {
+        force: options?.force,
+        dedupKey: options?.dedupKey,
+        overrideMasterVolume: options?.previewVolume
       });
-    } catch {
-      // Safe catch
-    }
-  }, [soundSettings.enabled, soundSettings.soundReady, canPlay, getAudioContext, createMasterGain]);
+      setAudioEngineState(notificationAudioService.getEngineState());
+      return played;
+    },
+    []
+  );
 
-  // 3. REPORT SAVED SOUND
-  // Distinctive crystal confirmation chime (D5 -> A5 with lilac overtone resonance)
-  const playReportSavedSoundInternal = useCallback((force = false) => {
-    if (!force && (!soundSettings.enabled || !soundSettings.soundReportSaved)) return;
-    if (!force && !canPlay('report_saved', 600)) return;
+  // Backwards-compatible semantic event sound triggers
+  const playLoadingSound = useCallback(() => {
+    const cfg = soundSettingsRef.current;
+    if (!cfg.soundLoading) return;
+    playCategorySound('normal', { dedupKey: 'legacy-loading' });
+  }, [playCategorySound]);
 
-    const ctx = getAudioContext();
-    if (!ctx) return;
+  const playReadySound = useCallback(() => {
+    const cfg = soundSettingsRef.current;
+    if (!cfg.soundReady) return;
+    playCategorySound('normal', { dedupKey: 'legacy-ready' });
+  }, [playCategorySound]);
 
-    try {
-      const now = ctx.currentTime;
-      const master = createMasterGain(ctx);
+  const playReportSavedSound = useCallback(() => {
+    const cfg = soundSettingsRef.current;
+    if (!cfg.soundReportSaved) return;
+    playCategorySound('success', { dedupKey: 'legacy-report-saved' });
+  }, [playCategorySound]);
 
-      // First confirmation bell (D5)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(587.33, now);
-      gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.35, now + 0.015);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc1.connect(gain1);
-      gain1.connect(master);
-      osc1.start(now);
-      osc1.stop(now + 0.4);
+  const playErrorSound = useCallback(() => {
+    const cfg = soundSettingsRef.current;
+    if (!cfg.soundError) return;
+    playCategorySound('critical', { dedupKey: 'legacy-error' });
+  }, [playCategorySound]);
 
-      // Second harmonic crystal bell (A5)
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(880, now + 0.09);
-      gain2.gain.setValueAtTime(0, now + 0.09);
-      gain2.gain.linearRampToValueAtTime(0.4, now + 0.11);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
-      osc2.connect(gain2);
-      gain2.connect(master);
-      osc2.start(now + 0.09);
-      osc2.stop(now + 0.7);
+  const playSyncSound = useCallback(() => {
+    const cfg = soundSettingsRef.current;
+    if (!cfg.soundSync) return;
+    playCategorySound('normal', { dedupKey: 'legacy-sync' });
+  }, [playCategorySound]);
 
-      // Gentle sub-harmonic for fullness (D4)
-      const osc3 = ctx.createOscillator();
-      const gain3 = ctx.createGain();
-      osc3.type = 'triangle';
-      osc3.frequency.setValueAtTime(293.66, now + 0.09);
-      gain3.gain.setValueAtTime(0, now + 0.09);
-      gain3.gain.linearRampToValueAtTime(0.15, now + 0.12);
-      gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      osc3.connect(gain3);
-      gain3.connect(master);
-      osc3.start(now + 0.09);
-      osc3.stop(now + 0.5);
-    } catch {
-      // Safe catch
-    }
-  }, [soundSettings.enabled, soundSettings.soundReportSaved, canPlay, getAudioContext, createMasterGain]);
-
-  // 4. ERROR SOUND
-  // Discrete, polite futuristic error chord (minor third fall: 311Hz -> 233Hz)
-  const playErrorSoundInternal = useCallback((force = false) => {
-    if (!force && (!soundSettings.enabled || !soundSettings.soundError)) return;
-    if (!force && !canPlay('error', 600)) return;
-
-    const ctx = getAudioContext();
-    if (!ctx) return;
-
-    try {
-      const now = ctx.currentTime;
-      const master = createMasterGain(ctx);
-
-      // Tone 1: Eb4
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(311.13, now);
-      osc1.frequency.exponentialRampToValueAtTime(233.08, now + 0.22); // Bb3
-      gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.2, now + 0.02);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-      // Low pass filter to soften the sawtooth
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(900, now);
-
-      osc1.connect(filter);
-      filter.connect(gain1);
-      gain1.connect(master);
-
-      osc1.start(now);
-      osc1.stop(now + 0.38);
-    } catch {
-      // Safe catch
-    }
-  }, [soundSettings.enabled, soundSettings.soundError, canPlay, getAudioContext, createMasterGain]);
-
-  // 5. SYNC SOUND
-  // Dual futuristic digital blip (600Hz -> 900Hz)
-  const playSyncSoundInternal = useCallback((force = false) => {
-    if (!force && (!soundSettings.enabled || !soundSettings.soundSync)) return;
-    if (!force && !canPlay('sync', 500)) return;
-
-    const ctx = getAudioContext();
-    if (!ctx) return;
-
-    try {
-      const now = ctx.currentTime;
-      const master = createMasterGain(ctx);
-
-      // Pulse 1
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(659.25, now);
-      gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.25, now + 0.015);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
-      osc1.connect(gain1);
-      gain1.connect(master);
-      osc1.start(now);
-      osc1.stop(now + 0.16);
-
-      // Pulse 2
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(987.77, now + 0.09);
-      gain2.gain.setValueAtTime(0, now + 0.09);
-      gain2.gain.linearRampToValueAtTime(0.28, now + 0.105);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc2.connect(gain2);
-      gain2.connect(master);
-      osc2.start(now + 0.09);
-      osc2.stop(now + 0.32);
-    } catch {
-      // Safe catch
-    }
-  }, [soundSettings.enabled, soundSettings.soundSync, canPlay, getAudioContext, createMasterGain]);
-
-  // Public triggers
-  const playLoadingSound = useCallback(() => playLoadingSoundInternal(false), [playLoadingSoundInternal]);
-  const playReadySound = useCallback(() => playReadySoundInternal(false), [playReadySoundInternal]);
-  const playReportSavedSound = useCallback(() => playReportSavedSoundInternal(false), [playReportSavedSoundInternal]);
-  const playErrorSound = useCallback(() => playErrorSoundInternal(false), [playErrorSoundInternal]);
-  const playSyncSound = useCallback(() => playSyncSoundInternal(false), [playSyncSoundInternal]);
+  const playLiveChatSound = useCallback(() => {
+    playCategorySound('live_chat', { dedupKey: 'live-chat-incoming' });
+  }, [playCategorySound]);
 
   // Listen to explicit toast sound events from ToastProvider (avoids circular context dependency)
   useEffect(() => {
     const handleToastSound = (e: Event) => {
-      const detail = (e as CustomEvent<{ type?: string }>).detail;
-      const toastType = detail?.type || 'info';
-      switch (toastType) {
-        case 'error':
-        case 'warning':
-          playErrorSoundInternal(false);
-          break;
-        case 'success':
-          playReportSavedSoundInternal(false);
-          break;
-        case 'sync':
-          playSyncSoundInternal(false);
-          break;
-        case 'loading':
-          playLoadingSoundInternal(false);
-          break;
-        default:
-          playReadySoundInternal(false);
-          break;
-      }
+      const detail =
+        (e as CustomEvent<{
+          type?: string;
+          title?: string;
+          message?: string;
+          badge?: string;
+          soundCategory?: NotificationSoundCategory;
+        }>).detail || {};
+
+      const cfg = soundSettingsRef.current;
+      const category = resolveToastCategory(detail);
+
+      // Honor legacy toggles as well as new category toggles
+      if (detail.type === 'error' && !cfg.soundError) return;
+      if (detail.type === 'success' && !cfg.soundReportSaved) return;
+      if (detail.type === 'sync' && !cfg.soundSync) return;
+      if (detail.type === 'loading' && !cfg.soundLoading) return;
+      if ((detail.type === 'info' || !detail.type) && category === 'normal' && !cfg.soundReady) return;
+
+      playCategorySound(category, {
+        dedupKey: `toast-${category}-${(detail.message || '').slice(0, 32)}`
+      });
     };
+
     window.addEventListener('morajaws:toast-sound', handleToastSound);
     return () => window.removeEventListener('morajaws:toast-sound', handleToastSound);
-  }, [
-    playErrorSoundInternal,
-    playReportSavedSoundInternal,
-    playSyncSoundInternal,
-    playLoadingSoundInternal,
-    playReadySoundInternal
-  ]);
+  }, [playCategorySound]);
 
-  // Sound Preview function (always plays regardless of toggle to allow user testing)
-  const previewSound = useCallback((type: 'loading' | 'ready' | 'report_saved' | 'error' | 'sync') => {
-    switch (type) {
-      case 'loading':
-        playLoadingSoundInternal(true);
-        break;
-      case 'ready':
-        playReadySoundInternal(true);
-        break;
-      case 'report_saved':
-        playReportSavedSoundInternal(true);
-        break;
-      case 'error':
-        playErrorSoundInternal(true);
-        break;
-      case 'sync':
-        playSyncSoundInternal(true);
-        break;
-    }
-  }, [playLoadingSoundInternal, playReadySoundInternal, playReportSavedSoundInternal, playErrorSoundInternal, playSyncSoundInternal]);
+  const previewSound = useCallback(
+    (type: LegacyPreviewType | NotificationSoundCategory, previewVolume?: number) => {
+      const mapLegacy: Record<LegacyPreviewType, NotificationSoundCategory> = {
+        loading: 'normal',
+        ready: 'normal',
+        report_saved: 'success',
+        error: 'critical',
+        sync: 'normal'
+      };
+      const resolvedCategory: NotificationSoundCategory =
+        type in mapLegacy ? mapLegacy[type as LegacyPreviewType] : (type as NotificationSoundCategory);
+
+      const effectiveVol =
+        previewVolume !== undefined
+          ? previewVolume
+          : soundSettingsRef.current.volume > 0
+          ? soundSettingsRef.current.volume
+          : 55;
+
+      playCategorySound(resolvedCategory, {
+        force: true,
+        dedupKey: `preview-${resolvedCategory}`,
+        previewVolume: effectiveVol
+      });
+    },
+    [playCategorySound]
+  );
 
   return (
     <SoundContext.Provider
@@ -575,14 +464,20 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
         isSoundSaving,
         soundError,
         soundConflict,
+        soundScope,
+        hasPersonalOverride,
+        audioEngineState,
         clearSoundConflict,
         resolveSoundConflict,
         updateSoundSettings,
+        restoreDefaultSoundSettings,
         playLoadingSound,
         playReadySound,
         playReportSavedSound,
         playErrorSound,
         playSyncSound,
+        playLiveChatSound,
+        playCategorySound,
         previewSound
       }}
     >

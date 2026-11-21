@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { NotificationToast } from '../components/notification/NotificationToast';
+import type { NotificationSoundCategory } from '../types';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading' | 'sync';
 
@@ -11,6 +12,7 @@ export interface ToastOptions {
   onSecondaryAction?: () => void;
   badge?: string;
   withSound?: boolean;
+  soundCategory?: NotificationSoundCategory;
 }
 
 export interface ToastItem {
@@ -26,6 +28,7 @@ export interface ToastItem {
   secondaryLabel?: string;
   onSecondaryAction?: () => void;
   badge?: string;
+  exiting?: boolean;
 }
 
 type DurationOrOptions = number | ToastOptions;
@@ -51,6 +54,9 @@ interface ToastContextType {
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
+
+const MAX_VISIBLE_TOASTS = 2;
+const EXIT_ANIMATION_MS = 180;
 
 const DEFAULT_DURATIONS: Record<ToastType, number> = {
   success: 3600,
@@ -79,34 +85,99 @@ function formatNowTime(): string {
   try {
     return new Date().toLocaleTimeString('id-ID', {
       hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      minute: '2-digit'
     });
   } catch {
-    return 'LIVE';
+    return 'Now';
   }
 }
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const timersRef = useRef<Record<string, TimerTrack>>({});
+  const exitTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const queueRef = useRef<ToastItem[]>([]);
+  const activeToastsRef = useRef<ToastItem[]>([]);
   const lastToastRef = useRef<{ message: string; type: string; timestamp: number } | null>(null);
 
-  const dismissToast = useCallback((id: string) => {
-    const track = timersRef.current[id];
-    if (track?.timerId) {
-      clearTimeout(track.timerId);
-    }
-    delete timersRef.current[id];
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+  activeToastsRef.current = toasts;
+
+  const scheduleAutoDismiss = useCallback(
+    (id: string, duration: number, onExpire: (toastId: string) => void) => {
+      if (duration <= 0) return;
+      if (timersRef.current[id]?.timerId) {
+        clearTimeout(timersRef.current[id].timerId!);
+      }
+      const timerId = setTimeout(() => {
+        onExpire(id);
+      }, duration);
+      timersRef.current[id] = {
+        timerId,
+        remaining: duration,
+        startedAt: Date.now(),
+        paused: false
+      };
+    },
+    []
+  );
+
+  const dismissToast = useCallback(
+    (id: string) => {
+      const track = timersRef.current[id];
+      if (track?.timerId) {
+        clearTimeout(track.timerId);
+      }
+      delete timersRef.current[id];
+
+      if (exitTimersRef.current[id]) {
+        return;
+      }
+
+      setToasts(prev => prev.map(t => (t.id === id ? { ...t, exiting: true } : t)));
+
+      exitTimersRef.current[id] = setTimeout(() => {
+        delete exitTimersRef.current[id];
+
+        const nextRemainingCount = activeToastsRef.current.filter(t => t.id !== id).length;
+        const nextQueued =
+          nextRemainingCount < MAX_VISIBLE_TOASTS && queueRef.current.length > 0
+            ? queueRef.current.shift()!
+            : null;
+
+        if (nextQueued && nextQueued.duration > 0) {
+          scheduleAutoDismiss(nextQueued.id, nextQueued.duration, dismissToast);
+        }
+
+        setToasts(prev => {
+          const remaining = prev.filter(t => t.id !== id);
+          if (nextQueued && remaining.length < MAX_VISIBLE_TOASTS) {
+            return [nextQueued, ...remaining].slice(0, MAX_VISIBLE_TOASTS);
+          }
+          return remaining;
+        });
+      }, EXIT_ANIMATION_MS);
+    },
+    [scheduleAutoDismiss]
+  );
 
   const clearAllToasts = useCallback(() => {
     Object.values(timersRef.current).forEach(track => {
       if (track.timerId) clearTimeout(track.timerId);
     });
+    Object.values(exitTimersRef.current).forEach(t => clearTimeout(t));
     timersRef.current = {};
+    exitTimersRef.current = {};
+    queueRef.current = [];
     setToasts([]);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      Object.values(timersRef.current).forEach(track => {
+        if (track.timerId) clearTimeout(track.timerId);
+      });
+      Object.values(exitTimersRef.current).forEach(t => clearTimeout(t));
+    };
   }, []);
 
   const pauseToastTimer = useCallback((id: string) => {
@@ -141,16 +212,28 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       title?: string,
       durationOrOptions?: DurationOrOptions
     ): string => {
+      const normalizedMsg = message.trim();
       const now = Date.now();
+
       if (
         lastToastRef.current &&
-        lastToastRef.current.message === message &&
+        lastToastRef.current.message === normalizedMsg &&
         lastToastRef.current.type === type &&
-        now - lastToastRef.current.timestamp < 1100
+        now - lastToastRef.current.timestamp < 1500
       ) {
         return '';
       }
-      lastToastRef.current = { message, type, timestamp: now };
+
+      const alreadyVisibleOrQueued =
+        activeToastsRef.current.some(
+          t => !t.exiting && t.message === normalizedMsg && t.type === type
+        ) || queueRef.current.some(t => t.message === normalizedMsg && t.type === type);
+
+      if (alreadyVisibleOrQueued) {
+        return '';
+      }
+
+      lastToastRef.current = { message: normalizedMsg, type, timestamp: now };
 
       const opts = normalizeOptions(durationOrOptions);
       const duration = opts.duration !== undefined ? opts.duration : DEFAULT_DURATIONS[type];
@@ -160,7 +243,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         id,
         type,
         title,
-        message,
+        message: normalizedMsg,
         duration,
         createdAt: now,
         timeLabel: formatNowTime(),
@@ -168,29 +251,31 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         onAction: opts.onAction,
         secondaryLabel: opts.secondaryLabel,
         onSecondaryAction: opts.onSecondaryAction,
-        badge: opts.badge
+        badge: opts.badge,
+        exiting: false
       };
 
-      // Maximum 3 active toasts stacked cleanly
-      setToasts(prev => [newToast, ...prev].slice(0, 3));
-
-      if (duration > 0) {
-        const timerId = setTimeout(() => {
-          dismissToast(id);
-        }, duration);
-        timersRef.current[id] = {
-          timerId,
-          remaining: duration,
-          startedAt: now,
-          paused: false
-        };
+      const activeCount = activeToastsRef.current.filter(t => !t.exiting).length;
+      if (activeCount >= MAX_VISIBLE_TOASTS) {
+        queueRef.current.push(newToast);
+      } else {
+        if (duration > 0) {
+          scheduleAutoDismiss(id, duration, dismissToast);
+        }
+        setToasts(prev => [newToast, ...prev].slice(0, MAX_VISIBLE_TOASTS));
       }
 
       if (opts.withSound) {
         try {
           window.dispatchEvent(
             new CustomEvent('morajaws:toast-sound', {
-              detail: { type }
+              detail: {
+                type,
+                title: title || '',
+                message: normalizedMsg,
+                badge: opts.badge || '',
+                soundCategory: opts.soundCategory
+              }
             })
           );
         } catch {}
@@ -198,7 +283,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return id;
     },
-    [dismissToast]
+    [dismissToast, scheduleAutoDismiss]
   );
 
   const toast = {
@@ -238,10 +323,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={{ toasts, showToast, toast, dismissToast, clearAllToasts }}>
       {children}
 
-      {/* MoraJaws Floating Glassmorphism Toast Stack */}
+      {/* MoraJaws Mini iOS Style Floating Toast Stack */}
       <div
         aria-live="polite"
-        className="fixed top-3 left-3 right-3 sm:left-auto sm:right-5 sm:top-5 z-[99999] flex flex-col gap-2.5 sm:w-[400px] max-w-full pointer-events-none"
+        className="fixed top-[calc(env(safe-area-inset-top,0px)+74px)] left-3 right-3 mx-auto w-[calc(100%-24px)] max-w-[360px] sm:left-auto sm:right-4 sm:mx-0 sm:top-[82px] sm:w-[324px] sm:max-w-[340px] z-[99999] flex flex-col gap-2 pointer-events-none"
       >
         {toasts.map(item => (
           <NotificationToast

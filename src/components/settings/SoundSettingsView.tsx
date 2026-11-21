@@ -1,10 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { NotificationInline } from '../notification/NotificationInline';
+import { NotificationSoundCategory } from '../../types';
+import {
+  DEFAULT_CATEGORY_VOLUMES,
+  DEFAULT_SOUND_SETTINGS,
+  SOUND_CATEGORY_CATALOG
+} from '../../services/notificationAudioService';
 import {
   Volume2,
   VolumeX,
@@ -12,10 +18,10 @@ import {
   Radio,
   Sliders,
   Smartphone,
-  Lock,
   AlertTriangle,
   Loader2,
   BellRing,
+  BellOff,
   CheckCircle2,
   RefreshCw,
   ShieldAlert,
@@ -26,7 +32,10 @@ import {
   Clock,
   Activity,
   MousePointerClick,
-  PauseCircle
+  PauseCircle,
+  RotateCcw,
+  MessageCircle,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface SoundSettingsViewProps {
@@ -49,19 +58,41 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [pressCount, setPressCount] = useState(0);
   const [isRefreshingTelemetry, setIsRefreshingTelemetry] = useState(false);
+  const [testCategory, setTestCategory] = useState<NotificationSoundCategory>('wo_assignment');
 
   const {
     soundSettings,
     soundVersion,
+    soundScope,
+    hasPersonalOverride,
+    audioEngineState,
     isSoundSaving,
     soundError,
     updateSoundSettings,
-    playLoadingSound,
+    restoreDefaultSoundSettings,
     playReadySound,
-    playReportSavedSound,
-    playErrorSound,
-    playSyncSound
+    previewSound
   } = useMoraJawsSound();
+
+  const [draftMasterVol, setDraftMasterVol] = useState(soundSettings.volume);
+  const [draftNormalVol, setDraftNormalVol] = useState(
+    soundSettings.categoryVolumes?.normal ?? DEFAULT_CATEGORY_VOLUMES.normal
+  );
+  const [draftImportantVol, setDraftImportantVol] = useState(
+    soundSettings.categoryVolumes?.important ?? DEFAULT_CATEGORY_VOLUMES.important
+  );
+  const [draftCriticalVol, setDraftCriticalVol] = useState(
+    soundSettings.categoryVolumes?.critical ?? DEFAULT_CATEGORY_VOLUMES.critical
+  );
+
+  useEffect(() => {
+    setDraftMasterVol(soundSettings.volume);
+    setDraftNormalVol(soundSettings.categoryVolumes?.normal ?? DEFAULT_CATEGORY_VOLUMES.normal);
+    setDraftImportantVol(
+      soundSettings.categoryVolumes?.important ?? DEFAULT_CATEGORY_VOLUMES.important
+    );
+    setDraftCriticalVol(soundSettings.categoryVolumes?.critical ?? DEFAULT_CATEGORY_VOLUMES.critical);
+  }, [soundSettings]);
 
   // Real operational telemetry computed dynamically from Supabase state
   const liveTelemetry = useMemo(() => {
@@ -101,52 +132,90 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
   const soundList = [
     {
       id: 'soundLoading' as const,
-      name: '1. Loading Chirp',
-      freq: 'Sine Sweep · Modul Muat',
-      dotColor: 'bg-[#7135B5]',
-      desc: 'Nada sintetis pembuka saat aplikasi atau modul memuat data.',
-      action: playLoadingSound
+      name: '1. App Loading',
+      freq: '340 ms · Digital Intro Chime',
+      dotColor: 'bg-[#8648F5]',
+      action: () => previewSound('loading')
     },
     {
       id: 'soundReady' as const,
-      name: '2. Ready Chime',
-      freq: '587Hz -> 880Hz · Kesiapan',
+      name: '2. System Ready',
+      freq: '340 ms · Elegant Digital Chime',
       dotColor: 'bg-emerald-500',
-      desc: 'Chime kesiapan sistem saat inisialisasi atau login selesai.',
-      action: playReadySound
+      action: () => previewSound('ready')
     },
     {
       id: 'soundReportSaved' as const,
       name: '3. Report Saved Success',
-      freq: 'Dual Harmonic · Sukses WO',
+      freq: '400 ms · Confirmation Tone',
       dotColor: 'bg-emerald-600',
-      desc: 'Nada selebrasi sukses saat teknisi menyimpan laporan WO.',
-      action: playReportSavedSound
+      action: () => previewSound('report_saved')
     },
     {
       id: 'soundError' as const,
       name: '4. Critical / Error Alert',
-      freq: '880Hz Sawtooth · Peringatan',
+      freq: '780 ms · Multi-Tone Urgent',
       dotColor: 'bg-[#BA1A1A]',
-      desc: 'Peringatan nada ganda saat terjadi kesalahan atau validasi gagal.',
-      action: playErrorSound
+      action: () => previewSound('error')
     },
     {
       id: 'soundSync' as const,
       name: '5. Auto-Sync Relay',
-      freq: 'Telemetry Pulse · PostgreSQL',
+      freq: '340 ms · Clean Sync Chime',
       dotColor: 'bg-amber-500',
-      desc: 'Efek akustik saat sinkronisasi database PostgreSQL atau refresh ditekan.',
-      action: playSyncSound
+      action: () => previewSound('sync')
     }
   ];
+
+  const handleTestCategoryNotification = (category: NotificationSoundCategory) => {
+    previewSound(category, draftMasterVol);
+
+    switch (category) {
+      case 'success':
+        toast.success(
+          `Konfirmasi sukses: ${liveTelemetry.completedToday} WO hari ini rampung (${liveTelemetry.completionPct}%).`,
+          'Success',
+          { soundCategory: 'success' }
+        );
+        break;
+      case 'live_chat':
+        toast.info('Ada pesan baru dari Dispatch terkait jadwal instalasi pelanggan.', 'Live Chat', {
+          soundCategory: 'live_chat'
+        });
+        break;
+      case 'wo_assignment':
+        toast.info('WO #MJ-2026-1001 berhasil di-assign ke teknisi lapangan.', 'WO Assignment', {
+          soundCategory: 'wo_assignment'
+        });
+        break;
+      case 'important':
+        toast.warning(
+          `${liveTelemetry.pendingApprovalCount} laporan instalasi menunggu review QC Desk.`,
+          'Important Alert',
+          { soundCategory: 'important' }
+        );
+        break;
+      case 'critical':
+        toast.error(
+          `Terdeteksi ${liveTelemetry.totalOverdue} WO Overdue yang memerlukan tindak lanjut segera.`,
+          'Critical Alert',
+          { soundCategory: 'critical' }
+        );
+        break;
+      default:
+        toast.info('Notifikasi sistem MoraJaws berjalan normal.', 'MoraJaws', {
+          soundCategory: 'normal'
+        });
+        break;
+    }
+  };
 
   const handleTriggerInteractiveToast = (preset: 'success' | 'warning' | 'error' | 'sync') => {
     if (preset === 'success') {
       toast.success(
         `Operasional sinkron: ${liveTelemetry.completedToday} WO hari ini selesai (${liveTelemetry.completionPct}%).`,
-        'Success Dispatch · Verified Ops',
-        { withSound: true, badge: 'HTTP 200 OK' }
+        'Success Dispatch',
+        { withSound: true, badge: 'HTTP 200 OK', soundCategory: 'success' }
       );
     } else if (preset === 'warning') {
       toast.warning(
@@ -155,6 +224,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
         {
           withSound: true,
           badge: 'TELEMETRY WARN',
+          soundCategory: 'important',
           actionLabel: 'Buka QA Desk',
           onAction: () => onNavigateTab?.('verification_desk')
         }
@@ -162,10 +232,11 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
     } else if (preset === 'error') {
       toast.error(
         `Terdeteksi ${liveTelemetry.totalOverdue} WO Overdue & ${liveTelemetry.unassignedToday} WO belum di-assign hari ini.`,
-        'Peringatan Overdue / Critical P1',
+        'Critical P1 Alert',
         {
           withSound: true,
           badge: 'CRITICAL P1',
+          soundCategory: 'critical',
           actionLabel: 'Triage Overdue',
           onAction: () => onNavigateTab?.('overdue_wo')
         }
@@ -173,8 +244,8 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
     } else {
       toast.sync(
         `Status PostgreSQL: ${databaseStatus.toUpperCase()} · ${pendingCount} mutasi pending offline queue.`,
-        'Auto-Sync Telemetry Relay',
-        { withSound: true, badge: 'DATA RELAY' }
+        'Auto-Sync Telemetry',
+        { withSound: true, badge: 'DATA RELAY', soundCategory: 'normal' }
       );
     }
   };
@@ -244,19 +315,25 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
           <div className="flex items-center gap-3 mj-tactile-well px-4 py-3 rounded-xl shrink-0">
             {isSoundSaving && <Loader2 className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] animate-spin" />}
             <div>
-              <div className="text-xs font-extrabold text-[#1F1638] dark:text-white">Master Audio Notifikasi</div>
+              <div className="text-xs font-extrabold text-[#1F1638] dark:text-white">
+                Master Audio Notifikasi
+              </div>
               <div className="text-[11px] font-semibold text-[#58149C] dark:text-[#D8B4FE]">
-                {soundSettings.enabled ? 'Aktif (Global DB)' : 'Nonaktif (Senyap)'}
+                {soundSettings.enabled
+                  ? `Aktif (${soundScope === 'global' ? 'Global DB' : 'Perangkat Ini'})`
+                  : soundSettings.criticalSeparate
+                  ? 'Normal Senyap · Critical Aktif'
+                  : 'Nonaktif (Senyap)'}
               </div>
             </div>
             <button
               type="button"
-              disabled={!isSuperAdmin || isSoundSaving}
+              disabled={isSoundSaving}
               onClick={() => updateSoundSettings({ enabled: !soundSettings.enabled })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
                 soundSettings.enabled ? 'bg-[#58149C]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
               }`}
-              title={isSuperAdmin ? 'Aktif/Nonaktifkan Master Audio' : 'Hanya Superadmin yang dapat mengubah'}
+              title="Aktif/Nonaktifkan Master Audio"
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
@@ -268,18 +345,20 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
         </div>
       </div>
 
-      {/* Role & Error Status Banners */}
+      {/* Role Scope & Error Status Banners */}
       {!isSuperAdmin && (
         <NotificationInline
-          variant="warning"
-          message="Mode Lihat Saja"
-          detail="Konfigurasi master audio & pengumuman suara dikunci untuk peran Super Admin, namun Anda dapat menguji trigger notifikasi & chirp secara langsung."
+          variant="info"
+          message={
+            hasPersonalOverride
+              ? 'Menggunakan Preferensi Audio Perangkat Anda'
+              : 'Mengikuti Standar Audio Global'
+          }
+          detail="Anda dapat mengatur volume, mute notifikasi normal, serta menguji setiap kategori suara untuk perangkat ini tanpa mengubah default global Super Admin."
         />
       )}
 
-      {soundError && (
-        <NotificationInline variant="error" message={soundError} />
-      )}
+      {soundError && <NotificationInline variant="error" message={soundError} />}
 
       {/* 4 PHYSICS & ARCHITECTURE SPEC TILES */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -758,96 +837,359 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
           </div>
         </div>
 
-        {/* RIGHT (5 Cols): TELECOMMUNICATIONS AUDIO & MASTER VOLUME */}
+        {/* RIGHT (5 Cols): NOTIFICATION SOUND SETTINGS & CATEGORY PREVIEW */}
         <div className="xl:col-span-5 card-3d-lavender rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#3B1D78]">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#8648F5]" />
               <div>
                 <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
-                  TELECOMMUNICATIONS AUDIO
+                  IMPERIAL VIOLET AUDIO ENGINE
                 </div>
                 <h3 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
-                  Synthesized Feedback Chirps
+                  Notification Sound Settings
                 </h3>
               </div>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1]">
-              Web Audio API
-            </span>
+
+            <button
+              type="button"
+              disabled={isSoundSaving}
+              onClick={() => {
+                void restoreDefaultSoundSettings();
+                toast.info(
+                  `Pengaturan suara dikembalikan ke default (Master ${DEFAULT_SOUND_SETTINGS.volume}%).`,
+                  'Restore Default'
+                );
+              }}
+              className="btn-3d-lilac px-2.5 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              title="Kembalikan pengaturan suara ke nilai default"
+            >
+              <RotateCcw className="w-3 h-3 text-[#58149C] dark:text-[#DAB9FF]" />
+              <span>Restore Default</span>
+            </button>
           </div>
 
-          {/* Master Volume Slider */}
-          <div className="mj-tactile-well p-3.5 rounded-xl space-y-2">
-            <div className="flex items-center justify-between text-xs">
+          {/* Master Volume Slider (0-100%) + Preview */}
+          <div className="mj-tactile-well p-3.5 rounded-xl space-y-2.5">
+            <div className="flex items-center justify-between text-xs gap-2">
               <div className="flex items-center gap-1.5 font-bold text-[#1F1638] dark:text-white">
                 <Sliders className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
-                <span>Volume Audio Utama</span>
+                <span>Master Volume</span>
               </div>
-              <span className="font-mono font-extrabold text-[#58149C] dark:text-[#DAB9FF]">
-                {Math.round(soundSettings.volume * 100)}%
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-extrabold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                  {draftMasterVol}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => previewSound(testCategory, draftMasterVol)}
+                  className="mj-notif-btn-3d-soft px-2 py-0.5 rounded-lg text-[10.5px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Play className="w-2.5 h-2.5 fill-current" />
+                  <span>Preview</span>
+                </button>
+              </div>
             </div>
             <input
               type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              disabled={!isSuperAdmin || !soundSettings.enabled}
-              value={soundSettings.volume}
-              onChange={e => updateSoundSettings({ volume: parseFloat(e.target.value) })}
-              className="w-full h-2 bg-[#E8DDFF] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#58149C] disabled:opacity-50"
+              min={0}
+              max={100}
+              step={1}
+              value={draftMasterVol}
+              onChange={e => setDraftMasterVol(Number(e.target.value))}
+              onMouseUp={() => void updateSoundSettings({ volume: draftMasterVol })}
+              onTouchEnd={() => void updateSoundSettings({ volume: draftMasterVol })}
+              onBlur={() => {
+                if (draftMasterVol !== soundSettings.volume) {
+                  void updateSoundSettings({ volume: draftMasterVol });
+                }
+              }}
+              aria-label="Master Volume"
+              className="w-full h-2 bg-[#E8DDFF] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#58149C]"
             />
+
+            {/* Priority Tier Volume Controls: Normal 65% / Important 85% / Critical 90% */}
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#E8DDFF]/70 dark:border-[#3B1D78]/70">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-[#4B4452] dark:text-[#CEC0E8]">Normal</span>
+                  <span className="font-mono text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                    {draftNormalVol}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={draftNormalVol}
+                  onChange={e => setDraftNormalVol(Number(e.target.value))}
+                  onMouseUp={() =>
+                    void updateSoundSettings({
+                      categoryVolumes: {
+                        ...(soundSettings.categoryVolumes || DEFAULT_CATEGORY_VOLUMES),
+                        normal: draftNormalVol
+                      }
+                    })
+                  }
+                  onTouchEnd={() =>
+                    void updateSoundSettings({
+                      categoryVolumes: {
+                        ...(soundSettings.categoryVolumes || DEFAULT_CATEGORY_VOLUMES),
+                        normal: draftNormalVol
+                      }
+                    })
+                  }
+                  className="w-full h-1.5 bg-[#E8DDFF] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#58149C]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-amber-700 dark:text-amber-300">Important</span>
+                  <span className="font-mono text-amber-700 dark:text-amber-300 tabular-nums">
+                    {draftImportantVol}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={draftImportantVol}
+                  onChange={e => setDraftImportantVol(Number(e.target.value))}
+                  onMouseUp={() =>
+                    void updateSoundSettings({
+                      categoryVolumes: {
+                        ...(soundSettings.categoryVolumes || DEFAULT_CATEGORY_VOLUMES),
+                        important: draftImportantVol
+                      }
+                    })
+                  }
+                  onTouchEnd={() =>
+                    void updateSoundSettings({
+                      categoryVolumes: {
+                        ...(soundSettings.categoryVolumes || DEFAULT_CATEGORY_VOLUMES),
+                        important: draftImportantVol
+                      }
+                    })
+                  }
+                  className="w-full h-1.5 bg-amber-100 dark:bg-amber-950/60 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-rose-700 dark:text-rose-300">Critical</span>
+                  <span className="font-mono text-rose-700 dark:text-rose-300 tabular-nums">
+                    {draftCriticalVol}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={draftCriticalVol}
+                  onChange={e => setDraftCriticalVol(Number(e.target.value))}
+                  onMouseUp={() =>
+                    void updateSoundSettings({
+                      categoryVolumes: {
+                        ...(soundSettings.categoryVolumes || DEFAULT_CATEGORY_VOLUMES),
+                        critical: draftCriticalVol
+                      }
+                    })
+                  }
+                  onTouchEnd={() =>
+                    void updateSoundSettings({
+                      categoryVolumes: {
+                        ...(soundSettings.categoryVolumes || DEFAULT_CATEGORY_VOLUMES),
+                        critical: draftCriticalVol
+                      }
+                    })
+                  }
+                  className="w-full h-1.5 bg-rose-100 dark:bg-rose-950/60 rounded-lg appearance-none cursor-pointer accent-rose-600"
+                />
+              </div>
+            </div>
           </div>
 
-          {/* 5 Individual Sound Channels */}
-          <div className="space-y-2.5">
-            {soundList.map(item => {
-              const isItemEnabled = soundSettings[item.id] as boolean;
+          {/* Mute Normal & Separate Critical Notification Setting */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              disabled={isSoundSaving}
+              onClick={() => updateSoundSettings({ muteNormal: !soundSettings.muteNormal })}
+              className={`mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2 text-left cursor-pointer transition-all ${
+                soundSettings.muteNormal ? 'ring-1 ring-[#5424A8]/50 bg-[#EEE5FF]/60 dark:bg-[#2E1459]/75' : ''
+              }`}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1638] dark:text-white">
+                  <BellOff className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+                  <span>Mute Normal</span>
+                </div>
+                <p className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
+                  Senyapkan notifikasi normal &amp; chat
+                </p>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
+                  soundSettings.muteNormal
+                    ? 'bg-[#58149C] text-white'
+                    : 'bg-[#E8DDFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]'
+                }`}
+              >
+                {soundSettings.muteNormal ? 'MUTED' : 'ACTIVE'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isSoundSaving}
+              onClick={() => updateSoundSettings({ criticalSeparate: !soundSettings.criticalSeparate })}
+              className={`mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2 text-left cursor-pointer transition-all ${
+                soundSettings.criticalSeparate ? 'ring-1 ring-rose-400/50' : ''
+              }`}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1638] dark:text-white">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <span>Critical Terpisah</span>
+                </div>
+                <p className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
+                  Critical tetap bunyi meski mode senyap
+                </p>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
+                  soundSettings.criticalSeparate
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-[#E8DDFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]'
+                }`}
+              >
+                {soundSettings.criticalSeparate ? 'ON' : 'OFF'}
+              </span>
+            </button>
+          </div>
+
+          {/* Test Notification Sound Bar */}
+          <div className="p-3 rounded-xl bg-[#F3EAFF]/85 dark:bg-[#1A0C33] border border-[#DFC7FF] dark:border-[#4B238F] flex flex-wrap items-center gap-2">
+            <select
+              value={testCategory}
+              onChange={e => setTestCategory(e.target.value as NotificationSoundCategory)}
+              aria-label="Pilih kategori Test Sound"
+              className="flex-1 min-w-[150px] px-2.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-[#120826] text-[#1F1638] dark:text-white border border-[#D8CCF3] dark:border-[#5B35B1] outline-none"
+            >
+              {SOUND_CATEGORY_CATALOG.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label} — {cat.character}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => handleTestCategoryNotification(testCategory)}
+              className="btn-3d-primary px-3.5 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>Test Notification Sound</span>
+            </button>
+          </div>
+
+          {/* 6 Notification Sound Categories + Preview */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+                Kategori Suara Notifikasi (6 Profil)
+              </span>
+              <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">
+                Engine: {audioEngineState.toUpperCase()}
+              </span>
+            </div>
+
+            {SOUND_CATEGORY_CATALOG.map(cat => {
+              const isEnabled = soundSettings.categories?.[cat.id] ?? true;
+              const badgeClass =
+                cat.id === 'critical'
+                  ? 'bg-rose-500'
+                  : cat.id === 'important' || cat.id === 'wo_assignment'
+                  ? 'bg-amber-500'
+                  : cat.id === 'live_chat'
+                  ? 'bg-blue-500'
+                  : cat.id === 'success'
+                  ? 'bg-emerald-500'
+                  : 'bg-[#8648F5]';
+
+              const categoryIcon =
+                cat.id === 'live_chat' ? (
+                  <MessageCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                ) : cat.id === 'wo_assignment' ? (
+                  <ClipboardCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+                ) : cat.id === 'critical' ? (
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                ) : cat.id === 'important' ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                ) : cat.id === 'success' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <BellRing className="w-3.5 h-3.5 text-[#8648F5]" />
+                );
+
               return (
                 <div
-                  key={item.id}
-                  className="mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2.5"
+                  key={cat.id}
+                  className="mj-tactile-well p-2.5 rounded-xl flex items-center justify-between gap-2.5"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${item.dotColor}`} />
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badgeClass}`} />
+                      {categoryIcon}
                       <span className="font-bold text-xs text-[#1F1638] dark:text-white truncate">
-                        {item.name}
+                        {cat.label}
+                      </span>
+                      <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2] shrink-0">
+                        · {cat.durationLabel}
                       </span>
                     </div>
-                    <div className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A493C2] truncate pl-4">
-                      {item.freq}
+                    <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate pl-3">
+                      {cat.character}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      disabled={!isSuperAdmin || !soundSettings.enabled || isSoundSaving}
-                      onClick={() => updateSoundSettings({ [item.id]: !isItemEnabled })}
+                      disabled={isSoundSaving}
+                      onClick={() =>
+                        void updateSoundSettings({
+                          categories: {
+                            ...(soundSettings.categories || DEFAULT_SOUND_SETTINGS.categories!),
+                            [cat.id]: !isEnabled
+                          }
+                        })
+                      }
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer disabled:opacity-45 ${
-                        isItemEnabled && soundSettings.enabled
-                          ? 'bg-[#58149C]'
-                          : 'bg-[#CBD5E1] dark:bg-[#35105E]'
+                        isEnabled ? 'bg-[#58149C]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
                       }`}
-                      title={`Aktif/Nonaktifkan ${item.name}`}
+                      title={`Aktif/Nonaktifkan suara kategori ${cat.label}`}
                     >
                       <span
                         className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                          isItemEnabled && soundSettings.enabled ? 'translate-x-4.5' : 'translate-x-1'
+                          isEnabled ? 'translate-x-4.5' : 'translate-x-1'
                         }`}
                       />
                     </button>
 
                     <button
                       type="button"
-                      onClick={item.action}
-                      className="btn-3d-lilac px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                      title={`Uji suara ${item.name}`}
+                      onClick={() => previewSound(cat.id, draftMasterVol)}
+                      className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                      title={`Preview suara ${cat.label}`}
                     >
                       <Play className="w-3 h-3 fill-current text-[#58149C] dark:text-[#DAB9FF]" />
-                      <span>Uji</span>
+                      <span>Preview</span>
                     </button>
                   </div>
                 </div>
@@ -855,10 +1197,65 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
             })}
           </div>
 
+          {/* Operational Event Channel Mapping (Compact) */}
+          <details className="mj-tactile-well rounded-xl p-3">
+            <summary className="text-[11px] font-extrabold text-[#58149C] dark:text-[#D8B4FE] cursor-pointer select-none">
+              Pengaturan Event Aplikasi ({soundList.filter(s => soundSettings[s.id]).length}/5 aktif)
+            </summary>
+            <div className="space-y-2 mt-2.5">
+              {soundList.map(item => {
+                const isItemEnabled = soundSettings[item.id] as boolean;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-2 text-xs py-1 border-t border-[#E8DDFF]/60 dark:border-[#3B1D78]/60 first:border-t-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.dotColor}`} />
+                        <span className="font-bold text-[11.5px] text-[#1F1638] dark:text-white truncate">
+                          {item.name}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2] pl-3">
+                        {item.freq}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={!soundSettings.enabled || isSoundSaving}
+                        onClick={() => void updateSoundSettings({ [item.id]: !isItemEnabled })}
+                        className={`relative inline-flex h-4.5 w-8 items-center rounded-full transition-colors cursor-pointer disabled:opacity-45 ${
+                          isItemEnabled && soundSettings.enabled
+                            ? 'bg-[#58149C]'
+                            : 'bg-[#CBD5E1] dark:bg-[#35105E]'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                            isItemEnabled && soundSettings.enabled ? 'translate-x-4' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={item.action}
+                        className="text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                      >
+                        Uji
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+
           <div className="p-3 bg-[#F3EAFF]/70 dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78] rounded-xl flex items-start gap-2.5 text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
             <Smartphone className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
             <span>
-              Kompatibilitas Android &amp; Desktop: Audio disintesis 100% di sisi client via Web Audio API tanpa file MP3 eksternal.
+              Web Audio API dengan Dynamics Compressor anti-clipping. Suara notifikasi dalam aplikasi menghormati volume sistem, mode senyap perangkat, dan aturan autoplay browser.
             </span>
           </div>
         </div>
@@ -866,3 +1263,4 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
     </div>
   );
 };
+

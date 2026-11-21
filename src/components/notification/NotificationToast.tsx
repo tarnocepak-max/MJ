@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle,
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
+  ClipboardCheck,
   Info,
   Loader2,
-  RefreshCw,
-  X
+  MessageCircle,
+  Settings,
+  X,
+  XCircle
 } from 'lucide-react';
 import type { ToastItem } from '../../context/ToastContext';
 
@@ -18,192 +19,255 @@ interface NotificationToastProps {
   onResumeTimer: (id: string) => void;
 }
 
+type VisualCategory =
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'assignment'
+  | 'chat'
+  | 'system'
+  | 'loading';
+
+function resolveCategory(item: ToastItem): VisualCategory {
+  if (item.type === 'error') return 'error';
+  if (item.type === 'warning') return 'warning';
+  if (item.type === 'loading') return 'loading';
+
+  const haystack = `${item.badge || ''} ${item.title || ''} ${item.message}`.toLowerCase();
+
+  if (/\b(live chat|chat|pesan baru|balasan)\b/.test(haystack)) {
+    return 'chat';
+  }
+  if (/\b(assign|reassign|penugasan|ditugaskan)\b/.test(haystack)) {
+    return 'assignment';
+  }
+  if (item.type === 'sync' || /\b(sistem|system|sinkron|sync)\b/.test(haystack)) {
+    return 'system';
+  }
+  if (item.type === 'success') return 'success';
+  return 'info';
+}
+
+function getDefaultTitle(category: VisualCategory): string {
+  switch (category) {
+    case 'assignment':
+      return 'WO Assignment';
+    case 'chat':
+      return 'Live Chat';
+    case 'success':
+      return 'MoraJaws';
+    case 'warning':
+      return 'Peringatan';
+    case 'error':
+      return 'Notifikasi Error';
+    case 'system':
+      return 'Sistem';
+    case 'loading':
+      return 'Memproses';
+    default:
+      return 'MoraJaws';
+  }
+}
+
+function formatRelativeTime(createdAt: number, nowMs: number): string {
+  const diffSec = Math.max(0, Math.floor((nowMs - createdAt) / 1000));
+  if (diffSec < 60) return 'Now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHr = Math.floor(diffMin / 60);
+  return `${diffHr}h`;
+}
+
 export const NotificationToast: React.FC<NotificationToastProps> = ({
   item,
   onDismiss,
   onPauseTimer,
   onResumeTimer
 }) => {
-  const isSuccess = item.type === 'success';
-  const isError = item.type === 'error';
-  const isWarning = item.type === 'warning';
-  const isLoading = item.type === 'loading';
-  const isSync = item.type === 'sync';
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const defaultBadge = isSuccess
-    ? 'BERHASIL'
-    : isError
-    ? 'KESALAHAN'
-    : isWarning
-    ? 'PERINGATAN'
-    : isSync
-    ? 'AUTO-SYNC RELAY'
-    : isLoading
-    ? 'MEMPROSES'
-    : 'INFORMASI';
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const badgeLabel = item.badge || defaultBadge;
+  const category = resolveCategory(item);
+  const displayTitle = (item.title || '').trim() || getDefaultTitle(category);
+  const relativeTime = formatRelativeTime(item.createdAt, nowMs);
+  const hasAction = Boolean(item.onAction);
 
-  const badgeColor = isSuccess
-    ? 'text-emerald-700 dark:text-emerald-300'
-    : isError
-    ? 'text-rose-700 dark:text-rose-300'
-    : isWarning
-    ? 'text-amber-700 dark:text-amber-300'
-    : 'text-[#5424A8] dark:text-[#C9A8FF]';
+  const iconConfig: Record<
+    VisualCategory,
+    { boxClass: string; icon: React.ReactNode }
+  > = {
+    success: {
+      boxClass:
+        'bg-emerald-500/12 dark:bg-emerald-400/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20',
+      icon: <CheckCircle2 className="w-4 h-4" strokeWidth={2.2} />
+    },
+    info: {
+      boxClass:
+        'bg-sky-500/12 dark:bg-sky-400/15 text-sky-600 dark:text-sky-300 border border-sky-500/20',
+      icon: <Info className="w-4 h-4" strokeWidth={2.2} />
+    },
+    warning: {
+      boxClass:
+        'bg-amber-500/14 dark:bg-amber-400/15 text-amber-600 dark:text-amber-300 border border-amber-500/25',
+      icon: <AlertTriangle className="w-4 h-4" strokeWidth={2.2} />
+    },
+    error: {
+      boxClass:
+        'bg-rose-500/12 dark:bg-rose-400/15 text-rose-600 dark:text-rose-300 border border-rose-500/20',
+      icon: <XCircle className="w-4 h-4" strokeWidth={2.2} />
+    },
+    assignment: {
+      boxClass:
+        'bg-[#8648F5]/14 dark:bg-[#8648F5]/25 text-[#5424A8] dark:text-[#D9C7FF] border border-[#8648F5]/25',
+      icon: <ClipboardCheck className="w-4 h-4" strokeWidth={2.2} />
+    },
+    chat: {
+      boxClass:
+        'bg-blue-500/12 dark:bg-blue-400/15 text-blue-600 dark:text-blue-300 border border-blue-500/20',
+      icon: <MessageCircle className="w-4 h-4" strokeWidth={2.2} />
+    },
+    system: {
+      boxClass:
+        'bg-[#8648F5]/14 dark:bg-[#8648F5]/25 text-[#5424A8] dark:text-[#D9C7FF] border border-[#8648F5]/25',
+      icon: <Settings className="w-4 h-4" strokeWidth={2.2} />
+    },
+    loading: {
+      boxClass:
+        'bg-[#8648F5]/14 dark:bg-[#8648F5]/25 text-[#5424A8] dark:text-[#D9C7FF] border border-[#8648F5]/25',
+      icon: <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.2} />
+    }
+  };
 
-  const accentStripe = isSuccess
-    ? 'bg-emerald-500'
-    : isError
-    ? 'bg-rose-600'
-    : isWarning
-    ? 'bg-amber-500'
-    : 'bg-gradient-to-b from-[#8648F5] to-[#5424A8]';
+  const currentIcon = iconConfig[category];
 
-  const progressBg = isSuccess
-    ? 'bg-emerald-500'
-    : isError
-    ? 'bg-rose-600'
-    : isWarning
-    ? 'bg-amber-500'
-    : 'bg-gradient-to-r from-[#8648F5] to-[#5424A8]';
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    setIsDragging(true);
+    onPauseTimer(item.id);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const rawDx = touch.clientX - touchStartRef.current.x;
+    const rawDy = touch.clientY - touchStartRef.current.y;
+
+    if (Math.abs(rawDy) >= Math.abs(rawDx)) {
+      const clampedY = rawDy < 0 ? rawDy : Math.min(rawDy * 0.2, 8);
+      setDragOffset({ x: 0, y: clampedY });
+    } else {
+      setDragOffset({ x: rawDx, y: 0 });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartRef.current) return;
+    const { x, y } = dragOffset;
+    touchStartRef.current = null;
+    setIsDragging(false);
+
+    if (y < -28 || Math.abs(x) > 60) {
+      onDismiss(item.id);
+      return;
+    }
+    setDragOffset({ x: 0, y: 0 });
+    onResumeTimer(item.id);
+  };
+
+  const handleToastClick = () => {
+    if (!hasAction) return;
+    try {
+      item.onAction?.();
+    } finally {
+      onDismiss(item.id);
+    }
+  };
+
+  const dragDistance = Math.max(Math.abs(dragOffset.x), Math.abs(dragOffset.y));
+  const dragOpacity = isDragging ? Math.max(0.35, 1 - dragDistance / 110) : undefined;
 
   return (
     <div
       role="status"
+      onClick={handleToastClick}
       onMouseEnter={() => onPauseTimer(item.id)}
       onMouseLeave={() => onResumeTimer(item.id)}
-      className="mj-toast-card mj-notif-toast-enter mj-notif-glass-panel pointer-events-auto relative overflow-hidden rounded-[18px] text-[#28203A] dark:text-[#F5EEFF]"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={
+        isDragging || dragOffset.x !== 0 || dragOffset.y !== 0
+          ? {
+              transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)`,
+              opacity: dragOpacity,
+              transition: isDragging ? 'none' : 'transform 160ms ease-out, opacity 160ms ease-out'
+            }
+          : undefined
+      }
+      className={`mj-ios-toast ${
+        item.exiting ? 'mj-ios-toast-exit' : 'mj-ios-toast-enter'
+      } group pointer-events-auto relative rounded-[15px] px-3 py-2.5 text-[#28203A] dark:text-[#F5EEFF] select-none ${
+        hasAction ? 'cursor-pointer active:scale-[0.985] transition-transform' : ''
+      }`}
     >
-      {/* Left 3D Semantic Accent Bar */}
-      <div className={`absolute inset-y-0 left-0 w-1.5 ${accentStripe}`} />
-
-      <div className="flex items-start gap-3 pl-4 pr-3 py-3.5">
-        {/* Semantic Icon Container */}
-        <div className="shrink-0 mt-0.5">
-          {isSuccess && (
-            <div className="w-9 h-9 rounded-[12px] bg-emerald-50 dark:bg-emerald-950/75 border border-emerald-200 dark:border-emerald-500/40 flex items-center justify-center">
-              <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-300" />
-            </div>
-          )}
-          {isError && (
-            <div className="w-9 h-9 rounded-[12px] bg-rose-50 dark:bg-rose-950/75 border border-rose-200 dark:border-rose-500/40 flex items-center justify-center">
-              <AlertCircle className="w-4.5 h-4.5 text-rose-600 dark:text-rose-300" />
-            </div>
-          )}
-          {isWarning && (
-            <div className="w-9 h-9 rounded-[12px] bg-amber-50 dark:bg-amber-950/75 border border-amber-200 dark:border-amber-500/40 flex items-center justify-center">
-              <AlertTriangle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-300" />
-            </div>
-          )}
-          {item.type === 'info' && (
-            <div className="w-9 h-9 rounded-[12px] bg-[#EEE5FF] dark:bg-[#341668] border border-[#D8C5FF] dark:border-[#8648F5]/45 flex items-center justify-center">
-              <Info className="w-4.5 h-4.5 text-[#5424A8] dark:text-[#D9C7FF]" />
-            </div>
-          )}
-          {isSync && (
-            <div className="w-9 h-9 rounded-[12px] bg-[#EEE5FF] dark:bg-[#341668] border border-[#D8C5FF] dark:border-[#8648F5]/55 flex items-center justify-center">
-              <RefreshCw
-                className="w-4.5 h-4.5 text-[#5424A8] dark:text-[#D9C7FF] animate-spin"
-                style={{ animationDuration: '2.4s' }}
-              />
-            </div>
-          )}
-          {isLoading && (
-            <div className="w-9 h-9 rounded-[12px] bg-[#EEE5FF] dark:bg-[#341668] border border-[#D8C5FF] dark:border-[#8648F5]/55 flex items-center justify-center">
-              <Loader2 className="w-4.5 h-4.5 text-[#5424A8] dark:text-[#D9C7FF] animate-spin" />
-            </div>
-          )}
+      <div className="flex items-start gap-2.5">
+        {/* Compact 32px App / Category Icon */}
+        <div
+          className={`w-8 h-8 rounded-[10px] shrink-0 flex items-center justify-center mt-0.5 ${currentIcon.boxClass}`}
+          aria-hidden="true"
+        >
+          {currentIcon.icon}
         </div>
 
-        {/* Content & Optional 3D Action Buttons */}
+        {/* Minimal Horizontal iOS Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider ${badgeColor}`}>
-              {badgeLabel}
+            <span className="text-[12.5px] font-bold leading-tight text-[#28203A] dark:text-white truncate">
+              {displayTitle}
             </span>
-            <span className="font-mono text-[10px] text-[#756C86] dark:text-[#BFB2DC] tabular-nums shrink-0">
-              {item.timeLabel}
-            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="text-[10.5px] font-medium text-[#756C86] dark:text-[#BFB2DC] leading-none tabular-nums">
+                {relativeTime}
+              </span>
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onDismiss(item.id);
+                }}
+                aria-label="Tutup notifikasi"
+                className="w-4 h-4 -mr-0.5 rounded-full flex items-center justify-center text-[#756C86]/75 hover:text-[#28203A] hover:bg-[#5424A8]/10 dark:text-[#BFB2DC]/75 dark:hover:text-white dark:hover:bg-white/15 transition-colors cursor-pointer"
+              >
+                <X className="w-3 h-3" strokeWidth={2.2} />
+              </button>
+            </div>
           </div>
 
-          {item.title && (
-            <div className="font-display text-[13px] font-extrabold text-[#28203A] dark:text-white leading-snug mt-0.5">
-              {item.title}
-            </div>
-          )}
-
-          <div className="text-[12px] text-[#756C86] dark:text-[#DFD5F5] mt-0.5 leading-snug break-words">
+          <p className="text-[11.5px] leading-[1.35] text-[#5B5270] dark:text-[#DDD4F2] line-clamp-2 break-words mt-0.5">
             {item.message}
-          </div>
+          </p>
 
-          {(item.actionLabel || item.secondaryLabel) && (
-            <div className="flex flex-wrap items-center gap-2 mt-2.5">
-              {item.actionLabel && item.onAction && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      item.onAction?.();
-                    } finally {
-                      onDismiss(item.id);
-                    }
-                  }}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-[11px] text-[11px] font-bold text-white cursor-pointer transition-all active:translate-y-0.5 ${
-                    isError
-                      ? 'bg-gradient-to-b from-rose-500 to-rose-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_2.5px_0_#7F1D1D]'
-                      : isWarning
-                      ? 'bg-gradient-to-b from-amber-500 to-amber-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_2.5px_0_#92400E]'
-                      : isSuccess
-                      ? 'bg-gradient-to-b from-emerald-500 to-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_2.5px_0_#065F46]'
-                      : 'mj-notif-btn-3d'
-                  }`}
-                >
-                  <span>{item.actionLabel}</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-              )}
-              {item.secondaryLabel && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      item.onSecondaryAction?.();
-                    } finally {
-                      onDismiss(item.id);
-                    }
-                  }}
-                  className="mj-notif-btn-3d-soft px-2.5 py-1 rounded-[11px] text-[11px] font-bold cursor-pointer"
-                >
-                  {item.secondaryLabel}
-                </button>
-              )}
+          {item.actionLabel && item.onAction && (
+            <div className="mt-0.5 flex items-center gap-3">
+              <span className="text-[11px] font-semibold text-[#5424A8] dark:text-[#C9A8FF] hover:underline">
+                {item.actionLabel}
+              </span>
             </div>
           )}
         </div>
-
-        {/* 3D Close Button */}
-        <button
-          type="button"
-          onClick={() => onDismiss(item.id)}
-          className="shrink-0 w-7 h-7 rounded-[10px] bg-[#F7F4FC] dark:bg-white/10 hover:bg-[#EEE5FF] dark:hover:bg-white/20 text-[#756C86] hover:text-[#28203A] dark:text-[#CFC3EC] dark:hover:text-white border border-[#EEE5FF] dark:border-white/15 flex items-center justify-center transition-all cursor-pointer active:translate-y-[1px]"
-          aria-label="Tutup notifikasi"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
       </div>
-
-      {/* Countdown Progress Bar (pauses on hover) */}
-      {item.duration > 0 && (
-        <div className="h-[3px] w-full bg-[#EEE5FF] dark:bg-white/10 overflow-hidden">
-          <div
-            className={`mj-toast-progress-bar h-full ${progressBg}`}
-            style={{
-              animation: `morajaws-progress-countdown ${item.duration}ms linear forwards`
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 };

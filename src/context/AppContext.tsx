@@ -817,6 +817,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ticketsRef.current = tickets;
 
   const deliveredTriggeredRef = React.useRef<Set<string>>(new Set());
+  const hasHydratedChatMessagesRef = React.useRef<boolean>(false);
+  const knownChatMessageIdsRef = React.useRef<Set<string>>(new Set());
+  const prevAuthSessionKeyRef = React.useRef<string>('');
+
+  React.useEffect(() => {
+    const nextKey = isLoggedIn ? String(currentUser?.id || '') : '';
+    if (prevAuthSessionKeyRef.current !== nextKey) {
+      prevAuthSessionKeyRef.current = nextKey;
+      hasHydratedChatMessagesRef.current = false;
+      knownChatMessageIdsRef.current.clear();
+    }
+  }, [isLoggedIn, currentUser?.id]);
 
   const triggerDeliveryReceiptsForMessages = React.useCallback((msgs: TicketMessage[], uid?: string) => {
     const cleanUid = String(uid || currentUserRef.current?.id || '').trim();
@@ -942,6 +954,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   .then(data => {
                     if (!isCancelled && data?.success && Array.isArray(data.messages)) {
                       const fetchedMsgs: TicketMessage[] = data.messages;
+                      const staleCutoff = Date.now() - 5 * 60 * 1000;
+                      fetchedMsgs.forEach(m => {
+                        if (!m?.id) return;
+                        const ts = Date.parse(m.timestamp);
+                        if (!Number.isFinite(ts) || ts < staleCutoff) {
+                          knownChatMessageIdsRef.current.add(m.id);
+                        }
+                      });
                       setTicketMessages(prev => {
                         const map = new Map(prev.map(m => [m.id, m]));
                         fetchedMsgs.forEach(m => {
@@ -1259,10 +1279,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
               );
             })();
+            if (!hasHydratedChatMessagesRef.current) {
+              hydratedMessages.forEach(m => {
+                if (m?.id) knownChatMessageIdsRef.current.add(m.id);
+              });
+              hasHydratedChatMessagesRef.current = true;
+            }
             setTicketMessages(hydratedMessages);
             if (resolvedUserId) {
               triggerDeliveryReceiptsForMessages(hydratedMessages, resolvedUserId);
             }
+          } else if (!hasHydratedChatMessagesRef.current) {
+            hasHydratedChatMessagesRef.current = true;
           }
           if (Array.isArray(data.contractors) && data.contractors.length > 0) {
             setContractors(deduplicateContractors(data.contractors));
@@ -4355,6 +4383,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         readBy: Array.isArray(json.message.readBy) ? json.message.readBy : [currentUser.id]
       };
 
+      if (savedMessage.id) {
+        knownChatMessageIdsRef.current.add(savedMessage.id);
+      }
+
       setTicketMessages(prev => {
         if (prev.some(m => m.id === savedMessage.id)) {
           return prev.map(m => (m.id === savedMessage.id ? savedMessage : m));
@@ -4449,6 +4481,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         const fetchedMsgs: TicketMessage[] = data.messages;
+        const staleCutoff = Date.now() - 5 * 60 * 1000;
+        fetchedMsgs.forEach(m => {
+          if (!m?.id) return;
+          const ts = Date.parse(m.timestamp);
+          if (!Number.isFinite(ts) || ts < staleCutoff) {
+            knownChatMessageIdsRef.current.add(m.id);
+          }
+        });
         const matchedTicket = ticketsRef.current.find(t => t.id === cleanId || t.woNumber === cleanId);
         const canonicalId = matchedTicket?.id || cleanId;
         const woUpper = String(matchedTicket?.woNumber || '').trim().toUpperCase();
@@ -4552,6 +4592,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const getTicketUnreadCount = (ticketId: string): number => {
     return unreadCountsByTicket[ticketId] || 0;
   };
+
+  // Real-time incoming Live Chat notification + crisp double chime sound
+  React.useEffect(() => {
+    const uid = String(currentUser?.id || '').trim();
+    if (!isLoggedIn || !uid || !hasHydratedChatMessagesRef.current) return;
+
+    const freshIncoming: Array<{ message: TicketMessage; ticketId: string }> = [];
+    const recencyCutoffMs = Date.now() - 5 * 60 * 1000;
+
+    for (const m of ticketMessages) {
+      if (!m || !m.id) continue;
+      if (knownChatMessageIdsRef.current.has(m.id)) continue;
+
+      let resolvedId: string | undefined;
+      if (m.ticketId && activeScopedTicketLookup.byId.has(m.ticketId)) {
+        resolvedId = m.ticketId;
+      } else if (m.woNumber) {
+        resolvedId = activeScopedTicketLookup.woToId.get(String(m.woNumber).trim().toUpperCase());
+      }
+
+      // If ticket is present in global tickets but outside RBAC scope, mark seen and never alert
+      if (!resolvedId) {
+        const existsOutsideScope = ticketsRef.current.some(
+          t =>
+            t.id === m.ticketId ||
+            (m.woNumber && String(t.woNumber || '').trim().toUpperCase() === String(m.woNumber).trim().toUpperCase())
+        );
+        if (existsOutsideScope) {
+          knownChatMessageIdsRef.current.add(m.id);
+        }
+        continue;
+      }
+
+      knownChatMessageIdsRef.current.add(m.id);
+
+      if (String(m.senderId || '').trim() === uid) continue;
+      const readers = Array.isArray(m.readBy) ? m.readBy : [];
+      if (readers.includes(uid)) continue;
+
+      const parsedTs = Date.parse(m.timestamp);
+      if (Number.isFinite(parsedTs) && parsedTs < recencyCutoffMs) continue;
+
+      freshIncoming.push({ message: m, ticketId: resolvedId });
+    }
+
+    if (freshIncoming.length === 0) return;
+
+    const latest = freshIncoming[freshIncoming.length - 1];
+    const targetTicket = scopedTickets.find(t => t.id === latest.ticketId);
+    const woLabel = targetTicket?.woNumber || latest.message.woNumber || '';
+    const senderLabel = latest.message.senderName || 'Tim Operasional';
+    const rawSnippet =
+      (latest.message.text || '').trim() ||
+      (latest.message.attachments && latest.message.attachments.length > 0
+        ? 'Mengirim lampiran foto'
+        : 'Pesan baru');
+
+    const bodyText =
+      freshIncoming.length === 1
+        ? `${senderLabel}${woLabel ? ` (${woLabel})` : ''}: ${rawSnippet}`
+        : `${freshIncoming.length} pesan baru — terakhir dari ${senderLabel}${woLabel ? ` (${woLabel})` : ''}.`;
+
+    toast.info(bodyText, 'Live Chat', {
+      withSound: true,
+      soundCategory: 'live_chat',
+      actionLabel: 'Buka Chat',
+      onAction: () => {
+        try {
+          window.dispatchEvent(
+            new CustomEvent('morajaws:open-live-chat', {
+              detail: { ticketId: latest.ticketId }
+            })
+          );
+        } catch {}
+      }
+    });
+  }, [ticketMessages, activeScopedTicketLookup, scopedTickets, isLoggedIn, currentUser?.id, toast]);
 
   const totalLiveChatUnreadCount = React.useMemo(() => {
     return Object.values(unreadCountsByTicket).reduce((sum, count) => sum + count, 0);

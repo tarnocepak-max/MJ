@@ -184,6 +184,7 @@ const MainLayout: React.FC = () => {
   const [detailDefaultTab, setDetailDefaultTab] = useState<'overview' | 'report' | 'chat' | 'history'>('overview');
   const [whatsAppTicket, setWhatsAppTicket] = useState<Ticket | null>(null);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [liveChatInitialTicketId, setLiveChatInitialTicketId] = useState<string | undefined>(undefined);
 
   // Central Navigation Dispatcher: updates activeTab, leaderSubTab, localStorage, and history state
   const navigateTo = (tab: string, pushHistory = true) => {
@@ -356,6 +357,19 @@ const MainLayout: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLoggedIn, isInstaller, currentSidebarState, setSidebarState]);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const handleOpenLiveChat = (e: Event) => {
+      const detail = (e as CustomEvent<{ ticketId?: string }>).detail;
+      if (detail?.ticketId) {
+        setLiveChatInitialTicketId(detail.ticketId);
+      }
+      navigateTo(isInstaller ? 'installer_chat' : 'contact_centre');
+    };
+    window.addEventListener('morajaws:open-live-chat', handleOpenLiveChat);
+    return () => window.removeEventListener('morajaws:open-live-chat', handleOpenLiveChat);
+  }, [isLoggedIn, isInstaller]);
+
   // Unauthenticated Staff Protection: Render dedicated Staff Login Portal
   if (!isLoggedIn) {
     return (
@@ -500,6 +514,7 @@ const MainLayout: React.FC = () => {
         case 'contact_centre':
           return (
             <ContactCentreView
+              initialTicketId={liveChatInitialTicketId}
               onSelectTicket={handleOpenTicketDetail}
               onOpenWhatsApp={handleOpenWhatsAppModal}
             />
@@ -843,6 +858,7 @@ const MainLayout: React.FC = () => {
       case 'contact_centre':
         return (
           <ContactCentreView
+            initialTicketId={liveChatInitialTicketId}
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
           />
