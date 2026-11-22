@@ -25,6 +25,7 @@ import { formatAppointmentDateDisplay, getTicketAppointmentDate } from '../../se
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { GeoTagCameraModal, CapturedPhotoPayload } from '../camera/GeoTagCameraModal';
 import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
+import { BarcodeScannerModal, ParsedBarcodePayload } from '../camera/BarcodeScannerModal';
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,7 +33,6 @@ import {
   MessageSquare,
   MapPin,
   CheckCircle2,
-  Navigation,
   Clock,
   Radio,
   Copy,
@@ -337,7 +337,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
-  const [showSnScannerTip, setShowSnScannerTip] = useState(false);
+  const [showBarcodeScannerModal, setShowBarcodeScannerModal] = useState(false);
   const snInputRef = useRef<HTMLInputElement>(null);
 
   // Restore local draft when switching tickets
@@ -1540,15 +1540,18 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     });
   };
 
-  const handleOtwLokasi = () => {
-    updateTicketStatus(
-      activeTicket.id,
-      undefined,
-      'En Route',
-      `Teknisi ${currentUser.name} sedang berangkat menuju lokasi.`
-    );
-    toast.success('Status diubah menjadi En Route (Otw Lokasi).', 'Otw Lokasi');
-    handleOpenMaps();
+  const handleConfirmBarcodeSn = (scannedSn: string, meta?: ParsedBarcodePayload) => {
+    const cleanSn = scannedSn.trim().toUpperCase();
+    if (!cleanSn) return;
+    setOntSerialNumber(cleanSn);
+    setShowBarcodeScannerModal(false);
+    if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
+    setTimeout(() => {
+      snInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      snInputRef.current?.focus();
+    }, 120);
+    const macNote = meta?.macAddress ? ` · MAC: ${meta.macAddress}` : '';
+    toast.success(`SN perangkat ${cleanSn}${macNote} berhasil dipindai & diisi otomatis.`, 'Scan Barcode SN');
   };
 
   const woBadgeLabel = activeTicket.appointmentType || activeTicket.ticketCategory || 'Instalasi FTTH';
@@ -1951,17 +1954,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       <span>WhatsApp</span>
                     </button>
                   ))}
-
-                {!ticketClosed && (
-                  <button
-                    type="button"
-                    onClick={handleOtwLokasi}
-                    className="mj-btn-installer-secondary mj-btn-compact px-3 py-1.5 text-[11px] gap-1 cursor-pointer"
-                  >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>Otw</span>
-                  </button>
-                )}
               </div>
             </section>
 
@@ -2142,7 +2134,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <Lock className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5 min-w-0">
                   <div className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2 flex-wrap">
-                    <span>Work Order CLOSED (Read-Only)</span>
+                    <span>Work Order Terverifikasi Dispatch (Read-Only)</span>
                     <StatusBadge status="APPROVED" variant="approval" />
                   </div>
                   <p className="text-[11px] text-emerald-800 dark:text-emerald-300/90">
@@ -2471,7 +2463,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     <span className={`font-mono text-[10.5px] block truncate ${ontSerialNumber.trim() ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-[#7d7484] dark:text-[#A79BC0]'}`}>
                       {ontSerialNumber.trim()
                         ? `SN Terinput: ${ontSerialNumber.trim()}`
-                        : 'SN belum diinput / tunggu Foto #06'}
+                        : 'SN belum diinput — ketuk Scan SN atau Foto #06'}
                     </span>
                   </div>
                 </div>
@@ -2511,9 +2503,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </div>
 
                 <div>
-                  <label htmlFor="ont-sn-input" className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
-                    Nomor Seri (SN) ONT / Modem
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label htmlFor="ont-sn-input" className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff]">
+                      Nomor Seri (SN) ONT / Perangkat Wi-Fi
+                    </label>
+                    {!ticketClosed && (
+                      <button
+                        type="button"
+                        onClick={() => openCameraForSlotKey('barcode_sn')}
+                        className="font-mono text-[10.5px] font-bold text-[#58149c] dark:text-[#DAB9FF] hover:underline shrink-0 cursor-pointer"
+                      >
+                        Foto #06 SN
+                      </button>
+                    )}
+                  </div>
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
                       <input
@@ -2523,38 +2526,24 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         value={ontSerialNumber}
                         disabled={ticketClosed || isSubmittingReport}
                         onChange={e => setOntSerialNumber(e.target.value.toUpperCase())}
-                        placeholder="Masukkan SN ONT (mis. ZTEG-XXXX)"
-                        className="w-full bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#7135b5] uppercase tracking-wider disabled:opacity-60"
+                        placeholder="Scan barcode atau ketik SN ONT / Wi-Fi"
+                        className="w-full min-h-[44px] bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#7135b5] uppercase tracking-wider disabled:opacity-60"
                       />
                       {ontSerialNumber.trim().length >= 6 && (
-                        <CheckCircle2 className="w-4 h-4 absolute right-3 top-2.5 text-emerald-600" />
+                        <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600" />
                       )}
                     </div>
                     <button
                       type="button"
-                      disabled={ticketClosed}
-                      onClick={() => {
-                        setShowSnScannerTip(prev => !prev);
-                        snInputRef.current?.focus();
-                      }}
-                      className="mj-btn-icon-3d-installer w-10 h-10 shrink-0 cursor-pointer"
-                      title="Fokus SN ONT & Foto Barcode"
+                      disabled={ticketClosed || isSubmittingReport}
+                      onClick={() => setShowBarcodeScannerModal(true)}
+                      className="mj-btn-installer-secondary mj-btn-compact min-h-[44px] px-3 text-xs font-bold gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                      title="Buka Kamera Scanner Barcode / QR SN ONT & Perangkat Wi-Fi"
                     >
-                      <QrCode className="w-4 h-4" />
+                      <QrCode className="w-4 h-4 shrink-0" />
+                      <span>Scan SN</span>
                     </button>
                   </div>
-                  {showSnScannerTip && (
-                    <div className="mt-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-[#f8f1ff] dark:bg-[#160D29] border border-[#d8ccf3] dark:border-[#35105E] text-[11px] text-[#4b4452] dark:text-[#C4B5D6]">
-                      <span>Ketik SN manual atau foto stiker barcode pada Slot #06.</span>
-                      <button
-                        type="button"
-                        onClick={() => openCameraForSlotKey('barcode_sn')}
-                        className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF] underline shrink-0 cursor-pointer"
-                      >
-                        Foto #06 SN
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div>
@@ -3126,7 +3115,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               {ticketClosed ? (
                 <span className="text-emerald-700 dark:text-emerald-400 font-bold inline-flex items-center gap-1">
                   <Lock className="w-3.5 h-3.5" />
-                  <span>WO Closed</span>
+                  <span>Terverifikasi Dispatch</span>
                 </span>
               ) : requiresProgressCheckIn ? (
                 <span className="text-amber-700 dark:text-amber-300 font-bold inline-flex items-center gap-1">
@@ -3150,16 +3139,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             <div className="flex items-center gap-2 relative">
               <button
                 type="button"
-                disabled={ticketClosed}
-                onClick={() => {
-                  if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
-                  setShowSnScannerTip(true);
-                  snInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  setTimeout(() => snInputRef.current?.focus(), 200);
-                }}
-                aria-label="Fokus Scan SN ONT"
-                title="Fokus & Foto Barcode SN ONT"
-                className="mj-btn-icon-3d-installer h-12 w-12 shrink-0 cursor-pointer"
+                disabled={ticketClosed || isSubmittingReport}
+                onClick={() => setShowBarcodeScannerModal(true)}
+                aria-label="Scan Barcode SN ONT / Perangkat Wi-Fi"
+                title="Scan Barcode / QR SN ONT & Perangkat Wi-Fi"
+                className="mj-btn-icon-3d-installer h-12 w-12 shrink-0 cursor-pointer disabled:opacity-50"
               >
                 <QrCode className="w-4 h-4" />
               </button>
@@ -3578,6 +3562,17 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           }}
         />
       )}
+
+      {/* Barcode / QR Scanner Modal for ONT & Wi-Fi Device SN */}
+      <BarcodeScannerModal
+        isOpen={showBarcodeScannerModal}
+        onClose={() => setShowBarcodeScannerModal(false)}
+        title="Scan Barcode SN ONT / Perangkat Wi-Fi"
+        subtitle="Arahkan kamera ke stiker barcode atau QR Code Serial Number perangkat"
+        woNumber={activeTicket.woNumber}
+        initialSerialNumber={ontSerialNumber}
+        onConfirmSerialNumber={handleConfirmBarcodeSn}
+      />
 
       {/* Photo Lightbox Modal */}
       <PhotoLightboxModal

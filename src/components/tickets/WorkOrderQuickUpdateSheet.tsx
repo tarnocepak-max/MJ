@@ -10,7 +10,6 @@ import { isTicketClosed } from '../../services/woLifecycleService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import {
   X,
-  Navigation,
   MapPin,
   Wrench,
   PauseCircle,
@@ -44,13 +43,6 @@ interface StatusOptionConfig {
 }
 
 const INSTALLER_STATUS_CHOICES: StatusOptionConfig[] = [
-  {
-    value: 'En Route',
-    label: 'En Route / Menuju Lokasi',
-    description: 'Teknisi dalam perjalanan ke alamat pelanggan',
-    tone: 'default',
-    icon: Navigation
-  },
   {
     value: 'On Site',
     label: 'On Site / Tiba di Lokasi',
@@ -151,7 +143,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
     if (!isOpen || !ticket) return;
     const initialStatus: TicketStatusWOInstaller =
       ticket.statusWOInstaller &&
-      ['En Route', 'On Site', 'In Progress', 'Pending Technical'].includes(ticket.statusWOInstaller)
+      ['On Site', 'In Progress', 'Pending Technical'].includes(ticket.statusWOInstaller)
         ? ticket.statusWOInstaller
         : 'In Progress';
     setSelectedStatus(initialStatus);
