@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
+import http from 'http';
 import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
@@ -24,13 +25,30 @@ import {
   rotateRefreshToken,
   revokeSingleSession,
   revokeAllUserSessions,
+  createSessionForUserAfterPasswordChange,
   hashPasswordWithBcrypt,
   verifyUserPasswordEx,
   validatePasswordStrength,
+  checkPasswordNotReused,
+  checkPasswordEndpointRateLimit,
   LOCAL_AUTH_SESSIONS,
   LOCAL_REFRESH_TOKENS,
   LOCAL_LOGIN_ATTEMPTS
 } from './server/customAuthService.ts';
+import {
+  createAndStartMassResetJob,
+  listMassResetJobs,
+  getMassResetJob,
+  retryFailedJobItems,
+  cancelMassResetJob,
+  rollbackMassResetJob,
+  buildSanitizedJobReport,
+  sanitizeJobForClient,
+  issueSingleUseResetTokenForUser,
+  consumeResetTokenAndSetPassword,
+  generateUniqueCryptographicPlaceholderHash,
+  generateSingleUseResetTokenPair
+} from './server/passwordResetService.ts';
 import { EventEmitter } from 'events';
 import {
   findUserInSupabase,
@@ -42,6 +60,8 @@ import {
   deleteUserInSupabase,
   getWorkOrdersFromSupabase,
   getClassifiedWorkOrdersFromSupabase,
+  getWorkOrdersUpdatedSinceFromSupabase,
+  stripHeavyFieldsForCriticalPhase,
   getWorkOrderByIdFromSupabase,
   getWorkOrderByWoNumberFromSupabase,
   getWorkOrderByIdOrWoNumberFromSupabase,
@@ -969,9 +989,7 @@ function loadDatabaseFromDisk() {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        db = {
-          ...db,
-          ...parsed,
+        Object.assign(db, parsed, {
           // Ensure essential baseline users exist
           users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : INITIAL_SEED_USERS,
           tickets: Array.isArray(parsed.tickets) && parsed.tickets.length > 0 ? parsed.tickets : INITIAL_SEED_TICKETS,
@@ -981,7 +999,7 @@ function loadDatabaseFromDisk() {
           storageMetadata: Array.isArray(parsed.storageMetadata) ? parsed.storageMetadata : [],
           // Auto Reset 00:00 WIB: Never keep a stale persisted date override across server startups
           operationalDateOverride: null
-        };
+        });
         if (Array.isArray(parsed.sessions)) {
           SERVER_SESSIONS.length = 0;
           SERVER_SESSIONS.push(...parsed.sessions);
@@ -2560,8 +2578,66 @@ export function computeLiveChatUnreadSummary(
   };
 }
 
+function parseCliFlag(flagNames: string[]): string | undefined {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    for (const flag of flagNames) {
+      if (arg === flag && i + 1 < args.length && !args[i + 1].startsWith('-')) {
+        return args[i + 1];
+      }
+      if (arg.startsWith(`${flag}=`)) {
+        return arg.slice(flag.length + 1);
+      }
+    }
+  }
+  return undefined;
+}
+
+function resolveServerPort(): number {
+  const cliPortRaw = parseCliFlag(['--port', '-p']);
+  if (cliPortRaw) {
+    const parsedCli = Number(cliPortRaw);
+    if (Number.isInteger(parsedCli) && parsedCli > 0 && parsedCli <= 65535) {
+      return parsedCli;
+    }
+  }
+
+  const nginxPort = Number(process.env.NGINX_PORT);
+  const controlPlanePort = Number(process.env.CONTROL_PLANE_PORT);
+  const envPort = Number(process.env.PORT);
+  if (
+    Number.isInteger(envPort) &&
+    envPort > 0 &&
+    envPort <= 65535 &&
+    envPort !== nginxPort &&
+    envPort !== controlPlanePort
+  ) {
+    return envPort;
+  }
+
+  const defaultAppPort = Number(process.env.DEFAULT_APP_PORT);
+  if (
+    Number.isInteger(defaultAppPort) &&
+    defaultAppPort > 0 &&
+    defaultAppPort <= 65535 &&
+    defaultAppPort !== nginxPort &&
+    defaultAppPort !== controlPlanePort
+  ) {
+    return defaultAppPort;
+  }
+
+  return 3000;
+}
+
+function resolveServerHost(): string {
+  return parseCliFlag(['--host']) || process.env.HOST || '0.0.0.0';
+}
+
 export async function createExpressApp(options?: {
   skipVite?: boolean;
+  deferVite?: boolean;
+  httpServer?: http.Server;
   nowProvider?: () => Date;
 }): Promise<express.Express> {
   loadDatabaseFromDisk();
@@ -2594,7 +2670,7 @@ export async function createExpressApp(options?: {
   }
 
   const app = express();
-  const PORT = 3000;
+  const PORT = resolveServerPort();
 
   // Production CORS & Security Headers
   const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
@@ -2657,6 +2733,38 @@ export async function createExpressApp(options?: {
   app.use(cookieParser());
   app.use(express.json({ limit: '50mb' }));
   app.use(resolveUserFromHeader);
+
+  // Enforce Mandatory Password Change Gate across operational API endpoints
+  const MUST_CHANGE_PASSWORD_EXEMPT_PATHS = new Set<string>([
+    '/api/health',
+    '/api/bootstrap',
+    '/api/auth/session',
+    '/api/auth/me',
+    '/api/auth/login',
+    '/api/auth/supabase-login',
+    '/api/auth/logout',
+    '/api/auth/supabase-logout',
+    '/api/auth/refresh',
+    '/api/auth/supabase-refresh',
+    '/api/auth/change-password',
+    '/api/auth/reset-password-token',
+    '/api/auth/resolve-identity'
+  ]);
+
+  app.use('/api', (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user || !req.user.mustChangePassword) {
+      return next();
+    }
+    const cleanPath = req.originalUrl.split('?')[0];
+    if (MUST_CHANGE_PASSWORD_EXEMPT_PATHS.has(cleanPath)) {
+      return next();
+    }
+    return res.status(403).json({
+      success: false,
+      code: 'PASSWORD_CHANGE_REQUIRED',
+      error: 'Keamanan Akun: Anda wajib mengganti kata sandi Anda terlebih dahulu sebelum mengakses fitur dan data MoraJaws.'
+    });
+  });
 
   // Health check endpoint with infrastructure, Supabase PostgreSQL connectivity, Custom Auth, and Supabase Storage
   app.get('/api/health', async (_req, res) => {
@@ -2817,9 +2925,26 @@ export async function createExpressApp(options?: {
     });
   });
 
-  // --- Bootstrap Initial State for Client Startup ---
+  // --- Bootstrap Initial State for Client Startup (Supports ?mode=critical for Phase 1 Progressive Loading) ---
   app.get('/api/bootstrap', async (req: AuthenticatedRequest, res) => {
     const user = req.user;
+    const isCriticalMode = String(req.query.mode || '').toLowerCase() === 'critical';
+    const passwordChangeRequired = Boolean(user?.mustChangePassword);
+
+    const buildSafeBootstrapUser = (u: ServerUser | undefined) => u ? ({
+      id: u.id,
+      name: u.name,
+      username: u.username,
+      email: u.email,
+      phone: u.phone,
+      role: u.role,
+      contractor: u.contractor,
+      contractorId: u.contractorId,
+      area: u.area,
+      active: u.active,
+      mustChangePassword: Boolean(u.mustChangePassword),
+      passwordChangedAt: (u as any).passwordChangedAt || null
+    }) : null;
 
     if (!isSupabaseMode()) {
       if (!isLocalJsonModeAllowed()) {
@@ -2830,48 +2955,50 @@ export async function createExpressApp(options?: {
         });
       }
       const todayWIB = getJakartaDateStringServer(getNow());
-      const scopedTickets = user
+      const scopedTickets = (user && !passwordChangeRequired)
         ? scopeTicketsForUser(db.tickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
         : [];
       const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
       const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
       const scopedTicketIds = new Set(scopedTickets.map((t: any) => String(t.id || '')));
       const scopedWoNumbers = new Set(scopedTickets.map((t: any) => String(t.woNumber || '').trim().toUpperCase()));
-      const scopedMessages = user
+      const scopedMessages = (user && !passwordChangeRequired && !isCriticalMode)
         ? (db.ticketMessages || []).filter((m: any) =>
             scopedTicketIds.has(String(m.ticketId || '')) ||
             scopedWoNumbers.has(String(m.woNumber || '').trim().toUpperCase())
           )
         : [];
       const rolePermBundle = user ? await getEffectiveRolePermissions() : null;
-      const unreadSummary = computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+      const unreadSummary = isCriticalMode
+        ? { totalUnreadMessages: 0, unreadTicketsCount: 0, unreadByTicket: {} }
+        : computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+
+      const finalTickets = isCriticalMode
+        ? scopedTickets.map(stripHeavyFieldsForCriticalPhase)
+        : scopedTickets;
+      const finalActiveTickets = isCriticalMode
+        ? activeTodayTickets.map(stripHeavyFieldsForCriticalPhase)
+        : activeTodayTickets;
+
       return res.json({
         success: true,
         isAuthenticated: Boolean(user),
-        currentUser: user ? {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          contractor: user.contractor,
-          contractorId: user.contractorId,
-          area: user.area,
-          active: user.active
-        } : null,
-        tickets: scopedTickets,
-        activeTickets: activeTodayTickets,
+        passwordChangeRequired,
+        isCriticalMode,
+        currentUser: buildSafeBootstrapUser(user),
+        tickets: finalTickets,
+        activeTickets: finalActiveTickets,
+        totalTicketsCount: scopedTickets.length,
         classificationSummary,
         overdueSummary: classificationSummary.overdueBreakdown,
         ticketMessages: scopedMessages,
         unreadSummary,
         contractors: db.contractors,
         coverageAreas: db.coverageAreas,
-        templates: db.templates,
+        templates: isCriticalMode ? [] : db.templates,
         globalConfig: db.appSettings?.global_config || db.globalConfig,
         rolePermissions: rolePermBundle?.permissions,
-        sheetsConfig: user?.role === 'super_admin' ? (db.appSettings?.google_sheets_config || db.sheetsConfig) : undefined,
+        sheetsConfig: (!isCriticalMode && user?.role === 'super_admin') ? (db.appSettings?.google_sheets_config || db.sheetsConfig) : undefined,
         operationalDate: todayWIB,
         operationalDateWIB: todayWIB,
         timezone: 'Asia/Jakarta',
@@ -2886,10 +3013,14 @@ export async function createExpressApp(options?: {
 
     try {
       const [sbResult, sbContr, sbAreas, sbTemplates] = await Promise.all([
-        getWorkOrdersFromSupabase(),
+        (user && !passwordChangeRequired)
+          ? getWorkOrdersFromSupabase()
+          : Promise.resolve({ success: true, data: [] }),
         getContractorsFromSupabase(),
         getCoverageAreasFromSupabase(),
-        getWaTemplatesFromSupabase()
+        isCriticalMode
+          ? Promise.resolve({ success: true, data: [] })
+          : getWaTemplatesFromSupabase()
       ]);
 
       if (!sbResult.success) {
@@ -2931,7 +3062,7 @@ export async function createExpressApp(options?: {
         coverageAreasList = sbAreas.data || [];
       }
 
-      templatesList = (sbTemplates.success && sbTemplates.data) ? sbTemplates.data : (isLocalJsonModeAllowed() ? db.templates : []);
+      templatesList = (sbTemplates.success && sbTemplates.data) ? sbTemplates.data : (isLocalJsonModeAllowed() && !isCriticalMode ? db.templates : []);
     } catch {
       if (!isLocalJsonModeAllowed()) {
         return res.status(503).json({
@@ -2943,17 +3074,18 @@ export async function createExpressApp(options?: {
       baseTickets = db.tickets;
       contractorsList = db.contractors;
       coverageAreasList = db.coverageAreas;
-      templatesList = db.templates;
+      templatesList = isCriticalMode ? [] : db.templates;
     }
 
     const todayWIB = getJakartaDateStringServer(getNow());
-    const scopedTickets = user
+    const scopedTickets = (user && !passwordChangeRequired)
       ? scopeTicketsForUser(baseTickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
       : [];
     const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
     const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
+
     let scopedMessages: any[] = [];
-    if (user && scopedTickets.length > 0) {
+    if (user && !passwordChangeRequired && !isCriticalMode && scopedTickets.length > 0) {
       const msgRes = await getTicketMessagesForTicketsFromSupabase(scopedTickets.map((t: any) => t.id));
       if (msgRes.success && Array.isArray(msgRes.data)) {
         scopedMessages = msgRes.data;
@@ -2978,29 +3110,30 @@ export async function createExpressApp(options?: {
 
     const [gcSupaRes, scSupaRes, rolePermBundle] = await Promise.all([
       getVersionedAppSettingFromSupabase('global_config').catch(() => null),
-      user?.role === 'super_admin' ? getVersionedAppSettingFromSupabase('google_sheets_config').catch(() => null) : Promise.resolve(null),
+      (!isCriticalMode && user?.role === 'super_admin') ? getVersionedAppSettingFromSupabase('google_sheets_config').catch(() => null) : Promise.resolve(null),
       user ? getEffectiveRolePermissions().catch(() => null) : Promise.resolve(null)
     ]);
 
-    const unreadSummary = computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+    const unreadSummary = isCriticalMode
+      ? { totalUnreadMessages: 0, unreadTicketsCount: 0, unreadByTicket: {} }
+      : computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+
+    const finalTickets = isCriticalMode
+      ? scopedTickets.map(stripHeavyFieldsForCriticalPhase)
+      : scopedTickets;
+    const finalActiveTickets = isCriticalMode
+      ? activeTodayTickets.map(stripHeavyFieldsForCriticalPhase)
+      : activeTodayTickets;
 
     res.json({
       success: true,
       isAuthenticated: Boolean(user),
-      currentUser: user ? {
-        id: user.id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        contractor: user.contractor,
-        contractorId: user.contractorId,
-        area: user.area,
-        active: user.active
-      } : null,
-      tickets: scopedTickets,
-      activeTickets: activeTodayTickets,
+      passwordChangeRequired,
+      isCriticalMode,
+      currentUser: buildSafeBootstrapUser(user),
+      tickets: finalTickets,
+      activeTickets: finalActiveTickets,
+      totalTicketsCount: scopedTickets.length,
       classificationSummary,
       overdueSummary: classificationSummary.overdueBreakdown,
       ticketMessages: scopedMessages,
@@ -3010,7 +3143,7 @@ export async function createExpressApp(options?: {
       templates: templatesList,
       globalConfig: (gcSupaRes?.success && gcSupaRes.data?.value) ? gcSupaRes.data.value : db.globalConfig,
       rolePermissions: rolePermBundle?.permissions,
-      sheetsConfig: user?.role === 'super_admin' ? ((scSupaRes?.success && scSupaRes.data?.value) ? scSupaRes.data.value : db.sheetsConfig) : undefined,
+      sheetsConfig: (!isCriticalMode && user?.role === 'super_admin') ? ((scSupaRes?.success && scSupaRes.data?.value) ? scSupaRes.data.value : db.sheetsConfig) : undefined,
       operationalDate: todayWIB,
       operationalDateWIB: todayWIB,
       timezone: 'Asia/Jakarta',
@@ -3109,7 +3242,7 @@ export async function createExpressApp(options?: {
   });
 
   // Synchronize user profile in local JSON dev mode only
-  app.post('/api/users/sync-profile', (req: Request, res: Response) => {
+  app.post('/api/users/sync-profile', async (req: Request, res: Response) => {
     if (!isLocalJsonModeAllowed()) {
       return res.status(403).json({
         success: false,
@@ -3135,6 +3268,7 @@ export async function createExpressApp(options?: {
         active: incomingUser.active !== undefined ? incomingUser.active : existing.active
       });
     } else {
+      const randomHash = await generateUniqueCryptographicPlaceholderHash();
       db.users.push({
         id: incomingUser.id || ('u-' + Date.now()),
         name: incomingUser.name || incomingUser.username,
@@ -3146,7 +3280,8 @@ export async function createExpressApp(options?: {
         area: incomingUser.area,
         phone: incomingUser.phone,
         active: incomingUser.active !== false,
-        passwordHash: DEFAULT_HASH,
+        passwordHash: randomHash,
+        mustChangePassword: true,
         createdAt: incomingUser.createdAt || new Date().toISOString()
       });
     }
@@ -3347,9 +3482,21 @@ export async function createExpressApp(options?: {
   app.post('/api/auth/register', blockPublicRegister);
   app.post('/api/auth/signup', blockPublicRegister);
 
-  // User Self-Service Change Password
+  // User Self-Service Change Password (Hardened + Atomic Session Rotation)
   app.post('/api/auth/change-password', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
+    const clientIp = (req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
+    const userAgent = req.headers['user-agent'] || 'Web Browser';
+
+    const rateRes = checkPasswordEndpointRateLimit(`change_pw:${user.id}:${clientIp}`, 10, 15 * 60 * 1000);
+    if (!rateRes.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: `Terlalu banyak percobaan perubahan kata sandi. Silakan coba kembali dalam ${rateRes.retryAfterSeconds} detik.`,
+        code: 'RATE_LIMITED'
+      });
+    }
+
     const { currentPassword, newPassword, confirmPassword } = req.body || {};
 
     if (!currentPassword || !newPassword) {
@@ -3368,7 +3515,11 @@ export async function createExpressApp(options?: {
       });
     }
 
-    const strength = validatePasswordStrength(newPassword);
+    const strength = validatePasswordStrength(newPassword, {
+      username: user.username,
+      email: user.email,
+      name: user.name
+    });
     if (!strength.valid) {
       return res.status(400).json({
         success: false,
@@ -3387,12 +3538,15 @@ export async function createExpressApp(options?: {
       });
     }
 
-    // Check new password is not identical to current
-    const checkOldSame = await verifyUserPasswordEx(newPassword, user.passwordHash);
-    if (checkOldSame.valid) {
+    // Prevent password reuse (current + up to 5 previous password hashes)
+    const prevHistory: string[] = Array.isArray((user as any).passwordHistoryHashes)
+      ? (user as any).passwordHistoryHashes
+      : [];
+    const reuseCheck = await checkPasswordNotReused(newPassword, user.passwordHash, prevHistory);
+    if (reuseCheck.reused) {
       return res.status(400).json({
         success: false,
-        error: 'Kata sandi baru tidak boleh sama dengan kata sandi lama Anda.',
+        error: 'Kata sandi baru tidak boleh sama dengan kata sandi lama atau riwayat sandi sebelumnya.',
         code: 'PASSWORD_CANNOT_BE_REUSED'
       });
     }
@@ -3401,26 +3555,41 @@ export async function createExpressApp(options?: {
     const newHash = await hashPasswordWithBcrypt(newPassword);
     const nowIso = new Date().toISOString();
     const newVersion = (user.sessionVersion || 1) + 1;
+    const updatedHistory = [...(user.passwordHash ? [user.passwordHash] : []), ...prevHistory].slice(0, 5);
 
     user.passwordHash = newHash;
     user.sessionVersion = newVersion;
     user.mustChangePassword = false;
+    (user as any).passwordChangedAt = nowIso;
+    (user as any).passwordHistoryHashes = updatedHistory;
+    (user as any).resetTokenHash = null;
+    (user as any).resetTokenExpiresAt = null;
+    (user as any).resetTokenUsedAt = nowIso;
 
     // Persist to Supabase PostgreSQL
     const client = getSupabaseBackendClient();
     if (client) {
       try {
-        await client
-          .from('users')
-          .update({
-            password_hash: newHash,
-            password_changed_at: nowIso,
-            session_version: newVersion,
-            must_change_password: false,
-            updated_at: nowIso,
-            payload: { ...(user as any).payload, passwordHash: newHash, sessionVersion: newVersion }
-          })
-          .eq('id', user.id);
+        const updRes = await updateUserInSupabase(user.id, {
+          passwordHash: newHash,
+          passwordChangedAt: nowIso,
+          sessionVersion: newVersion,
+          mustChangePassword: false,
+          accountStatus: 'active',
+          failedLoginCount: 0,
+          lockedUntil: null,
+          resetTokenHash: null,
+          resetTokenExpiresAt: null,
+          resetTokenUsedAt: nowIso,
+          passwordHistoryHashes: updatedHistory
+        } as any);
+        if (!updRes.success) {
+          return res.status(500).json({
+            success: false,
+            error: 'Gagal memperbarui kata sandi di database PostgreSQL.',
+            code: 'DB_UPDATE_ERROR'
+          });
+        }
       } catch (err: any) {
         return res.status(500).json({
           success: false,
@@ -3431,14 +3600,42 @@ export async function createExpressApp(options?: {
     }
 
     if (isLocalJsonModeAllowed()) {
+      const localUser = db.users.find(u => u.id === user.id) as any;
+      if (localUser) {
+        localUser.passwordHash = newHash;
+        localUser.sessionVersion = newVersion;
+        localUser.mustChangePassword = false;
+        localUser.passwordChangedAt = nowIso;
+        localUser.passwordHistoryHashes = updatedHistory;
+        localUser.resetTokenHash = null;
+        localUser.resetTokenExpiresAt = null;
+        localUser.resetTokenUsedAt = nowIso;
+      }
       saveDatabaseToDisk();
     }
 
-    // Revoke other active sessions
-    await revokeAllUserSessions(user.id);
-    if (user.role === 'installer') {
-      await endInstallerTrackingSession({ installerId: user.id, reason: 'ended' });
-    }
+    // Revoke all previous sessions & issue a single clean rotated session for this user
+    const { tokens, sessionId } = await createSessionForUserAfterPasswordChange({
+      user,
+      ipAddress: clientIp,
+      userAgent
+    });
+
+    res.cookie('mora_access_token', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 8 * 3600 * 1000,
+      path: '/'
+    });
+
+    res.cookie('mora_refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 3600 * 1000,
+      path: '/api/auth'
+    });
 
     await logServerAuditAsync(
       'USER_PASSWORD_CHANGED',
@@ -3446,20 +3643,24 @@ export async function createExpressApp(options?: {
       user.id,
       `Pengguna ${user.name} (@${user.username}) berhasil memperbarui kata sandi akunnya.`,
       user,
-      { level: 'critical' }
+      { ipAddress: clientIp, userAgent, level: 'critical' }
     );
 
-    const { passwordHash: _, ...safeUser } = user;
+    const { passwordHash: _, resetTokenHash: _rt, passwordHistoryHashes: _ph, ...safeUser } = user as any;
     return res.json({
       success: true,
       message: 'Kata sandi Anda berhasil diperbarui.',
-      user: safeUser
+      user: safeUser,
+      tokens,
+      token: tokens.accessToken,
+      sessionId,
+      sessionVersion: newVersion
     });
   });
 
-  // Superadmin Reset Password
+  // Superadmin Reset Password (Strong Policy + Optional Forced User Change + Session Revocation)
   app.post('/api/auth/admin/reset-password', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
-    const { targetUserId, newPassword, confirmPassword } = req.body || {};
+    const { targetUserId, newPassword, confirmPassword, mustChangePassword } = req.body || {};
 
     if (!targetUserId || !newPassword) {
       return res.status(400).json({
@@ -3474,15 +3675,6 @@ export async function createExpressApp(options?: {
         success: false,
         error: 'Konfirmasi kata sandi tidak cocok dengan kata sandi baru.',
         code: 'PASSWORDS_DO_NOT_MATCH'
-      });
-    }
-
-    const strength = validatePasswordStrength(newPassword);
-    if (!strength.valid) {
-      return res.status(400).json({
-        success: false,
-        error: strength.error || 'Kata sandi tidak memenuhi kriteria keamanan.',
-        code: 'WEAK_PASSWORD'
       });
     }
 
@@ -3507,9 +3699,24 @@ export async function createExpressApp(options?: {
       });
     }
 
-    // Ensure new password cannot be reused from previous password
-    const oldSameCheck = await verifyUserPasswordEx(newPassword, targetUser.passwordHash);
-    if (oldSameCheck.valid) {
+    const strength = validatePasswordStrength(newPassword, {
+      username: targetUser.username,
+      email: targetUser.email,
+      name: targetUser.name
+    });
+    if (!strength.valid) {
+      return res.status(400).json({
+        success: false,
+        error: strength.error || 'Kata sandi tidak memenuhi kriteria keamanan.',
+        code: 'WEAK_PASSWORD'
+      });
+    }
+
+    const prevHistory: string[] = Array.isArray((targetUser as any).passwordHistoryHashes)
+      ? (targetUser as any).passwordHistoryHashes
+      : [];
+    const reuseCheck = await checkPasswordNotReused(newPassword, targetUser.passwordHash, prevHistory);
+    if (reuseCheck.reused) {
       return res.status(400).json({
         success: false,
         error: 'Kata sandi baru tidak boleh sama dengan kata sandi sebelumnya.',
@@ -3521,38 +3728,33 @@ export async function createExpressApp(options?: {
     const newHash = await hashPasswordWithBcrypt(newPassword);
     const nowIso = new Date().toISOString();
     const nextVersion = (targetUser.sessionVersion || 1) + 1;
+    const forceChangeNextLogin = mustChangePassword !== undefined ? Boolean(mustChangePassword) : true;
+    const updatedHistory = [...(targetUser.passwordHash ? [targetUser.passwordHash] : []), ...prevHistory].slice(0, 5);
 
     targetUser.passwordHash = newHash;
     targetUser.sessionVersion = nextVersion;
-    targetUser.mustChangePassword = false;
+    targetUser.mustChangePassword = forceChangeNextLogin;
 
     // Persist update in Supabase PostgreSQL
     if (client) {
       try {
-        const { error: updErr } = await client
-          .from('users')
-          .update({
-            password_hash: newHash,
-            password_changed_at: nowIso,
-            session_version: nextVersion,
-            must_change_password: false,
-            failed_login_count: 0,
-            locked_until: null,
-            account_status: 'active',
-            updated_at: nowIso,
-            payload: {
-              ...(targetUser as any).payload,
-              passwordHash: newHash,
-              sessionVersion: nextVersion,
-              passwordChangedAt: nowIso
-            }
-          })
-          .eq('id', targetUser.id);
+        const updRes = await updateUserInSupabase(targetUser.id, {
+          passwordHash: newHash,
+          passwordChangedAt: nowIso,
+          sessionVersion: nextVersion,
+          mustChangePassword: forceChangeNextLogin,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          accountStatus: 'active',
+          resetTokenHash: null,
+          resetTokenExpiresAt: null,
+          passwordHistoryHashes: updatedHistory
+        } as any);
 
-        if (updErr) {
+        if (!updRes.success) {
           return res.status(500).json({
             success: false,
-            error: `Gagal memperbarui kata sandi di Supabase PostgreSQL: ${updErr.message}`,
+            error: `Gagal memperbarui kata sandi di Supabase PostgreSQL: ${updRes.error?.message}`,
             code: 'DB_UPDATE_ERROR'
           });
         }
@@ -3566,16 +3768,24 @@ export async function createExpressApp(options?: {
     }
 
     if (isLocalJsonModeAllowed()) {
+      const lu = db.users.find(u => u.id === targetUser!.id) as any;
+      if (lu) {
+        lu.passwordHash = newHash;
+        lu.sessionVersion = nextVersion;
+        lu.mustChangePassword = forceChangeNextLogin;
+        lu.passwordChangedAt = nowIso;
+        lu.passwordHistoryHashes = updatedHistory;
+      }
       saveDatabaseToDisk();
     }
 
-    // Revoke ALL active sessions for this target user immediately
-    await revokeAllUserSessions(targetUser.id, req.user!.id);
+    // Revoke ALL active sessions for this target user immediately (skip double version increment)
+    await revokeAllUserSessions(targetUser.id, req.user!.id, { skipVersionIncrement: true });
     if (targetUser.role === 'installer') {
       await endInstallerTrackingSession({ installerId: targetUser.id, reason: 'ended' });
     }
 
-    // Record audit log
+    // Record audit log (strictly zero secrets)
     await logServerAuditAsync(
       'ADMIN_RESET_PASSWORD',
       'auth',
@@ -3588,6 +3798,7 @@ export async function createExpressApp(options?: {
     return res.json({
       success: true,
       message: `Kata sandi untuk pengguna ${targetUser.name} berhasil direset. Seluruh sesi aktif pengguna telah dicabut.`,
+      mustChangePassword: forceChangeNextLogin,
       passwordChangedAt: nowIso
     });
   });
@@ -3622,7 +3833,7 @@ export async function createExpressApp(options?: {
       });
     }
 
-    const strength = validatePasswordStrength(password);
+    const strength = validatePasswordStrength(password, { username, email, name });
     if (!strength.valid) {
       return res.status(400).json({
         success: false,
@@ -7372,6 +7583,37 @@ export async function createExpressApp(options?: {
     const cleanName = String(name).trim().replace(/\s+/g, ' ');
     const cleanUsername = String(username).trim().toLowerCase().replace(/\s+/g, '');
 
+    const cleanEmail = email?.trim() ? String(email).trim().toLowerCase() : `${cleanUsername}@morajaws.net`;
+    const providedPassword = typeof req.body?.password === 'string' && req.body.password.length > 0 ? req.body.password : '';
+    let initialHash = '';
+    let oneTimeResetToken: string | undefined;
+    let resetTokenHash: string | null = null;
+    let resetTokenExpiresAt: string | null = null;
+    let resetTokenIssuedAt: string | null = null;
+
+    if (providedPassword) {
+      const strength = validatePasswordStrength(providedPassword, {
+        username: cleanUsername,
+        email: cleanEmail,
+        name: cleanName
+      });
+      if (!strength.valid) {
+        return res.status(400).json({
+          success: false,
+          error: strength.error || 'Kata sandi awal tidak memenuhi standar keamanan.',
+          code: 'WEAK_PASSWORD'
+        });
+      }
+      initialHash = await hashPasswordWithBcrypt(providedPassword);
+    } else {
+      initialHash = await generateUniqueCryptographicPlaceholderHash();
+      const tokenPair = generateSingleUseResetTokenPair(24);
+      oneTimeResetToken = tokenPair.rawToken;
+      resetTokenHash = tokenPair.tokenHash;
+      resetTokenExpiresAt = tokenPair.expiresAt;
+      resetTokenIssuedAt = tokenPair.issuedAt;
+    }
+
     const assignedContractor = req.user!.role === 'leader' ? (req.user!.contractor || contractor) : contractor;
     const assignedArea = req.user!.role === 'leader' ? (req.user!.area || area) : area;
     const assignedContractorId = req.user!.role === 'leader' ? (req.user!.contractorId || contractorId) : contractorId;
@@ -7380,16 +7622,19 @@ export async function createExpressApp(options?: {
       id: 'u-' + Date.now(),
       name: cleanName,
       username: cleanUsername,
-      email: email?.trim() || `${cleanUsername}@morajaws.net`,
+      email: cleanEmail,
       phone: phone?.trim(),
       role,
       contractor: assignedContractor,
       contractorId: assignedContractorId,
       area: assignedArea,
       active: true,
-      passwordHash: DEFAULT_HASH,
+      passwordHash: initialHash,
+      mustChangePassword: true,
+      sessionVersion: 1,
+      ...(resetTokenHash ? { resetTokenHash, resetTokenExpiresAt, resetTokenIssuedAt, resetTokenUsedAt: null } : {}),
       createdAt: new Date().toISOString()
-    };
+    } as any;
 
     if (isSupabaseMode()) {
       const supaUsersRes = await getUsersFromSupabase(true);
@@ -7415,8 +7660,12 @@ export async function createExpressApp(options?: {
       if (insRes.success) {
         await logServerAuditAsync('User Created', 'auth', newUser.id, `User ${req.user!.name} membuat akun: ${newUser.name} (@${newUser.username}) [${newUser.role}]`, req.user);
         if (!isLocalJsonModeAllowed()) {
-          const { passwordHash: _, ...safeUser } = (insRes.data || newUser) as any;
-          return res.status(201).json({ success: true, user: safeUser });
+          const { passwordHash: _, resetTokenHash: _rt, passwordHistoryHashes: _ph, ...safeUser } = (insRes.data || newUser) as any;
+          return res.status(201).json({
+            success: true,
+            user: safeUser,
+            ...(oneTimeResetToken ? { oneTimeResetToken, resetTokenExpiresAt } : {})
+          });
         }
       } else if (!isLocalJsonModeAllowed()) {
         const status = insRes.error?.isUnavailable ? 503 : 500;
@@ -7443,8 +7692,12 @@ export async function createExpressApp(options?: {
 
       logServerAudit('User Created', 'auth', newUser.id, `User ${req.user!.name} membuat akun: ${newUser.name} (@${newUser.username}) [${newUser.role}]`, req.user);
 
-      const { passwordHash: _, ...safeUser } = newUser;
-      return res.status(201).json({ success: true, user: safeUser });
+      const { passwordHash: _, resetTokenHash: _rt, passwordHistoryHashes: _ph, ...safeUser } = newUser as any;
+      return res.status(201).json({
+        success: true,
+        user: safeUser,
+        ...(oneTimeResetToken ? { oneTimeResetToken, resetTokenExpiresAt } : {})
+      });
     }
 
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
@@ -7682,6 +7935,8 @@ export async function createExpressApp(options?: {
 
   app.post('/api/users/:id/reset-password', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
+    const { newPassword, confirmPassword, rotateCredential, ttlHours } = req.body || {};
+
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
     }
@@ -7697,12 +7952,71 @@ export async function createExpressApp(options?: {
       }
     }
     if (!user && isLocalJsonModeAllowed()) user = db.users.find(u => u.id === id);
-    if (!user) return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
+    if (!user || user.isDeleted) return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
 
+    const nowIso = new Date().toISOString();
     const newSessionVersion = (user.sessionVersion || 1) + 1;
-    user.passwordHash = DEFAULT_HASH;
+    const prevHistory: string[] = Array.isArray((user as any).passwordHistoryHashes)
+      ? (user as any).passwordHistoryHashes
+      : [];
+
+    let nextPasswordHash = user.passwordHash;
+    let updatedHistory = prevHistory;
+    let oneTimeResetToken: string | undefined;
+    let resetTokenHash: string | null = null;
+    let resetTokenExpiresAt: string | null = null;
+    let resetTokenIssuedAt: string | null = null;
+
+    if (typeof newPassword === 'string' && newPassword.length > 0) {
+      if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Konfirmasi kata sandi tidak cocok.',
+          code: 'PASSWORDS_DO_NOT_MATCH'
+        });
+      }
+      const strength = validatePasswordStrength(newPassword, {
+        username: user.username,
+        email: user.email,
+        name: user.name
+      });
+      if (!strength.valid) {
+        return res.status(400).json({
+          success: false,
+          error: strength.error || 'Kata sandi baru tidak memenuhi kebijakan keamanan.',
+          code: 'WEAK_PASSWORD'
+        });
+      }
+      const reuse = await checkPasswordNotReused(newPassword, user.passwordHash, prevHistory);
+      if (reuse.reused) {
+        return res.status(400).json({
+          success: false,
+          error: 'Kata sandi baru tidak boleh sama dengan kata sandi sebelumnya.',
+          code: 'PASSWORD_CANNOT_BE_REUSED'
+        });
+      }
+      nextPasswordHash = await hashPasswordWithBcrypt(newPassword);
+      updatedHistory = [...(user.passwordHash ? [user.passwordHash] : []), ...prevHistory].slice(0, 5);
+    } else {
+      const tokenPair = generateSingleUseResetTokenPair(Number(ttlHours) || 24);
+      oneTimeResetToken = tokenPair.rawToken;
+      resetTokenHash = tokenPair.tokenHash;
+      resetTokenExpiresAt = tokenPair.expiresAt;
+      resetTokenIssuedAt = tokenPair.issuedAt;
+      if (rotateCredential !== false) {
+        nextPasswordHash = await generateUniqueCryptographicPlaceholderHash();
+        updatedHistory = [...(user.passwordHash ? [user.passwordHash] : []), ...prevHistory].slice(0, 5);
+      }
+    }
+
+    user.passwordHash = nextPasswordHash;
     user.mustChangePassword = true;
     user.sessionVersion = newSessionVersion;
+    (user as any).passwordHistoryHashes = updatedHistory;
+    (user as any).resetTokenHash = resetTokenHash;
+    (user as any).resetTokenExpiresAt = resetTokenExpiresAt;
+    (user as any).resetTokenIssuedAt = resetTokenIssuedAt;
+    (user as any).resetTokenUsedAt = null;
 
     SERVER_SESSIONS.forEach(s => {
       if (s.userId === user!.id) s.status = 'revoked';
@@ -7710,34 +8024,60 @@ export async function createExpressApp(options?: {
 
     if (isSupabaseMode()) {
       const supaRes = await updateUserInSupabase(id, {
-        passwordHash: DEFAULT_HASH,
+        passwordHash: nextPasswordHash,
         mustChangePassword: true,
-        sessionVersion: newSessionVersion
-      });
+        sessionVersion: newSessionVersion,
+        passwordChangedAt: nowIso,
+        passwordHistoryHashes: updatedHistory,
+        resetTokenHash,
+        resetTokenExpiresAt,
+        resetTokenIssuedAt,
+        resetTokenUsedAt: null,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        accountStatus: 'active'
+      } as any);
       if (!supaRes.success && !isLocalJsonModeAllowed()) {
         const status = supaRes.error?.isUnavailable ? 503 : 500;
-        return res.status(status).json({ success: false, error: supaRes.error?.message || 'Gagal mereset password di Supabase.' });
-      }
-      if (!isLocalJsonModeAllowed()) {
-        await logServerAuditAsync('User Password Reset', 'auth', id, `Password akun ${user.name} di-reset ke default 12345678`, req.user);
-        return res.json({ success: true, message: 'Password berhasil di-reset ke default 12345678.' });
+        return res.status(status).json({ success: false, error: supaRes.error?.message || 'Gagal mereset kredensial di Supabase.' });
       }
     }
 
     if (isLocalJsonModeAllowed()) {
-      const localUser = db.users.find(u => u.id === id);
+      const localUser = db.users.find(u => u.id === id) as any;
       if (localUser) {
-        localUser.passwordHash = DEFAULT_HASH;
+        localUser.passwordHash = nextPasswordHash;
         localUser.mustChangePassword = true;
         localUser.sessionVersion = newSessionVersion;
+        localUser.passwordChangedAt = nowIso;
+        localUser.passwordHistoryHashes = updatedHistory;
+        localUser.resetTokenHash = resetTokenHash;
+        localUser.resetTokenExpiresAt = resetTokenExpiresAt;
+        localUser.resetTokenIssuedAt = resetTokenIssuedAt;
+        localUser.resetTokenUsedAt = null;
       }
       saveDatabaseToDisk();
-      await logServerAuditAsync('User Password Reset', 'auth', id, `Password akun ${user.name} di-reset ke default 12345678`, req.user);
-
-      return res.json({ success: true, message: 'Password berhasil di-reset ke default 12345678.' });
     }
 
-    return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+    await revokeAllUserSessions(id, `Secure password reset by Superadmin ${req.user!.name}`, { skipVersionIncrement: true });
+    await logServerAuditAsync(
+      'User Password Reset (Secure)',
+      'auth',
+      id,
+      `Kredensial akun ${user.name} (@${user.username}) direset secara aman (mustChangePassword=true) oleh ${req.user!.name}`,
+      req.user,
+      { targetUserId: id, level: 'critical' }
+    );
+
+    return res.json({
+      success: true,
+      message: oneTimeResetToken
+        ? 'Kredensial akun berhasil direset secara aman dan token reset satu-kali diterbitkan.'
+        : 'Kata sandi aman berhasil diperbarui dan user diwajibkan mengganti sandi saat login berikutnya.',
+      mustChangePassword: true,
+      sessionsRevoked: true,
+      ...(oneTimeResetToken ? { oneTimeResetToken, resetTokenExpiresAt } : {})
+    });
   });
 
   app.delete('/api/users/:id', requireSuperAdmin, async (req: AuthenticatedRequest, res) => {
@@ -10228,22 +10568,55 @@ export async function createExpressApp(options?: {
       const assignedContractorId = user.role === 'leader' ? (resolveUserContractorId(user) || user.contractorId || '') : (body.contractorId || body.contractor || '');
       const assignedArea = user.role === 'leader' ? (user.area || body.area || '') : (body.area || '');
 
+      const cleanName = String(body.name).trim();
+      const cleanUsername = String(body.username).trim().toLowerCase();
+      const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : `${cleanUsername}@morajaws.local`;
+
+      let initialPasswordHash = '';
+      let oneTimeResetToken: string | undefined;
+      let resetTokenHash: string | null = null;
+      let resetTokenExpiresAt: string | null = null;
+      let resetTokenIssuedAt: string | null = null;
+
+      if (typeof body.password === 'string' && body.password.length > 0) {
+        const strength = validatePasswordStrength(body.password, {
+          username: cleanUsername,
+          email: cleanEmail,
+          name: cleanName
+        });
+        if (!strength.valid) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'WEAK_PASSWORD', message: strength.error || 'Kata sandi awal tidak memenuhi standar keamanan.' }
+          });
+        }
+        initialPasswordHash = await hashPasswordWithBcrypt(body.password);
+      } else {
+        initialPasswordHash = await generateUniqueCryptographicPlaceholderHash();
+        const tokenPair = generateSingleUseResetTokenPair(24);
+        oneTimeResetToken = tokenPair.rawToken;
+        resetTokenHash = tokenPair.tokenHash;
+        resetTokenExpiresAt = tokenPair.expiresAt;
+        resetTokenIssuedAt = tokenPair.issuedAt;
+      }
+
       const newUser: ServerUser = {
         id: body.id || `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-        name: body.name.trim(),
-        username: body.username.trim().toLowerCase(),
-        email: body.email ? body.email.trim().toLowerCase() : `${body.username.trim().toLowerCase()}@morajaws.local`,
+        name: cleanName,
+        username: cleanUsername,
+        email: cleanEmail,
         phone: body.phone || '',
         role: assignedRole,
         contractor: assignedContractor,
         contractorId: assignedContractorId,
         area: assignedArea,
         active: body.active !== false,
-        passwordHash: body.password ? hashPassword(body.password) : DEFAULT_HASH,
-        mustChangePassword: body.password ? false : true,
+        passwordHash: initialPasswordHash,
+        mustChangePassword: body.mustChangePassword !== undefined ? Boolean(body.mustChangePassword) : true,
         sessionVersion: 1,
+        ...(resetTokenHash ? { resetTokenHash, resetTokenExpiresAt, resetTokenIssuedAt, resetTokenUsedAt: null } : {}),
         createdAt: new Date().toISOString()
-      };
+      } as any;
 
       if (!isSupabaseMode()) {
         if (!isLocalJsonModeAllowed()) {
@@ -10252,8 +10625,12 @@ export async function createExpressApp(options?: {
         db.users.push(newUser);
         saveDatabaseToDisk();
         await logServerAuditAsync('User Created (Local Dev)', 'auth', newUser.id, `Pengguna baru ${newUser.name} (@${newUser.username}) dibuat oleh ${user.role} ${user.name}`, user);
-        const { passwordHash: _, ...safeUser } = newUser as any;
-        return res.status(201).json({ success: true, data: safeUser });
+        const { passwordHash: _, resetTokenHash: _rt, passwordHistoryHashes: _ph, ...safeUser } = newUser as any;
+        return res.status(201).json({
+          success: true,
+          data: safeUser,
+          ...(oneTimeResetToken ? { oneTimeResetToken, resetTokenExpiresAt } : {})
+        });
       }
 
       const result = await insertUserToSupabase(newUser);
@@ -10266,8 +10643,12 @@ export async function createExpressApp(options?: {
 
       await logServerAuditAsync('User Created (Supabase)', 'auth', newUser.id, `Pengguna baru ${newUser.name} (@${newUser.username}) dibuat oleh ${user.role} ${user.name}`, user);
 
-      const { passwordHash: _, ...safeUser } = newUser as any;
-      return res.status(201).json({ success: true, data: safeUser });
+      const { passwordHash: _, resetTokenHash: _rt, passwordHistoryHashes: _ph, ...safeUser } = newUser as any;
+      return res.status(201).json({
+        success: true,
+        data: safeUser,
+        ...(oneTimeResetToken ? { oneTimeResetToken, resetTokenExpiresAt } : {})
+      });
     } catch (err: any) {
       return res.status(500).json({
         success: false,
@@ -10447,44 +10828,129 @@ export async function createExpressApp(options?: {
   app.post('/api/supabase/users/:id/reset-password', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const user = req.user!;
+      const actor = req.user!;
+      const { newPassword, confirmPassword, rotateCredential, ttlHours } = req.body || {};
 
       if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
         return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
       }
 
-      // Revoke all sessions
+      let targetUser: ServerUser | null = null;
+      if (isSupabaseMode()) {
+        const sbUser = await getUserByIdFromSupabase(id);
+        if (sbUser.success && sbUser.data) targetUser = sbUser.data;
+      }
+      if (!targetUser) {
+        targetUser = db.users.find(u => u.id === id) || null;
+      }
+      if (!targetUser || targetUser.isDeleted) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Pengguna tidak ditemukan.' } });
+      }
+
+      const nowIso = new Date().toISOString();
+      const newVersion = (targetUser.sessionVersion || 1) + 1;
+      const prevHistory: string[] = Array.isArray((targetUser as any).passwordHistoryHashes)
+        ? (targetUser as any).passwordHistoryHashes
+        : [];
+
+      let nextPasswordHash = targetUser.passwordHash;
+      let updatedHistory = prevHistory;
+      let oneTimeResetToken: string | undefined;
+      let resetTokenHash: string | null = null;
+      let resetTokenExpiresAt: string | null = null;
+      let resetTokenIssuedAt: string | null = null;
+
+      if (typeof newPassword === 'string' && newPassword.length > 0) {
+        if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+          return res.status(400).json({ success: false, error: { code: 'PASSWORDS_DO_NOT_MATCH', message: 'Konfirmasi kata sandi tidak cocok.' } });
+        }
+        const strength = validatePasswordStrength(newPassword, {
+          username: targetUser.username,
+          email: targetUser.email,
+          name: targetUser.name
+        });
+        if (!strength.valid) {
+          return res.status(400).json({ success: false, error: { code: 'WEAK_PASSWORD', message: strength.error || 'Kata sandi baru tidak memenuhi kebijakan keamanan.' } });
+        }
+        const reuse = await checkPasswordNotReused(newPassword, targetUser.passwordHash, prevHistory);
+        if (reuse.reused) {
+          return res.status(400).json({ success: false, error: { code: 'PASSWORD_CANNOT_BE_REUSED', message: 'Kata sandi baru tidak boleh sama dengan kata sandi sebelumnya.' } });
+        }
+        nextPasswordHash = await hashPasswordWithBcrypt(newPassword);
+        updatedHistory = [...(targetUser.passwordHash ? [targetUser.passwordHash] : []), ...prevHistory].slice(0, 5);
+      } else {
+        const tokenPair = generateSingleUseResetTokenPair(Number(ttlHours) || 24);
+        oneTimeResetToken = tokenPair.rawToken;
+        resetTokenHash = tokenPair.tokenHash;
+        resetTokenExpiresAt = tokenPair.expiresAt;
+        resetTokenIssuedAt = tokenPair.issuedAt;
+        if (rotateCredential !== false) {
+          nextPasswordHash = await generateUniqueCryptographicPlaceholderHash();
+          updatedHistory = [...(targetUser.passwordHash ? [targetUser.passwordHash] : []), ...prevHistory].slice(0, 5);
+        }
+      }
+
       SERVER_SESSIONS.forEach(s => {
         if (s.userId === id) s.status = 'revoked';
       });
 
-      const existingUser = db.users.find(u => u.id === id);
-      const newVersion = (existingUser?.sessionVersion || 1) + 1;
-      if (existingUser) {
-        existingUser.passwordHash = DEFAULT_HASH;
-        existingUser.mustChangePassword = true;
-        existingUser.sessionVersion = newVersion;
-        saveDatabaseToDisk();
+      const localEntry = db.users.find(u => u.id === id) as any;
+      if (localEntry) {
+        localEntry.passwordHash = nextPasswordHash;
+        localEntry.mustChangePassword = true;
+        localEntry.sessionVersion = newVersion;
+        localEntry.passwordChangedAt = nowIso;
+        localEntry.passwordHistoryHashes = updatedHistory;
+        localEntry.resetTokenHash = resetTokenHash;
+        localEntry.resetTokenExpiresAt = resetTokenExpiresAt;
+        localEntry.resetTokenIssuedAt = resetTokenIssuedAt;
+        localEntry.resetTokenUsedAt = null;
+        if (isLocalJsonModeAllowed()) saveDatabaseToDisk();
       }
 
       if (isSupabaseMode()) {
         const result = await updateUserInSupabase(id, {
-          passwordHash: DEFAULT_HASH,
+          passwordHash: nextPasswordHash,
           mustChangePassword: true,
-          sessionVersion: newVersion
-        });
+          sessionVersion: newVersion,
+          passwordChangedAt: nowIso,
+          passwordHistoryHashes: updatedHistory,
+          resetTokenHash,
+          resetTokenExpiresAt,
+          resetTokenIssuedAt,
+          resetTokenUsedAt: null,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          accountStatus: 'active'
+        } as any);
         if (!result.success && !isLocalJsonModeAllowed()) {
           return res.status(result.error?.isUnavailable ? 503 : 400).json({ success: false, error: result.error });
         }
       }
 
-      await logServerAuditAsync('User Password Reset (Supabase)', 'auth', id, `Password akun ${id} di-reset oleh Super Admin ${user.name}`, user);
+      await revokeAllUserSessions(id, `Secure password reset by Superadmin ${actor.name}`, { skipVersionIncrement: true });
+      await logServerAuditAsync(
+        'User Password Reset (Supabase Secure)',
+        'auth',
+        id,
+        `Kredensial akun ${targetUser.name} (@${targetUser.username}) direset secara aman oleh Super Admin ${actor.name}`,
+        actor,
+        { targetUserId: id, level: 'critical' }
+      );
 
-      return res.json({ success: true, message: 'Password berhasil di-reset ke default 12345678.' });
+      return res.json({
+        success: true,
+        message: oneTimeResetToken
+          ? 'Kredensial akun berhasil direset secara aman dan token reset satu-kali diterbitkan.'
+          : 'Kata sandi aman berhasil diperbarui dan user diwajibkan mengganti sandi saat login berikutnya.',
+        mustChangePassword: true,
+        sessionsRevoked: true,
+        ...(oneTimeResetToken ? { oneTimeResetToken, resetTokenExpiresAt } : {})
+      });
     } catch (err: any) {
       return res.status(500).json({
         success: false,
-        error: { code: 'INTERNAL_ERROR', message: err?.message || 'Gagal me-reset password di Supabase.' }
+        error: { code: 'INTERNAL_ERROR', message: err?.message || 'Gagal me-reset kredensial secara aman.' }
       });
     }
   });
@@ -11803,6 +12269,125 @@ export async function createExpressApp(options?: {
     }
   });
 
+  // --- Smart Progressive Work Order Endpoint (Phase 1 Critical / Phase 2 Secondary / Full + Server-side Pagination/Filtering/Sorting) ---
+  app.get('/api/work-orders/progressive', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
+        return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
+      }
+
+      const phaseRaw = String(req.query.phase || 'critical').toLowerCase();
+      const phase: 'critical' | 'secondary' | 'full' =
+        phaseRaw === 'full' ? 'full' : phaseRaw === 'secondary' ? 'secondary' : 'critical';
+
+      const includeArchived = req.query.includeArchived === 'true';
+      const page = Math.max(1, Number(req.query.page || 1) || 1);
+      const limitRaw = String(req.query.limit || '50');
+      const isAllLimit = limitRaw.toUpperCase() === 'ALL';
+      const limit = isAllLimit ? 5000 : Math.min(500, Math.max(1, Number(limitRaw) || 50));
+
+      let tickets: Ticket[] = [];
+      if (isSupabaseMode()) {
+        const supaRes = await getWorkOrdersFromSupabase({ includeArchived });
+        if (supaRes.success && supaRes.data) {
+          tickets = supaRes.data;
+        } else if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+        } else {
+          tickets = db.tickets || [];
+        }
+      } else {
+        tickets = db.tickets || [];
+      }
+
+      const todayWIB = getJakartaDateStringServer(getNow());
+      let scoped = scopeTicketsForUser(tickets, req.user!).map((t: any) => attachClassificationMetadata(t, todayWIB));
+      if (!includeArchived) {
+        scoped = scoped.filter((t: any) => !t.isArchived);
+      }
+
+      const qSearch = String(req.query.search || '').trim().toLowerCase();
+      const qArea = String(req.query.area || '').trim().toLowerCase();
+      const qContractor = String(req.query.contractor || '').trim().toLowerCase();
+      const qStatusAgent = String(req.query.statusWOAgent || '').trim().toLowerCase();
+      const qStatusInstaller = String(req.query.statusWOInstaller || '').trim().toLowerCase();
+      const qStatusWa = String(req.query.statusWhatsApp || '').trim().toLowerCase();
+      const qApproval = String(req.query.approvalStatus || '').trim().toLowerCase();
+      const qCategory = String(req.query.category || '').trim().toLowerCase();
+      const qApptDate = String(req.query.appointmentDate || '').trim();
+      const qUpdatedSince = String(req.query.updatedSince || '').trim();
+
+      const filtered = scoped.filter((t: any) => {
+        if (qArea && qArea !== 'all' && String(t.area || '').toLowerCase() !== qArea) return false;
+        if (qContractor && qContractor !== 'all') {
+          const c = String(t.contractor || t.contractorName || '').toLowerCase();
+          if (c !== qContractor) return false;
+        }
+        if (qStatusAgent && qStatusAgent !== 'all' && String(t.statusWOAgent || '').toLowerCase() !== qStatusAgent) return false;
+        if (qStatusInstaller && qStatusInstaller !== 'all' && String(t.statusWOInstaller || '').toLowerCase() !== qStatusInstaller) return false;
+        if (qStatusWa && qStatusWa !== 'all' && String(t.statusWhatsApp || '').toLowerCase() !== qStatusWa) return false;
+        if (qApproval && qApproval !== 'all' && String(t.approvalStatus || '').toLowerCase() !== qApproval) return false;
+        if (qCategory && qCategory !== 'all' && String(t.category || '').toLowerCase() !== qCategory) return false;
+        if (qApptDate && String(getStrictAppointmentDateServer(t) || '') !== qApptDate) return false;
+        if (qUpdatedSince) {
+          const ts = new Date(t.updatedAt || t.createdAt || 0).getTime();
+          const sinceTs = new Date(qUpdatedSince).getTime();
+          if (!Number.isNaN(sinceTs) && ts < sinceTs) return false;
+        }
+        if (qSearch) {
+          const hay = [
+            t.woNumber,
+            t.idCustomer,
+            t.customerName,
+            t.customerPhone,
+            t.address,
+            t.area,
+            t.contractor,
+            t.installerName,
+            t.oltName,
+            t.fdtName,
+            t.fatName
+          ].filter(Boolean).join(' ').toLowerCase();
+          if (!hay.includes(qSearch)) return false;
+        }
+        return true;
+      });
+
+      const sortBy = String(req.query.sortBy || 'updatedAt');
+      const sortDir = String(req.query.sortDir || 'desc').toLowerCase() === 'asc' ? 1 : -1;
+      filtered.sort((a: any, b: any) => {
+        const av = a?.[sortBy] ?? '';
+        const bv = b?.[sortBy] ?? '';
+        if (av === bv) return 0;
+        return String(av).localeCompare(String(bv), 'id', { numeric: true }) * sortDir;
+      });
+
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const safePage = Math.min(page, totalPages);
+      const startIdx = isAllLimit ? 0 : (safePage - 1) * limit;
+      const sliced = isAllLimit ? filtered : filtered.slice(startIdx, startIdx + limit);
+
+      const payloadTickets = phase === 'critical'
+        ? sliced.map(stripHeavyFieldsForCriticalPhase)
+        : sliced;
+
+      return res.json({
+        success: true,
+        phase,
+        page: safePage,
+        limit: isAllLimit ? total : limit,
+        total,
+        totalPages,
+        operationalDateWIB: todayWIB,
+        tickets: payloadTickets,
+        serverTime: getNow().toISOString()
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat work orders secara bertahap.' });
+    }
+  });
+
   // --- Work Order Core Aliases per Section 12 Specification ---
   app.get('/api/work-orders', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
@@ -11829,15 +12414,18 @@ export async function createExpressApp(options?: {
 
   app.get(['/api/work-orders/:id', '/api/tickets/:id'], requireAuth, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
+    const includeRaw = String(req.query.include || '').toLowerCase();
+    const includeSet = new Set(includeRaw.split(',').map(s => s.trim()).filter(Boolean));
+
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
     }
     let ticket: Ticket | null | undefined = null;
     if (isSupabaseMode()) {
-      const supaRes = await getWorkOrderByIdFromSupabase(id);
+      const supaRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
       if (supaRes.success && supaRes.data) {
         ticket = supaRes.data;
-      } else if (!isLocalJsonModeAllowed() && !supaRes.success) {
+      } else if (!isLocalJsonModeAllowed() && !supaRes.success && supaRes.error?.isUnavailable) {
         return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
       }
     }
@@ -11851,7 +12439,49 @@ export async function createExpressApp(options?: {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk melihat data Work Order ini.' });
     }
 
-    res.json({ success: true, workOrder: ticket, ticket });
+    const todayWIB = getJakartaDateStringServer(getNow());
+    const enrichedTicket = attachClassificationMetadata(scoped[0], todayWIB);
+
+    let messages: any[] | undefined;
+    if (includeSet.has('messages')) {
+      if (isSupabaseMode()) {
+        const msgRes = await getTicketMessagesFromSupabase(enrichedTicket.id);
+        if (msgRes.success && Array.isArray(msgRes.data)) {
+          messages = msgRes.data;
+        }
+      }
+      if (!messages) {
+        messages = (db.ticketMessages || []).filter(
+          (m: any) => m.ticketId === enrichedTicket.id || (enrichedTicket.woNumber && m.woNumber === enrichedTicket.woNumber)
+        );
+      }
+    }
+
+    let activities: any[] | undefined;
+    if (includeSet.has('activities')) {
+      if (isSupabaseMode()) {
+        try {
+          const histRes = await getAssignmentHistoryFromSupabase(enrichedTicket.id);
+          if (histRes.success && Array.isArray(histRes.data)) {
+            activities = histRes.data;
+          }
+        } catch {}
+      }
+      if (!activities) {
+        activities = (db.assignmentHistory || []).filter(
+          (h: any) => h.ticketId === enrichedTicket.id || (enrichedTicket.woNumber && h.woNumber === enrichedTicket.woNumber)
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      workOrder: enrichedTicket,
+      ticket: enrichedTicket,
+      ...(messages !== undefined ? { messages } : {}),
+      ...(activities !== undefined ? { activities } : {}),
+      serverTime: getNow().toISOString()
+    });
   });
 
   app.post('/api/work-orders/:id/assign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
@@ -13821,6 +14451,300 @@ export async function createExpressApp(options?: {
     }
   });
 
+  // ============================================================================
+  // DELTA DATABASE SYNCHRONIZATION (Single Source of Truth Watermark Sync)
+  // ============================================================================
+  app.get('/api/sync/delta', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const sinceRaw = String(req.query.since || '').trim();
+      const sinceDate = sinceRaw ? new Date(sinceRaw) : new Date(Date.now() - 5 * 60 * 1000);
+      if (Number.isNaN(sinceDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parameter since harus berupa timestamp ISO yang valid.',
+          code: 'INVALID_SINCE_TIMESTAMP'
+        });
+      }
+      const sinceIso = sinceDate.toISOString();
+      const sinceMs = sinceDate.getTime();
+      const user = req.user!;
+      const todayWIB = getJakartaDateStringServer(getNow());
+
+      let changedRaw: any[] = [];
+      let allRawForDeleted: any[] = [];
+      if (isSupabaseMode()) {
+        const [deltaRes, deletedRes] = await Promise.all([
+          getWorkOrdersUpdatedSinceFromSupabase(sinceIso),
+          getWorkOrdersFromSupabase({ includeDeleted: true, includeArchived: true })
+        ]);
+        if (deltaRes.success && Array.isArray(deltaRes.data)) {
+          changedRaw = deltaRes.data;
+        } else if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            error: 'Database authoritative Supabase tidak tersedia saat delta sync.',
+            code: 'DATABASE_UNAVAILABLE'
+          });
+        }
+        if (deletedRes.success && Array.isArray(deletedRes.data)) {
+          allRawForDeleted = deletedRes.data;
+        }
+      } else {
+        allRawForDeleted = db.tickets || [];
+        changedRaw = allRawForDeleted.filter((t: any) => {
+          const ts = new Date(t.updatedAt || t.createdAt || 0).getTime();
+          return !Number.isNaN(ts) && ts >= sinceMs;
+        });
+      }
+
+      const deletedIds = allRawForDeleted
+        .filter((t: any) => t && t.isDeleted === true)
+        .map((t: any) => String(t.id));
+
+      const scopedUpdated = scopeTicketsForUser(
+        changedRaw.filter((t: any) => t && !t.isDeleted),
+        user
+      ).map((t: any) => attachClassificationMetadata(t, todayWIB));
+
+      const rolePermBundle = await getEffectiveRolePermissions();
+      const latestGlobalConfigVer = Array.isArray(db.globalConfigVersions) && db.globalConfigVersions.length > 0
+        ? db.globalConfigVersions[0]?.versionNumber || null
+        : null;
+
+      return res.json({
+        success: true,
+        since: sinceIso,
+        tickets: scopedUpdated,
+        deletedIds,
+        rolePermissionsVersion: rolePermBundle?.version || 1,
+        rolePermissions: rolePermBundle?.permissions,
+        globalConfigVersion: latestGlobalConfigVer,
+        operationalDateWIB: todayWIB,
+        serverTime: getNow().toISOString()
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal menjalankan delta sync.',
+        code: 'DELTA_SYNC_ERROR'
+      });
+    }
+  });
+
+  // ============================================================================
+  // ENTERPRISE MASS PASSWORD RESET & SINGLE-USE RECOVERY TOKEN ENDPOINTS
+  // Strictly Superadmin for orchestration; zero plaintext passwords stored/returned
+  // ============================================================================
+  app.post('/api/admin/password-reset/jobs', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const actor = req.user!;
+      const body = req.body || {};
+      const result = await createAndStartMassResetJob({
+        actor,
+        resetMode: body.resetMode,
+        targetScope: body.targetScope,
+        roleFilter: body.roleFilter,
+        userIds: Array.isArray(body.userIds) ? body.userIds : undefined,
+        excludeSelf: body.excludeSelf !== undefined ? Boolean(body.excludeSelf) : true,
+        invalidateSessions: body.invalidateSessions !== undefined ? Boolean(body.invalidateSessions) : true,
+        tokenTtlHours: body.tokenTtlHours ? Number(body.tokenTtlHours) : 24,
+        batchSize: body.batchSize ? Number(body.batchSize) : 10,
+        idempotencyKey: body.idempotencyKey ? String(body.idempotencyKey).trim() : undefined,
+        reason: body.reason ? String(body.reason).trim() : undefined,
+        simulateFailureUserIds: process.env.NODE_ENV !== 'production' && Array.isArray(body.simulateFailureUserIds)
+          ? body.simulateFailureUserIds
+          : undefined
+      });
+      return res.status(result.deduplicated ? 200 : 201).json({
+        success: true,
+        deduplicated: result.deduplicated,
+        job: sanitizeJobForClient(result.job, true)
+      });
+    } catch (err: any) {
+      return res.status(400).json({
+        success: false,
+        error: err?.message || 'Gagal memulai batch reset sandi.',
+        code: 'MASS_RESET_CREATE_FAILED'
+      });
+    }
+  });
+
+  app.get('/api/admin/password-reset/jobs', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const jobs = await listMassResetJobs();
+      return res.json({
+        success: true,
+        jobs: jobs.map(j => sanitizeJobForClient(j, false))
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat daftar job reset sandi.' });
+    }
+  });
+
+  app.get('/api/admin/password-reset/jobs/:jobId', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const job = await getMassResetJob(req.params.jobId);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job reset sandi tidak ditemukan.', code: 'JOB_NOT_FOUND' });
+      }
+      return res.json({
+        success: true,
+        job: sanitizeJobForClient(job, true)
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat detail job reset sandi.' });
+    }
+  });
+
+  app.post('/api/admin/password-reset/jobs/:jobId/retry', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await retryFailedJobItems(req.params.jobId, req.user!);
+      if (!result.success || !result.job) {
+        const status = result.error?.includes('tidak ditemukan') ? 404 : 400;
+        return res.status(status).json({
+          success: false,
+          error: result.error || 'Gagal mengulang item yang gagal.',
+          code: status === 404 ? 'JOB_NOT_FOUND' : 'RETRY_FAILED'
+        });
+      }
+      return res.json({
+        success: true,
+        retriedCount: result.retriedCount,
+        job: sanitizeJobForClient(result.job, true)
+      });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Gagal mengulang item yang gagal.' });
+    }
+  });
+
+  app.post('/api/admin/password-reset/jobs/:jobId/cancel', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await cancelMassResetJob(req.params.jobId, req.user!);
+      if (!result.success || !result.job) {
+        const status = result.error?.includes('tidak ditemukan') ? 404 : 400;
+        return res.status(status).json({
+          success: false,
+          error: result.error || 'Gagal membatalkan job reset sandi.',
+          code: status === 404 ? 'JOB_NOT_FOUND' : 'CANCEL_FAILED'
+        });
+      }
+      return res.json({
+        success: true,
+        job: sanitizeJobForClient(result.job, true)
+      });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Gagal membatalkan job reset sandi.' });
+    }
+  });
+
+  app.post('/api/admin/password-reset/jobs/:jobId/rollback', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await rollbackMassResetJob(req.params.jobId, req.user!);
+      if (!result.success || !result.job) {
+        const status = result.error?.includes('tidak ditemukan') ? 404 : 400;
+        return res.status(status).json({
+          success: false,
+          error: result.error || 'Gagal melakukan rollback job reset sandi.',
+          code: status === 404 ? 'JOB_NOT_FOUND' : 'ROLLBACK_FAILED'
+        });
+      }
+      return res.json({
+        success: true,
+        rolledBackCount: result.rolledBackCount,
+        job: sanitizeJobForClient(result.job, true)
+      });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Gagal melakukan rollback job reset sandi.' });
+    }
+  });
+
+  app.get('/api/admin/password-reset/jobs/:jobId/report', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const job = await getMassResetJob(req.params.jobId);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job reset sandi tidak ditemukan.', code: 'JOB_NOT_FOUND' });
+      }
+      const report = buildSanitizedJobReport(job);
+      const format = String(req.query.format || 'json').toLowerCase();
+      if (format === 'csv') {
+        const escapeCsv = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const header = ['userId', 'username', 'userName', 'userRole', 'status', 'mustChangePassword', 'sessionsRevoked', 'resetTokenExpiresAt', 'attempts', 'errorCode', 'errorMessage', 'processedAt'];
+        const rows = report.items.map(it => [
+          it.userId,
+          it.username,
+          it.userName,
+          it.userRole,
+          it.status,
+          it.mustChangePassword,
+          it.sessionsRevoked,
+          it.resetTokenExpiresAt || '',
+          it.attempts,
+          it.errorCode || '',
+          it.errorMessage || '',
+          it.processedAt || ''
+        ].map(escapeCsv).join(','));
+        const csvContent = [header.join(','), ...rows].join('\n');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="morajaws-password-reset-${job.id}.csv"`);
+        return res.send(csvContent);
+      }
+      res.setHeader('Content-Disposition', `attachment; filename="morajaws-password-reset-${job.id}.json"`);
+      return res.json({ success: true, report });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal menghasilkan laporan reset sandi.' });
+    }
+  });
+
+  app.post('/api/admin/users/:id/issue-reset-token', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const ttlHours = req.body?.ttlHours ? Number(req.body.ttlHours) : 24;
+      const ttlMinutes = req.body?.ttlMinutes ? Number(req.body.ttlMinutes) : ttlHours * 60;
+      const result = await issueSingleUseResetTokenForUser({
+        targetUserId: req.params.id,
+        actor: req.user!,
+        ttlMinutes,
+        invalidatePassword: req.body?.invalidatePassword !== undefined ? Boolean(req.body.invalidatePassword) : true
+      });
+      if (!result.success) {
+        const status = result.code === 'USER_NOT_FOUND' ? 404 : 400;
+        return res.status(status).json(result);
+      }
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal menerbitkan token reset sandi satu-kali.',
+        code: 'TOKEN_ISSUE_FAILED'
+      });
+    }
+  });
+
+  app.post('/api/auth/reset-password-token', async (req: Request, res: Response) => {
+    try {
+      const { identifier, token, newPassword, confirmPassword } = req.body || {};
+      const clientIp = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
+      const result = await consumeResetTokenAndSetPassword({
+        identifier: String(identifier || ''),
+        token: String(token || ''),
+        newPassword: String(newPassword || ''),
+        confirmPassword: confirmPassword !== undefined ? String(confirmPassword) : undefined,
+        ipAddress: clientIp,
+        userAgent: req.get('user-agent') || undefined
+      });
+      if (!result.success) {
+        const status = result.code === 'RATE_LIMITED' ? 429 : 400;
+        return res.status(status).json(result);
+      }
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal memproses reset sandi melalui token.',
+        code: 'RESET_TOKEN_ERROR'
+      });
+    }
+  });
+
   // --- Audit Logs (Super Admin & IT Support Read-Only) ---
   app.get('/api/audit-logs', requireAuditLogViewer, async (_req, res) => {
     if (isSupabaseMode()) {
@@ -13891,25 +14815,72 @@ export async function createExpressApp(options?: {
       res.sendFile(indexHtmlPath);
     });
   } else if (!options?.skipVite) {
-    const vite = await createViteServer({
+    let viteMiddleware: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
+    let viteError: Error | null = null;
+    const hmrDisabled = process.env.DISABLE_HMR === 'true';
+
+    const viteReadyPromise = createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined
+        hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
+        watch: hmrDisabled ? null : undefined
       },
       appType: 'spa'
+    })
+      .then((vite) => {
+        viteMiddleware = vite.middlewares;
+        console.log('[Vite] Dev middleware initialized.');
+      })
+      .catch((err) => {
+        viteError = err instanceof Error ? err : new Error(String(err));
+        console.error('[Vite] Failed to initialize dev middleware:', viteError);
+      });
+
+    if (!options?.deferVite) {
+      await viteReadyPromise;
+    }
+
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+      if (viteMiddleware) {
+        return viteMiddleware(req, res, next);
+      }
+      if (viteError) {
+        return res.status(500).type('text/plain').send(`Vite initialization failed: ${viteError.message}`);
+      }
+      viteReadyPromise
+        .then(() => {
+          if (viteMiddleware) {
+            return viteMiddleware(req, res, next);
+          }
+          if (viteError) {
+            return res.status(500).type('text/plain').send(`Vite initialization failed: ${viteError.message}`);
+          }
+          return next();
+        })
+        .catch(next);
     });
-    app.use(vite.middlewares);
   }
 
   return app;
 }
 
 export async function startServer() {
-  const app = await createExpressApp();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = resolveServerPort();
+  const HOST = resolveServerHost();
+  const httpServer = http.createServer();
+  const app = await createExpressApp({ httpServer, deferVite: true });
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`MoraJaws Dispatch Management Server running on http://0.0.0.0:${PORT}`);
+  httpServer.on('request', app);
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(`[Server] Failed to bind http://${HOST}:${PORT} (${err.code || 'UNKNOWN'}):`, err.message);
+    process.exit(1);
+  });
+
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`MoraJaws Dispatch Management Server running on http://${HOST}:${PORT}`);
 
     // Non-blocking background health check log on startup
     checkSupabaseConnection()
@@ -13920,9 +14891,14 @@ export async function startServer() {
   });
 }
 
-const isDirectRun = process.argv[1] && (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js'));
+const isDirectRun = process.argv[1] && (
+  process.argv[1].endsWith('server.ts') ||
+  process.argv[1].endsWith('server.js') ||
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+);
 if (isDirectRun) {
   startServer().catch(err => {
     console.error('Failed to start server:', err);
+    process.exit(1);
   });
 }

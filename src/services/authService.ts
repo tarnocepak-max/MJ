@@ -341,5 +341,197 @@ export async function adminUpdateUser(targetUserId: string, userData: Partial<Us
   return { ok: res.ok, status: res.status, data };
 }
 
+export async function changePasswordWithRotation(payload: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  const headers = getAuthHeaders();
+  const res = await fetch('/api/auth/change-password', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function resetPasswordWithToken(payload: {
+  identifier: string;
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  const res = await fetch('/api/auth/reset-password-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminIssueSingleUseResetToken(targetUserId: string, ttlHours: number = 24) {
+  const headers = getAuthHeaders();
+  const res = await fetch(`/api/admin/users/${targetUserId}/issue-reset-token`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ ttlHours })
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export type MassResetMode = 'force_change_with_token' | 'rotate_credential_and_force';
+export type MassResetJobStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'completed_with_errors'
+  | 'cancelled'
+  | 'rolled_back';
+export type MassResetItemStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'rolled_back';
+
+export interface MassResetJobItem {
+  id: string;
+  jobId: string;
+  userId: string;
+  username: string;
+  userName: string;
+  userRole: string;
+  status: MassResetItemStatus;
+  mustChangePassword: boolean;
+  sessionsRevoked: boolean;
+  resetTokenExpiresAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  attempts: number;
+  processedAt: string | null;
+}
+
+export interface MassResetJob {
+  id: string;
+  idempotencyKey: string | null;
+  createdById: string;
+  createdByName: string;
+  createdByRole: string;
+  resetMode: MassResetMode;
+  targetScope: 'all_active' | 'by_role' | 'selected_users';
+  roleFilter: string | null;
+  excludeSelf: boolean;
+  invalidateSessions: boolean;
+  tokenTtlHours: number;
+  batchSize: number;
+  reason: string | null;
+  status: MassResetJobStatus;
+  cancelRequested: boolean;
+  totalTargets: number;
+  pendingCount: number;
+  processingCount: number;
+  completedCount: number;
+  failedCount: number;
+  mustChangePasswordCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  rolledBackAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: MassResetJobItem[];
+}
+
+export async function adminCreateMassResetJob(payload: {
+  resetMode: MassResetMode;
+  targetScope: 'all_active' | 'by_role' | 'selected_users';
+  roleFilter?: string;
+  userIds?: string[];
+  excludeSelf?: boolean;
+  invalidateSessions?: boolean;
+  tokenTtlHours?: number;
+  batchSize?: number;
+  idempotencyKey?: string;
+  reason?: string;
+}) {
+  const headers = getAuthHeaders();
+  const res = await fetch('/api/admin/password-reset/jobs', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminListMassResetJobs() {
+  const headers = getAuthHeaders();
+  const res = await fetch('/api/admin/password-reset/jobs', { headers });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminGetMassResetJob(jobId: string) {
+  const headers = getAuthHeaders();
+  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}`, { headers });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminRetryMassResetJob(jobId: string) {
+  const headers = getAuthHeaders();
+  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/retry`, {
+    method: 'POST',
+    headers
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminCancelMassResetJob(jobId: string) {
+  const headers = getAuthHeaders();
+  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/cancel`, {
+    method: 'POST',
+    headers
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminRollbackMassResetJob(jobId: string) {
+  const headers = getAuthHeaders();
+  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/rollback`, {
+    method: 'POST',
+    headers
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+export async function adminDownloadMassResetReport(jobId: string, format: 'json' | 'csv' = 'csv') {
+  const headers = getAuthHeaders();
+  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/report?format=${format}`, {
+    headers
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error || 'Gagal mengunduh laporan reset sandi.');
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `morajaws-password-reset-${jobId}.${format}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
+
 
 

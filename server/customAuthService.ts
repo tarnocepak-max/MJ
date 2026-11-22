@@ -97,25 +97,136 @@ const ACCESS_TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // ------------------------------------------------------------------------------
-// PASSWORD HASHING & COMPLEXITY
+// PASSWORD HASHING & COMPLEXITY (ENTERPRISE POLICY)
 // ------------------------------------------------------------------------------
 
+const COMMON_WEAK_PASSWORDS = new Set([
+  '1234',
+  '12345',
+  '123456',
+  '1234567',
+  '12345678',
+  '87654321',
+  '0000',
+  '000000',
+  '00000000',
+  'password',
+  'qwerty',
+  'qwertyui',
+  'admin123',
+  'abcdef',
+  'abcdefgh',
+  'letmein',
+  'welcome'
+]);
+
+const WEAK_SUBSTRINGS = ['123456', '654321', 'qwerty', 'password', 'asdfgh', 'zxcvbn'];
+
+export interface PasswordStrengthContext {
+  username?: string;
+  email?: string;
+  name?: string;
+}
+
 /**
- * Validates password strength:
- * - Minimum 8 characters
- * - Must contain at least one letter and at least one number
+ * Validates password policy:
+ * - Minimum 4 characters, maximum 8 characters
+ * - No spaces or trivial repeated characters
+ * - Rejects common weak passwords
+ * - Rejects exact match to username or email local-part
  */
-export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+export function validatePasswordStrength(
+  password: string,
+  context?: PasswordStrengthContext
+): { valid: boolean; error?: string } {
   if (!password || typeof password !== 'string') {
     return { valid: false, error: 'Kata sandi wajib diisi.' };
   }
-  if (password.length < 8) {
-    return { valid: false, error: 'Kata sandi harus terdiri dari minimal 8 karakter.' };
+  if (/\s/.test(password)) {
+    return { valid: false, error: 'Kata sandi tidak boleh mengandung spasi.' };
   }
-  if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-    return { valid: false, error: 'Kata sandi harus mengandung kombinasi huruf dan angka.' };
+  if (password.length < 4) {
+    return { valid: false, error: 'Kata sandi minimal 4 karakter.' };
   }
+  if (password.length > 8) {
+    return { valid: false, error: 'Kata sandi maksimal 8 karakter.' };
+  }
+  if (/(.)\1{3,}/.test(password)) {
+    return { valid: false, error: 'Kata sandi tidak boleh menggunakan pengulangan karakter yang sama.' };
+  }
+
+  const lower = password.toLowerCase();
+  if (COMMON_WEAK_PASSWORDS.has(lower)) {
+    return { valid: false, error: 'Kata sandi terlalu umum dan mudah ditebak. Gunakan kombinasi yang lebih unik.' };
+  }
+  for (const seq of WEAK_SUBSTRINGS) {
+    if (lower.includes(seq)) {
+      return { valid: false, error: 'Kata sandi tidak boleh mengandung pola umum atau urutan karakter sederhana.' };
+    }
+  }
+
+  if (context) {
+    const cleanUsername = String(context.username || '').trim().toLowerCase();
+    if (cleanUsername.length >= 3 && lower === cleanUsername) {
+      return { valid: false, error: 'Kata sandi tidak boleh sama dengan username Anda.' };
+    }
+    const emailLocal = String(context.email || '').trim().toLowerCase().split('@')[0];
+    if (emailLocal && emailLocal.length >= 3 && lower === emailLocal) {
+      return { valid: false, error: 'Kata sandi tidak boleh sama dengan nama akun email Anda.' };
+    }
+  }
+
   return { valid: true };
+}
+
+/**
+ * Checks whether candidate password matches the current hash or any historical password hashes.
+ */
+export async function checkPasswordNotReused(
+  candidatePassword: string,
+  currentHash?: string,
+  historyHashes?: string[]
+): Promise<{ reused: boolean }> {
+  const hashesToCheck: string[] = [];
+  if (currentHash && typeof currentHash === 'string') {
+    hashesToCheck.push(currentHash);
+  }
+  if (Array.isArray(historyHashes)) {
+    for (const h of historyHashes) {
+      if (typeof h === 'string' && h && !hashesToCheck.includes(h)) {
+        hashesToCheck.push(h);
+      }
+    }
+  }
+  for (const h of hashesToCheck) {
+    const res = await verifyUserPasswordEx(candidatePassword, h);
+    if (res.valid) {
+      return { reused: true };
+    }
+  }
+  return { reused: false };
+}
+
+// Sliding-window rate limiter specifically for password reset & password change endpoints
+const PASSWORD_ENDPOINT_LIMITER = new Map<string, number[]>();
+
+export function checkPasswordEndpointRateLimit(
+  key: string,
+  maxRequests: number = 10,
+  windowMs: number = 15 * 60 * 1000
+): { allowed: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  const cleanKey = String(key || 'unknown').trim().toLowerCase();
+  const timestamps = (PASSWORD_ENDPOINT_LIMITER.get(cleanKey) || []).filter(ts => now - ts < windowMs);
+  if (timestamps.length >= maxRequests) {
+    const oldest = timestamps[0] || now;
+    const retryAfterSeconds = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000));
+    PASSWORD_ENDPOINT_LIMITER.set(cleanKey, timestamps);
+    return { allowed: false, retryAfterSeconds };
+  }
+  timestamps.push(now);
+  PASSWORD_ENDPOINT_LIMITER.set(cleanKey, timestamps);
+  return { allowed: true };
 }
 
 /**
@@ -896,7 +1007,8 @@ export async function rotateRefreshToken(
  */
 export async function revokeAllUserSessions(
   userId: string,
-  revokedByUserId?: string
+  revokedByUserId?: string,
+  options?: { skipVersionIncrement?: boolean }
 ): Promise<CustomAuthResult<boolean>> {
   if (!userId) {
     return { success: false, error: { code: 'INVALID_ID', message: 'User ID wajib diisi.' } };
@@ -920,13 +1032,14 @@ export async function revokeAllUserSessions(
         .eq('user_id', userId)
         .is('revoked_at', null);
 
-      // Increment session_version in users table
-      const { data: userData } = await client.from('users').select('session_version').eq('id', userId).single();
-      const currentVer = typeof userData?.session_version === 'number' ? userData.session_version : 1;
-      await client
-        .from('users')
-        .update({ session_version: currentVer + 1, updated_at: nowIso })
-        .eq('id', userId);
+      if (!options?.skipVersionIncrement) {
+        const { data: userData } = await client.from('users').select('session_version').eq('id', userId).single();
+        const currentVer = typeof userData?.session_version === 'number' ? userData.session_version : 1;
+        await client
+          .from('users')
+          .update({ session_version: currentVer + 1, updated_at: nowIso })
+          .eq('id', userId);
+      }
     } catch (err: any) {
       console.warn('[CustomAuth] DB revoke sessions warning:', err?.message || err);
     }
@@ -940,13 +1053,68 @@ export async function revokeAllUserSessions(
     if (r.userId === userId) r.revokedAt = nowIso;
   });
 
-  const localUser = db.users.find((u: any) => u.id === userId);
-  if (localUser) {
-    localUser.sessionVersion = (localUser.sessionVersion || 1) + 1;
-    saveDatabaseToDisk();
+  if (db.sessions) {
+    db.sessions.forEach((s: any) => {
+      if (s.userId === userId) s.status = 'revoked';
+    });
+  }
+
+  if (!options?.skipVersionIncrement) {
+    const localUser = db.users.find((u: any) => u.id === userId);
+    if (localUser) {
+      localUser.sessionVersion = (localUser.sessionVersion || 1) + 1;
+      saveDatabaseToDisk();
+    }
   }
 
   return { success: true, data: true };
+}
+
+/**
+ * Issues a clean new authenticated session after the user finishes changing their password,
+ * revoking all prior sessions without double-incrementing session_version.
+ */
+export async function createSessionForUserAfterPasswordChange(params: {
+  user: ServerUser;
+  ipAddress?: string;
+  userAgent?: string;
+}): Promise<{ tokens: AuthTokens; sessionId: string }> {
+  const { user, ipAddress, userAgent } = params;
+  await revokeAllUserSessions(user.id, user.id, { skipVersionIncrement: true });
+
+  const sessionVersion = Math.max(1, user.sessionVersion || 1);
+  const accessToken = generateSecureAccessToken(sessionVersion);
+  const refreshToken = generateSecureRefreshToken(sessionVersion);
+
+  const { sessionId, expiresAt } = await persistNewAuthSession({
+    userId: user.id,
+    accessToken,
+    refreshToken,
+    ipAddress,
+    userAgent,
+    sessionVersion
+  });
+
+  if (db.sessions) {
+    const sess = db.sessions.find((s: any) => s.sessionId === sessionId);
+    if (sess) {
+      sess.username = user.username;
+      sess.name = user.name;
+      sess.role = user.role;
+      sess.contractor = user.contractor;
+    }
+  }
+
+  return {
+    sessionId,
+    tokens: {
+      accessToken,
+      refreshToken,
+      tokenType: 'bearer',
+      expiresIn: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
+      expiresAt
+    }
+  };
 }
 
 /**
@@ -1092,8 +1260,9 @@ export async function loginWithCustomAuth(params: {
     };
   }
 
-  // Check account active status
-  if (!user.active || (user as any).account_status === 'inactive' || (user as any).account_status === 'locked') {
+  // Check account active status (supports both camelCase from mapper and snake_case fallback)
+  const effectiveStatus = (user as any).accountStatus || (user as any).account_status || 'active';
+  if (!user.active || effectiveStatus === 'inactive' || effectiveStatus === 'locked') {
     await recordLoginAttempt({
       identifier: cleanIdent,
       ipAddress,
@@ -1110,8 +1279,9 @@ export async function loginWithCustomAuth(params: {
   }
 
   // Check locked until timestamp
-  if ((user as any).locked_until && new Date((user as any).locked_until).getTime() > Date.now()) {
-    const rem = Math.ceil((new Date((user as any).locked_until).getTime() - Date.now()) / 1000);
+  const lockedUntilRaw = (user as any).lockedUntil || (user as any).locked_until;
+  if (lockedUntilRaw && new Date(lockedUntilRaw).getTime() > Date.now()) {
+    const rem = Math.ceil((new Date(lockedUntilRaw).getTime() - Date.now()) / 1000);
     return {
       success: false,
       error: {
@@ -1133,7 +1303,10 @@ export async function loginWithCustomAuth(params: {
 
     // Increment failed login count on user record
     if (client) {
-      const currentFailures = ((user as any).failed_login_count || 0) + 1;
+      const prevFailures = typeof (user as any).failedLoginCount === 'number'
+        ? (user as any).failedLoginCount
+        : ((user as any).failed_login_count || 0);
+      const currentFailures = prevFailures + 1;
       const updates: any = { failed_login_count: currentFailures, updated_at: new Date().toISOString() };
       if (currentFailures >= MAX_FAILED_ATTEMPTS) {
         updates.locked_until = new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString();

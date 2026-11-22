@@ -15,8 +15,12 @@ import {
   Server,
   Sparkles,
   KeyRound,
-  CheckCircle2
+  CheckCircle2,
+  Check,
+  X
 } from 'lucide-react';
+import { resetPasswordWithToken } from '../../services/authService';
+import { MAX_PASSWORD_LENGTH, validateStrongPasswordClient } from '../../utils/passwordPolicy';
 interface StaffLoginPortalProps {
   onLoginSuccess?: (role: UserRole) => void;
 }
@@ -31,6 +35,64 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rememberSession, setRememberSession] = useState(true);
+  const [tokenMode, setTokenMode] = useState(false);
+  const [tokenIdentifier, setTokenIdentifier] = useState('');
+  const [resetTokenInput, setResetTokenInput] = useState('');
+  const [tokenNewPassword, setTokenNewPassword] = useState('');
+  const [tokenConfirmPassword, setTokenConfirmPassword] = useState('');
+  const [showTokenNewPassword, setShowTokenNewPassword] = useState(false);
+  const [tokenSubmitting, setTokenSubmitting] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
+
+  const tokenPolicy = validateStrongPasswordClient(tokenNewPassword, {
+    username: tokenIdentifier.trim()
+  });
+
+  const handleTokenResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTokenError(null);
+    setTokenSuccess(null);
+
+    if (!tokenIdentifier.trim() || !resetTokenInput.trim()) {
+      setTokenError('Username/email dan token reset satu-kali wajib diisi.');
+      return;
+    }
+    if (!tokenPolicy.valid) {
+      setTokenError(tokenPolicy.error || 'Kata sandi baru belum memenuhi kebijakan keamanan.');
+      return;
+    }
+    if (tokenNewPassword !== tokenConfirmPassword) {
+      setTokenError('Konfirmasi kata sandi baru tidak cocok.');
+      return;
+    }
+
+    setTokenSubmitting(true);
+    try {
+      const res = await resetPasswordWithToken({
+        identifier: tokenIdentifier.trim(),
+        token: resetTokenInput.trim(),
+        newPassword: tokenNewPassword,
+        confirmPassword: tokenConfirmPassword
+      });
+      if (!res.ok || !res.data?.success) {
+        setTokenError(res.data?.error || 'Token reset tidak valid atau telah kedaluwarsa.');
+        return;
+      }
+      setTokenSuccess('Kata sandi baru berhasil ditetapkan. Silakan login dengan kata sandi baru Anda.');
+      toast.success('Kata sandi berhasil diperbarui melalui token pemulihan.', 'Reset Berhasil');
+      setUsername(tokenIdentifier.trim());
+      setPassword('');
+      setResetTokenInput('');
+      setTokenNewPassword('');
+      setTokenConfirmPassword('');
+      setTokenMode(false);
+    } catch (err: any) {
+      setTokenError(err?.message || 'Gagal menghubungi server pemulihan sandi.');
+    } finally {
+      setTokenSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,6 +389,121 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
               )}
             </button>
           </form>
+
+          {tokenSuccess && !tokenMode && (
+            <div className="mt-4 p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/60 text-emerald-200 text-xs flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>{tokenSuccess}</span>
+            </div>
+          )}
+
+          {!tokenMode ? (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setTokenIdentifier(username);
+                  setTokenError(null);
+                  setTokenSuccess(null);
+                  setTokenMode(true);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-200/90 hover:text-cyan-100 underline underline-offset-4 cursor-pointer"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Punya Token Reset Sandi? Atur Ulang Kata Sandi</span>
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleTokenResetSubmit} className="mt-5 pt-5 border-t border-white/15 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4 text-[#5de6ff]" />
+                  <span>Pemulihan Sandi dengan Token Satu-Kali</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTokenMode(false)}
+                  className="text-white/60 hover:text-white cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+
+              {tokenError && (
+                <div className="p-2.5 bg-rose-950/60 border border-rose-800/80 rounded-xl text-rose-200 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <span>{tokenError}</span>
+                </div>
+              )}
+
+              <input
+                type="text"
+                required
+                placeholder="Username atau Email"
+                value={tokenIdentifier}
+                onChange={e => setTokenIdentifier(e.target.value)}
+                className="w-full px-3 py-2 min-h-[40px] bg-white/[0.06] border border-white/[0.15] rounded-xl text-white placeholder-white/40"
+              />
+
+              <input
+                type="text"
+                required
+                placeholder="Tempel Token Reset dari Superadmin"
+                value={resetTokenInput}
+                onChange={e => setResetTokenInput(e.target.value)}
+                className="w-full px-3 py-2 min-h-[40px] bg-white/[0.06] border border-white/[0.15] rounded-xl text-white font-mono placeholder-white/40"
+              />
+
+              <div className="relative">
+                <input
+                  type={showTokenNewPassword ? 'text' : 'password'}
+                  required
+                  maxLength={MAX_PASSWORD_LENGTH}
+                  placeholder={`Kata Sandi Baru (Maks. ${MAX_PASSWORD_LENGTH} karakter)`}
+                  value={tokenNewPassword}
+                  onChange={e => setTokenNewPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
+                  className="w-full pl-3 pr-10 py-2 min-h-[40px] bg-white/[0.06] border border-white/[0.15] rounded-xl text-white placeholder-white/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTokenNewPassword(v => !v)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/60 hover:text-white cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showTokenNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <input
+                type="password"
+                required
+                maxLength={MAX_PASSWORD_LENGTH}
+                placeholder="Konfirmasi Kata Sandi Baru"
+                value={tokenConfirmPassword}
+                onChange={e => setTokenConfirmPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
+                className="w-full px-3 py-2 min-h-[40px] bg-white/[0.06] border border-white/[0.15] rounded-xl text-white placeholder-white/40"
+              />
+
+              {tokenNewPassword && (
+                <div className="p-2.5 rounded-xl bg-black/25 border border-white/10 space-y-1 text-[11px]">
+                  {tokenPolicy.rules.map(r => (
+                    <div key={r.id} className={`flex items-center gap-1.5 ${r.passed ? 'text-emerald-300' : 'text-white/55'}`}>
+                      {r.passed ? <Check className="w-3 h-3 shrink-0" /> : <X className="w-3 h-3 shrink-0" />}
+                      <span>{r.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={tokenSubmitting}
+                className="w-full min-h-[40px] py-2 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-[#5de6ff]/30 to-[#8c4bf0] border border-cyan-300/30 hover:brightness-110 cursor-pointer disabled:opacity-50"
+              >
+                {tokenSubmitting ? 'Memvalidasi Token...' : 'Tetapkan Kata Sandi Baru'}
+              </button>
+            </form>
+          )}
 
           {/* Security footnote */}
           <div className="mt-6 pt-5 border-t border-white/10 text-center">

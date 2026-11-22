@@ -273,7 +273,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
       email: instEmail.trim() || undefined
     });
     if (res.success) {
-      toast.success(`Teknisi ${instName.trim()} berhasil ditambahkan (Password default: 12345678).`, 'Teknisi Terdaftar');
+      toast.success(`Teknisi ${instName.trim()} berhasil ditambahkan (aktivasi aman melalui token reset sandi / sandi kuat).`, 'Teknisi Terdaftar');
       setInstName('');
       setInstUsername('');
       setInstPhone('');
@@ -359,8 +359,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                   Daftarkan Teknisi Lapangan Baru
                 </h3>
                 <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
-                  Terikat ke vendor <strong>{displayContractor}</strong> ({displayArea}). Password default:{' '}
-                  <code className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">12345678</code>
+                  Terikat ke vendor <strong>{displayContractor}</strong> ({displayArea}). Aktivasi aman menggunakan token reset sandi sekali pakai &amp; kata sandi baru maksimal 8 karakter.
                 </p>
               </div>
             </div>

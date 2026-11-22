@@ -112,6 +112,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     setTicketChatCategory,
     getMessagesForTicket,
     ticketActivities,
+    loadTicketDetailOnDemand,
+    markTicketEditing,
     toast
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
@@ -164,6 +166,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     const openImmediately = defaultTab === 'chat' || initialUnread === 0;
     setIsChatOpen(openImmediately);
 
+    // Single-WO on-demand hydration without refetching the entire WO database
+    void loadTicketDetailOnDemand(ticket.id);
+
     if (defaultTab === 'chat') {
       const timer = setTimeout(() => {
         chatSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -178,6 +183,35 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       return () => clearTimeout(timer);
     }
   }, [isOpen, defaultTab, ticket?.id]);
+
+  // Active-edit protection: prevent SSE / delta sync from clobbering active edits inside this modal
+  const hasUnsavedDecisionNotes = Boolean(
+    isOpen &&
+      ticket &&
+      decisionNotes.trim() !== (ticket.approvalNotes || ticket.remarksAgent || '').trim()
+  );
+  const isEditingModalActive = Boolean(
+    isOpen &&
+      ticket?.id &&
+      (showReportEditor ||
+        showReopenModal ||
+        isApproving ||
+        isRejecting ||
+        isSavingNote ||
+        hasUnsavedDecisionNotes)
+  );
+
+  useEffect(() => {
+    if (!ticket?.id) return;
+    if (isEditingModalActive) {
+      markTicketEditing(ticket.id, true);
+    } else {
+      markTicketEditing(ticket.id, false);
+    }
+    return () => {
+      markTicketEditing(ticket.id, false);
+    };
+  }, [ticket?.id, isEditingModalActive, markTicketEditing]);
 
   // Escape key handler
   useEffect(() => {

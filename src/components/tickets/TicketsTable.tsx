@@ -88,6 +88,21 @@ import {
   executeSuperadminDispatchSearch
 } from '../../services/woDateFilterEngine';
 import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
+import { LoadingSkeleton } from '../common/LoadingSkeleton';
+
+const PRIORITY_1_CANONICAL_KEYS = new Set([
+  'woNumber',
+  'idCustomer',
+  'customerName',
+  'appointmentDate',
+  'contactorName',
+  'contractorName',
+  'statusWOAgent',
+  'statusWOInstaller',
+  'statusWhatsApp',
+  'approvalStatus',
+  'slotTime'
+]);
 
 const getTicketColumnValue = (ticket: Ticket, key: string): any => {
   const latestReport = ticket.progressReports?.[0];
@@ -220,6 +235,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     setActiveKpiDrilldown,
     databaseStatus,
     syncStatus,
+    isDataLoading,
+    isProgressiveHydrating,
     auditLogs
   } = useApp();
   const { config, setColumnVisibility, applyPreset, isMobileView, canSwitchDisplayMode, setDisplayMode } = useUIConfig();
@@ -290,6 +307,51 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   useEffect(() => {
     setPageSize(config.ticketsTable.rowsPerPage || 10);
   }, [config.ticketsTable.rowsPerPage]);
+
+  // Progressive secondary column hydration for 46-column canonical mode (Priority 1 renders first, rest on next frame)
+  const [hydrateSecondaryColumns, setHydrateSecondaryColumns] = useState(false);
+  useEffect(() => {
+    if (tableStyleMode !== 'canonical') {
+      setHydrateSecondaryColumns(false);
+      return;
+    }
+    let cancelled = false;
+    const rafId = window.requestAnimationFrame(() => {
+      if (!cancelled) setHydrateSecondaryColumns(true);
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [tableStyleMode]);
+
+  // Native-<table>-compatible Row Virtualization (> 25 rows / ALL)
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const [tableViewportHeight, setTableViewportHeight] = useState(620);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      if (el.clientHeight > 0) setTableViewportHeight(el.clientHeight);
+    };
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(measure);
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [effectiveLayout, tableStyleMode]);
+
+  useEffect(() => {
+    setTableScrollTop(0);
+    if (tableScrollRef.current) {
+      tableScrollRef.current.scrollTop = 0;
+    }
+  }, [currentPage, pageSize, tableStyleMode]);
 
   // Keyboard shortcuts: '/' focuses local table filter, ESC clears when focused
   useEffect(() => {
@@ -649,6 +711,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     });
   }, [rawVisibleColumns, config.ticketsTable.smartOmitEmpty, paginatedTickets]);
 
+  const renderedCanonicalColumns = useMemo(() => {
+    if (tableStyleMode !== 'canonical' || hydrateSecondaryColumns) {
+      return activeColumns;
+    }
+    const prioritySubset = activeColumns.filter(col => PRIORITY_1_CANONICAL_KEYS.has(col.key));
+    return prioritySubset.length >= 3 ? prioritySubset : activeColumns;
+  }, [activeColumns, hydrateSecondaryColumns, tableStyleMode]);
+
   const omittedEmptyCount = rawVisibleColumns.length - activeColumns.length;
 
   const stickyColumnsEnabled = config.device?.pc?.stickyColumns !== false;
@@ -658,10 +728,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const stickyLeftMap = useMemo(() => {
     const map: Record<string, { left: number; isLastFrozen: boolean }> = {};
     if (!stickyColumnsEnabled) return map;
-    const freezeDataColsCount = Math.min(Math.max(0, freezeColumnCount - 1), activeColumns.length);
+    const freezeDataColsCount = Math.min(Math.max(0, freezeColumnCount - 1), renderedCanonicalColumns.length);
     let accLeft = 44;
     for (let i = 0; i < freezeDataColsCount; i++) {
-      const col = activeColumns[i];
+      const col = renderedCanonicalColumns[i];
       const w = col.width || 130;
       map[col.key] = {
         left: accLeft,
@@ -670,7 +740,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       accLeft += w;
     }
     return map;
-  }, [activeColumns, freezeColumnCount, stickyColumnsEnabled]);
+  }, [renderedCanonicalColumns, freezeColumnCount, stickyColumnsEnabled]);
 
   const totalPages =
     pageSize === 'ALL' ? 1 : Math.ceil(sortedTickets.length / effectiveRowsPerPage) || 1;
@@ -952,7 +1022,37 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
   const formattedAppointmentChip = formatIndonesianWODate(todayWIB || getJakartaDateString(0));
   const stitchColSpan = 9;
-  const canonicalColSpan = activeColumns.length + 2;
+  const canonicalColSpan = renderedCanonicalColumns.length + 2;
+
+  const shouldVirtualizeRows =
+    effectiveLayout === 'table' && paginatedTickets.length > 25 && !expandedDrawerTicketId;
+  const estimatedRowHeight = tableStyleMode === 'stitch' ? 76 : 48;
+  const virtualRange = useMemo(() => {
+    if (!shouldVirtualizeRows) {
+      return {
+        startIndex: 0,
+        endIndex: paginatedTickets.length,
+        topSpacerPx: 0,
+        bottomSpacerPx: 0
+      };
+    }
+    const overscan = 8;
+    const rawStart = Math.floor(tableScrollTop / estimatedRowHeight);
+    const visibleCount = Math.max(8, Math.ceil(tableViewportHeight / estimatedRowHeight));
+    const startIndex = Math.max(0, rawStart - overscan);
+    const endIndex = Math.min(paginatedTickets.length, rawStart + visibleCount + overscan);
+    return {
+      startIndex,
+      endIndex,
+      topSpacerPx: startIndex * estimatedRowHeight,
+      bottomSpacerPx: Math.max(0, (paginatedTickets.length - endIndex) * estimatedRowHeight)
+    };
+  }, [shouldVirtualizeRows, paginatedTickets.length, tableScrollTop, tableViewportHeight, estimatedRowHeight]);
+
+  const virtualizedTickets = useMemo(() => {
+    if (!shouldVirtualizeRows) return paginatedTickets;
+    return paginatedTickets.slice(virtualRange.startIndex, virtualRange.endIndex);
+  }, [shouldVirtualizeRows, paginatedTickets, virtualRange.startIndex, virtualRange.endIndex]);
 
   // Render Expanded Inline Verification Drawer (shared by Stitch & Canonical table modes)
   const renderExpandedDrawer = (ticket: Ticket, colSpan: number) => {
@@ -2480,7 +2580,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
           </div>
 
-          {paginatedTickets.length === 0 ? (
+          {isDataLoading && tickets.length === 0 ? (
+            <LoadingSkeleton variant="cards" rows={6} />
+          ) : paginatedTickets.length === 0 ? (
             <div className="card-3d-lavender rounded-2xl py-12 px-4 text-center text-[#4B4452] dark:text-[#CEC0E8] text-xs space-y-2">
               <p className="font-semibold">Tidak ada tiket Work Order yang cocok dengan filter pencarian.</p>
               {hasActiveFilters && (
@@ -2512,9 +2614,27 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
           )}
         </div>
+      ) : isDataLoading && tickets.length === 0 ? (
+        <LoadingSkeleton variant="table" rows={8} />
       ) : (
         <section className="bg-white dark:bg-[#1E1238] rounded-lg shadow-xs overflow-hidden border border-[#E9E5F0] dark:border-[#35105E]">
-          <div className="overflow-x-auto min-h-[280px] relative">
+          {isProgressiveHydrating && (
+            <div className="px-4 py-1.5 bg-[#FAF5FF] dark:bg-[#251545] border-b border-[#E8DDFF] dark:border-[#35105E] text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-between gap-2">
+              <span>Menampilkan data prioritas · Memuat kolom &amp; detail teknis lanjutan di latar belakang...</span>
+              <span className="inline-block w-2 h-2 rounded-full bg-[#7135B5] animate-pulse" />
+            </div>
+          )}
+          <div
+            ref={tableScrollRef}
+            onScroll={e => {
+              if (shouldVirtualizeRows) {
+                setTableScrollTop(e.currentTarget.scrollTop);
+              }
+            }}
+            className={`overflow-x-auto min-h-[280px] relative ${
+              shouldVirtualizeRows ? 'max-h-[72vh] overflow-y-auto' : ''
+            }`}
+          >
             {tableStyleMode === 'stitch' ? (
               /* STITCH AI RICH COMPOSITE 9-COLUMN TABLE */
               <table className="w-full text-left border-collapse">
@@ -2598,7 +2718,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    paginatedTickets.map(ticket => {
+                    <>
+                      {shouldVirtualizeRows && virtualRange.topSpacerPx > 0 && (
+                        <tr aria-hidden="true">
+                          <td colSpan={stitchColSpan} style={{ height: `${virtualRange.topSpacerPx}px`, padding: 0, border: 0 }} />
+                        </tr>
+                      )}
+                      {virtualizedTickets.map(ticket => {
                       const isSelected = selectedIds.has(ticket.id);
                       const isExpanded = expandedDrawerTicketId === ticket.id;
                       const isRejectedRow =
@@ -2863,7 +2989,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           {isExpanded && renderExpandedDrawer(ticket, stitchColSpan)}
                         </Fragment>
                       );
-                    })
+                    })}
+                      {shouldVirtualizeRows && virtualRange.bottomSpacerPx > 0 && (
+                        <tr aria-hidden="true">
+                          <td colSpan={stitchColSpan} style={{ height: `${virtualRange.bottomSpacerPx}px`, padding: 0, border: 0 }} />
+                        </tr>
+                      )}
+                    </>
                   )}
                 </tbody>
               </table>
@@ -2894,7 +3026,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       </button>
                     </th>
 
-                    {activeColumns.map(col => {
+                    {renderedCanonicalColumns.map(col => {
                       const isSorted = sortField === col.key;
                       const stickyInfo = stickyLeftMap[col.key];
                       const widthPx = col.width || 130;
@@ -2953,7 +3085,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    paginatedTickets.map(ticket => {
+                    <>
+                      {shouldVirtualizeRows && virtualRange.topSpacerPx > 0 && (
+                        <tr aria-hidden="true">
+                          <td colSpan={canonicalColSpan} style={{ height: `${virtualRange.topSpacerPx}px`, padding: 0, border: 0 }} />
+                        </tr>
+                      )}
+                      {virtualizedTickets.map(ticket => {
                       const isSelected = selectedIds.has(ticket.id);
                       const isExpanded = expandedDrawerTicketId === ticket.id;
                       const stickyCellBg = isExpanded
@@ -3006,7 +3144,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               </button>
                             </td>
 
-                            {activeColumns.map(col => {
+                            {renderedCanonicalColumns.map(col => {
                               const rawVal = getTicketColumnValue(ticket, col.key);
                               const stickyInfo = stickyLeftMap[col.key];
                               const widthPx = col.width || 130;
@@ -3519,7 +3657,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           {isExpanded && renderExpandedDrawer(ticket, canonicalColSpan)}
                         </Fragment>
                       );
-                    })
+                    })}
+                      {shouldVirtualizeRows && virtualRange.bottomSpacerPx > 0 && (
+                        <tr aria-hidden="true">
+                          <td colSpan={canonicalColSpan} style={{ height: `${virtualRange.bottomSpacerPx}px`, padding: 0, border: 0 }} />
+                        </tr>
+                      )}
+                    </>
                   )}
                 </tbody>
               </table>

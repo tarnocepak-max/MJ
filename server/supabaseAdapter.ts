@@ -316,12 +316,25 @@ export function userToPostgresRow(user: ServerUser): Record<string, any> {
   const lockedUntil = (user as any).lockedUntil || (user as any).locked_until || null;
   const passwordChangedAt = (user as any).passwordChangedAt || (user as any).password_changed_at || null;
 
+  const resetTokenHash = (user as any).resetTokenHash ?? existingPayload.resetTokenHash ?? null;
+  const resetTokenExpiresAt = (user as any).resetTokenExpiresAt ?? existingPayload.resetTokenExpiresAt ?? null;
+  const resetTokenIssuedAt = (user as any).resetTokenIssuedAt ?? existingPayload.resetTokenIssuedAt ?? null;
+  const resetTokenUsedAt = (user as any).resetTokenUsedAt ?? existingPayload.resetTokenUsedAt ?? null;
+  const passwordHistoryHashes = Array.isArray((user as any).passwordHistoryHashes)
+    ? (user as any).passwordHistoryHashes
+    : (Array.isArray(existingPayload.passwordHistoryHashes) ? existingPayload.passwordHistoryHashes : []);
+
   const payload = {
     ...existingPayload,
     passwordHash,
     sessionVersion: sessionVer,
     authUserId: user.authUserId || existingPayload.authUserId || null,
-    accountStatus
+    accountStatus,
+    resetTokenHash,
+    resetTokenExpiresAt,
+    resetTokenIssuedAt,
+    resetTokenUsedAt,
+    passwordHistoryHashes
   };
 
   return {
@@ -404,7 +417,14 @@ export function postgresRowToUser(row: any): ServerUser {
     accountStatus,
     failedLoginCount,
     lockedUntil,
-    passwordChangedAt
+    passwordChangedAt,
+    resetTokenHash: row.reset_token_hash ?? payload.resetTokenHash ?? undefined,
+    resetTokenExpiresAt: row.reset_token_expires_at ?? payload.resetTokenExpiresAt ?? undefined,
+    resetTokenIssuedAt: row.reset_token_issued_at ?? payload.resetTokenIssuedAt ?? undefined,
+    resetTokenUsedAt: row.reset_token_used_at ?? payload.resetTokenUsedAt ?? undefined,
+    passwordHistoryHashes: Array.isArray(row.password_history_hashes)
+      ? row.password_history_hashes
+      : (Array.isArray(payload.passwordHistoryHashes) ? payload.passwordHistoryHashes : [])
   } as ServerUser;
 }
 
@@ -1127,6 +1147,13 @@ export async function updateUserInSupabase(id: string, updates: Partial<ServerUs
       ...prevPayload,
       ...(updates.passwordHash !== undefined ? { passwordHash: updates.passwordHash || null } : {}),
       ...(updates.authUserId !== undefined ? { authUserId: updates.authUserId || null } : {}),
+      ...((updates as any).accountStatus !== undefined ? { accountStatus: (updates as any).accountStatus } : {}),
+      ...((updates as any).passwordChangedAt !== undefined ? { passwordChangedAt: (updates as any).passwordChangedAt } : {}),
+      ...((updates as any).resetTokenHash !== undefined ? { resetTokenHash: (updates as any).resetTokenHash } : {}),
+      ...((updates as any).resetTokenExpiresAt !== undefined ? { resetTokenExpiresAt: (updates as any).resetTokenExpiresAt } : {}),
+      ...((updates as any).resetTokenIssuedAt !== undefined ? { resetTokenIssuedAt: (updates as any).resetTokenIssuedAt } : {}),
+      ...((updates as any).resetTokenUsedAt !== undefined ? { resetTokenUsedAt: (updates as any).resetTokenUsedAt } : {}),
+      ...((updates as any).passwordHistoryHashes !== undefined ? { passwordHistoryHashes: (updates as any).passwordHistoryHashes } : {}),
       sessionVersion: nextSessionVersion
     };
 
@@ -1283,6 +1310,83 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
   } catch (err: any) {
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
+  }
+}
+
+/**
+ * Phase 1 Critical Serializer: strips heavy photo/history/nested JSON blobs
+ * while keeping all Priority 1 identity, schedule, contractor, status, and filter fields intact.
+ */
+export function stripHeavyFieldsForCriticalPhase(ticket: any): any {
+  if (!ticket || typeof ticket !== 'object') return ticket;
+  const lightTechReport = ticket.technicalReport
+    ? {
+        id: ticket.technicalReport.id,
+        ticketId: ticket.technicalReport.ticketId,
+        mainCategory: ticket.technicalReport.mainCategory,
+        rootCause: ticket.technicalReport.rootCause,
+        workResult: ticket.technicalReport.workResult,
+        opticalPowerDbm: ticket.technicalReport.opticalPowerDbm,
+        submittedBy: ticket.technicalReport.submittedBy,
+        submittedAt: ticket.technicalReport.submittedAt,
+        verifiedByDispatch: ticket.technicalReport.verifiedByDispatch
+      }
+    : undefined;
+
+  return {
+    ...ticket,
+    technicalReport: lightTechReport,
+    customerSignatureUrl: undefined,
+    assignmentHistory: undefined,
+    locationHistory: undefined,
+    workSessions: undefined,
+    progressReports: Array.isArray(ticket.progressReports) && ticket.progressReports.length > 0
+      ? [ticket.progressReports[ticket.progressReports.length - 1]]
+      : [],
+    payload: undefined,
+    _isCriticalPartial: true
+  };
+}
+
+export interface PaginatedWorkOrdersOptions extends GetWorkOrdersOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  search?: string;
+  contractor?: string;
+  statusWOAgent?: string;
+  statusWOInstaller?: string;
+  statusWhatsApp?: string;
+  approvalStatus?: string;
+  category?: string;
+  updatedSince?: string;
+}
+
+/**
+ * Fetches Work Orders updated since an ISO timestamp for efficient delta sync.
+ */
+export async function getWorkOrdersUpdatedSinceFromSupabase(
+  sinceIso: string
+): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  try {
+    const { data, error } = await client
+      .from('work_orders')
+      .select('*')
+      .gte('updated_at', sinceIso)
+      .order('updated_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    return { success: true, data: (data || []).map(postgresRowToTicket) };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
   }
 }
 

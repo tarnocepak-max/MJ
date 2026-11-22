@@ -23,11 +23,13 @@ import {
   Loader2,
   Radio,
   Network,
-  BadgeCheck
+  BadgeCheck,
+  KeyRound
 } from 'lucide-react';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
 import { NotificationBell } from '../notification/NotificationBell';
+import { ChangePasswordModal } from '../auth/ChangePasswordModal';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
@@ -92,8 +94,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     areasList,
     databaseStatus,
     syncStatus,
+    syncStage,
+    isProgressiveHydrating,
+    syncError,
     lastSyncTime,
     refreshDatabaseData,
+    applyRotatedPasswordSession,
     tickets,
     scopedTickets
   } = useApp();
@@ -103,6 +109,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const { toast } = useToast();
   const { playSyncSound } = useMoraJawsSound();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [quickSearch, setQuickSearch] = useState('');
   const [quickResults, setQuickResults] = useState<Ticket[]>([]);
@@ -285,14 +292,28 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     }
   };
 
+  const formattedLastSyncWIB = useMemo(() => {
+    if (!lastSyncTime) return '';
+    const d = new Date(lastSyncTime);
+    if (Number.isNaN(d.getTime())) return '';
+    return (
+      d.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Jakarta'
+      }) + ' WIB'
+    );
+  }, [lastSyncTime]);
+
   if (currentUser.role === 'installer') {
-    const liveBadge = !isOnline
+    const liveBadge = !isOnline || syncStatus === 'OFFLINE'
       ? {
           label: isSimulatedOffline ? 'SIMULASI OFFLINE' : 'OFFLINE',
           pillClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25',
           dotClass: 'bg-amber-500'
         }
-      : isSyncing || isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING'
+      : isSyncing || isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING' || isProgressiveHydrating
       ? {
           label: 'SYNCING',
           pillClass: 'bg-[#7135b5]/12 text-[#58149c] dark:text-[#DAB9FF] border border-[#7135b5]/25',
@@ -300,12 +321,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         }
       : syncStatus === 'ERROR'
       ? {
-          label: 'RETRY',
+          label: 'SYNC ERROR',
           pillClass: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25',
           dotClass: 'bg-rose-500'
         }
       : {
-          label: 'LIVE',
+          label: formattedLastSyncWIB ? `SYNCED · ${formattedLastSyncWIB}` : 'SYNCED',
           pillClass: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20',
           dotClass: 'bg-emerald-500 animate-pulse'
         };
@@ -473,6 +494,21 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                         type="button"
                         onClick={() => {
                           setUserMenuOpen(false);
+                          setChangePasswordOpen(true);
+                        }}
+                        className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-semibold text-[#1f1638] dark:text-[#E9D5FF] hover:bg-[#f3eaff] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <KeyRound className="w-3.5 h-3.5 text-[#58149c] dark:text-[#D8B4FE]" />
+                          <span>Ganti Password</span>
+                        </span>
+                        <span>&rarr;</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
                           logout();
                         }}
                         className="w-full text-center py-2.5 px-3 bg-[#ba1a1a]/10 hover:bg-[#ba1a1a]/20 text-[#ba1a1a] dark:text-rose-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1"
@@ -487,6 +523,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </div>
           </div>
         </header>
+        <ChangePasswordModal
+          isOpen={changePasswordOpen}
+          user={currentUser}
+          onClose={() => setChangePasswordOpen(false)}
+          onPasswordChanged={applyRotatedPasswordSession}
+        />
       </div>
     );
   }
@@ -799,36 +841,35 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             type="button"
             onClick={handleGlobalRefresh}
             disabled={isRefreshing}
+            data-testid="cloud-sync-indicator"
             className={`${isMobileView ? 'hidden sm:flex' : 'hidden md:flex'} items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-full border transition-all cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
-              syncStatus === 'SAVED'
-                ? 'bg-[#5B35B1]/10 hover:bg-[#5B35B1]/15 border-[#7135B5]/25 text-[#7135B5] dark:bg-white/[0.06] dark:hover:bg-white/[0.14] dark:border-white/15 dark:text-[#E9D5FF]'
-                : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                ? 'bg-[#F4EAFF] border-[#A78BFA] text-[#431599] dark:bg-purple-500/20 dark:border-purple-400/35 dark:text-[#D8B4FE]'
-                : syncStatus === 'OFFLINE'
+              !isOnline || syncStatus === 'OFFLINE'
                 ? 'bg-[#FEF3C7] border-[#F59E0B]/30 text-[#B45309] dark:bg-amber-500/20 dark:border-amber-400/35 dark:text-amber-200'
-                : 'bg-[#ffdad6] border-[#ba1a1a]/30 text-[#93000a] dark:bg-rose-500/20 dark:border-rose-400/35 dark:text-rose-200'
+                : syncStatus === 'ERROR'
+                ? 'bg-[#ffdad6] border-[#ba1a1a]/30 text-[#93000a] dark:bg-rose-500/20 dark:border-rose-400/35 dark:text-rose-200'
+                : isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING' || isProgressiveHydrating
+                ? 'bg-[#F4EAFF] border-[#A78BFA] text-[#431599] dark:bg-purple-500/20 dark:border-purple-400/35 dark:text-[#D8B4FE]'
+                : 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/25 text-emerald-700 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 dark:border-emerald-400/30 dark:text-emerald-300'
             }`}
-            title={`Supabase PostgreSQL: ${databaseStatus} / ${syncStatus}${
-              lastSyncTime ? ` | Terakhir sinkron: ${new Date(lastSyncTime).toLocaleTimeString('id-ID')}` : ''
-            } — Klik untuk Sync`}
+            title={`Supabase PostgreSQL: ${databaseStatus} / ${syncStatus} (${syncStage})${
+              formattedLastSyncWIB ? ` | Terakhir sinkron: ${formattedLastSyncWIB}` : ''
+            }${syncError ? ` | Error: ${syncError}` : ''} — Klik untuk Sinkronisasi Ulang`}
           >
-            {isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING' ? (
+            {isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING' || isProgressiveHydrating ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+            ) : !isOnline || syncStatus === 'OFFLINE' ? (
+              <WifiOff className="w-3.5 h-3.5 shrink-0" />
             ) : (
               <Cloud className="w-3.5 h-3.5 shrink-0" />
             )}
             <span>
-              {isRefreshing
-                ? 'Sinkronisasi...'
-                : syncStatus === 'SAVED'
-                ? 'Cloud Live (SAVED)'
-                : syncStatus === 'SYNCING'
-                ? 'Menyimpan...'
-                : syncStatus === 'LOADING'
-                ? 'Memuat...'
-                : syncStatus === 'OFFLINE'
-                ? 'Offline'
-                : 'Sync Error'}
+              {!isOnline || syncStatus === 'OFFLINE'
+                ? `Offline${formattedLastSyncWIB ? ` · ${formattedLastSyncWIB}` : ''}`
+                : syncStatus === 'ERROR'
+                ? 'Sync Error'
+                : isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING' || isProgressiveHydrating
+                ? `Syncing${isProgressiveHydrating && syncStage !== 'complete' ? '...' : ''}`
+                : `Synced${formattedLastSyncWIB ? ` · ${formattedLastSyncWIB}` : ''}`}
             </span>
           </button>
 
@@ -941,6 +982,21 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                       type="button"
                       onClick={() => {
                         setUserMenuOpen(false);
+                        setChangePasswordOpen(true);
+                      }}
+                      className="w-full text-left py-2 px-3 rounded-lg text-xs font-semibold text-[#211A2E] dark:text-[#E9D5FF] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <KeyRound className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                        <span>Ganti Password</span>
+                      </span>
+                      <span>&rarr;</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
                         logout();
                       }}
                       className="w-full text-center py-2 px-3 bg-[#DC4C5A]/10 hover:bg-[#DC4C5A]/20 text-[#DC4C5A] dark:text-rose-300 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1"
@@ -993,6 +1049,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </button>
         </div>
       </header>
+      <ChangePasswordModal
+        isOpen={changePasswordOpen}
+        user={currentUser}
+        onClose={() => setChangePasswordOpen(false)}
+        onPasswordChanged={applyRotatedPasswordSession}
+      />
     </div>
   );
 };

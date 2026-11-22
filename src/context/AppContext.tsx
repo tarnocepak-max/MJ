@@ -37,6 +37,17 @@ import {
   summarizeWorkOrderClassifications
 } from '../services/woClassificationService';
 import { installerGpsTracker } from '../services/installerGpsTrackingService';
+import {
+  dedupedFetch,
+  getWoCache,
+  setWoCache,
+  invalidateWoCache,
+  shouldThrottleViewRevalidation,
+  markTicketEditingState,
+  isTicketBeingEdited,
+  mergeDeltaTickets,
+  mergeProgressiveHydration
+} from '../services/woSyncEngine';
 
 import {
   INITIAL_SAMPLE_TICKETS,
@@ -421,6 +432,27 @@ interface AppContextType {
   isDataLoading: boolean;
   dataLoadError: string | null;
   loadCentralData: () => Promise<void>;
+  syncStage: 'idle' | 'phase1_critical' | 'phase2_secondary' | 'phase3_background' | 'complete';
+  isProgressiveHydrating: boolean;
+  markTicketEditing: (ticketId: string | null | undefined, isEditing: boolean) => void;
+  revalidateWoView: (viewKey: string, options?: { force?: boolean }) => Promise<void>;
+  loadTicketDetailOnDemand: (ticketId: string) => Promise<{ ticket?: Ticket; messages?: TicketMessage[]; activities?: any[] } | null>;
+  completeMandatoryPasswordChange: (payload: {
+    user: User;
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    sessionId?: string;
+    sessionVersion?: number;
+  }) => Promise<void>;
+  applyRotatedPasswordSession: (payload: {
+    user: User;
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    sessionId?: string;
+    sessionVersion?: number;
+  }) => Promise<void>;
 }
 
 const STORAGE_KEYS = {
@@ -508,6 +540,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { isOnline, enqueueChange, registerAppSyncHandler, setIsOfflineModalOpen } = useOfflineSync();
   const [isDataLoading, setIsDataLoading] = useState<boolean>(false);
   const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [syncStage, setSyncStage] = useState<'idle' | 'phase1_critical' | 'phase2_secondary' | 'phase3_background' | 'complete'>('idle');
+  const [isProgressiveHydrating, setIsProgressiveHydrating] = useState<boolean>(false);
+  const lastDeltaWatermarkRef = useRef<string>(new Date().toISOString());
+  const syncRetryCountRef = useRef<number>(0);
+  const protectedEditNotifiedRef = useRef<Set<string>>(new Set());
 
   const getAuthHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {
@@ -1012,15 +1049,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleOnline = () => {
       setSyncStatus('SYNCING');
       setDatabaseStatus('connecting');
-      refreshDatabaseData().catch(() => {});
+      if (ticketsRef.current.length > 0) {
+        runDeltaSync({ force: true }).catch(() => {});
+      } else {
+        refreshDatabaseData().catch(() => {});
+      }
     };
     const handleOffline = () => {
       setSyncStatus('OFFLINE');
       setDatabaseStatus('offline');
     };
+    const handleWindowFocusOrVisible = () => {
+      if (isCancelled || !navigator.onLine) return;
+      if (document.visibilityState === 'hidden') return;
+      if (currentUserRef.current?.mustChangePassword) return;
+      if (shouldThrottleViewRevalidation('window:focus', 10_000)) return;
+      if (ticketsRef.current.length > 0) {
+        runDeltaSync().catch(() => {});
+      }
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleWindowFocusOrVisible);
+    document.addEventListener('visibilitychange', handleWindowFocusOrVisible);
 
     const headers = getAuthHeaders();
     if (headers['Authorization']) {
@@ -1044,7 +1096,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return;
             }
             if (payload.eventType === 'DELETE' && rec?.id) {
-              setTickets(prev => prev.map(t => (t.id === rec.id ? { ...t, ...rec } : t)));
+              if (!isTicketBeingEdited(rec.id)) {
+                setTickets(prev => prev.map(t => (t.id === rec.id ? { ...t, ...rec } : t)));
+              }
               if (rec.isDeleted) {
                 setTicketMessages(prev => prev.filter(m => m.ticketId !== rec.id));
               }
@@ -1061,6 +1115,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
               scheduleKpiRefreshRef.current?.();
             } else if (rec && rec.id) {
+              if (isTicketBeingEdited(rec.id)) {
+                if (!protectedEditNotifiedRef.current.has(rec.id)) {
+                  protectedEditNotifiedRef.current.add(rec.id);
+                  toast.info(
+                    `Ada pembaruan server untuk WO ${rec.woNumber || rec.id}. Editan Anda yang sedang aktif tetap dipertahankan.`,
+                    'Sinkronisasi Terproteksi'
+                  );
+                }
+                return;
+              }
               const prevMatch = ticketsRef.current.find(t => t.id === rec.id);
               const wasPresent = Boolean(prevMatch);
               setTickets(prev => {
@@ -1346,7 +1410,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           onPayload: (payload) => {
             if (isCancelled || !payload) return;
             const rec = payload.record || payload.new;
-            if (rec && rec.id) {
+            if (rec && rec.id && !isTicketBeingEdited(rec.id)) {
               setTickets(prev => {
                 const idx = prev.findIndex(t => t.id === rec.id);
                 if (idx >= 0) {
@@ -1365,10 +1429,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Targeted polling fallback every 45s on Free Plan when tab is active
+    // Lightweight Delta Sync fallback every 45s when tab is active (never full reload)
     const pollInterval = setInterval(() => {
-      if (!isCancelled && navigator.onLine && document.visibilityState === 'visible') {
-        loadCentralData().catch(() => {});
+      if (
+        !isCancelled &&
+        navigator.onLine &&
+        document.visibilityState === 'visible' &&
+        !currentUserRef.current?.mustChangePassword
+      ) {
+        if (ticketsRef.current.length > 0) {
+          runDeltaSync().catch(() => {});
+        } else {
+          loadCentralData().catch(() => {});
+        }
       }
     }, 45000);
 
@@ -1376,6 +1449,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isCancelled = true;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleWindowFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleWindowFocusOrVisible);
       clearInterval(pollInterval);
       unsubWorkOrders?.();
       unsubMessages?.();
@@ -1429,207 +1504,459 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await loadCentralData();
   };
 
-  const loadCentralData = async () => {
-    setIsDataLoading(true);
-    setDatabaseLoading(true);
-    setDataLoadError(null);
-    try {
-      const headers = getAuthHeaders();
-      let resolvedRole: UserRole = currentUser.role;
-      let resolvedUserId: string = currentUser.id;
-      let resolvedActive: boolean = currentUser.active;
-
-      const res = await fetch('/api/bootstrap', { headers });
-      if (!res.ok) {
-        if (res.status === 503) {
-          const errData = await res.json().catch(() => ({}));
-          setDatabaseStatus('error');
-          setSyncStatus('ERROR');
-          setSyncError(errData.message || 'Database authoritative Supabase PostgreSQL tidak tersedia.');
-        }
-      } else {
-        const data = await res.json();
-        if (data && data.success) {
-          const liveWIB = data.operationalDateWIB || getJakartaDateString(0);
-          setTodayWIB(liveWIB);
-          setOperationalDateState(liveWIB);
-          try {
-            localStorage.setItem('morajaws_operational_date', liveWIB);
-          } catch {}
-          if (data.currentUser && data.isAuthenticated) {
-            setCurrentUser(prev => ({ ...prev, ...data.currentUser }));
-            resolvedRole = data.currentUser.role || resolvedRole;
-            resolvedUserId = data.currentUser.id || resolvedUserId;
-            resolvedActive = data.currentUser.active !== false;
-          } else if (data.isAuthenticated === false && headers['Authorization']) {
-            setIsLoggedIn(false);
-            setCurrentUser(UNAUTHENTICATED_USER);
-            try {
-              localStorage.setItem('morajaws_logged_in', 'false');
-              localStorage.removeItem('morajaws_auth_session');
-              window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
-            } catch (e) {}
-          }
-          if (data.rolePermissions && typeof data.rolePermissions === 'object') {
-            setDynamicRolePermissions(data.rolePermissions);
-            setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...data.rolePermissions });
-          }
-          if (Array.isArray(data.tickets)) {
-            setTickets(data.tickets);
-          }
-          if (Array.isArray(data.ticketMessages)) {
-            const hydratedMessages: TicketMessage[] = (() => {
-              const map = new Map<string, TicketMessage>();
-              data.ticketMessages.forEach((m: TicketMessage) => {
-                if (m && m.id) map.set(m.id, m);
-              });
-              return Array.from(map.values()).sort(
-                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              );
-            })();
-            if (!hasHydratedChatMessagesRef.current) {
-              hydratedMessages.forEach(m => {
-                if (m?.id) knownChatMessageIdsRef.current.add(m.id);
-              });
-              hasHydratedChatMessagesRef.current = true;
-            }
-            setTicketMessages(hydratedMessages);
-            if (resolvedUserId) {
-              triggerDeliveryReceiptsForMessages(hydratedMessages, resolvedUserId);
-            }
-          } else if (!hasHydratedChatMessagesRef.current) {
-            hasHydratedChatMessagesRef.current = true;
-          }
-          if (Array.isArray(data.contractors) && data.contractors.length > 0) {
-            setContractors(deduplicateContractors(data.contractors));
-          }
-          if (Array.isArray(data.coverageAreas) && data.coverageAreas.length > 0) {
-            setCoverageAreas(data.coverageAreas);
-          }
-          if (Array.isArray(data.templates) && data.templates.length > 0) {
-            setTemplates(data.templates);
-          }
-          setDatabaseStatus('connected');
-          setIsDatabaseReady(true);
-          setSyncStatus('SAVED');
-          setLastSyncTime(new Date().toISOString());
-          setSyncError(null);
-        }
-      }
-
-      // Load authenticated collections & global configurations from Supabase PostgreSQL proxy
-      if (headers['Authorization']) {
-        const canViewAudit = Boolean(
-          resolvedUserId &&
-          resolvedActive &&
-          (resolvedRole === 'super_admin' || resolvedRole === 'it_support')
-        );
-        if (canViewAudit) {
-          try {
-            const auditRes = await fetch('/api/supabase/audit-logs?limit=100', { headers });
-            if (auditRes.ok) {
-              const auditData = await auditRes.json();
-              if (auditData && auditData.success && Array.isArray(auditData.data)) {
-                setAuditLogs(auditData.data);
-              }
-            }
-          } catch {}
-        }
-
-        // Load users for authorized roles
-        try {
-          const usersRes = await supabaseDb.getUsers();
-          if (usersRes.success && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
-            setUsers(usersRes.data);
-          }
-        } catch {}
-
-        // Hydrate ALL versioned global configs + dynamic RBAC matrix from /api/global-config/bootstrap
-        try {
-          const globalBoot = await bootstrapGlobalConfigs().catch(() => null);
-          if (globalBoot) {
-            if (globalBoot.rolePermissions && typeof globalBoot.rolePermissions === 'object') {
-              setDynamicRolePermissions(globalBoot.rolePermissions);
-              setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...globalBoot.rolePermissions });
-              setRolePermissionsVersion(globalBoot.rolePermissionsVersion || 1);
-            }
-            const cfgs = globalBoot.configs || {};
-            if (cfgs.hierarchical_droplists) {
-              const list = Array.isArray(cfgs.hierarchical_droplists)
-                ? cfgs.hierarchical_droplists
-                : cfgs.hierarchical_droplists.statuses;
-              if (Array.isArray(list) && list.length > 0) setHierarchicalStatuses(list);
-            }
-            if (cfgs.chat_categories) {
-              const list = Array.isArray(cfgs.chat_categories)
-                ? cfgs.chat_categories
-                : cfgs.chat_categories.categories;
-              if (Array.isArray(list) && list.length > 0) setChatCategories(list);
-            }
-            if (cfgs.report_dropdown_categories) {
-              const list = Array.isArray(cfgs.report_dropdown_categories)
-                ? cfgs.report_dropdown_categories
-                : cfgs.report_dropdown_categories.categories;
-              if (Array.isArray(list) && list.length > 0) setReportDropdownCategories(list);
-            }
-            if (cfgs.workflow_rules) {
-              const list = Array.isArray(cfgs.workflow_rules)
-                ? cfgs.workflow_rules
-                : cfgs.workflow_rules.rules;
-              if (Array.isArray(list) && list.length > 0) setWorkflowRules(list);
-            }
-            if (cfgs.header_mappings) {
-              const list = Array.isArray(cfgs.header_mappings)
-                ? cfgs.header_mappings
-                : cfgs.header_mappings.mappings;
-              if (Array.isArray(list) && list.length > 0) setHeaderMappings(list);
-            }
-            if (cfgs.canonical_fields) {
-              const list = Array.isArray(cfgs.canonical_fields)
-                ? cfgs.canonical_fields
-                : cfgs.canonical_fields.fields;
-              if (Array.isArray(list) && list.length > 0) setCanonicalFields(list);
-            }
-            if (cfgs.root_cause_categories) {
-              const list = Array.isArray(cfgs.root_cause_categories)
-                ? cfgs.root_cause_categories
-                : cfgs.root_cause_categories.categories;
-              if (Array.isArray(list) && list.length > 0) setRootCauseCategories(list);
-            }
-            if (cfgs.google_sheets_config && typeof cfgs.google_sheets_config === 'object') {
-              setGoogleSheetsConfig(prev => ({ ...prev, ...cfgs.google_sheets_config }));
-            }
-            if (globalBoot.operationalDate?.date) {
-              setTodayWIB(globalBoot.operationalDate.date);
-              setOperationalDateState(globalBoot.operationalDate.date);
-              try {
-                localStorage.setItem('morajaws_operational_date', globalBoot.operationalDate.date);
-              } catch {}
-            }
-          } else {
-            const [hierData, chatCatsData, reportCatsData] = await Promise.all([
-              loadHierarchicalDroplistsFromSupabase().catch(() => null),
-              loadChatCategoriesFromSupabase().catch(() => null),
-              loadReportDropdownCategoriesFromSupabase().catch(() => null)
-            ]);
-            if (Array.isArray(hierData) && hierData.length > 0) setHierarchicalStatuses(hierData);
-            if (Array.isArray(chatCatsData) && chatCatsData.length > 0) setChatCategories(chatCatsData);
-            if (Array.isArray(reportCatsData) && reportCatsData.length > 0) setReportDropdownCategories(reportCatsData);
-          }
-        } catch {}
-      } else {
-        setAuditLogs([]);
-      }
-      setIsDropdownCategoriesLoading(false);
-    } catch (err: any) {
-      console.warn('[CentralData] Sync error:', err);
-      setDataLoadError(err?.message || 'Gagal memuat status sesi');
-      setDatabaseStatus('error');
-      setSyncStatus('ERROR');
-    } finally {
-      setIsDataLoading(false);
-      setDatabaseLoading(false);
+  const markTicketEditing = (ticketId: string | null | undefined, isEditing: boolean) => {
+    markTicketEditingState(ticketId, isEditing);
+    if (!isEditing && ticketId) {
+      protectedEditNotifiedRef.current.delete(String(ticketId));
     }
+  };
+
+  const applyBootstrapHydration = (
+    data: any,
+    options: { isPhase2Full?: boolean; headers: Record<string, string> }
+  ): { resolvedRole: UserRole; resolvedUserId: string; resolvedActive: boolean; passwordChangeRequired: boolean } => {
+    let resolvedRole: UserRole = currentUserRef.current.role;
+    let resolvedUserId: string = currentUserRef.current.id;
+    let resolvedActive: boolean = currentUserRef.current.active;
+
+    const liveWIB = data.operationalDateWIB || getJakartaDateString(0);
+    setTodayWIB(liveWIB);
+    setOperationalDateState(liveWIB);
+    try {
+      localStorage.setItem('morajaws_operational_date', liveWIB);
+    } catch {}
+
+    if (data.currentUser && data.isAuthenticated) {
+      setCurrentUser(prev => ({ ...prev, ...data.currentUser }));
+      resolvedRole = data.currentUser.role || resolvedRole;
+      resolvedUserId = data.currentUser.id || resolvedUserId;
+      resolvedActive = data.currentUser.active !== false;
+    } else if (data.isAuthenticated === false && options.headers['Authorization']) {
+      setIsLoggedIn(false);
+      setCurrentUser(UNAUTHENTICATED_USER);
+      try {
+        localStorage.setItem('morajaws_logged_in', 'false');
+        localStorage.removeItem('morajaws_auth_session');
+        window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
+      } catch (e) {}
+    }
+
+    if (data.rolePermissions && typeof data.rolePermissions === 'object') {
+      setDynamicRolePermissions(data.rolePermissions);
+      setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...data.rolePermissions });
+    }
+
+    const passwordChangeRequired = Boolean(data.passwordChangeRequired || data.currentUser?.mustChangePassword);
+
+    if (Array.isArray(data.tickets)) {
+      if (options.isPhase2Full) {
+        setTickets(prev => mergeProgressiveHydration(prev, data.tickets));
+        setWoCache('wo:full', data.tickets, data.serverTime);
+      } else {
+        setTickets(prev => (prev.length > 0 ? mergeDeltaTickets(prev, data.tickets, []).tickets : data.tickets));
+        setWoCache('wo:critical', data.tickets, data.serverTime);
+      }
+    }
+
+    if (Array.isArray(data.ticketMessages) && (!data.isCriticalMode || data.ticketMessages.length > 0)) {
+      const hydratedMessages: TicketMessage[] = (() => {
+        const map = new Map<string, TicketMessage>();
+        data.ticketMessages.forEach((m: TicketMessage) => {
+          if (m && m.id) map.set(m.id, m);
+        });
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      })();
+      if (!hasHydratedChatMessagesRef.current) {
+        hydratedMessages.forEach(m => {
+          if (m?.id) knownChatMessageIdsRef.current.add(m.id);
+        });
+        hasHydratedChatMessagesRef.current = true;
+      }
+      setTicketMessages(hydratedMessages);
+      if (resolvedUserId) {
+        triggerDeliveryReceiptsForMessages(hydratedMessages, resolvedUserId);
+      }
+    } else if (!hasHydratedChatMessagesRef.current && options.isPhase2Full) {
+      hasHydratedChatMessagesRef.current = true;
+    }
+
+    if (Array.isArray(data.contractors) && data.contractors.length > 0) {
+      setContractors(deduplicateContractors(data.contractors));
+    }
+    if (Array.isArray(data.coverageAreas) && data.coverageAreas.length > 0) {
+      setCoverageAreas(data.coverageAreas);
+    }
+    if (Array.isArray(data.templates) && data.templates.length > 0) {
+      setTemplates(data.templates);
+    }
+
+    if (data.serverTime) {
+      lastDeltaWatermarkRef.current = data.serverTime;
+    }
+
+    setDatabaseStatus('connected');
+    setIsDatabaseReady(true);
+    setSyncStatus('SAVED');
+    setLastSyncTime(new Date().toISOString());
+    setSyncError(null);
+    syncRetryCountRef.current = 0;
+
+    return { resolvedRole, resolvedUserId, resolvedActive, passwordChangeRequired };
+  };
+
+  const runDeltaSync = async (options?: { force?: boolean }): Promise<void> => {
+    const headers = getAuthHeaders();
+    if (!headers['Authorization']) return;
+    if (currentUserRef.current?.mustChangePassword) return;
+    if (!navigator.onLine) {
+      setSyncStatus('OFFLINE');
+      setDatabaseStatus('offline');
+      return;
+    }
+
+    return dedupedFetch('sync:delta', async () => {
+      try {
+        setSyncStatus('SYNCING');
+        const sinceIso = lastDeltaWatermarkRef.current || new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const res = await fetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, { headers });
+        if (!res.ok) {
+          if (res.status === 403) {
+            const errData = await res.json().catch(() => ({}));
+            if (errData?.code === 'PASSWORD_CHANGE_REQUIRED') {
+              setCurrentUser(prev => ({ ...prev, mustChangePassword: true }));
+              return;
+            }
+          }
+          throw new Error(`Delta sync HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!data?.success) throw new Error(data?.error || 'Delta sync gagal');
+
+        const updatedTickets: Ticket[] = Array.isArray(data.tickets) ? data.tickets : [];
+        const deletedIds: string[] = Array.isArray(data.deletedIds) ? data.deletedIds : [];
+
+        if (updatedTickets.length > 0 || deletedIds.length > 0 || options?.force) {
+          setTickets(prev => {
+            const merged = mergeDeltaTickets(prev, updatedTickets, deletedIds);
+            if (merged.skippedEditedIds.length > 0) {
+              merged.skippedEditedIds.forEach(sid => {
+                if (!protectedEditNotifiedRef.current.has(sid)) {
+                  protectedEditNotifiedRef.current.add(sid);
+                  toast.info(
+                    'Perubahan database tersedia di background. Editan aktif Anda tetap dilindungi.',
+                    'Sinkronisasi Terproteksi'
+                  );
+                }
+              });
+            }
+            return merged.tickets;
+          });
+        }
+
+        if (data.rolePermissions && typeof data.rolePermissions === 'object') {
+          setDynamicRolePermissions(data.rolePermissions);
+          setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...data.rolePermissions });
+          if (typeof data.rolePermissionsVersion === 'number') {
+            setRolePermissionsVersion(data.rolePermissionsVersion);
+          }
+        }
+        if (data.operationalDateWIB) {
+          setTodayWIB(data.operationalDateWIB);
+          setOperationalDateState(data.operationalDateWIB);
+        }
+        if (data.serverTime) {
+          lastDeltaWatermarkRef.current = data.serverTime;
+        }
+        setDatabaseStatus('connected');
+        setSyncStatus('SAVED');
+        setLastSyncTime(new Date().toISOString());
+        setSyncError(null);
+        syncRetryCountRef.current = 0;
+      } catch (err: any) {
+        syncRetryCountRef.current += 1;
+        setSyncStatus('ERROR');
+        setSyncError(err?.message || 'Gagal sinkronisasi delta');
+      }
+    });
+  };
+
+  const revalidateWoView = async (viewKey: string, options?: { force?: boolean }): Promise<void> => {
+    const headers = getAuthHeaders();
+    if (!headers['Authorization']) return;
+    if (currentUserRef.current?.mustChangePassword) return;
+    if (!navigator.onLine) {
+      setSyncStatus('OFFLINE');
+      return;
+    }
+    if (!options?.force && shouldThrottleViewRevalidation(`view:${viewKey}`, 6_000)) {
+      return;
+    }
+    if (ticketsRef.current.length === 0) {
+      await loadCentralData();
+      return;
+    }
+    await runDeltaSync({ force: options?.force });
+  };
+
+  const loadTicketDetailOnDemand = async (
+    ticketId: string
+  ): Promise<{ ticket?: Ticket; messages?: TicketMessage[]; activities?: any[] } | null> => {
+    const cleanId = String(ticketId || '').trim();
+    if (!cleanId) return null;
+    const headers = getAuthHeaders();
+    if (!headers['Authorization'] || !navigator.onLine) return null;
+
+    return dedupedFetch(`wo:detail:${cleanId}`, async () => {
+      try {
+        const res = await fetch(
+          `/api/work-orders/${encodeURIComponent(cleanId)}?include=messages,activities`,
+          { headers }
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data?.success) return null;
+
+        const hydratedTicket: Ticket | undefined = data.workOrder || data.ticket;
+        const hydratedMessages: TicketMessage[] | undefined = Array.isArray(data.messages) ? data.messages : undefined;
+        const hydratedActivities: any[] | undefined = Array.isArray(data.activities) ? data.activities : undefined;
+
+        if (hydratedTicket && hydratedTicket.id && !isTicketBeingEdited(hydratedTicket.id)) {
+          setTickets(prev => {
+            const idx = prev.findIndex(t => t.id === hydratedTicket.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = { ...copy[idx], ...hydratedTicket };
+              return copy;
+            }
+            return [hydratedTicket, ...prev];
+          });
+        }
+
+        if (hydratedMessages && hydratedMessages.length > 0) {
+          setTicketMessages(prev => {
+            const map = new Map(prev.map(m => [m.id, m]));
+            hydratedMessages.forEach(m => {
+              if (m?.id) map.set(m.id, m);
+            });
+            return Array.from(map.values()).sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          });
+        }
+
+        return {
+          ticket: hydratedTicket,
+          messages: hydratedMessages,
+          activities: hydratedActivities
+        };
+      } catch {
+        return null;
+      }
+    });
+  };
+
+  const loadCentralData = async () => {
+    return dedupedFetch('central:bootstrap', async () => {
+      const cachedFull = getWoCache<Ticket[]>('wo:full') || getWoCache<Ticket[]>('wo:critical');
+      if (cachedFull && Array.isArray(cachedFull.data) && ticketsRef.current.length === 0) {
+        setTickets(cachedFull.data);
+      }
+
+      const showBlockingSkeleton = ticketsRef.current.length === 0;
+      if (showBlockingSkeleton) {
+        setIsDataLoading(true);
+      }
+      setDatabaseLoading(true);
+      setDataLoadError(null);
+      setSyncStage('phase1_critical');
+
+      try {
+        const headers = getAuthHeaders();
+        let resolvedRole: UserRole = currentUser.role;
+        let resolvedUserId: string = currentUser.id;
+        let resolvedActive: boolean = currentUser.active;
+        let passwordChangeRequired = false;
+
+        // PHASE 1 — Critical Shell, RBAC, First-Paint Work Orders (light payload)
+        const critRes = await fetch('/api/bootstrap?mode=critical', { headers });
+        if (!critRes.ok) {
+          if (critRes.status === 503) {
+            const errData = await critRes.json().catch(() => ({}));
+            setDatabaseStatus('error');
+            setSyncStatus('ERROR');
+            setSyncError(errData.message || 'Database authoritative Supabase PostgreSQL tidak tersedia.');
+          }
+          setIsDataLoading(false);
+          setDatabaseLoading(false);
+          return;
+        }
+
+        const critData = await critRes.json();
+        if (critData && critData.success) {
+          const phase1Meta = applyBootstrapHydration(critData, { isPhase2Full: false, headers });
+          resolvedRole = phase1Meta.resolvedRole;
+          resolvedUserId = phase1Meta.resolvedUserId;
+          resolvedActive = phase1Meta.resolvedActive;
+          passwordChangeRequired = phase1Meta.passwordChangeRequired;
+        }
+
+        // Release critical UI immediately after Phase 1
+        setIsDataLoading(false);
+        setDatabaseLoading(false);
+
+        if (!headers['Authorization']) {
+          setAuditLogs([]);
+          setIsDropdownCategoriesLoading(false);
+          setSyncStage('complete');
+          return;
+        }
+
+        if (passwordChangeRequired) {
+          setIsDropdownCategoriesLoading(false);
+          setSyncStage('complete');
+          return;
+        }
+
+        // PHASE 2 — Secondary & Full Operational Hydration (non-blocking)
+        setSyncStage('phase2_secondary');
+        setIsProgressiveHydrating(true);
+
+        const [fullBootRes, globalBoot] = await Promise.all([
+          fetch('/api/bootstrap', { headers }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+          bootstrapGlobalConfigs().catch(() => null)
+        ]);
+
+        if (fullBootRes && fullBootRes.success) {
+          const p2Meta = applyBootstrapHydration(fullBootRes, { isPhase2Full: true, headers });
+          resolvedRole = p2Meta.resolvedRole;
+          resolvedUserId = p2Meta.resolvedUserId;
+          resolvedActive = p2Meta.resolvedActive;
+        }
+
+        if (globalBoot) {
+          if (globalBoot.rolePermissions && typeof globalBoot.rolePermissions === 'object') {
+            setDynamicRolePermissions(globalBoot.rolePermissions);
+            setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...globalBoot.rolePermissions });
+            setRolePermissionsVersion(globalBoot.rolePermissionsVersion || 1);
+          }
+          const cfgs = globalBoot.configs || {};
+          if (cfgs.hierarchical_droplists) {
+            const list = Array.isArray(cfgs.hierarchical_droplists)
+              ? cfgs.hierarchical_droplists
+              : cfgs.hierarchical_droplists.statuses;
+            if (Array.isArray(list) && list.length > 0) setHierarchicalStatuses(list);
+          }
+          if (cfgs.chat_categories) {
+            const list = Array.isArray(cfgs.chat_categories)
+              ? cfgs.chat_categories
+              : cfgs.chat_categories.categories;
+            if (Array.isArray(list) && list.length > 0) setChatCategories(list);
+          }
+          if (cfgs.report_dropdown_categories) {
+            const list = Array.isArray(cfgs.report_dropdown_categories)
+              ? cfgs.report_dropdown_categories
+              : cfgs.report_dropdown_categories.categories;
+            if (Array.isArray(list) && list.length > 0) setReportDropdownCategories(list);
+          }
+          if (cfgs.workflow_rules) {
+            const list = Array.isArray(cfgs.workflow_rules)
+              ? cfgs.workflow_rules
+              : cfgs.workflow_rules.rules;
+            if (Array.isArray(list) && list.length > 0) setWorkflowRules(list);
+          }
+          if (cfgs.header_mappings) {
+            const list = Array.isArray(cfgs.header_mappings)
+              ? cfgs.header_mappings
+              : cfgs.header_mappings.mappings;
+            if (Array.isArray(list) && list.length > 0) setHeaderMappings(list);
+          }
+          if (cfgs.canonical_fields) {
+            const list = Array.isArray(cfgs.canonical_fields)
+              ? cfgs.canonical_fields
+              : cfgs.canonical_fields.fields;
+            if (Array.isArray(list) && list.length > 0) setCanonicalFields(list);
+          }
+          if (cfgs.root_cause_categories) {
+            const list = Array.isArray(cfgs.root_cause_categories)
+              ? cfgs.root_cause_categories
+              : cfgs.root_cause_categories.categories;
+            if (Array.isArray(list) && list.length > 0) setRootCauseCategories(list);
+          }
+          if (cfgs.google_sheets_config && typeof cfgs.google_sheets_config === 'object') {
+            setGoogleSheetsConfig(prev => ({ ...prev, ...cfgs.google_sheets_config }));
+          }
+          if (globalBoot.operationalDate?.date) {
+            setTodayWIB(globalBoot.operationalDate.date);
+            setOperationalDateState(globalBoot.operationalDate.date);
+            try {
+              localStorage.setItem('morajaws_operational_date', globalBoot.operationalDate.date);
+            } catch {}
+          }
+        } else {
+          const [hierData, chatCatsData, reportCatsData] = await Promise.all([
+            loadHierarchicalDroplistsFromSupabase().catch(() => null),
+            loadChatCategoriesFromSupabase().catch(() => null),
+            loadReportDropdownCategoriesFromSupabase().catch(() => null)
+          ]);
+          if (Array.isArray(hierData) && hierData.length > 0) setHierarchicalStatuses(hierData);
+          if (Array.isArray(chatCatsData) && chatCatsData.length > 0) setChatCategories(chatCatsData);
+          if (Array.isArray(reportCatsData) && reportCatsData.length > 0) setReportDropdownCategories(reportCatsData);
+        }
+
+        setIsDropdownCategoriesLoading(false);
+        setIsProgressiveHydrating(false);
+
+        // PHASE 3 — Deferred Background Collections (Users Directory, Audit Logs)
+        setSyncStage('phase3_background');
+        window.setTimeout(() => {
+          void (async () => {
+            try {
+              const canViewAudit = Boolean(
+                resolvedUserId &&
+                resolvedActive &&
+                (resolvedRole === 'super_admin' || resolvedRole === 'it_support')
+              );
+              const tasks: Promise<any>[] = [
+                supabaseDb
+                  .getUsers()
+                  .then(usersRes => {
+                    if (usersRes.success && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
+                      setUsers(usersRes.data);
+                    }
+                  })
+                  .catch(() => {})
+              ];
+              if (canViewAudit) {
+                tasks.push(
+                  fetch('/api/supabase/audit-logs?limit=100', { headers: getAuthHeaders() })
+                    .then(r => (r.ok ? r.json() : null))
+                    .then(auditData => {
+                      if (auditData && auditData.success && Array.isArray(auditData.data)) {
+                        setAuditLogs(auditData.data);
+                      }
+                    })
+                    .catch(() => {})
+                );
+              }
+              await Promise.all(tasks);
+            } finally {
+              setSyncStage('complete');
+            }
+          })();
+        }, 250);
+      } catch (err: any) {
+        console.warn('[CentralData] Sync error:', err);
+        setDataLoadError(err?.message || 'Gagal memuat status sesi');
+        setDatabaseStatus('error');
+        setSyncStatus('ERROR');
+      } finally {
+        setIsDataLoading(false);
+        setDatabaseLoading(false);
+        setIsProgressiveHydrating(false);
+      }
+    });
   };
 
   // Bootstrap from central backend on startup
@@ -2260,7 +2587,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
           .catch(() => {});
       }
-      await loadCentralData();
+
+      // Non-blocking progressive sync after login (unless user must change password first)
+      if (!authedUser.mustChangePassword) {
+        void loadCentralData();
+      } else {
+        setIsDataLoading(false);
+        setSyncStage('complete');
+      }
       try {
         window.dispatchEvent(new CustomEvent('morajaws:event-sound', { detail: { event: 'ready' } }));
       } catch {}
@@ -2320,6 +2654,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deliveredTriggeredRef.current.clear();
     notifiedChatSoundIdsRef.current.clear();
     notifiedWoEventKeysRef.current.clear();
+    invalidateWoCache();
     try {
       localStorage.setItem('morajaws_logged_in', 'false');
       localStorage.removeItem('morajaws_auth_session');
@@ -2340,6 +2675,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadCentralData();
 
     toast.info('Anda telah berhasil logout dari sistem MoraJaws.', 'Logout');
+  };
+
+  const syncRotatedPasswordSessionState = (payload: {
+    user: User;
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    sessionId?: string;
+    sessionVersion?: number;
+  }) => {
+    const nextUser: User = {
+      ...currentUserRef.current,
+      ...payload.user,
+      mustChangePassword: false,
+      passwordChangedAt: new Date().toISOString()
+    };
+    setCurrentUser(nextUser);
+    currentUserRef.current = nextUser;
+    try {
+      const raw = localStorage.getItem('morajaws_auth_session');
+      const prevSess = raw ? JSON.parse(raw) : {};
+      const nextToken = payload.accessToken || payload.token || prevSess.token;
+      localStorage.setItem(
+        'morajaws_auth_session',
+        JSON.stringify({
+          ...prevSess,
+          userId: nextUser.id,
+          username: nextUser.username,
+          role: nextUser.role,
+          name: nextUser.name,
+          token: nextToken,
+          accessToken: nextToken,
+          refreshToken: payload.refreshToken || prevSess.refreshToken,
+          sessionId: payload.sessionId || prevSess.sessionId,
+          sessionVersion: payload.sessionVersion || prevSess.sessionVersion
+        })
+      );
+      window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
+    } catch {}
+  };
+
+  const applyRotatedPasswordSession = async (payload: {
+    user: User;
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    sessionId?: string;
+    sessionVersion?: number;
+  }) => {
+    syncRotatedPasswordSessionState(payload);
+    toast.success('Kata sandi akun berhasil diperbarui.', 'Keamanan Diperbarui');
+  };
+
+  const completeMandatoryPasswordChange = async (payload: {
+    user: User;
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    sessionId?: string;
+    sessionVersion?: number;
+  }) => {
+    syncRotatedPasswordSessionState(payload);
+    invalidateWoCache();
+    toast.success('Kata sandi baru aktif. Memuat data operasional MoraJaws...', 'Keamanan Diperbarui');
+    await loadCentralData();
   };
 
   const hasPermission = (permission: Permission) => checkPermission(currentUser.role, permission);
@@ -2793,7 +3193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     supabaseDb.createUser(newUser).catch(e => console.warn('[Supabase] Error saving dispatch account:', e));
 
-    toast.success(`Akun Dispatch ${newUser.name} berhasil didaftarkan! Password default: 12345678`, 'Registrasi Sukses');
+    toast.success(`Akun Dispatch ${newUser.name} berhasil didaftarkan! Terbitkan token reset sekali pakai di Manajemen User untuk aktivasi aman.`, 'Registrasi Sukses');
     return { success: true, user: newUser };
   };
 
@@ -2887,7 +3287,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addAuditLog('Leader Account Registered', 'auth', newUser.id, `Super Admin registered Leader account: ${newUser.name} for ${matchedContractor.name}`);
 
-    toast.success(`Akun Leader ${newUser.name} berhasil didaftarkan untuk ${matchedContractor.name}! Password default: 12345678`, 'Registrasi Sukses');
+    toast.success(`Akun Leader ${newUser.name} berhasil didaftarkan untuk ${matchedContractor.name}! Terbitkan token reset sekali pakai untuk aktivasi aman.`, 'Registrasi Sukses');
     return { success: true, user: newUser };
   };
 
@@ -2980,13 +3380,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers(prev =>
       prev.map(u => {
         if (u.id !== userId) return u;
-        addAuditLog('Password Reset', 'auth', u.id, `Password akun ${u.name} di-reset ke default 12345678`);
-        toast.success(`Password akun ${u.name} berhasil di-reset ke default 12345678.`, 'Password Direset');
-        return { ...u, passwordHash: DEFAULT_PASSWORD_HASH, mustChangePassword: true };
+        addAuditLog('Password Reset', 'auth', u.id, `Sesi akun ${u.name} dicabut & akun diwajibkan reset kata sandi kuat (tanpa sandi default)`);
+        toast.success(`Sesi akun ${u.name} dicabut. Terbitkan token reset sekali pakai agar pengguna dapat mengatur sandi baru yang kuat.`, 'Reset Sandi Aman');
+        return { ...u, mustChangePassword: true };
       })
     );
 
-    return { success: true, newPassword: '12345678' };
+    return { success: true };
   };
 
   // Master Contractors & Coverage Areas (Strict Super Admin DB-First)
@@ -6870,6 +7270,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isDataLoading,
         dataLoadError,
         loadCentralData,
+        syncStage,
+        isProgressiveHydrating,
+        markTicketEditing,
+        revalidateWoView,
+        loadTicketDetailOnDemand,
+        completeMandatoryPasswordChange,
+        applyRotatedPasswordSession,
         databaseStatus,
         databaseLoading,
         isDatabaseReady,

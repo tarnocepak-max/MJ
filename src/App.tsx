@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { UIConfigProvider, useUIConfig } from './context/UIConfigContext';
 import { ToastProvider, useToast } from './context/ToastContext';
@@ -6,45 +6,30 @@ import { AnimationProvider } from './context/AnimationContext';
 import { OfflineSyncProvider } from './context/OfflineSyncContext';
 import { MoraJawsSoundProvider, useMoraJawsSound } from './context/SoundContext';
 import { ConfigConflictModal } from './components/common/ConfigConflictModal';
+import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { AndroidBottomNav } from './components/layout/AndroidBottomNav';
 import { LeaderBottomNav, LeaderTabType } from './components/layout/LeaderBottomNav';
 import { InstallerBottomNav } from './components/layout/InstallerBottomNav';
-import { SetupHubView } from './components/setup/SetupHubView';
 
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { DispatchVerificationDesk } from './components/dashboard/DispatchVerificationDesk';
 import { TicketsTable } from './components/tickets/TicketsTable';
 import { OverdueWorkOrdersView } from './components/tickets/OverdueWorkOrdersView';
 import { FormSamedayView } from './components/sameday/FormSamedayView';
-import { ReportDataWOView } from './components/reports/ReportDataWOView';
-import { HistoryProgressReportView } from './components/reports/HistoryProgressReportView';
-import { ScheduleCalendarView } from './components/schedule/ScheduleCalendarView';
-import { LoginLogView } from './components/audit/LoginLogView';
-import { AuditLogViewer } from './components/audit/AuditLogViewer';
-import { TemplateBuilder } from './components/whatsapp/TemplateBuilder';
 
 import { LeaderPortal } from './components/portals/LeaderPortal';
 import { LeaderProgressDashboardView } from './components/portals/LeaderProgressDashboardView';
-import { ContractorAreaRecapView } from './components/reports/ContractorAreaRecapView';
-import { LocationBasecampView } from './components/contractors/LocationBasecampView';
-import { SlaTelemetryDashboardView } from './components/sla/SlaTelemetryDashboardView';
 import { InstallerPortal, classifyInstallerStatus, StatusFilterCategory } from './components/portals/InstallerPortal';
 import { InstallerDashboardView } from './components/portals/InstallerDashboardView';
 import { InstallerWhatsAppCenter } from './components/whatsapp/InstallerWhatsAppCenter';
-import { ContactCentreView } from './components/contact/ContactCentreView';
 import { ManagementDataPortal } from './components/portals/ManagementDataPortal';
-
-import { DatabaseSyncMonitoringView } from './components/database/DatabaseSyncMonitoringView';
-import { DatabaseManagementView } from './components/database/DatabaseManagementView';
-import { TextToTableImporter } from './components/textToTable/TextToTableImporter';
-import { GoogleSheetsSyncView } from './components/sheets/GoogleSheetsSyncView';
-import { MonitoringMapsView } from './components/maps/MonitoringMapsView';
 import { InstallerGpsSyncWidget } from './components/maps/InstallerGpsSyncWidget';
 
 import { StaffLoginPortal } from './components/auth/StaffLoginPortal';
+import { ForcePasswordChangeModal } from './components/auth/ForcePasswordChangeModal';
 import { SessionManagementModal } from './components/settings/SessionManagementModal';
 import { OfflineSyncModal } from './components/offline/OfflineSyncModal';
 import { OfflineBanner } from './components/offline/OfflineBanner';
@@ -55,6 +40,73 @@ import { Ticket } from './types';
 import { Menu, Database } from 'lucide-react';
 import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary';
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
+
+const SetupHubView = lazy(() =>
+  import('./components/setup/SetupHubView').then(m => ({ default: m.SetupHubView }))
+);
+const ReportDataWOView = lazy(() =>
+  import('./components/reports/ReportDataWOView').then(m => ({ default: m.ReportDataWOView }))
+);
+const HistoryProgressReportView = lazy(() =>
+  import('./components/reports/HistoryProgressReportView').then(m => ({ default: m.HistoryProgressReportView }))
+);
+const ScheduleCalendarView = lazy(() =>
+  import('./components/schedule/ScheduleCalendarView').then(m => ({ default: m.ScheduleCalendarView }))
+);
+const LoginLogView = lazy(() =>
+  import('./components/audit/LoginLogView').then(m => ({ default: m.LoginLogView }))
+);
+const AuditLogViewer = lazy(() =>
+  import('./components/audit/AuditLogViewer').then(m => ({ default: m.AuditLogViewer }))
+);
+const TemplateBuilder = lazy(() =>
+  import('./components/whatsapp/TemplateBuilder').then(m => ({ default: m.TemplateBuilder }))
+);
+const ContractorAreaRecapView = lazy(() =>
+  import('./components/reports/ContractorAreaRecapView').then(m => ({ default: m.ContractorAreaRecapView }))
+);
+const LocationBasecampView = lazy(() =>
+  import('./components/contractors/LocationBasecampView').then(m => ({ default: m.LocationBasecampView }))
+);
+const SlaTelemetryDashboardView = lazy(() =>
+  import('./components/sla/SlaTelemetryDashboardView').then(m => ({ default: m.SlaTelemetryDashboardView }))
+);
+const ContactCentreView = lazy(() =>
+  import('./components/contact/ContactCentreView').then(m => ({ default: m.ContactCentreView }))
+);
+const DatabaseSyncMonitoringView = lazy(() =>
+  import('./components/database/DatabaseSyncMonitoringView').then(m => ({ default: m.DatabaseSyncMonitoringView }))
+);
+const DatabaseManagementView = lazy(() =>
+  import('./components/database/DatabaseManagementView').then(m => ({ default: m.DatabaseManagementView }))
+);
+const TextToTableImporter = lazy(() =>
+  import('./components/textToTable/TextToTableImporter').then(m => ({ default: m.TextToTableImporter }))
+);
+const GoogleSheetsSyncView = lazy(() =>
+  import('./components/sheets/GoogleSheetsSyncView').then(m => ({ default: m.GoogleSheetsSyncView }))
+);
+const MonitoringMapsView = lazy(() =>
+  import('./components/maps/MonitoringMapsView').then(m => ({ default: m.MonitoringMapsView }))
+);
+
+const WO_NAVIGATION_ROUTES = new Set([
+  'tickets',
+  'dashboard',
+  'overdue_wo',
+  'leader_portal',
+  'wo_assignment',
+  'reassign_wo',
+  'progress_dashboard',
+  'installer_portal',
+  'installer_dashboard',
+  'installer_tasks',
+  'installer_history',
+  'management_data_portal',
+  'verification_desk',
+  'history_progress',
+  'monitoring_maps'
+]);
 
 const MainLayout: React.FC = () => {
   const {
@@ -70,7 +122,10 @@ const MainLayout: React.FC = () => {
     globalConflict,
     resolveGlobalConflict,
     clearGlobalConflict,
-    setActiveKpiDrilldown
+    setActiveKpiDrilldown,
+    revalidateWoView,
+    completeMandatoryPasswordChange,
+    logout
   } = useApp();
   const { config, setSidebarState, isMobileView, uiConflict, resolveUiConflict, clearUiConflict } = useUIConfig();
   const { soundConflict, resolveSoundConflict, clearSoundConflict } = useMoraJawsSound();
@@ -181,6 +236,10 @@ const MainLayout: React.FC = () => {
   const [leaderSubTab, setLeaderSubTab] = useState<LeaderTabType>(getInitialLeaderSubTab);
   const [installerTaskFilter, setInstallerTaskFilter] = useState<StatusFilterCategory>('all');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const liveSelectedTicket = useMemo(() => {
+    if (!selectedTicket) return null;
+    return tickets.find(t => t.id === selectedTicket.id) || selectedTicket;
+  }, [selectedTicket, tickets]);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailDefaultTab, setDetailDefaultTab] = useState<'overview' | 'report' | 'chat' | 'history'>('overview');
   const [whatsAppTicket, setWhatsAppTicket] = useState<Ticket | null>(null);
@@ -371,6 +430,14 @@ const MainLayout: React.FC = () => {
     return () => window.removeEventListener('morajaws:open-live-chat', handleOpenLiveChat);
   }, [isLoggedIn, isInstaller]);
 
+  // SWR background revalidation whenever navigating between WO routes
+  useEffect(() => {
+    if (!isLoggedIn || currentUser?.mustChangePassword) return;
+    if (WO_NAVIGATION_ROUTES.has(activeTab)) {
+      void revalidateWoView(activeTab);
+    }
+  }, [isLoggedIn, currentUser?.mustChangePassword, activeTab, revalidateWoView]);
+
   // Unauthenticated Staff Protection: Render dedicated Staff Login Portal
   if (!isLoggedIn) {
     return (
@@ -383,6 +450,19 @@ const MainLayout: React.FC = () => {
           else navigateTo('dashboard');
         }}
       />
+    );
+  }
+
+  // Mandatory Password Reset Gate: Block access to main operational features until password changed
+  if (currentUser?.mustChangePassword === true) {
+    return (
+      <div className="min-h-dvh mj-aurora-bg flex items-center justify-center p-4">
+        <ForcePasswordChangeModal
+          user={currentUser}
+          onPasswordChanged={completeMandatoryPasswordChange}
+          onLogout={logout}
+        />
+      </div>
     );
   }
 
@@ -1139,7 +1219,9 @@ const MainLayout: React.FC = () => {
                   : 'max-w-7xl mx-auto min-w-0'
               }
             >
-              {renderContent()}
+              <Suspense fallback={<LoadingSkeleton variant="table" rows={6} />}>
+                {renderContent()}
+              </Suspense>
             </div>
           </main>
         </div>
@@ -1227,7 +1309,7 @@ const MainLayout: React.FC = () => {
       />
 
       <TicketDetailModal
-        ticket={selectedTicket}
+        ticket={liveSelectedTicket}
         isOpen={isDetailModalOpen}
         defaultTab={detailDefaultTab}
         onClose={() => {

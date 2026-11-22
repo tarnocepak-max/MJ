@@ -50,8 +50,11 @@ import {
   adminUpdateUserStatus,
   adminRevokeSessions,
   adminUpdateUser,
+  adminIssueSingleUseResetToken,
   ROLE_PERMISSIONS
 } from '../../services/authService';
+import { MAX_PASSWORD_LENGTH, validateStrongPasswordClient } from '../../utils/passwordPolicy';
+import { MassPasswordResetPanel } from './MassPasswordResetPanel';
 
 interface SearchableAreaDropdownProps {
   value: string;
@@ -425,6 +428,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetModalError, setResetModalError] = useState<string | null>(null);
+  const [isMassResetOpen, setIsMassResetOpen] = useState(false);
+  const [issuingOneTimeToken, setIssuingOneTimeToken] = useState(false);
+  const [issuedTokenResult, setIssuedTokenResult] = useState<{ token: string; expiresAt: string } | null>(null);
 
   // Universal User Registration State (Super Admin Exclusive, 6 Roles)
   const [createName, setCreateName] = useState('');
@@ -713,6 +719,33 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
     setShowNewPassword(false);
     setShowConfirmPassword(false);
     setResetModalError(null);
+    setIssuedTokenResult(null);
+  };
+
+  const handleIssueOneTimeResetToken = async () => {
+    if (!resetModalUser || issuingOneTimeToken) return;
+    setIssuingOneTimeToken(true);
+    setResetModalError(null);
+    try {
+      const res = await adminIssueSingleUseResetToken(resetModalUser.id, 24);
+      if (res.ok && res.data?.success && res.data?.oneTimeToken) {
+        setIssuedTokenResult({
+          token: res.data.oneTimeToken,
+          expiresAt: res.data.expiresAt
+        });
+        toast.success(
+          `Token reset satu-kali diterbitkan untuk ${resetModalUser.name}. Sesi aktif dicabut & wajib ganti sandi diaktifkan.`,
+          'Token Diterbitkan'
+        );
+        await refreshDatabaseData?.();
+      } else {
+        setResetModalError(res.data?.error || 'Gagal menerbitkan token pemulihan satu-kali.');
+      }
+    } catch (err: any) {
+      setResetModalError(err?.message || 'Kesalahan jaringan saat menerbitkan token.');
+    } finally {
+      setIssuingOneTimeToken(false);
+    }
   };
 
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
@@ -720,12 +753,13 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
     if (!resetModalUser) return;
     setResetModalError(null);
 
-    if (newPassword.length < 8) {
-      setResetModalError('Kata sandi baru minimal harus 8 karakter.');
-      return;
-    }
-    if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      setResetModalError('Kata sandi baru harus mengandung kombinasi huruf dan angka.');
+    const strength = validateStrongPasswordClient(newPassword, {
+      username: resetModalUser.username,
+      email: resetModalUser.email,
+      name: resetModalUser.name
+    });
+    if (!strength.valid) {
+      setResetModalError(strength.error || 'Kata sandi baru belum memenuhi kebijakan keamanan.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -853,12 +887,13 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       setCreateError('Nama lengkap, username unik, dan alamat email resmi wajib diisi.');
       return;
     }
-    if (createPassword.length < 8) {
-      setCreateError('Kata sandi awal minimal harus 8 karakter.');
-      return;
-    }
-    if (!/[a-zA-Z]/.test(createPassword) || !/[0-9]/.test(createPassword)) {
-      setCreateError('Kata sandi harus memuat kombinasi huruf dan angka.');
+    const createPwdPolicy = validateStrongPasswordClient(createPassword, {
+      username: cleanUsername,
+      email: cleanEmail,
+      name: cleanName
+    });
+    if (!createPwdPolicy.valid) {
+      setCreateError(createPwdPolicy.error || 'Kata sandi awal belum memenuhi standar keamanan.');
       return;
     }
     if (createPassword !== createConfirmPassword) {
@@ -1188,6 +1223,15 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             >
               <Download className="w-4 h-4 shrink-0" />
               <span>Export Daftar User</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMassResetOpen(true)}
+              className="sm:col-span-2 btn-3d-amber min-h-[42px] px-4 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              <span>Reset Sandi Massal (Batch Aman)</span>
             </button>
           </div>
         </div>
@@ -2244,17 +2288,23 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
 
                   {/* Kata Sandi Awal */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#1F1638] dark:text-white font-bold" htmlFor="stitch-password">
-                      Kata Sandi Awal <span className="text-[#BA1A1A]">*</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-[#1F1638] dark:text-white font-bold" htmlFor="stitch-password">
+                        Kata Sandi Awal <span className="text-[#BA1A1A]">*</span>
+                      </label>
+                      <span className="font-mono text-[10px] font-bold text-[#7135B5] dark:text-[#DAB9FF] tabular-nums">
+                        {createPassword.length}/{MAX_PASSWORD_LENGTH}
+                      </span>
+                    </div>
                     <div className="relative">
                       <input
                         id="stitch-password"
                         type={showCreatePassword ? 'text' : 'password'}
                         required
-                        placeholder="Min. 8 karakter (huruf + angka)"
+                        maxLength={MAX_PASSWORD_LENGTH}
+                        placeholder={`Maksimal ${MAX_PASSWORD_LENGTH} karakter`}
                         value={createPassword}
-                        onChange={e => setCreatePassword(e.target.value)}
+                        onChange={e => setCreatePassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
                         className="tactile-debossed-input w-full pl-3.5 pr-10 py-2.5 min-h-[42px] rounded-xl bg-[#FAF5FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
                       />
                       <button
@@ -2279,9 +2329,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                         id="stitch-confirmPassword"
                         type={showCreateConfirmPassword ? 'text' : 'password'}
                         required
+                        maxLength={MAX_PASSWORD_LENGTH}
                         placeholder="Ketik ulang kata sandi"
                         value={createConfirmPassword}
-                        onChange={e => setCreateConfirmPassword(e.target.value)}
+                        onChange={e => setCreateConfirmPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
                         className="tactile-debossed-input w-full pl-3.5 pr-10 py-2.5 min-h-[42px] rounded-xl bg-[#FAF5FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
                       />
                       <button
@@ -2297,25 +2348,30 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   </div>
                 </div>
 
-                {createPassword && (
-                  <div className="mj-tactile-well p-3 border border-[#E8DDFF] dark:border-[#35105E] space-y-1.5 text-[11px]">
-                    <span className="font-bold text-[#1F1638] dark:text-white block">Kekuatan Kata Sandi (Bcrypt):</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div className={`flex items-center gap-1.5 ${createPassword.length >= 8 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-[#7D7484]'}`}>
-                        {createPassword.length >= 8 ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                        <span>Minimal 8 karakter</span>
-                      </div>
-                      <div className={`flex items-center gap-1.5 ${/[a-zA-Z]/.test(createPassword) && /[0-9]/.test(createPassword) ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-[#7D7484]'}`}>
-                        {/[a-zA-Z]/.test(createPassword) && /[0-9]/.test(createPassword) ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                        <span>Huruf dan angka</span>
-                      </div>
-                      <div className={`flex items-center gap-1.5 ${createPassword === createConfirmPassword && createConfirmPassword ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-[#7D7484]'}`}>
-                        {createPassword === createConfirmPassword && createConfirmPassword ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                        <span>Konfirmasi cocok</span>
+                {createPassword && (() => {
+                  const createPolicy = validateStrongPasswordClient(createPassword, {
+                    username: createUsername,
+                    email: createEmail,
+                    name: createName
+                  });
+                  return (
+                    <div className="mj-tactile-well p-3 border border-[#E8DDFF] dark:border-[#35105E] space-y-1.5 text-[11px]">
+                      <span className="font-bold text-[#1F1638] dark:text-white block">Validitas Kata Sandi (Maks. {MAX_PASSWORD_LENGTH} Karakter):</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {createPolicy.rules.map(rule => (
+                          <div key={rule.id} className={`flex items-center gap-1.5 ${rule.passed ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-[#7D7484]'}`}>
+                            {rule.passed ? <Check className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
+                            <span>{rule.label}</span>
+                          </div>
+                        ))}
+                        <div className={`flex items-center gap-1.5 ${createPassword === createConfirmPassword && createConfirmPassword ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-[#7D7484]'}`}>
+                          {createPassword === createConfirmPassword && createConfirmPassword ? <Check className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
+                          <span>Konfirmasi cocok</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* SECTION B: Peran Otorisasi (RBAC Role - 6 Official MoraJaws Roles) */}
@@ -2718,12 +2774,45 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
               </div>
             </div>
 
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed flex items-start gap-2">
-              <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                Reset password akan langsung <strong>mencabut seluruh sesi aktif</strong> pengguna di semua perangkat. Password lama tidak dapat digunakan kembali.
-              </span>
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed flex items-start justify-between gap-2 flex-wrap">
+              <div className="flex items-start gap-2 flex-1 min-w-[200px]">
+                <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  Reset sandi langsung <strong>mencabut seluruh sesi aktif</strong> &amp; mewajibkan ganti sandi saat login. Atau terbitkan <strong>Token Reset 1x</strong> tanpa menyimpan sandi plaintext.
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={issuingOneTimeToken}
+                onClick={() => void handleIssueOneTimeResetToken()}
+                className="btn-3d-lilac px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {issuingOneTimeToken ? 'Menerbitkan...' : 'Terbitkan Token 1x'}
+              </button>
             </div>
+
+            {issuedTokenResult && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs space-y-1.5">
+                <div className="font-bold text-emerald-800 dark:text-emerald-200">
+                  Token Reset Satu-Kali (Tampil Sekali Saja · Berlaku s.d. {new Date(issuedTokenResult.expiresAt).toLocaleString('id-ID')})
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#160D29] border border-emerald-200 dark:border-emerald-700 font-mono text-[11px] break-all text-[#1F1638] dark:text-white">
+                    {issuedTokenResult.token}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(issuedTokenResult.token);
+                      toast.success('Token pemulihan disalin ke clipboard.', 'Disalin');
+                    }}
+                    className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0 cursor-pointer"
+                  >
+                    Salin
+                  </button>
+                </div>
+              </div>
+            )}
 
             {resetModalError && (
               <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-xl text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2">
@@ -2734,16 +2823,22 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
 
             <form onSubmit={handleResetPasswordSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-[#1F1638] dark:text-white font-bold mb-1">
-                  Kata Sandi Baru <span className="text-[#BA1A1A]">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[#1F1638] dark:text-white font-bold">
+                    Kata Sandi Baru <span className="text-[#BA1A1A]">*</span>
+                  </label>
+                  <span className="font-mono text-[10px] font-bold text-[#7135B5] dark:text-[#DAB9FF] tabular-nums">
+                    {newPassword.length}/{MAX_PASSWORD_LENGTH}
+                  </span>
+                </div>
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     required
-                    placeholder="Minimal 8 karakter kombinasi huruf & angka"
+                    maxLength={MAX_PASSWORD_LENGTH}
+                    placeholder={`Maksimal ${MAX_PASSWORD_LENGTH} karakter`}
                     value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
+                    onChange={e => setNewPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
                     className="tactile-debossed-input w-full min-h-[40px] pl-3 pr-10 py-2 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                   />
                   <button
@@ -2765,9 +2860,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     required
+                    maxLength={MAX_PASSWORD_LENGTH}
                     placeholder="Ketik ulang kata sandi baru"
                     value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
+                    onChange={e => setConfirmPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
                     className="tactile-debossed-input w-full min-h-[40px] pl-3 pr-10 py-2 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                   />
                   <button
@@ -2781,22 +2877,27 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 </div>
               </div>
 
-              {newPassword && (
-                <div className="p-2.5 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] space-y-1 text-[11px]">
-                  <div className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? 'text-emerald-600 font-medium' : 'text-[#7D7484]'}`}>
-                    {newPassword.length >= 8 ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                    <span>Minimal 8 karakter</span>
+              {newPassword && (() => {
+                const policy = validateStrongPasswordClient(newPassword, {
+                  username: resetModalUser.username,
+                  email: resetModalUser.email,
+                  name: resetModalUser.name
+                });
+                return (
+                  <div className="p-2.5 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] space-y-1 text-[11px]">
+                    {policy.rules.map(rule => (
+                      <div key={rule.id} className={`flex items-center gap-1.5 ${rule.passed ? 'text-emerald-600 font-medium' : 'text-[#7D7484]'}`}>
+                        {rule.passed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                        <span>{rule.label}</span>
+                      </div>
+                    ))}
+                    <div className={`flex items-center gap-1.5 ${newPassword === confirmPassword && confirmPassword ? 'text-emerald-600 font-medium' : 'text-[#7D7484]'}`}>
+                      {newPassword === confirmPassword && confirmPassword ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                      <span>Konfirmasi cocok</span>
+                    </div>
                   </div>
-                  <div className={`flex items-center gap-1.5 ${/[a-zA-Z]/.test(newPassword) && /[0-9]/.test(newPassword) ? 'text-emerald-600 font-medium' : 'text-[#7D7484]'}`}>
-                    {/[a-zA-Z]/.test(newPassword) && /[0-9]/.test(newPassword) ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                    <span>Memuat kombinasi huruf dan angka</span>
-                  </div>
-                  <div className={`flex items-center gap-1.5 ${newPassword === confirmPassword && confirmPassword ? 'text-emerald-600 font-medium' : 'text-[#7D7484]'}`}>
-                    {newPassword === confirmPassword && confirmPassword ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                    <span>Konfirmasi cocok</span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#e8ddff] dark:border-[#3b1d78]">
                 <button
@@ -2995,6 +3096,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
           }}
         />
       )}
+      {/* MASS PASSWORD RESET MODAL (SUPERADMIN ONLY) */}
+      <MassPasswordResetPanel
+        isOpen={isMassResetOpen}
+        onClose={() => setIsMassResetOpen(false)}
+        users={users}
+        currentUser={currentUser}
+        onCompleted={refreshDatabaseData}
+      />
     </div>
   );
 };
