@@ -24,30 +24,25 @@ async function runRbacVerification() {
   // -------------------------------------------------------------------------
   console.log('\n--- 1. Audit Logs Permissions ---');
   assert('super_admin HAS view_audit_logs', hasPermission('super_admin', 'view_audit_logs'));
-  assert('it_support HAS view_audit_logs', hasPermission('it_support', 'view_audit_logs'));
   assert('dispatch DOES NOT have view_audit_logs', !hasPermission('dispatch', 'view_audit_logs'));
   assert('leader DOES NOT have view_audit_logs', !hasPermission('leader', 'view_audit_logs'));
   assert('installer DOES NOT have view_audit_logs', !hasPermission('installer', 'view_audit_logs'));
-  assert('management_data DOES NOT have view_audit_logs', !hasPermission('management_data', 'view_audit_logs'));
 
   const loginLogNav = DEFAULT_NAVIGATION_CONFIG.submenuItems.find(s => s.id === 'login_logs');
   assert('login_logs nav submenu exists', Boolean(loginLogNav));
   assert('login_logs nav allows super_admin', Boolean(loginLogNav?.roles?.includes('super_admin')));
-  assert('login_logs nav allows it_support', Boolean(loginLogNav?.roles?.includes('it_support')));
   assert('login_logs nav DENIES dispatch', !loginLogNav?.roles?.includes('dispatch'));
 
   // -------------------------------------------------------------------------
-  // 2. Work Order Deletion Permissions Verification
+  // 2. Work Order Deletion Permissions Verification (Consolidated in Superadmin)
   // -------------------------------------------------------------------------
   console.log('\n--- 2. Work Order Deletion Permissions ---');
-  assert('management_data HAS delete_wo_data', hasPermission('management_data', 'delete_wo_data'));
-  assert('super_admin DOES NOT have delete_wo_data', !hasPermission('super_admin', 'delete_wo_data'));
-  assert('super_admin DOES NOT have permanent_delete', !hasPermission('super_admin', 'permanent_delete'));
-  assert('super_admin DOES NOT have delete_customer_data', !hasPermission('super_admin', 'delete_customer_data'));
+  assert('super_admin HAS delete_wo_data', hasPermission('super_admin', 'delete_wo_data'));
+  assert('super_admin HAS permanent_delete', hasPermission('super_admin', 'permanent_delete'));
+  assert('super_admin HAS delete_customer_data', hasPermission('super_admin', 'delete_customer_data'));
   assert('dispatch DOES NOT have delete_wo_data', !hasPermission('dispatch', 'delete_wo_data'));
   assert('leader DOES NOT have delete_wo_data', !hasPermission('leader', 'delete_wo_data'));
   assert('installer DOES NOT have delete_wo_data', !hasPermission('installer', 'delete_wo_data'));
-  assert('it_support DOES NOT have delete_wo_data', !hasPermission('it_support', 'delete_wo_data'));
 
   // -------------------------------------------------------------------------
   // 3. WhatsApp Templates Permissions Verification
@@ -57,8 +52,6 @@ async function runRbacVerification() {
   assert('dispatch HAS manage_whatsapp_templates', hasPermission('dispatch', 'manage_whatsapp_templates'));
   assert('leader DOES NOT have manage_whatsapp_templates', !hasPermission('leader', 'manage_whatsapp_templates'));
   assert('installer DOES NOT have manage_whatsapp_templates', !hasPermission('installer', 'manage_whatsapp_templates'));
-  assert('management_data DOES NOT have manage_whatsapp_templates', !hasPermission('management_data', 'manage_whatsapp_templates'));
-  assert('it_support DOES NOT have manage_whatsapp_templates', !hasPermission('it_support', 'manage_whatsapp_templates'));
 
   const templateNav = DEFAULT_NAVIGATION_CONFIG.submenuItems.find(s => s.id === 'templates');
   assert('templates nav submenu exists', Boolean(templateNav));

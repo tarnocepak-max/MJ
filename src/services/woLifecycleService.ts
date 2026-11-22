@@ -368,7 +368,7 @@ export function matchesKpiFilter(ticket: Ticket, filterKey: WOKpiFilterKey): boo
 export function scopeTicketsForRoleClient(tickets: Ticket[], user: User | null | undefined): Ticket[] {
   if (!user) return [];
   const role = user.role;
-  if (role === 'super_admin' || role === 'dispatch' || role === 'management_data' || role === 'it_support') {
+  if (role === 'super_admin' || role === 'dispatch') {
     return tickets;
   }
   if (role === 'leader') {

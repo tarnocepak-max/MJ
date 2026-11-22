@@ -917,7 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               knownChatMessageIdsRef.current.add(m.id);
               continue;
             }
-            if (options?.fromSse && (role === 'dispatch' || role === 'super_admin' || role === 'management_data')) {
+            if (options?.fromSse && (role === 'dispatch' || role === 'super_admin')) {
               resolvedId = matchedTicket.id;
             } else {
               knownChatMessageIdsRef.current.add(m.id);
@@ -1923,7 +1923,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const canViewAudit = Boolean(
                 resolvedUserId &&
                 resolvedActive &&
-                (resolvedRole === 'super_admin' || resolvedRole === 'it_support')
+                resolvedRole === 'super_admin'
               );
               const tasks: Promise<any>[] = [
                 supabaseDb
@@ -2751,16 +2751,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const hasPermission = (permission: Permission) => checkPermission(currentUser.role, permission);
   const canDelete = currentUser.role === 'super_admin';
-  const canImport = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
-  const canEditWOData = currentUser.role === 'super_admin' || currentUser.role === 'dispatch' || currentUser.role === 'management_data';
+  const canImport = currentUser.role === 'super_admin';
+  const canEditWOData = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
-  // Role Scoped Work Orders (Strict RBAC Data Management)
+  // Role Scoped Work Orders (Strict RBAC)
   const scopedTickets = React.useMemo(() => {
     return tickets.filter(t => {
       if (!t || t.isDeleted) return false;
       if (!currentUser || !currentUser.role) return false;
-      // 1. Super Admin, Dispatch, and Management Data have system-wide visibility
-      if (currentUser.role === 'super_admin' || currentUser.role === 'dispatch' || currentUser.role === 'management_data') return true;
+      // 1. Super Admin and Dispatch have system-wide visibility
+      if (currentUser.role === 'super_admin' || currentUser.role === 'dispatch') return true;
 
       const ticketContractor = String(t.contactorName || t.contractorName || '').toLowerCase().trim();
       const ticketArea = String(t.area || '').toLowerCase().trim();
@@ -2883,7 +2883,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [scopedTickets, todayWIB]);
 
   const exceptionTickets = React.useMemo(() => {
-    if (currentUser?.role !== 'super_admin' && currentUser?.role !== 'management_data') {
+    if (currentUser?.role !== 'super_admin') {
       return [];
     }
     return (scopedTickets || [])
@@ -3049,14 +3049,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const executeComprehensiveDeduplication = async (): Promise<DuplicateAuditReport> => {
-    // Strict RBAC: Exclusive to Management Data role
-    if (currentUser.role !== 'management_data') {
-      const errMsg = 'Akses Ditolak: Hanya akun dengan peran Management Data yang memiliki wewenang merekonsiliasi atau menghapus duplikasi Work Order.';
+    // Strict RBAC: Exclusive to Superadmin role
+    if (currentUser.role !== 'super_admin') {
+      const errMsg = 'Akses Ditolak: Hanya akun Superadmin yang memiliki wewenang merekonsiliasi atau menghapus duplikasi Work Order.';
       addAuditLog(
         'Unauthorized Deduplication Attempt Blocked',
         'ticket',
         'deduplication',
-        `User ${currentUser.name} (${currentUser.role}) ditolak menjalankan penghapusan duplikasi dokumen WO. Otoritas eksklusif Management Data.`
+        `User ${currentUser.name} (${currentUser.role}) ditolak menjalankan penghapusan duplikasi dokumen WO. Otoritas eksklusif Superadmin.`
       );
       toast.error(errMsg, 'Akses Ditolak');
       return {
@@ -5807,10 +5807,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteTicket = (ticketId: string, reason: string, permanent: boolean = false): { success: boolean; error?: string } => {
-    // STRICT SECURITY POLICY: Only Management Data can delete WO!
-    if (currentUser.role !== 'management_data') {
-      const err = 'Akses Ditolak: Hanya akun dengan peran Management Data yang memiliki wewenang menghapus data Work Order.';
-      addAuditLog('Unauthorized Deletion Attempt', 'ticket', ticketId, `${currentUser.name} (${currentUser.role}) mencoba menghapus WO tanpa izin Management Data`);
+    // STRICT SECURITY POLICY: Only Superadmin can delete WO
+    if (currentUser.role !== 'super_admin') {
+      const err = 'Akses Ditolak: Hanya akun Superadmin yang memiliki wewenang menghapus data Work Order.';
+      addAuditLog('Unauthorized Deletion Attempt', 'ticket', ticketId, `${currentUser.name} (${currentUser.role}) mencoba menghapus WO tanpa izin Superadmin`);
       toast.error(err, 'Akses Ditolak');
       return { success: false, error: err };
     }
@@ -5829,7 +5829,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date().toISOString();
     if (permanent) {
       setTickets(prev => prev.filter(t => t.id !== ticketId));
-      addAuditLog('Ticket Permanently Deleted', 'ticket', ticketId, `Management Data ${currentUser.name} menandai hapus permanen WO ${ticket.woNumber}. Alasan: ${reason}`);
+      addAuditLog('Ticket Permanently Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menandai hapus permanen WO ${ticket.woNumber}. Alasan: ${reason}`);
     } else {
       // Soft Delete
       setTickets(prev =>
@@ -5846,7 +5846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         })
       );
-      addAuditLog('Ticket Soft Deleted', 'ticket', ticketId, `Management Data ${currentUser.name} menghapus (soft delete) WO ${ticket.woNumber}. Alasan: ${reason}`);
+      addAuditLog('Ticket Soft Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menghapus (soft delete) WO ${ticket.woNumber}. Alasan: ${reason}`);
     }
 
     setSyncStatus('SYNCING');
@@ -5873,10 +5873,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     imported: Partial<Ticket>[],
     options?: { duplicatePolicy?: 'skip' | 'update_allowed' | 'review' }
   ) => {
-    // App Flow 1 & 3: ONLY Super Admin and Management Data can import WO (Dispatch, Leader, Installer are rejected)
-    if (currentUser.role !== 'super_admin' && currentUser.role !== 'management_data') {
+    // ONLY Super Admin can import WO
+    if (currentUser.role !== 'super_admin') {
       addAuditLog('Unauthorized Import Blocked', 'import_batch', 'import-denied', `Akses import ditolak untuk peran ${currentUser.role}`);
-      toast.error('Akses Ditolak: Hanya Super Admin atau Management Data yang berwenang melakukan import Work Order.', 'Akses Ditolak');
+      toast.error('Akses Ditolak: Hanya Super Admin yang berwenang melakukan import Work Order.', 'Akses Ditolak');
       return { importedCount: 0, updatedCount: 0, duplicatesIgnored: 0, distributedCount: 0, undistributedCount: 0 };
     }
 
@@ -6188,8 +6188,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     importDate: string,
     reason: string
   ): { success: boolean; count: number; error?: string } => {
-    if (currentUser.role !== 'management_data') {
-      const err = 'Akses Ditolak: Hanya akun dengan peran Management Data yang berwenang menghapus data Work Order.';
+    if (currentUser.role !== 'super_admin') {
+      const err = 'Akses Ditolak: Hanya akun Superadmin yang berwenang menghapus data Work Order.';
       toast.error(err, 'Akses Ditolak');
       return { success: false, count: 0, error: err };
     }
@@ -6250,20 +6250,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'Imported Data Purged',
       'import_batch',
       importDate,
-      `Management Data ${currentUser.name} menghapus ${matchingTickets.length} data tiket hasil import tanggal ${importDate}. Alasan: ${reason}`
+      `Superadmin ${currentUser.name} menghapus ${matchingTickets.length} data tiket hasil import tanggal ${importDate}. Alasan: ${reason}`
     );
 
     toast.warning(`Berhasil menghapus ${matchingTickets.length} tiket hasil import tanggal ${importDate} dari Supabase PostgreSQL.`, 'Data Import Dihapus');
     return { success: true, count: matchingTickets.length };
   };
 
-  // Bulk delete tickets for Management Data
+  // Bulk delete tickets for Superadmin
   const bulkDeleteTickets = (
     ticketIds: string[],
     reason: string
   ): { success: boolean; count: number; error?: string } => {
-    if (currentUser.role !== 'management_data') {
-      const err = 'Akses Ditolak: Hanya akun dengan peran Management Data yang memiliki wewenang menghapus data Work Order.';
+    if (currentUser.role !== 'super_admin') {
+      const err = 'Akses Ditolak: Hanya akun Superadmin yang memiliki wewenang menghapus data Work Order.';
       toast.error(err, 'Akses Ditolak');
       return { success: false, count: 0, error: err };
     }
@@ -6311,7 +6311,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'Bulk Tickets Soft Deleted',
       'ticket',
       `${ticketIds.length} tickets`,
-      `Management Data ${currentUser.name} menghapus massal (soft delete) ${ticketIds.length} tiket Work Order. Alasan: ${reason}`
+      `Superadmin ${currentUser.name} menghapus massal (soft delete) ${ticketIds.length} tiket Work Order. Alasan: ${reason}`
     );
 
     return { success: true, count: deletedCount };

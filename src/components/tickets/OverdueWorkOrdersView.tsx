@@ -148,8 +148,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   const { toast } = useToast();
   const { isCompactUI } = useResponsiveViewport();
 
-  const canViewExceptions =
-    currentUser.role === 'super_admin' || currentUser.role === 'management_data';
+  const canViewExceptions = currentUser.role === 'super_admin';
   const isLeaderRole = currentUser.role === 'leader';
 
   const [viewMode, setViewMode] = useState<'overdue' | 'exception'>('overdue');

@@ -127,27 +127,6 @@ export function canRoleNavigateToTab(role: UserRole, tab?: string): boolean {
       'installer_history',
       'installer_whatsapp',
       'installer_chat'
-    ]),
-    management_data: new Set([
-      'dashboard',
-      'management_data_portal',
-      'verification_desk',
-      'monitoring_maps',
-      'tickets',
-      'overdue_wo',
-      'database_sync',
-      'database_management',
-      'import',
-      'sla_monitoring',
-      'contact_centre'
-    ]),
-    it_support: new Set([
-      'dashboard',
-      'tickets',
-      'audit_logs',
-      'login_logs',
-      'system_health',
-      'offline_sync'
     ])
   };
   return roleTabAccess[role]?.has(tab) ?? false;
@@ -167,6 +146,7 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
     overdueTickets,
     overdueSummary,
     todayWIB,
+    ticketMessages,
     getTicketUnreadCount,
     databaseStatus,
     syncStatus,
@@ -210,30 +190,100 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
     const canViewOverdue =
       role === 'super_admin' ||
       role === 'dispatch' ||
-      role === 'leader' ||
-      role === 'management_data';
+      role === 'leader';
 
     const pool = (canCentralOps ? tickets : scopedTickets).filter(
       t => !t.isDeleted && !t.isArchived
     );
     const todayPool = pool.filter(t => getTicketAppointmentDate(t) === todayWIB);
 
-    // 1. LIVE CHAT: Unread messages across role-scoped active WOs
-    const unreadChatItems = pool
-      .map(t => ({ ticket: t, unread: getTicketUnreadCount(t.id) }))
-      .filter(entry => entry.unread > 0)
-      .slice(0, 12);
+    // Build lookup of latest unread incoming chat message per scoped active ticket
+    const currentUserId = String(currentUser.id || '').trim();
+    const scopedTicketById = new Map<string, Ticket>();
+    const scopedTicketIdByWo = new Map<string, string>();
+    for (const t of pool) {
+      if (t.id) scopedTicketById.set(t.id, t);
+      if (t.woNumber && t.id) {
+        scopedTicketIdByWo.set(String(t.woNumber).trim().toUpperCase(), t.id);
+      }
+    }
 
-    for (const { ticket: t, unread } of unreadChatItems) {
-      const ts = t.updatedAt || t.createdAt || new Date().toISOString();
-      const dateWIB = getTicketAppointmentDate(t) || toWIBDateOnly(ts, todayWIB);
+    const latestUnreadMsgByTicket = new Map<
+      string,
+      { id: string; text: string; senderName: string; timestamp: string; hasAttachment: boolean }
+    >();
+    if (currentUserId && Array.isArray(ticketMessages)) {
+      for (const m of ticketMessages) {
+        if (!m) continue;
+        if (String(m.senderId || '').trim() === currentUserId) continue;
+        const readers = Array.isArray(m.readBy) ? m.readBy : [];
+        if (readers.includes(currentUserId)) continue;
+
+        let resolvedId: string | undefined;
+        if (m.ticketId && scopedTicketById.has(m.ticketId)) {
+          resolvedId = m.ticketId;
+        } else if (m.woNumber) {
+          resolvedId = scopedTicketIdByWo.get(String(m.woNumber).trim().toUpperCase());
+        }
+        if (!resolvedId) continue;
+
+        const msgTs = m.timestamp || '';
+        const existing = latestUnreadMsgByTicket.get(resolvedId);
+        const existingMs = existing ? Date.parse(existing.timestamp) : -1;
+        const incomingMs = msgTs ? Date.parse(msgTs) : 0;
+        if (!existing || (Number.isFinite(incomingMs) && incomingMs >= existingMs)) {
+          latestUnreadMsgByTicket.set(resolvedId, {
+            id: m.id || '',
+            text: String(m.text || '').trim(),
+            senderName: String(m.senderName || '').trim(),
+            timestamp: msgTs,
+            hasAttachment: Array.isArray(m.attachments) && m.attachments.length > 0
+          });
+        }
+      }
+    }
+
+    // 1. LIVE CHAT (TOP PRIORITY): Unread messages across role-scoped active WOs
+    const unreadChatItems = pool
+      .map(t => {
+        const unread = getTicketUnreadCount(t.id);
+        const latestMsg = latestUnreadMsgByTicket.get(t.id);
+        const ts = latestMsg?.timestamp || t.updatedAt || t.createdAt || new Date().toISOString();
+        const tsMs = Date.parse(ts);
+        return {
+          ticket: t,
+          unread,
+          latestMsg,
+          ts,
+          tsMs: Number.isFinite(tsMs) ? tsMs : 0
+        };
+      })
+      .filter(entry => entry.unread > 0)
+      .sort((a, b) => {
+        if (b.tsMs !== a.tsMs) return b.tsMs - a.tsMs;
+        return b.unread - a.unread;
+      })
+      .slice(0, 25);
+
+    for (const { ticket: t, unread, latestMsg, ts } of unreadChatItems) {
+      const dateWIB = toWIBDateOnly(ts, getTicketAppointmentDate(t) || todayWIB);
+      const previewText = latestMsg?.text
+        ? latestMsg.text.length > 90
+          ? `${latestMsg.text.slice(0, 90)}…`
+          : latestMsg.text
+        : latestMsg?.hasAttachment
+        ? '[Lampiran foto/dokumen]'
+        : '';
+      const senderLabel = latestMsg?.senderName ? ` dari ${latestMsg.senderName}` : '';
+      const contextLabel = `${t.customerName || 'Pelanggan'} · ${t.area || t.contractorName || 'Operasional WO'}`;
+
       items.push({
         id: `live-chat-${t.id}`,
-        signature: `unread:${unread}:ts:${ts}`,
+        signature: `unread:${unread}:msg:${latestMsg?.id || ''}:ts:${ts}`,
         category: 'live_chat',
-        priority: unread >= 3 ? 'high' : 'normal',
-        title: `Pesan Live Chat Baru (${unread} belum dibaca)`,
-        description: `${t.customerName || 'Pelanggan'} · ${t.area || t.contractorName || 'Operasional WO'}`,
+        priority: 'high',
+        title: `Live Chat Baru${senderLabel} (${unread} belum dibaca)`,
+        description: previewText ? `"${previewText}" · ${contextLabel}` : contextLabel,
         timestamp: ts,
         dateWIB,
         woNumber: t.woNumber,
@@ -439,31 +489,9 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
           }
         });
       }
-    } else if (role === 'management_data') {
-      if (todayPool.length > 0) {
-        const unassignedMgmt = todayPool.filter(t => !t.installerName).length;
-        if (unassignedMgmt > 0) {
-          items.push({
-            id: `mgmt-unassigned-${todayWIB}`,
-            signature: `mgmt-unassigned:${unassignedMgmt}:${todayWIB}`,
-            category: 'wo_assignment',
-            priority: 'normal',
-            title: `${unassignedMgmt} WO Impor Belum Terdistribusi`,
-            description: `Dari ${todayPool.length} WO aktif tanggal ${todayWIB}, masih ada ${unassignedMgmt} tiket menunggu penugasan.`,
-            timestamp: new Date().toISOString(),
-            dateWIB: todayWIB,
-            metaLabel: 'Data WO',
-            isRead: false,
-            target: {
-              type: 'tab',
-              tab: 'management_data_portal'
-            }
-          });
-        }
-      }
     }
 
-    // 3. OVERDUE / WARNING (Strictly prohibited for Installer & IT Support)
+    // 3. OVERDUE / WARNING (Strictly prohibited for Installer)
     if (canViewOverdue) {
       const totalOverdue = overdueSummary?.totalOverdue || overdueTickets.length;
       if (totalOverdue > 0) {
@@ -559,7 +587,7 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
       });
     }
 
-    if (globalConflict && (role === 'super_admin' || role === 'it_support' || role === 'management_data')) {
+    if (globalConflict && role === 'super_admin') {
       items.push({
         id: `system-conflict-${globalConflict.key}`,
         signature: `conflict:${globalConflict.key}:${globalConflict.currentVersion ?? ''}`,
@@ -577,8 +605,8 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
       });
     }
 
-    // 5. SECURITY (Strictly for Super Admin & IT Support on real security / locked accounts / auth errors)
-    if (role === 'super_admin' || role === 'it_support') {
+    // 5. SECURITY (Strictly for Superadmin on real security / locked accounts / auth errors)
+    if (role === 'super_admin') {
       const lockedUsers = (users || []).filter(
         u => !u.isDeleted && u.accountStatus === 'locked'
       );
@@ -689,14 +717,19 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
       }))
       .sort((a, b) => {
         if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
+        const aIsLiveChat = a.category === 'live_chat';
+        const bIsLiveChat = b.category === 'live_chat';
+        if (aIsLiveChat !== bIsLiveChat) return aIsLiveChat ? -1 : 1;
         const prioDiff = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
         if (prioDiff !== 0) return prioDiff;
         return Date.parse(b.timestamp) - Date.parse(a.timestamp);
       });
   }, [
     role,
+    currentUser.id,
     tickets,
     scopedTickets,
+    ticketMessages,
     overdueTickets,
     overdueSummary,
     todayWIB,
@@ -723,19 +756,21 @@ export function useNotificationCenter({ onNavigate, onSelectTicket }: UseNotific
     const unread = rawNotifications.filter(n => !n.isRead).length;
     const read = all - unread;
     const hasCriticalUnread = rawNotifications.some(n => !n.isRead && n.priority === 'critical');
-    return { all, unread, read, hasCriticalUnread };
+    const liveChatUnread = rawNotifications.filter(
+      n => n.category === 'live_chat' && !n.isRead
+    ).length;
+    const liveChatTotal = rawNotifications.filter(n => n.category === 'live_chat').length;
+    return { all, unread, read, hasCriticalUnread, liveChatUnread, liveChatTotal };
   }, [rawNotifications]);
 
   const availableCategories = useMemo<NotificationCategory[]>(() => {
-    const base: NotificationCategory[] =
-      role === 'installer'
-        ? ['wo_assignment', 'live_chat', 'overdue_warning', 'system_database', 'success']
-        : role === 'super_admin' || role === 'it_support'
-        ? ['wo_assignment', 'overdue_warning', 'live_chat', 'system_database', 'success', 'security']
-        : ['wo_assignment', 'overdue_warning', 'live_chat', 'system_database', 'success'];
-    return base.filter(cat =>
-      cat === 'overdue_warning' && role === 'it_support' ? false : true
-    );
+    if (role === 'installer') {
+      return ['live_chat', 'wo_assignment', 'overdue_warning', 'system_database', 'success'];
+    }
+    if (role === 'super_admin') {
+      return ['live_chat', 'wo_assignment', 'overdue_warning', 'system_database', 'success', 'security'];
+    }
+    return ['live_chat', 'wo_assignment', 'overdue_warning', 'system_database', 'success'];
   }, [role]);
 
   const filteredNotifications = useMemo(() => {

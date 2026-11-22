@@ -66,7 +66,7 @@ export const AuditLogViewer: React.FC = () => {
   const [isRollingBack, setIsRollingBack] = useState(false);
 
   const isSuperAdmin = currentUser.role === 'super_admin';
-  const canViewAuditLogs = currentUser.role === 'super_admin' || currentUser.role === 'it_support';
+  const canViewAuditLogs = currentUser.role === 'super_admin';
 
   const fetchVersions = useCallback(async () => {
     if (!canViewAuditLogs) return;
@@ -221,7 +221,7 @@ export const AuditLogViewer: React.FC = () => {
           Akses Ditolak: Otoritas Audit Log Dibatasi
         </h3>
         <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] leading-relaxed">
-          Berdasarkan Konstitusi Keamanan MoraJaws, akses pembacaan jejak audit (Audit Log &amp; History) dibatasi hanya untuk <strong>Super Admin</strong> dan <strong>IT Support (Read-Only)</strong>.
+          Berdasarkan Konstitusi Keamanan MoraJaws, akses pembacaan jejak audit (Audit Log &amp; History) dibatasi hanya untuk <strong>Superadmin</strong>.
         </p>
         <div className="p-3 bg-[#F3EAFF] dark:bg-[#2A174B] rounded-xl text-xs text-[#431599] dark:text-[#E8DDFF] font-medium border border-[#D8CCF3] dark:border-[#4A2580]">
           Akun Anda: <span className="font-bold capitalize">{currentUser.name} ({currentUser.role})</span>. Akses ditolak pada level UI dan Backend Server.

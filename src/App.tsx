@@ -108,7 +108,6 @@ const WO_NAVIGATION_ROUTES = new Set([
   'installer_dashboard',
   'installer_tasks',
   'installer_history',
-  'management_data_portal',
   'verification_desk',
   'history_progress',
   'monitoring_maps'
@@ -193,7 +192,6 @@ const MainLayout: React.FC = () => {
 
     if (role === 'installer') return 'installer_dashboard';
     if (role === 'leader') return 'wo_assignment';
-    if (role === 'management_data') return 'management_data_portal';
     if (role === 'dispatch') return 'tickets';
     return 'dashboard';
   };
@@ -233,8 +231,6 @@ const MainLayout: React.FC = () => {
           ? 'installer_dashboard'
           : currentUser.role === 'leader'
           ? 'wo_assignment'
-          : currentUser.role === 'management_data'
-          ? 'management_data_portal'
           : currentUser.role === 'dispatch'
           ? 'tickets'
           : 'dashboard';
@@ -469,7 +465,6 @@ const MainLayout: React.FC = () => {
         onLoginSuccess={(role) => {
           if (role === 'installer') navigateTo('installer_dashboard');
           else if (role === 'leader') navigateTo('wo_assignment');
-          else if (role === 'management_data') navigateTo('management_data_portal');
           else if (role === 'dispatch') navigateTo('tickets');
           else navigateTo('dashboard');
         }}
@@ -659,8 +654,7 @@ const MainLayout: React.FC = () => {
       case 'verification_desk': {
         const canAccessVerification =
           currentUser.role === 'super_admin' ||
-          currentUser.role === 'dispatch' ||
-          currentUser.role === 'management_data';
+          currentUser.role === 'dispatch';
         if (!canAccessVerification) {
           const redirectTarget = currentUser.role === 'leader' ? 'leader_portal' : 'dashboard';
           setTimeout(() => {
@@ -675,7 +669,7 @@ const MainLayout: React.FC = () => {
                 Akses Ditolak: Dispatch Verification &amp; QC Desk
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Modul Verifikasi QC hanya tersedia untuk Super Admin, Dispatch, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+                Modul Verifikasi QC hanya tersedia untuk Super Admin dan Dispatch. Role Anda ({currentUser.role}) tidak memiliki izin.
               </p>
             </div>
           );
@@ -692,8 +686,7 @@ const MainLayout: React.FC = () => {
         const canAccessMonitoringMaps =
           currentUser.role === 'super_admin' ||
           currentUser.role === 'dispatch' ||
-          currentUser.role === 'leader' ||
-          currentUser.role === 'management_data';
+          currentUser.role === 'leader';
         if (!canAccessMonitoringMaps) {
           const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
           setTimeout(() => {
@@ -708,7 +701,7 @@ const MainLayout: React.FC = () => {
                 Akses Ditolak: Monitoring Maps GIS
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Modul Monitoring Maps hanya tersedia untuk Super Admin, Dispatch, Leader/Korlap, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+                Modul Monitoring Maps hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda ({currentUser.role}) tidak memiliki izin.
               </p>
             </div>
           );
@@ -733,8 +726,7 @@ const MainLayout: React.FC = () => {
         const canAccessOverdue =
           currentUser.role === 'super_admin' ||
           currentUser.role === 'dispatch' ||
-          currentUser.role === 'leader' ||
-          currentUser.role === 'management_data';
+          currentUser.role === 'leader';
         if (!canAccessOverdue) {
           const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
           setTimeout(() => {
@@ -749,7 +741,7 @@ const MainLayout: React.FC = () => {
                 Akses Ditolak: Overdue WO
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Menu Overdue WO hanya tersedia untuk Super Admin, Dispatch, Leader/Korlap, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+                Menu Overdue WO hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda ({currentUser.role}) tidak memiliki izin.
               </p>
             </div>
           );
@@ -787,14 +779,12 @@ const MainLayout: React.FC = () => {
           />
         );
       case 'login_logs': {
-        const canAccessLoginLogs = currentUser.role === 'super_admin' || currentUser.role === 'it_support';
+        const canAccessLoginLogs = currentUser.role === 'super_admin';
         if (!canAccessLoginLogs) {
           const redirectTarget = isInstaller
             ? 'installer_dashboard'
             : currentUser.role === 'leader'
             ? 'leader_portal'
-            : currentUser.role === 'management_data'
-            ? 'management_data_portal'
             : currentUser.role === 'dispatch'
             ? 'tickets'
             : 'dashboard';
@@ -807,10 +797,10 @@ const MainLayout: React.FC = () => {
                 ✕
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Khusus Super Admin & IT Support
+                Akses Ditolak: Khusus Super Admin
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Log aktivitas login dilindungi dan hanya dapat diakses oleh Super Admin dan IT Support. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
+                Log aktivitas login dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
               </p>
             </div>
           );
@@ -900,8 +890,7 @@ const MainLayout: React.FC = () => {
         const canAccessSla =
           currentUser.role === 'super_admin' ||
           currentUser.role === 'dispatch' ||
-          currentUser.role === 'leader' ||
-          currentUser.role === 'management_data';
+          currentUser.role === 'leader';
         if (!canAccessSla) {
           const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
           setTimeout(() => {
@@ -916,7 +905,7 @@ const MainLayout: React.FC = () => {
                 Akses Ditolak: Monitoring SLA Kontraktor &amp; Vendor
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Modul Monitoring SLA Kontraktor &amp; Vendor hanya tersedia untuk Super Admin, Dispatch, Leader/Korlap, dan Management Data. Role Anda ({currentUser.role}) tidak memiliki izin.
+                Modul Monitoring SLA Kontraktor &amp; Vendor hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda ({currentUser.role}) tidak memiliki izin.
               </p>
             </div>
           );
@@ -980,10 +969,9 @@ const MainLayout: React.FC = () => {
           />
         );
 
-      // Data Operations & Sync
+      // Data Operations & Sync (Superadmin Exclusive)
       case 'management_data_portal': {
-        const canAccessManagementData = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
-        if (!canAccessManagementData) {
+        if (currentUser.role !== 'super_admin') {
           const redirectTarget = isInstaller
             ? 'installer_dashboard'
             : currentUser.role === 'leader'
@@ -1000,10 +988,10 @@ const MainLayout: React.FC = () => {
                 ✕
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Khusus Management Data & Super Admin
+                Akses Ditolak: Khusus Super Admin
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Portal Management Data dilindungi dan hanya dapat diakses oleh Management Data dan Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
+                Portal Pengelolaan Data dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
               </p>
             </div>
           );
@@ -1016,16 +1004,16 @@ const MainLayout: React.FC = () => {
         );
       }
       case 'database_sync':
-        return (currentUser.role === 'super_admin' || currentUser.role === 'management_data')
+        return currentUser.role === 'super_admin'
           ? <DatabaseSyncMonitoringView />
           : <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'database_management':
-        return (currentUser.role === 'super_admin' || currentUser.role === 'management_data')
+        return currentUser.role === 'super_admin'
           ? <DatabaseManagementView />
           : <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'import':
       case 'import_excel': {
-        const canImportWO = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
+        const canImportWO = currentUser.role === 'super_admin';
         if (!canImportWO) {
           const redirectTarget = isInstaller
             ? 'installer_dashboard'
@@ -1046,7 +1034,7 @@ const MainLayout: React.FC = () => {
                 Akses Ditolak: Otoritas Import Work Order Dibatasi
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Sesuai App Flow MoraJaws, modul Import Work Order hanya diizinkan untuk <strong>Super Admin</strong> dan <strong>Management Data</strong>. Role Anda ({currentUser.role}) tidak memiliki akses. Mengalihkan...
+                Sesuai App Flow MoraJaws, modul Import Work Order hanya diizinkan untuk <strong>Super Admin</strong>. Role Anda ({currentUser.role}) tidak memiliki akses. Mengalihkan...
               </p>
             </div>
           );
@@ -1070,14 +1058,12 @@ const MainLayout: React.FC = () => {
       case 'ui_builder':
         return <SetupHubView initialTab="ui_builder" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'audit_logs': {
-        const canAccessAudit = currentUser.role === 'super_admin' || currentUser.role === 'it_support';
+        const canAccessAudit = currentUser.role === 'super_admin';
         if (!canAccessAudit) {
           const redirectTarget = isInstaller
             ? 'installer_dashboard'
             : currentUser.role === 'leader'
             ? 'leader_portal'
-            : currentUser.role === 'management_data'
-            ? 'management_data_portal'
             : currentUser.role === 'dispatch'
             ? 'tickets'
             : 'dashboard';
@@ -1093,7 +1079,7 @@ const MainLayout: React.FC = () => {
                 Akses Ditolak: Otoritas Audit Log Dibatasi
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Audit Log dilindungi dan hanya dapat diakses oleh Super Admin dan IT Support (Read-Only). Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
+                Audit Log dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
               </p>
             </div>
           );
@@ -1109,8 +1095,6 @@ const MainLayout: React.FC = () => {
             ? 'installer_dashboard'
             : currentUser.role === 'leader'
             ? 'leader_portal'
-            : currentUser.role === 'management_data'
-            ? 'management_data_portal'
             : 'dashboard';
           setTimeout(() => {
             setActiveTab(redirectTarget);

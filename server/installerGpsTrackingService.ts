@@ -403,7 +403,7 @@ export function checkInstallerTrackingReadAccess(
   viewer: { id: string; role: string; contractor?: string; contractorId?: string; area?: string }
 ): boolean {
   if (!viewer || !record) return false;
-  if (viewer.role === 'super_admin' || viewer.role === 'dispatch' || viewer.role === 'management_data') {
+  if (viewer.role === 'super_admin' || viewer.role === 'dispatch') {
     return true;
   }
   if (viewer.role === 'installer') {

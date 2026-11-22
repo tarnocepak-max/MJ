@@ -256,12 +256,10 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                   onChange={e => setRoleFilter(e.target.value as UserRole)}
                   className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white font-semibold"
                 >
+                  <option value="super_admin">Super Admin</option>
                   <option value="dispatch">Dispatch</option>
                   <option value="leader">Leader</option>
                   <option value="installer">Installer</option>
-                  <option value="management_data">Management Data</option>
-                  <option value="it_support">IT Support Application</option>
-                  <option value="super_admin">Super Admin</option>
                 </select>
               </div>
             )}

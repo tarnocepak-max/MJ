@@ -419,7 +419,7 @@ export interface ServerUser {
   username: string;
   email: string;
   altEmail?: string;
-  role: 'super_admin' | 'dispatch' | 'leader' | 'installer' | 'management_data' | 'it_support';
+  role: 'super_admin' | 'dispatch' | 'leader' | 'installer';
   contractor?: string;
   contractorId?: string;
   area?: string;
@@ -445,7 +445,7 @@ export interface ServerSession {
   userId: string;
   username: string;
   name: string;
-  role: 'super_admin' | 'dispatch' | 'leader' | 'installer' | 'management_data' | 'it_support';
+  role: 'super_admin' | 'dispatch' | 'leader' | 'installer';
   contractor?: string;
   contractorId?: string;
   area?: string;
@@ -536,10 +536,10 @@ const INITIAL_SEED_USERS: ServerUser[] = [
   },
   {
     id: 'u-mgmt',
-    name: 'Staff Management Data',
+    name: 'Staff Management Data (Super Admin)',
     username: 'datamgmt',
     email: 'data.ops@morajaws.net',
-    role: 'management_data',
+    role: 'super_admin',
     active: true,
     passwordHash: DEFAULT_HASH,
     mustChangePassword: true,
@@ -628,10 +628,10 @@ const INITIAL_SEED_USERS: ServerUser[] = [
   },
   {
     id: 'u-itsupport-1',
-    name: 'Fajar Pratama (IT Support)',
+    name: 'Fajar Pratama (Super Admin)',
     username: 'itsupport',
     email: 'support@morajaws.net',
-    role: 'it_support',
+    role: 'super_admin',
     phone: '081200112233',
     active: true,
     passwordHash: DEFAULT_HASH,
@@ -1010,18 +1010,21 @@ function loadDatabaseFromDisk() {
           db.users.unshift(INITIAL_SEED_USERS[0]);
           saveDatabaseToDisk();
         }
-        // Ensure IT Support seed account is present
-        if (!db.users.some(u => u.username.toLowerCase() === 'itsupport')) {
-          const itSeed = INITIAL_SEED_USERS.find(u => u.username === 'itsupport');
-          if (itSeed) db.users.push(itSeed);
-          saveDatabaseToDisk();
-        }
-        // Ensure mustChangePassword flag is set on any seed account with default password
+        // Consolidate any legacy management_data / it_support accounts in disk store to super_admin
+        let diskMigrated = false;
         db.users.forEach(u => {
+          if ((u.role as string) === 'management_data' || (u.role as string) === 'it_support') {
+            u.role = 'super_admin';
+            u.sessionVersion = (u.sessionVersion || 1) + 1;
+            diskMigrated = true;
+          }
           if (u.passwordHash === DEFAULT_HASH && u.mustChangePassword === undefined) {
             u.mustChangePassword = true;
           }
         });
+        if (diskMigrated) {
+          saveDatabaseToDisk();
+        }
         console.log(`[Database] Loaded ${db.tickets.length} tickets, ${db.users.length} users, ${db.contractors.length} contractors, ${SERVER_SESSIONS.length} sessions from persistent disk storage.`);
         return;
       }
@@ -1643,10 +1646,10 @@ function requireAuditLogViewer(req: AuthenticatedRequest, res: Response, next: N
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi: Sesi login tidak ditemukan.', code: 'UNAUTHENTICATED' });
   }
-  if (req.user.role !== 'super_admin' && req.user.role !== 'it_support') {
+  if (req.user.role !== 'super_admin') {
     logServerAudit('Access Denied (Audit Log Viewer Required)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) ditolak membaca Audit Logs`, req.user);
     return res.status(403).json({
-      error: 'Akses Ditolak: Otoritas membaca Audit Logs dibatasi untuk Super Admin dan IT Support (Read-Only).',
+      error: 'Akses Ditolak: Otoritas membaca Audit Logs dibatasi HANYA untuk Super Admin.',
       code: 'REQUIRE_AUDIT_LOG_VIEWER'
     });
   }
@@ -1672,11 +1675,11 @@ function requireSettingsManager(req: AuthenticatedRequest, res: Response, next: 
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi: Sesi login tidak ditemukan.', code: 'UNAUTHENTICATED' });
   }
-  const allowed = ['super_admin', 'management_data', 'dispatch', 'it_support'];
+  const allowed = ['super_admin', 'dispatch'];
   if (!allowed.includes(req.user.role)) {
     logServerAudit('Access Denied (Settings Manager Required)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) ditolak mengelola Setup Terpusat MoraJaws`, req.user);
     return res.status(403).json({
-      error: 'Akses Ditolak: Pengelolaan Setup Terpusat dibatasi untuk Super Admin, Management Data, dan Dispatch sesuai cakupan.',
+      error: 'Akses Ditolak: Pengelolaan Setup Terpusat dibatasi untuk Super Admin dan Dispatch sesuai cakupan.',
       code: 'REQUIRE_SETTINGS_MANAGER'
     });
   }
@@ -1707,6 +1710,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'manage_contractors',
     'view_audit_logs',
     'database_management',
+    'delete_wo_data',
+    'delete_customer_data',
+    'permanent_delete',
     'edit_wo_data',
     'system_health',
     'application_configuration',
@@ -1738,36 +1744,27 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'view_assigned_wo',
     'edit_technical_report',
     'access_live_chat'
-  ],
-  management_data: [
-    'login',
-    'view_all_wo',
-    'view_contractor_wo',
-    'import_data',
-    'distribute_wo',
-    'manage_field_mapping',
-    'database_management',
-    'delete_wo_data',
-    'application_configuration',
-    'setting_droplist'
-  ],
-  it_support: [
-    'login',
-    'system_health',
-    'application_configuration',
-    'ui_configuration',
-    'setting_droplist',
-    'view_audit_logs'
   ]
 };
 
 export const CORE_SUPER_ADMIN_PERMISSIONS = [
   'login',
   'manage_users',
+  'import_data',
+  'manage_field_mapping',
+  'distribute_wo',
+  'database_management',
+  'delete_wo_data',
+  'delete_customer_data',
+  'permanent_delete',
   'application_configuration',
   'ui_configuration',
+  'setting_droplist',
+  'system_health',
   'view_audit_logs'
 ];
+
+export const VALID_SYSTEM_ROLES = ['super_admin', 'dispatch', 'leader', 'installer'] as const;
 
 let SERVER_ROLE_PERMISSIONS_CACHE: {
   permissions: Record<string, string[]>;
@@ -1786,16 +1783,45 @@ function cloneDefaultRolePermissions(): Record<string, string[]> {
 
 function normalizeRolePermissionsMatrix(raw: any): Record<string, string[]> {
   const base = cloneDefaultRolePermissions();
+  const mergedSuperAdmin = new Set<string>(base.super_admin || []);
+
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     for (const [role, perms] of Object.entries(raw)) {
-      if (Array.isArray(perms)) {
+      if (!Array.isArray(perms)) continue;
+      if (role === 'management_data' || role === 'it_support' || role === 'super_admin') {
+        perms.forEach(p => mergedSuperAdmin.add(String(p)));
+      } else if ((VALID_SYSTEM_ROLES as readonly string[]).includes(role)) {
         base[role] = Array.from(new Set(perms.map(String)));
       }
     }
   }
-  // Hard safety guard: super_admin cannot lock itself out of core admin permissions
-  base.super_admin = Array.from(new Set([...(base.super_admin || []), ...CORE_SUPER_ADMIN_PERMISSIONS]));
+  // Hard safety guard: super_admin cannot lock itself out of core admin + consolidated permissions
+  CORE_SUPER_ADMIN_PERMISSIONS.forEach(p => mergedSuperAdmin.add(p));
+  base.super_admin = Array.from(mergedSuperAdmin);
   return base;
+}
+
+function sanitizeNavigationConfigRolesPayload(navDoc: any): any {
+  if (!navDoc || typeof navDoc !== 'object' || Array.isArray(navDoc)) return navDoc;
+  const cleanRoles = (roles: any): string[] => {
+    if (!Array.isArray(roles)) return ['super_admin'];
+    const mapped = roles.map(r => (r === 'management_data' || r === 'it_support' ? 'super_admin' : String(r)));
+    return Array.from(new Set(mapped.filter(r => (VALID_SYSTEM_ROLES as readonly string[]).includes(r))));
+  };
+  const nextDoc = { ...navDoc };
+  if (Array.isArray(nextDoc.standaloneMenus)) {
+    const seen = new Set<string>();
+    nextDoc.standaloneMenus = nextDoc.standaloneMenus
+      .filter((m: any) => m && m.id && m.id !== 'management_data_portal' && !seen.has(m.id) && (seen.add(m.id), true))
+      .map((m: any) => ({ ...m, roles: cleanRoles(m.roles) }));
+  }
+  if (Array.isArray(nextDoc.submenuItems)) {
+    const seenSub = new Set<string>();
+    nextDoc.submenuItems = nextDoc.submenuItems
+      .filter((s: any) => s && s.id && s.id !== 'management_data_portal' && !seenSub.has(s.id) && (seenSub.add(s.id), true))
+      .map((s: any) => ({ ...s, roles: cleanRoles(s.roles) }));
+  }
+  return nextDoc;
 }
 
 export function invalidateGlobalConfigCache(key?: string) {
@@ -2035,6 +2061,12 @@ async function saveGlobalConfigUnified(
   const actorName = user.name || user.username || 'Super Admin';
   const moduleName = options.module || key;
   const nowIso = new Date().toISOString();
+
+  if (key === 'role_permissions') {
+    value = normalizeRolePermissionsMatrix(value);
+  } else if (key === 'navigation_doc' || key === 'navigation_config') {
+    value = sanitizeNavigationConfigRolesPayload(value);
+  }
 
   if (isSupabaseMode()) {
     const supaRes = await saveVersionedAppSettingToSupabase(key, value, {
@@ -2279,18 +2311,18 @@ function requireBackupDownloadPermission(req: AuthenticatedRequest, res: Respons
     });
   }
 
-  // 4. Hanya role super_admin dan management_data yang diizinkan
-  const allowedRoles = ['super_admin', 'management_data'];
+  // 4. Hanya role super_admin yang diizinkan
+  const allowedRoles = ['super_admin'];
   if (!allowedRoles.includes(req.user.role)) {
     logServerAudit(
-      'Access Denied (Backup Download Required Super Admin or Management Data)',
+      'Access Denied (Backup Download Required Super Admin)',
       'rbac',
       req.originalUrl,
       `User ${req.user.name} (${req.user.role}) ditolak mengunduh file backup database`,
       req.user
     );
     return res.status(403).json({
-      error: 'Akses Ditolak: Otoritas mengunduh backup database dibatasi untuk Super Admin dan Data Management.',
+      error: 'Akses Ditolak: Otoritas mengunduh backup database dibatasi HANYA untuk Super Admin.',
       code: 'REQUIRE_BACKUP_PERMISSION'
     });
   }
@@ -2302,10 +2334,10 @@ function requireImportPermission(req: AuthenticatedRequest, res: Response, next:
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi', code: 'UNAUTHENTICATED' });
   }
-  if (req.user.role !== 'super_admin' && req.user.role !== 'management_data') {
+  if (req.user.role !== 'super_admin') {
     logServerAudit('Access Denied (Import Permission Required)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) ditolak melakukan import WO`, req.user);
     return res.status(403).json({
-      error: 'Akses Ditolak: Otoritas import Master Work Order hanya diberikan kepada Super Admin dan Management Data.',
+      error: 'Akses Ditolak: Otoritas import Master Work Order hanya diberikan kepada Super Admin.',
       code: 'REQUIRE_IMPORT_PERMISSION'
     });
   }
@@ -2316,17 +2348,17 @@ export function requireManagementData(req: AuthenticatedRequest, res: Response, 
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi', code: 'UNAUTHENTICATED' });
   }
-  if (req.user.role !== 'management_data') {
+  if (req.user.role !== 'super_admin') {
     logServerAudit(
-      'Access Denied (WO Deletion Restricted to Management Data)',
+      'Access Denied (WO Deletion Restricted to Super Admin)',
       'rbac',
       req.originalUrl,
-      `User ${req.user.name} (${req.user.role}) ditolak menghapus WO. Sesuai Konstitusi Keamanan, fitur Hapus WO dibatasi KHUSUS role Management Data.`,
+      `User ${req.user.name} (${req.user.role}) ditolak menghapus WO. Fitur Hapus WO dibatasi KHUSUS untuk role Super Admin.`,
       req.user
     );
     return res.status(403).json({
-      error: 'Akses Ditolak: Fitur dan wewenang Hapus WO dibatasi secara KHUSUS hanya untuk role Management Data.',
-      code: 'REQUIRE_MANAGEMENT_DATA'
+      error: 'Akses Ditolak: Fitur dan wewenang Hapus WO dibatasi secara KHUSUS hanya untuk role Super Admin.',
+      code: 'REQUIRE_SUPER_ADMIN'
     });
   }
   next();
@@ -2378,11 +2410,11 @@ function getJakartaTodayString(): string {
 export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
   if (!ticket || typeof ticket !== 'object') return false;
   if (ticket.isDeleted) {
-    return user.role === 'super_admin' || user.role === 'management_data';
+    return user.role === 'super_admin';
   }
 
-  // Super Admin, Dispatch, Management Data, and IT Support have authorized access
-  if (user.role === 'super_admin' || user.role === 'dispatch' || user.role === 'management_data' || user.role === 'it_support') {
+  // Super Admin and Dispatch have authorized global operational access
+  if (user.role === 'super_admin' || user.role === 'dispatch') {
     return true;
   }
 
@@ -3833,7 +3865,7 @@ export async function createExpressApp(options?: {
       });
     }
 
-    const VALID_ROLES = ['super_admin', 'dispatch', 'leader', 'installer', 'management_data', 'it_support'];
+    const VALID_ROLES = ['super_admin', 'dispatch', 'leader', 'installer'];
     if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -4009,6 +4041,15 @@ export async function createExpressApp(options?: {
 
     if (!existingUser || existingUser.isDeleted) {
       return res.status(404).json({ success: false, error: 'Pengguna tidak ditemukan.', code: 'USER_NOT_FOUND' });
+    }
+
+    const VALID_ROLES = ['super_admin', 'dispatch', 'leader', 'installer'];
+    if (role !== undefined && role !== '' && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Role tidak valid. Pilihan role: ${VALID_ROLES.join(', ')}`,
+        code: 'INVALID_ROLE'
+      });
     }
 
     const updates: Partial<ServerUser> = {};
@@ -4685,11 +4726,11 @@ export async function createExpressApp(options?: {
 
     // Strict RBAC: WO deletion fields cannot be modified via update endpoint
     if (updates.isDeleted !== undefined || updates.deletedAt !== undefined || updates.deletedBy !== undefined || updates.deletionReason !== undefined) {
-      if (req.user!.role !== 'management_data') {
+      if (req.user!.role !== 'super_admin') {
         logServerAudit('Bypass Attempt: WO Delete via Update Endpoint', 'ticket', currentTicket.woNumber, `User ${req.user!.name} (${req.user!.role}) mencoba memanipulasi status isDeleted tiket via PUT/PATCH endpoint`, req.user);
         return res.status(403).json({
-          error: 'Akses Ditolak: Perubahan status penghapusan WO hanya diizinkan untuk role Management Data melalui endpoint resmi.',
-          code: 'REQUIRE_MANAGEMENT_DATA'
+          error: 'Akses Ditolak: Perubahan status penghapusan WO hanya diizinkan untuk role Super Admin melalui endpoint resmi.',
+          code: 'REQUIRE_SUPER_ADMIN'
         });
       }
       delete updates.isDeleted;
@@ -6668,7 +6709,7 @@ export async function createExpressApp(options?: {
   app.get('/api/work-orders/overdue', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      if (user.role === 'it_support') {
+      if (!(VALID_SYSTEM_ROLES as readonly string[]).includes(user.role)) {
         await logServerAuditAsync(
           'Access Denied (Overdue Monitoring Restricted)',
           'rbac',
@@ -6679,7 +6720,7 @@ export async function createExpressApp(options?: {
         return res.status(403).json({
           success: false,
           code: 'REQUIRE_OPERATIONAL_ROLE',
-          error: 'Akses Ditolak: Monitoring Overdue WO hanya tersedia untuk role operasional (Super Admin, Dispatch, Leader, Management Data, Installer).'
+          error: 'Akses Ditolak: Monitoring Overdue WO hanya tersedia untuk role operasional (Super Admin, Dispatch, Leader, Installer).'
         });
       }
 
@@ -6795,7 +6836,7 @@ export async function createExpressApp(options?: {
   app.get('/api/work-orders/classifications', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      if (user.role === 'it_support') {
+      if (!(VALID_SYSTEM_ROLES as readonly string[]).includes(user.role)) {
         return res.status(403).json({
           success: false,
           code: 'REQUIRE_OPERATIONAL_ROLE',
@@ -6814,7 +6855,7 @@ export async function createExpressApp(options?: {
       }
 
       const summary = summarizeWorkOrderClassificationsServer(poolRes.tickets, todayWIB);
-      const canViewExceptions = user.role === 'super_admin' || user.role === 'management_data';
+      const canViewExceptions = user.role === 'super_admin';
       const exceptionTickets = canViewExceptions
         ? poolRes.tickets.filter((t: any) => classifyWorkOrderServer(t, todayWIB).classification === 'EXCEPTION')
         : [];
@@ -6825,8 +6866,8 @@ export async function createExpressApp(options?: {
         if (categoryParam === 'EXCEPTION' && !canViewExceptions) {
           return res.status(403).json({
             success: false,
-            code: 'REQUIRE_ADMIN_OR_MGMT_DATA',
-            error: 'Akses Ditolak: Antrean Exception Appointment Date hanya tersedia untuk Super Admin dan Management Data.'
+            code: 'REQUIRE_SUPER_ADMIN',
+            error: 'Akses Ditolak: Antrean Exception Appointment Date hanya tersedia untuk Super Admin.'
           });
         }
         filteredTickets = poolRes.tickets.filter(
@@ -7011,7 +7052,7 @@ export async function createExpressApp(options?: {
     }
 
     broadcastSupabaseChange('work_orders', 'DELETE', target);
-    await logServerAuditAsync('WO Soft Deleted', 'ticket', target.woNumber, `Management Data ${req.user!.name} menandai terhapus (soft delete) WO ${target.woNumber}. Alasan: ${reason}`, req.user);
+    await logServerAuditAsync('WO Soft Deleted', 'ticket', target.woNumber, `Super Admin ${req.user!.name} menandai terhapus (soft delete) WO ${target.woNumber}. Alasan: ${reason}`, req.user);
     res.json({ success: true, message: `Work Order ${target.woNumber} berhasil dihapus.` });
   });
 
@@ -7057,7 +7098,7 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
-    await logServerAuditAsync('Bulk WO Soft Deleted', 'ticket', `${count} items`, `Management Data ${req.user!.name} menandai terhapus ${count} WO. Alasan: ${reason}`, req.user);
+    await logServerAuditAsync('Bulk WO Soft Deleted', 'ticket', `${count} items`, `Super Admin ${req.user!.name} menandai terhapus ${count} WO. Alasan: ${reason}`, req.user);
     res.json({ success: true, count, message: `Berhasil menghapus ${count} Work Order.` });
   });
 
@@ -7111,7 +7152,7 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
-    await logServerAuditAsync('Imported Tickets Purged by Date', 'import_batch', importDate, `Management Data ${req.user!.name} menghapus ${purged} tiket tanggal import ${importDate}. Alasan: ${reason}`, req.user);
+    await logServerAuditAsync('Imported Tickets Purged by Date', 'import_batch', importDate, `Super Admin ${req.user!.name} menghapus ${purged} tiket tanggal import ${importDate}. Alasan: ${reason}`, req.user);
     res.json({ success: true, count: purged, message: `Berhasil menghapus ${purged} tiket import tanggal ${importDate}.` });
   };
 
@@ -7582,6 +7623,13 @@ export async function createExpressApp(options?: {
     if (!name || !username || !role) {
       return res.status(400).json({ error: 'Nama, username, dan role akun wajib diisi.' });
     }
+    if (!(VALID_SYSTEM_ROLES as readonly string[]).includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Role tidak valid. Pilihan role: ${VALID_SYSTEM_ROLES.join(', ')}`,
+        code: 'INVALID_ROLE'
+      });
+    }
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
@@ -7756,6 +7804,14 @@ export async function createExpressApp(options?: {
 
     if (!isSuperAdmin && !isLeaderManagingOwnInstaller) {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki izin untuk mengedit akun ini.' });
+    }
+
+    if (role !== undefined && role !== '' && !(VALID_SYSTEM_ROLES as readonly string[]).includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Role tidak valid. Pilihan role: ${VALID_SYSTEM_ROLES.join(', ')}`,
+        code: 'INVALID_ROLE'
+      });
     }
 
     const updates: Partial<ServerUser> = {};
@@ -9439,20 +9495,6 @@ export async function createExpressApp(options?: {
           ]
         },
         {
-          roleName: 'Management Data',
-          user: { id: 'u-mgmt', role: 'management_data', name: 'Staff Management Data' },
-          testCases: [
-            { targetWo: 'WO20267399330', category: 'work-orders', expectedAllowed: true, desc: 'Akses verifikasi data WO' }
-          ]
-        },
-        {
-          roleName: 'IT Support',
-          user: { id: 'u-itsupport-1', role: 'it_support', name: 'Fajar Pratama (IT Support)' },
-          testCases: [
-            { targetWo: 'WO20267399330', category: 'work-orders', expectedAllowed: true, desc: 'Inspeksi sistem IT Support' }
-          ]
-        },
-        {
           roleName: 'Leader (MJS)',
           user: { id: 'u-leader-1', role: 'leader', name: 'Hendra Gunawan', contractor: 'PT Mitra Jaringan Solusi', area: 'Jakarta Selatan' },
           testCases: [
@@ -9973,11 +10015,11 @@ export async function createExpressApp(options?: {
   app.post('/api/supabase/work-orders', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      if (user.role !== 'super_admin' && user.role !== 'management_data') {
+      if (user.role !== 'super_admin') {
         await logServerAuditAsync('Access Denied (Create/Import WO Restricted)', 'rbac', req.originalUrl, `User ${user.name} (${user.role}) ditolak membuat/mengimpor Work Order`, user);
         return res.status(403).json({
           success: false,
-          error: { code: 'REQUIRE_CREATE_PERMISSION', message: 'Akses Ditolak: Pembuatan dan import Master Work Order dibatasi untuk Super Admin dan Management Data.' }
+          error: { code: 'REQUIRE_CREATE_PERMISSION', message: 'Akses Ditolak: Pembuatan dan import Master Work Order dibatasi HANYA untuk Super Admin.' }
         });
       }
 
@@ -10287,10 +10329,10 @@ export async function createExpressApp(options?: {
     try {
       const { id } = req.params;
       const user = req.user!;
-      if (user.role !== 'super_admin' && user.role !== 'management_data') {
+      if (user.role !== 'super_admin') {
         return res.status(403).json({
           success: false,
-          error: { code: 'REQUIRE_ARCHIVE_PERMISSION', message: 'Akses Ditolak: Otoritas arsip Work Order dibatasi untuk Super Admin dan Management Data.' }
+          error: { code: 'REQUIRE_ARCHIVE_PERMISSION', message: 'Akses Ditolak: Otoritas arsip Work Order dibatasi HANYA untuk Super Admin.' }
         });
       }
 
@@ -10332,10 +10374,10 @@ export async function createExpressApp(options?: {
     try {
       const { id } = req.params;
       const user = req.user!;
-      if (user.role !== 'super_admin' && user.role !== 'management_data') {
+      if (user.role !== 'super_admin') {
         return res.status(403).json({
           success: false,
-          error: { code: 'REQUIRE_RESTORE_PERMISSION', message: 'Akses Ditolak: Otoritas memulihkan Work Order dibatasi untuk Super Admin dan Management Data.' }
+          error: { code: 'REQUIRE_RESTORE_PERMISSION', message: 'Akses Ditolak: Otoritas memulihkan Work Order dibatasi HANYA untuk Super Admin.' }
         });
       }
 
@@ -11852,7 +11894,7 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // 22. GET /api/supabase/audit-logs (Super Admin & IT Support)
+  // 22. GET /api/supabase/audit-logs (Super Admin Only)
   app.get('/api/supabase/audit-logs', requireAuditLogViewer, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
@@ -12770,7 +12812,7 @@ export async function createExpressApp(options?: {
   // ---------------------------------------------------------------------------
   // AUTOMATIC INSTALLER LOGIN & LIVE GPS TRACKING API
   // ---------------------------------------------------------------------------
-  const GPS_MAP_VIEW_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'management_data', 'installer']);
+  const GPS_MAP_VIEW_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'installer']);
 
   app.get('/api/installer-tracking/config', requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
     try {
@@ -13066,7 +13108,7 @@ export async function createExpressApp(options?: {
   // ---------------------------------------------------------------------------
   // SLA TELEMETRY & VENDOR PERFORMANCE ENGINE API
   // ---------------------------------------------------------------------------
-  const SLA_ALLOWED_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'management_data']);
+  const SLA_ALLOWED_ROLES = new Set(['super_admin', 'dispatch', 'leader']);
 
   app.get('/api/sla/telemetry', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -13494,7 +13536,7 @@ export async function createExpressApp(options?: {
   app.get('/api/leader/quota-config', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch', 'management_data', 'it_support']);
+      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch']);
       if (!allowedRoles.has(user.role)) {
         return res.status(403).json({ success: false, error: 'Akses Ditolak.', code: 'FORBIDDEN' });
       }
@@ -13741,7 +13783,7 @@ export async function createExpressApp(options?: {
   app.get('/api/leader/assignment-feed', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch', 'management_data', 'it_support']);
+      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch']);
       if (!allowedRoles.has(user.role)) {
         return res.status(403).json({ success: false, error: 'Akses Ditolak.', code: 'FORBIDDEN' });
       }
@@ -13827,8 +13869,8 @@ export async function createExpressApp(options?: {
 
   app.post('/api/sync/run', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
-    if (user.role !== 'super_admin' && user.role !== 'dispatch' && user.role !== 'management_data') {
-      return res.status(403).json({ error: 'Akses Ditolak: Hanya Super Admin, Dispatch, dan Management Data yang dapat menjalankan sinkronisasi.' });
+    if (user.role !== 'super_admin' && user.role !== 'dispatch') {
+      return res.status(403).json({ error: 'Akses Ditolak: Hanya Super Admin dan Dispatch yang dapat menjalankan sinkronisasi.' });
     }
 
     const startMs = Date.now();
@@ -14816,7 +14858,7 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // --- Audit Logs (Super Admin & IT Support Read-Only) ---
+  // --- Audit Logs (Super Admin Only) ---
   app.get('/api/audit-logs', requireAuditLogViewer, async (_req, res) => {
     if (isSupabaseMode()) {
       try {
@@ -14938,6 +14980,128 @@ export async function createExpressApp(options?: {
   return app;
 }
 
+async function consolidateLegacyRolesOnStartup() {
+  try {
+    // 1. Consolidate in-memory / local JSON database
+    let localChanged = false;
+    db.users.forEach(u => {
+      if ((u.role as string) === 'management_data' || (u.role as string) === 'it_support') {
+        u.role = 'super_admin';
+        u.sessionVersion = (u.sessionVersion || 1) + 1;
+        localChanged = true;
+      }
+    });
+    if (db.rolePermissions) {
+      db.rolePermissions = normalizeRolePermissionsMatrix(db.rolePermissions);
+    }
+    if (db.appSettings?.role_permissions) {
+      db.appSettings.role_permissions = normalizeRolePermissionsMatrix(db.appSettings.role_permissions);
+    }
+    if (localChanged && isLocalJsonModeAllowed()) {
+      saveDatabaseToDisk();
+    }
+
+    if (!isSupabaseMode()) return;
+    const client = getSupabaseBackendClient();
+    if (!client) return;
+
+    const legacyCodes = ['management_data', 'it_support'];
+    const rolesRes = await getRolesFromSupabase();
+    let superAdminRoleId = 'role-super-admin';
+    let mergedPermissions = new Set<string>(DEFAULT_ROLE_PERMISSIONS.super_admin);
+
+    if (rolesRes.success && Array.isArray(rolesRes.data)) {
+      const superRow = rolesRes.data.find(r => r.code === 'super_admin');
+      if (superRow) {
+        superAdminRoleId = superRow.id;
+        superRow.permissions.forEach(p => mergedPermissions.add(String(p)));
+      }
+      for (const r of rolesRes.data) {
+        if (legacyCodes.includes(r.code)) {
+          r.permissions.forEach(p => mergedPermissions.add(String(p)));
+        }
+      }
+    }
+    CORE_SUPER_ADMIN_PERMISSIONS.forEach(p => mergedPermissions.add(p));
+    const mergedPermArray = Array.from(mergedPermissions);
+
+    // Ensure super_admin role has consolidated permissions
+    await updateRolePermissionsInSupabase('super_admin', mergedPermArray, 'System Startup Consolidation').catch(() => {});
+
+    // Migrate any users in public.users with legacy role or role_id in-place to super_admin
+    const { data: legacyUsers, error: fetchUsersErr } = await client
+      .from('users')
+      .select('id, role, role_id, permissions, session_version, payload')
+      .in('role', legacyCodes);
+
+    if (!fetchUsersErr && Array.isArray(legacyUsers) && legacyUsers.length > 0) {
+      for (const row of legacyUsers) {
+        const nextSessionVersion = (typeof row.session_version === 'number' ? row.session_version : 1) + 1;
+        const userPerms = Array.from(
+          new Set([...(Array.isArray(row.permissions) ? row.permissions.map(String) : []), ...mergedPermArray])
+        );
+        const existingPayload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+        await client
+          .from('users')
+          .update({
+            role: 'super_admin',
+            role_id: superAdminRoleId,
+            permissions: userPerms,
+            session_version: nextSessionVersion,
+            payload: { ...existingPayload, sessionVersion: nextSessionVersion },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', row.id);
+        await revokeAllUserSessions(row.id, 'system-role-consolidation').catch(() => {});
+      }
+      console.log(`[RBAC Consolidation] Migrated ${legacyUsers.length} legacy account(s) to super_admin in Supabase.`);
+    }
+
+    // Also normalize any user rows whose role is super_admin but still points to old role_id
+    await client
+      .from('users')
+      .update({ role_id: superAdminRoleId, updated_at: new Date().toISOString() })
+      .eq('role', 'super_admin')
+      .in('role_id', ['role-management-data', 'role-it-support']);
+
+    // Clean app_settings role_permissions & navigation configs if they still contain legacy roles
+    const { data: settingsRows } = await client
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['role_permissions', 'navigation_doc', 'navigation_config']);
+
+    if (Array.isArray(settingsRows)) {
+      for (const row of settingsRows) {
+        if (!row?.value || typeof row.value !== 'object') continue;
+        const rawStr = JSON.stringify(row.value);
+        if (rawStr.includes('management_data') || rawStr.includes('it_support')) {
+          const cleaned =
+            row.key === 'role_permissions'
+              ? normalizeRolePermissionsMatrix(row.value)
+              : sanitizeNavigationConfigRolesPayload(row.value);
+          await client
+            .from('app_settings')
+            .update({ value: cleaned, updated_at: new Date().toISOString() })
+            .eq('key', row.key);
+        }
+      }
+    }
+
+    // Delete legacy role rows from public.roles
+    const { error: delRolesErr } = await client
+      .from('roles')
+      .delete()
+      .in('code', legacyCodes);
+
+    if (!delRolesErr) {
+      invalidateGlobalConfigCache('role_permissions');
+      console.log('[RBAC Consolidation] Verified public.roles contains strictly 4 consolidated roles.');
+    }
+  } catch (err: any) {
+    console.warn('[RBAC Consolidation] Startup consolidation warning:', err?.message || err);
+  }
+}
+
 export async function startServer() {
   const PORT = resolveServerPort();
   const HOST = resolveServerHost();
@@ -14953,10 +15117,13 @@ export async function startServer() {
   httpServer.listen(PORT, HOST, () => {
     console.log(`MoraJaws Dispatch Management Server running on http://${HOST}:${PORT}`);
 
-    // Non-blocking background health check log on startup
+    // Non-blocking background health check log & idempotent RBAC consolidation on startup
     checkSupabaseConnection()
-      .then(res => {
+      .then(async res => {
         console.log(`[Startup Check] Supabase: ${res.status.toUpperCase()} - ${res.message}`);
+        if (res.status === 'connected') {
+          await consolidateLegacyRolesOnStartup();
+        }
       })
       .catch(() => {});
   });

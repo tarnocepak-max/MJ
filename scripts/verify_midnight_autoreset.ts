@@ -99,7 +99,7 @@ async function run() {
       userId: 'u-mgmt',
       username: 'datamgmt',
       name: 'Management Data',
-      role: 'management_data',
+      role: 'super_admin',
       sessionVersion: 1,
       loginAt: nowIso,
       lastActivityAt: nowIso,
@@ -153,7 +153,7 @@ async function run() {
       userId: 'u-itsupport-1',
       username: 'itsupport',
       name: 'Fajar Pratama (IT Support)',
-      role: 'it_support',
+      role: 'super_admin',
       sessionVersion: 1,
       loginAt: nowIso,
       lastActivityAt: nowIso,
@@ -311,7 +311,7 @@ async function run() {
       }
     }
 
-    const ALL_STAFF_ROLES = ['super_admin', 'management_data', 'dispatch', 'leader', 'installer', 'it_support'] as const;
+    const ALL_STAFF_ROLES = ['super_admin', 'dispatch', 'leader', 'installer'] as const;
 
     // 4. CHECK BEFORE MIDNIGHT: 2026-11-16 23:59:59 WIB
     fakeNow = new Date('2026-11-16T16:59:59.000Z');

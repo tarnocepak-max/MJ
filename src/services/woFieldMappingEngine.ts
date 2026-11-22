@@ -834,12 +834,12 @@ export function runWODistributionEngine(
   userRole: UserRole = 'super_admin',
   users: User[] = []
 ): { ticket: Partial<Ticket>; status: WODistributionStatus; reason: string } {
-  // Permission verification: Only Super Admin and Management Data can import/distribute WO
-  if (userRole !== 'super_admin' && userRole !== 'management_data') {
+  // Permission verification: Only Super Admin can import/distribute WO
+  if (userRole !== 'super_admin') {
     return {
       ticket,
       status: 'pending',
-      reason: 'Akses Ditolak: Hanya Super Admin dan Management Data yang berwenang melakukan import dan distribusi WO.'
+      reason: 'Akses Ditolak: Hanya Super Admin yang berwenang melakukan import dan distribusi WO.'
     };
   }
 

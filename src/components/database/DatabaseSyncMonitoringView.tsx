@@ -249,7 +249,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
-          {(currentUser.role === 'super_admin' || currentUser.role === 'management_data') && (
+          {currentUser.role === 'super_admin' && (
             <button
               type="button"
               onClick={handleSyncNow}

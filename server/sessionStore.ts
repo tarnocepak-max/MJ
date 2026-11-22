@@ -13,7 +13,7 @@ export interface ServerSession {
   userId: string;
   username: string;
   name: string;
-  role: 'super_admin' | 'dispatch' | 'leader' | 'installer' | 'management_data' | 'it_support';
+  role: 'super_admin' | 'dispatch' | 'leader' | 'installer';
   contractor?: string;
   contractorId?: string;
   area?: string;

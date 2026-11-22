@@ -777,15 +777,13 @@ async function runPhase15a1TestSuite() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 17: Seluruh role tetap mempertahankan permission (RBAC Matrix)
+    // TEST 17: Seluruh 4 role resmi tetap mempertahankan permission (RBAC Matrix)
     // -------------------------------------------------------------------------
     const roles: Array<keyof typeof ROLE_PERMISSIONS> = [
       'super_admin',
       'dispatch',
       'leader',
-      'installer',
-      'management_data',
-      'it_support'
+      'installer'
     ];
     let allRolesRetained = true;
     for (const r of roles) {
@@ -793,14 +791,14 @@ async function runPhase15a1TestSuite() {
         allRolesRetained = false;
       }
     }
-    const superAdminCannotDeleteWo = !hasPermission('super_admin', 'delete_wo_data');
-    const managementDataCanDeleteWo = hasPermission('management_data', 'delete_wo_data');
-    const pass17 = allRolesRetained && superAdminCannotDeleteWo && managementDataCanDeleteWo;
+    const superAdminCanDeleteWo = hasPermission('super_admin', 'delete_wo_data');
+    const dispatchCannotDeleteWo = !hasPermission('dispatch', 'delete_wo_data');
+    const pass17 = allRolesRetained && superAdminCanDeleteWo && dispatchCannotDeleteWo;
     recordTest(17, 'Seluruh role tetap mempertahankan permission', 'RBAC Matrix Integrity', pass17,
-      `Seluruh 6 role mempertahankan matriks hak akses resmi. Audit logs, WhatsApp templates, dan WO delete tetap terisolasi presisi.`,
+      `Seluruh 4 role resmi mempertahankan matriks hak akses. Audit logs, WhatsApp templates, dan WO delete tetap terisolasi presisi.`,
       [
         { name: 'All Roles Configured', passed: allRolesRetained, evidence: `Roles Count=${roles.length}` },
-        { name: 'Phase 9O WO Delete Matrix Preserved', passed: superAdminCannotDeleteWo && managementDataCanDeleteWo, evidence: 'management_data only' }
+        { name: 'Consolidated Superadmin WO Delete Preserved', passed: superAdminCanDeleteWo && dispatchCannotDeleteWo, evidence: 'super_admin only' }
       ]
     );
 

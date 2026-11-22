@@ -51,15 +51,15 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
 
   if (!isOpen) return null;
 
-  const isManagementData = currentUser.role === 'management_data';
+  const canDeleteWo = currentUser.role === 'super_admin';
   const isBulk = selectedTickets.length > 0 && !ticket;
   const targetCount = isBulk ? selectedTickets.length : 1;
 
   const handleExecuteDelete = async () => {
     setError(null);
 
-    if (!isManagementData) {
-      setError('Akses ditolak: Wewenang Hapus WO dibatasi secara KHUSUS hanya untuk role Management Data.');
+    if (!canDeleteWo) {
+      setError('Akses ditolak: Wewenang Hapus WO dibatasi secara KHUSUS hanya untuk role Superadmin.');
       return;
     }
 
@@ -115,7 +115,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200">
-                  Otoritas Khusus Management Data
+                  Otoritas Khusus Superadmin
                 </span>
                 <span className="text-xs text-rose-700 dark:text-rose-400 font-medium">
                   Konfirmasi Penghapusan
@@ -139,14 +139,14 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
 
         {/* Body Content */}
         <div className="p-5 space-y-4 text-xs">
-          {!isManagementData ? (
+          {!canDeleteWo ? (
             <div className="p-4 rounded-xl bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 space-y-2">
               <div className="font-bold flex items-center gap-1.5">
                 <Lock className="w-4 h-4" />
                 <span>Akses Penghapusan Ditolak</span>
               </div>
               <p className="text-[11.5px] leading-relaxed">
-                Akun Anda ({currentUser.name} — role <span className="capitalize font-semibold">{currentUser.role}</span>) tidak memiliki wewenang untuk menghapus WO. Berdasarkan Konstitusi Keamanan MoraJaws, hak hapus WO dibatasi secara KHUSUS hanya untuk role <strong>Management Data</strong>.
+                Akun Anda ({currentUser.name} — role <span className="capitalize font-semibold">{currentUser.role}</span>) tidak memiliki wewenang untuk menghapus WO. Berdasarkan Konstitusi Keamanan MoraJaws, hak hapus WO dibatasi secara KHUSUS hanya untuk role <strong>Superadmin</strong>.
               </p>
             </div>
           ) : (
@@ -266,7 +266,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
           >
             Batal
           </button>
-          {isManagementData && (
+          {canDeleteWo && (
             <button
               type="button"
               onClick={handleExecuteDelete}

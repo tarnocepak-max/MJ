@@ -113,14 +113,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   // Top Tab Switcher: Import vs Export vs Riwayat & Hapus
   const [mainTab, setMainTab] = useState<'import' | 'export' | 'history_delete'>('import');
 
-  // Role visibility check: Deleting imported data is strictly restricted to Management Data
-  const isManagementData = currentUser.role === 'management_data';
+  // Role visibility check: Deleting imported data is strictly restricted to Superadmin
+  const canDeleteImportedData = currentUser.role === 'super_admin';
 
   useEffect(() => {
-    if (!isManagementData && mainTab === 'history_delete') {
+    if (!canDeleteImportedData && mainTab === 'history_delete') {
       setMainTab('import');
     }
-  }, [isManagementData, mainTab]);
+  }, [canDeleteImportedData, mainTab]);
 
   // Export State & Filters
   const [exportFormat, setExportFormat] = useState<'full_46' | 'korlap_template' | 'teknisi_template'>('full_46');
@@ -521,7 +521,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     showToast(`Laporan ${rows.length} baris bermasalah diunduh ke ${fileName}.`, 'success', 'Laporan Error Diunduh');
   };
 
-  const canImport = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
+  const canImport = currentUser.role === 'super_admin';
 
   if (!canImport) {
     return (
@@ -534,7 +534,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         </h3>
         <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
           Berdasarkan App Flow MoraJaws, proses import Work Order (Text-to-Table, XLSX, CSV)
-          hanya dapat dilakukan oleh peran <strong>Super Admin</strong> dan <strong>Management Data</strong>.
+          hanya dapat dilakukan oleh peran <strong>Superadmin</strong>.
         </p>
         <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl text-xs text-[#4B4452] dark:text-[#CABDE8] font-medium">
           Akun Anda: <span className="font-bold capitalize text-[#1F1638] dark:text-white">{currentUser.name} ({currentUser.role})</span>. Akses import ditolak pada level UI dan Backend Server.
@@ -895,7 +895,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           <span>Export Work Order &amp; Template</span>
         </button>
 
-        {isManagementData && (
+        {canDeleteImportedData && (
           <button
             type="button"
             onClick={() => setMainTab('history_delete')}
@@ -932,7 +932,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               <div className="space-y-2 min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_2px_0_#260112] whitespace-nowrap">
-                    {currentUser.role === 'super_admin' ? 'SUPERADMIN ONLY' : 'MANAGEMENT DATA'}
+                    SUPERADMIN ONLY
                   </span>
                   <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-[#4B4452] dark:text-[#CABDE8] truncate">
                     {sourceFileName !== 'Belum ada berkas' ? `${sourceFileName} • ` : ''}
@@ -2300,9 +2300,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       )}
 
       {/* ============================================================ */}
-      {/* TAB 3: HISTORY & DELETE IMPORT (7-DAY RETENTION - MGMT DATA) */}
+      {/* TAB 3: HISTORY & DELETE IMPORT (7-DAY RETENTION - SUPERADMIN) */}
       {/* ============================================================ */}
-      {mainTab === 'history_delete' && isManagementData && (
+      {mainTab === 'history_delete' && canDeleteImportedData && (
         <div className="space-y-5">
           <div className="card-3d-lavender rounded-2xl p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e8ddff] dark:border-[#3b1d78] pb-4">
@@ -2486,8 +2486,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         </div>
       )}
 
-      {/* Confirmation Modal for Deleting Imported Data by Date - Strictly Management Data */}
-      {dateToPurge && isManagementData && (
+      {/* Confirmation Modal for Deleting Imported Data by Date - Strictly Superadmin */}
+      {dateToPurge && canDeleteImportedData && (
         <ResponsiveModal
           isOpen={showPurgeModal}
           onClose={() => {

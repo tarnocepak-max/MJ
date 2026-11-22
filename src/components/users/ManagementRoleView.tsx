@@ -40,7 +40,7 @@ const CORE_SUPER_ADMIN_PERMISSIONS: Permission[] = [
   'system_health'
 ];
 
-type PersonaPreviewRole = 'super_admin' | 'management_data' | 'dispatch' | 'leader' | 'installer' | 'it_support';
+type PersonaPreviewRole = UserRole;
 
 interface SetupTabRBACDef {
   id: string;
@@ -49,7 +49,6 @@ interface SetupTabRBACDef {
   category: string;
   icon: React.ElementType;
   superadminScope: { text: string; tone: 'full' | 'lock' };
-  managementScope: { text: string; tone: 'write' | 'sync' | 'denied' };
   dispatchScope: { text: string; tone: 'write' | 'denied' | 'audio' };
   allowedRoles: PersonaPreviewRole[];
 }
@@ -62,9 +61,8 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '01 · System Configuration',
     icon: Building2,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'WRITE', tone: 'write' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
-    allowedRoles: ['super_admin', 'management_data']
+    allowedRoles: ['super_admin']
   },
   {
     id: 'nav_config',
@@ -73,9 +71,8 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '01 · System Configuration',
     icon: FolderTree,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'WRITE', tone: 'write' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
-    allowedRoles: ['super_admin', 'management_data']
+    allowedRoles: ['super_admin']
   },
   {
     id: 'ui_builder',
@@ -84,9 +81,8 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '01 · System Configuration',
     icon: LayoutTemplate,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'WRITE', tone: 'write' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
-    allowedRoles: ['super_admin', 'management_data']
+    allowedRoles: ['super_admin']
   },
   {
     id: 'database',
@@ -95,9 +91,8 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '02 · Data & Integration',
     icon: Database,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'SYNC-ONLY', tone: 'sync' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
-    allowedRoles: ['super_admin', 'management_data']
+    allowedRoles: ['super_admin']
   },
   {
     id: 'users',
@@ -106,7 +101,6 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '03 · Users & Access Control',
     icon: Users,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'LOCKED', tone: 'denied' },
     dispatchScope: { text: 'LOCKED', tone: 'denied' },
     allowedRoles: ['super_admin']
   },
@@ -117,7 +111,6 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '03 · Users & Access Control',
     icon: Shield,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'DENIED', tone: 'denied' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
     allowedRoles: ['super_admin']
   },
@@ -128,9 +121,8 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '04 · Operational Config',
     icon: List,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'WRITE', tone: 'write' },
     dispatchScope: { text: 'WRITE', tone: 'write' },
-    allowedRoles: ['super_admin', 'management_data', 'dispatch']
+    allowedRoles: ['super_admin', 'dispatch']
   },
   {
     id: 'whatsapp',
@@ -139,7 +131,6 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '04 · Operational Config',
     icon: MessageSquare,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'DENIED', tone: 'denied' },
     dispatchScope: { text: 'WRITE', tone: 'write' },
     allowedRoles: ['super_admin', 'dispatch']
   },
@@ -150,7 +141,6 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '04 · Operational Config',
     icon: GitBranch,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'DENIED', tone: 'denied' },
     dispatchScope: { text: 'WRITE', tone: 'write' },
     allowedRoles: ['super_admin', 'dispatch']
   },
@@ -161,9 +151,8 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     category: '05 · Preferences & Monitoring',
     icon: Volume2,
     superadminScope: { text: 'FULL', tone: 'full' },
-    managementScope: { text: 'WRITE', tone: 'write' },
     dispatchScope: { text: 'AUDIO WRITE', tone: 'audio' },
-    allowedRoles: ['super_admin', 'management_data', 'dispatch']
+    allowedRoles: ['super_admin', 'dispatch']
   },
   {
     id: 'health_logs',
@@ -171,8 +160,7 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     label: 'Kesehatan & Log',
     category: '05 · Preferences & Monitoring',
     icon: Activity,
-    superadminScope: { text: 'AUDIT LOCK', tone: 'lock' },
-    managementScope: { text: 'DENIED', tone: 'denied' },
+    superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
     allowedRoles: ['super_admin']
   }
@@ -210,7 +198,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       role: 'super_admin',
       label: 'Super Admin (Super Agent)',
       shortLabel: 'Super Admin',
-      desc: 'Pemegang kendali konfigurasi global aplikasi, manajemen RBAC, manajemen akun, Google Sheets, dan supervisi operasional.',
+      desc: 'Otoritas tunggal pengelolaan sistem: manajemen user & RBAC, database, sinkronisasi, import/backup/hapus WO, konfigurasi UI & navigasi, Audit Log, serta System Health.',
       icon: ShieldCheck,
       color: 'text-purple-700 bg-purple-100 dark:text-purple-200 dark:bg-purple-950/60'
     },
@@ -218,7 +206,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       role: 'dispatch',
       label: 'Dispatch Management',
       shortLabel: 'Dispatch',
-      desc: 'Monitoring sentral seluruh WO, import data, penutupan (close) tiket, live chat, Template WA, Workflows, dan Kategori Report.',
+      desc: 'Monitoring sentral seluruh WO, verifikasi laporan teknis & penutupan tiket, live chat, Form Sameday, Template WA, Workflows, dan Kategori Report.',
       icon: Shield,
       color: 'text-indigo-700 bg-indigo-100 dark:text-indigo-200 dark:bg-indigo-950/60'
     },
@@ -226,7 +214,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       role: 'leader',
       label: 'Leader / Korlap Lapangan',
       shortLabel: 'Leader',
-      desc: 'Pengawasan wilayah & kontraktor terikat, assign WO ke teknisi, reassign WO, dan pendaftaran akun teknisi tim.',
+      desc: 'Pengawasan wilayah & kontraktor terikat, assign WO ke teknisi, reassign WO, kuota harian, dan pendaftaran akun teknisi tim.',
       icon: Building2,
       color: 'text-amber-700 bg-amber-100 dark:text-amber-200 dark:bg-amber-950/60'
     },
@@ -234,25 +222,9 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       role: 'installer',
       label: 'Installer / Teknisi Lapangan',
       shortLabel: 'Installer',
-      desc: 'Hanya melihat WO yang ditugaskan ke akunnya, formulir laporan teknis OPM, upload foto, dan chat.',
+      desc: 'Hanya melihat WO yang ditugaskan ke akunnya, check-in GPS, formulir laporan teknis OPM, upload foto, dan chat.',
       icon: Wrench,
       color: 'text-emerald-700 bg-emerald-100 dark:text-emerald-200 dark:bg-emerald-950/60'
-    },
-    {
-      role: 'management_data',
-      label: 'Monitoring Data (Management Data)',
-      shortLabel: 'Management Data',
-      desc: 'Validasi integritas data WO, konfigurasi UI & Navigasi, sinkronisasi DB/Sheets, serta pemantauan kualitas data.',
-      icon: Database,
-      color: 'text-blue-700 bg-blue-100 dark:text-blue-200 dark:bg-blue-950/60'
-    },
-    {
-      role: 'it_support',
-      label: 'IT Support Application',
-      shortLabel: 'IT Support',
-      desc: 'Pemantauan System Health & Audit Log (Read-Only). Pengubahan konfigurasi global aplikasi dikunci eksklusif untuk Super Admin.',
-      icon: Sliders,
-      color: 'text-teal-700 bg-teal-100 dark:text-teal-200 dark:bg-teal-950/60'
     }
   ];
 
@@ -271,8 +243,8 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
     { key: 'manage_users', label: 'Kelola Pengguna Umum & Staff', category: 'Administrasi Akun' },
     { key: 'create_installer', label: 'Mendaftarkan Akun Teknisi (Installer)', category: 'Administrasi Akun' },
     { key: 'delete_user', label: 'Menghapus Akun Pengguna', category: 'Administrasi Akun' },
-    { key: 'view_audit_logs', label: 'Melihat Audit Log & History (Read-Only IT Support)', category: 'Keamanan' },
-    { key: 'delete_wo_data', label: 'Menghapus Data Work Order (Eksklusif Management Data)', category: 'Keamanan' },
+    { key: 'view_audit_logs', label: 'Melihat Audit Log & History (Superadmin)', category: 'Keamanan' },
+    { key: 'delete_wo_data', label: 'Menghapus Data Work Order (Superadmin)', category: 'Keamanan' },
     { key: 'manage_whatsapp_templates', label: 'Kelola Template WhatsApp (Super Admin & Dispatch)', category: 'Komunikasi' },
     { key: 'ui_configuration', label: 'Konfigurasi Layout & UI Builder', category: 'Teknis & Sistem' },
     { key: 'application_configuration', label: 'Konfigurasi Global Aplikasi & Menu', category: 'Teknis & Sistem' },
@@ -355,9 +327,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       'Super Admin',
       'Dispatch',
       'Leader',
-      'Installer',
-      'Management Data',
-      'IT Support'
+      'Installer'
     ];
     const rows = permissionsList.map(p => [
       p.key,
@@ -366,19 +336,16 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       (rolePermissions.super_admin || []).includes(p.key) ? 'ALLOW' : 'DENY',
       (rolePermissions.dispatch || []).includes(p.key) ? 'ALLOW' : 'DENY',
       (rolePermissions.leader || []).includes(p.key) ? 'ALLOW' : 'DENY',
-      (rolePermissions.installer || []).includes(p.key) ? 'ALLOW' : 'DENY',
-      (rolePermissions.management_data || []).includes(p.key) ? 'ALLOW' : 'DENY',
-      (rolePermissions.it_support || []).includes(p.key) ? 'ALLOW' : 'DENY'
+      (rolePermissions.installer || []).includes(p.key) ? 'ALLOW' : 'DENY'
     ]);
 
     const setupHeader = ['', '--- PEMETAAN 11 TAB SETUP TERPUSAT ---'];
-    const setupCols = ['No', 'Tab Setup', 'Kategori', 'Super Admin', 'Management Data', 'Dispatch'];
+    const setupCols = ['No', 'Tab Setup', 'Kategori', 'Super Admin', 'Dispatch'];
     const setupRows = SETUP_TAB_MATRIX.map(t => [
       t.num,
       t.label,
       t.category,
       t.superadminScope.text,
-      t.managementScope.text,
       t.dispatchScope.text
     ]);
 
@@ -485,7 +452,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 RBAC ENFORCEMENT ENGINE
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
-                6 Peran Resmi · 11 Tab Setup
+                4 Peran Resmi · 11 Tab Setup
               </span>
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
                 v{rolePermissionsVersion} · PostgreSQL DB-First
@@ -576,10 +543,8 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
           <div className="mj-tactile-tab-bar p-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {([
               { id: 'super_admin', label: 'SUPERADMIN', count: '11 Tab' },
-              { id: 'management_data', label: 'MANAGEMENT DATA', count: '6 Tab' },
               { id: 'dispatch', label: 'DISPATCH', count: '4 Tab' },
               { id: 'leader', label: 'LEADER', count: '0 Tab' },
-              { id: 'it_support', label: 'IT SUPPORT', count: '0 Tab' },
               { id: 'installer', label: 'INSTALLER', count: '0 Tab' }
             ] as { id: PersonaPreviewRole; label: string; count: string }[]).map(p => {
               const isActive = selectedPersona === p.id;
@@ -726,20 +691,20 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
 
             {/* Side-by-Side RBAC Guardrails Comparison Panel */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Management Data Guardrail Card */}
+              {/* Superadmin System & Data Governance Card */}
               <div className="rounded-2xl bg-[#F8F1FF] dark:bg-[#1A1032] border border-[#D8CCF3] dark:border-[#3B1D78] p-4 space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-                      MANAGEMENT DATA · 6 TAB
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-200">
+                      SUPERADMIN · 11 TAB FULL
                     </span>
                     <Database className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
                   </div>
                   <h5 className="font-display font-bold text-xs text-[#1F1638] dark:text-white">
-                    Isolasi Konfigurasi Data &amp; Skema UI
+                    Kendali Penuh Data, Sistem &amp; Keamanan
                   </h5>
                   <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
-                    Dibatasi khusus untuk <strong>Konfigurasi Sistem</strong>, <strong>Menu Navigasi ({(standaloneMenus?.length || 0) + (submenuItems?.length || 0)})</strong>, <strong>Kolom UI ({config.ticketsTable.columns.length})</strong>, <strong>Database &amp; Sync</strong>, <strong>Kategori Report</strong>, dan <strong>Notifikasi</strong>. Diblokir dari manajemen akun &amp; audit log.
+                    Pemegang otoritas penuh untuk <strong>Konfigurasi Sistem</strong>, <strong>Menu Navigasi ({(standaloneMenus?.length || 0) + (submenuItems?.length || 0)})</strong>, <strong>Kolom UI ({config.ticketsTable.columns.length})</strong>, <strong>Database &amp; Sync</strong>, <strong>Import/Hapus WO</strong>, <strong>Manajemen User &amp; RBAC</strong>, serta <strong>Audit Log &amp; System Health</strong>.
                   </p>
                 </div>
                 {onJumpSetupTab && (
@@ -796,7 +761,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
               Matriks Pemetaan 11 Tab Setup Terpusat MoraJaws
             </h3>
             <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
-              Perbandingan otoritas modul Setup Hub antara Superadmin (11), Management Data (6), Dispatch (4), dan Role Lapangan/Read-Only (0).
+              Perbandingan otoritas modul Setup Hub antara Superadmin (11), Dispatch (4), serta Role Lapangan Leader &amp; Installer (0).
             </p>
           </div>
           <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1]">
@@ -827,14 +792,10 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                       {row.category.split('·')[0]}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-[#F3EAFF] dark:border-[#35105E]/70 text-[10px]">
+                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-[#F3EAFF] dark:border-[#35105E]/70 text-[10px]">
                     <div className="space-y-1">
                       <div className="text-[#7D7484] dark:text-[#A79BC0] font-semibold">Superadmin</div>
                       {renderScopePill(row.superadminScope.text, row.superadminScope.tone)}
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-[#7D7484] dark:text-[#A79BC0] font-semibold">Mgmt Data</div>
-                      {renderScopePill(row.managementScope.text, row.managementScope.tone)}
                     </div>
                     <div className="space-y-1">
                       <div className="text-[#7D7484] dark:text-[#A79BC0] font-semibold">Dispatch</div>
@@ -853,9 +814,8 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                   <th className="py-2.5 px-4">No &amp; Modul Setup</th>
                   <th className="py-2.5 px-3">Kategori</th>
                   <th className="py-2.5 px-3 text-center">Superadmin (11)</th>
-                  <th className="py-2.5 px-3 text-center">Management Data (6)</th>
                   <th className="py-2.5 px-3 text-center">Dispatch (4)</th>
-                  <th className="py-2.5 px-3 text-center">Leader / Installer / IT</th>
+                  <th className="py-2.5 px-3 text-center">Leader / Installer</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFE7FC] dark:divide-[#35105E]">
@@ -881,9 +841,6 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                         {renderScopePill(row.superadminScope.text, row.superadminScope.tone)}
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        {renderScopePill(row.managementScope.text, row.managementScope.tone)}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
                         {renderScopePill(row.dispatchScope.text, row.dispatchScope.tone)}
                       </td>
                       <td className="py-2.5 px-3 text-center">
@@ -899,9 +856,9 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       </div>
 
       {/* ================================================================ */}
-      {/* 4. ROLE SUMMARY CARDS (6 PERAN RESMI)                            */}
+      {/* 4. ROLE SUMMARY CARDS (4 PERAN RESMI)                            */}
       {/* ================================================================ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {roles.map(r => {
           const Icon = r.icon;
           const permsCount = Array.isArray(rolePermissions[r.role]) ? rolePermissions[r.role].length : 0;
@@ -950,12 +907,12 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       </div>
 
       {/* ================================================================ */}
-      {/* 5. FULL INTERACTIVE 6-ROLE x 21-PERMISSION POSTGRESQL MATRIX     */}
+      {/* 5. FULL INTERACTIVE 4-ROLE x 21-PERMISSION POSTGRESQL MATRIX     */}
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl overflow-hidden">
         <div className="px-4 sm:px-5 py-3.5 border-b border-[#e8ddff] dark:border-[#3b1d78] text-xs flex flex-wrap items-center justify-between gap-2">
           <span className="font-display font-bold text-[#1F1638] dark:text-white">
-            Matriks Hak Akses &amp; Permission Granular (21 Kemampuan × 6 Role)
+            Matriks Hak Akses &amp; Permission Granular (21 Kemampuan × 4 Role)
           </span>
           <span className="text-[#58149C] dark:text-[#DAB9FF] font-mono text-[11px] font-semibold">
             {isSuperAdmin ? 'Ketuk tombol 3D untuk menyimpan langsung ke Database' : 'Read-Only Backend Enforced'}
@@ -1069,8 +1026,6 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                   <th className="py-2.5 px-3 text-center">Dispatch</th>
                   <th className="py-2.5 px-3 text-center">Leader</th>
                   <th className="py-2.5 px-3 text-center">Installer</th>
-                  <th className="py-2.5 px-3 text-center">Management Data</th>
-                  <th className="py-2.5 px-3 text-center">IT Support</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFE7FC] dark:divide-[#35105E]">

@@ -214,7 +214,7 @@ async function runTestSuite() {
     name: 'Test Management Data',
     username: mgmtUsername,
     email: mgmtEmail,
-    role: 'management_data',
+    role: 'super_admin',
     active: true,
     passwordHash: managementDataPasswordHash,
     sessionVersion: 1,
@@ -227,7 +227,7 @@ async function runTestSuite() {
     name: 'Test IT Support',
     username: supportUsername,
     email: supportEmail,
-    role: 'it_support',
+    role: 'super_admin',
     active: true,
     passwordHash: itSupportPasswordHash,
     sessionVersion: 1,
@@ -618,15 +618,13 @@ async function runTestSuite() {
     );
 
     // -------------------------------------------------------------
-    // TEST 15: Enam role memiliki permission sesuai matriks RBAC
+    // TEST 15: Empat role resmi memiliki permission sesuai matriks RBAC
     // -------------------------------------------------------------
     const rolesToTest: UserRole[] = [
       'super_admin',
       'dispatch',
       'leader',
-      'installer',
-      'management_data',
-      'it_support'
+      'installer'
     ];
 
     let rbacOk = true;
@@ -644,23 +642,21 @@ async function runTestSuite() {
     }
 
     // Check specific RBAC rules:
-    // - management_data has delete_wo_data
-    // - super_admin has manage_users
+    // - super_admin holds consolidated delete_wo_data, manage_users, and view_audit_logs
     // - dispatch has distribute_wo
     // - leader has assign_technician
     // - installer has edit_technical_report
-    // - it_support has view_audit_logs
     const specificRbacChecks =
-      hasPermission('management_data', 'delete_wo_data') &&
+      hasPermission('super_admin', 'delete_wo_data') &&
       hasPermission('super_admin', 'manage_users') &&
       hasPermission('dispatch', 'distribute_wo') &&
       hasPermission('leader', 'assign_technician') &&
       hasPermission('installer', 'edit_technical_report') &&
-      hasPermission('it_support', 'view_audit_logs');
+      hasPermission('super_admin', 'view_audit_logs');
 
     record(
       15,
-      'Enam role memiliki permission sesuai matriks RBAC',
+      'Empat role resmi memiliki permission sesuai matriks RBAC',
       'RBAC Matrix',
       rbacOk && specificRbacChecks,
       rbacDetails.join(', ')

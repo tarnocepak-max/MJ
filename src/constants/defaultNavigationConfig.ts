@@ -47,7 +47,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       icon: 'LayoutDashboard',
       order: 1,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+      roles: ['super_admin', 'dispatch', 'leader']
     },
     {
       id: 'tickets',
@@ -60,14 +60,12 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       badgeColor: 'purple'
     },
     {
-      id: 'overdue_wo',
-      name: 'OVERDUE WO',
-      icon: 'AlertTriangle',
+      id: 'contact_centre',
+      name: 'Contact Centre',
+      icon: 'MessageSquare',
       order: 3,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'leader', 'management_data'],
-      badgeKey: 'overdueTickets',
-      badgeColor: 'rose'
+      roles: ['super_admin', 'dispatch', 'leader', 'installer']
     },
     {
       id: 'report_data_wo',
@@ -83,15 +81,17 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       icon: 'FileSpreadsheet',
       order: 5,
       visible: true,
-      roles: ['super_admin', 'management_data']
+      roles: ['super_admin']
     },
     {
-      id: 'contact_centre',
-      name: 'Contact Centre',
-      icon: 'MessageSquare',
+      id: 'overdue_wo',
+      name: 'Overdue WO',
+      icon: 'AlertTriangle',
       order: 6,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'leader', 'installer']
+      roles: ['super_admin', 'dispatch', 'leader'],
+      badgeKey: 'overdueTickets',
+      badgeColor: 'rose'
     },
     {
       id: 'schedule',
@@ -140,7 +140,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       categoryId: 'cat_contractor_area',
       order: 3,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+      roles: ['super_admin', 'dispatch', 'leader']
     },
 
     // 2. Installer submenus
@@ -173,7 +173,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       categoryId: 'cat_tambahan',
       order: 2,
       visible: true,
-      roles: ['super_admin', 'it_support']
+      roles: ['super_admin']
     },
     {
       id: 'setting_droplist',
@@ -182,26 +182,16 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       categoryId: 'cat_tambahan',
       order: 3,
       visible: true,
-      roles: ['super_admin', 'dispatch', 'it_support']
-    },
-    {
-      id: 'management_data_portal',
-      name: 'Management Data Portal',
-      icon: 'Database',
-      categoryId: 'cat_tambahan',
-      order: 4,
-      visible: true,
-      roles: ['super_admin', 'management_data'],
-      highlight: true
+      roles: ['super_admin', 'dispatch']
     },
     {
       id: 'database_sync',
       name: 'Monitoring Sinkronisasi',
       icon: 'RefreshCw',
       categoryId: 'cat_tambahan',
-      order: 5,
+      order: 4,
       visible: true,
-      roles: ['super_admin', 'management_data'],
+      roles: ['super_admin'],
       badgeKey: 'live',
       badgeColor: 'emerald'
     },
@@ -210,16 +200,16 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       name: 'Database Application',
       icon: 'Server',
       categoryId: 'cat_tambahan',
-      order: 6,
+      order: 5,
       visible: true,
-      roles: ['super_admin', 'management_data']
+      roles: ['super_admin']
     },
     {
       id: 'sheets_sync',
       name: 'Google Sheets Sync',
       icon: 'RefreshCw',
       categoryId: 'cat_tambahan',
-      order: 7,
+      order: 6,
       visible: true,
       roles: ['super_admin'],
       badgeKey: 'auto',
@@ -230,7 +220,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       name: 'Management Role',
       icon: 'ShieldCheck',
       categoryId: 'cat_tambahan',
-      order: 8,
+      order: 7,
       visible: true,
       roles: ['super_admin']
     },
@@ -239,18 +229,18 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       name: 'Field Mapping',
       icon: 'FileSpreadsheet',
       categoryId: 'cat_tambahan',
-      order: 9,
+      order: 8,
       visible: true,
-      roles: ['super_admin', 'it_support']
+      roles: ['super_admin']
     },
     {
       id: 'ui_builder',
       name: 'UI Configuration Builder',
       icon: 'Sliders',
       categoryId: 'cat_tambahan',
-      order: 10,
+      order: 9,
       visible: true,
-      roles: ['super_admin', 'it_support'],
+      roles: ['super_admin'],
       highlight: true
     },
     {
@@ -258,18 +248,18 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       name: 'Audit Log & History',
       icon: 'History',
       categoryId: 'cat_tambahan',
-      order: 11,
+      order: 10,
       visible: true,
-      roles: ['super_admin', 'it_support']
+      roles: ['super_admin']
     },
     {
       id: 'system_health',
       name: 'System Health',
       icon: 'Activity',
       categoryId: 'cat_tambahan',
-      order: 12,
+      order: 11,
       visible: true,
-      roles: ['super_admin', 'it_support'],
+      roles: ['super_admin'],
       badgeKey: 'live',
       badgeColor: 'emerald'
     },

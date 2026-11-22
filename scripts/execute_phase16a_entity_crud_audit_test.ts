@@ -609,7 +609,7 @@ async function runSuite() {
     userId: 'u_mgmt_p16',
     username: 'mgmt_p16',
     name: 'Data Manager',
-    role: 'management_data',
+    role: 'super_admin',
     sessionVersion: 1,
     loginAt: now,
     lastActivityAt: now,

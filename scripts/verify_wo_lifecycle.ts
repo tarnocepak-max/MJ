@@ -374,12 +374,10 @@ const filteredMitraB = computeClientKpiSummary(sampleTickets, superAdminUser, {
 });
 assert.equal(filteredMitraB.counts.totalToday, 2);
 
-// 5. All 6 Role RBAC Scoping checks
+// 5. 4-Role RBAC Scoping checks (global roles: super_admin & dispatch)
 const roleGlobalUsers: User[] = [
   superAdminUser,
-  { id: 'disp-1', username: 'dispatch1', name: 'Dispatch Dani', role: 'dispatch', active: true },
-  { id: 'md-1', username: 'mdata', name: 'Data Analyst', role: 'management_data', active: true },
-  { id: 'it-1', username: 'itsup', name: 'IT Support', role: 'it_support', active: true }
+  { id: 'disp-1', username: 'dispatch1', name: 'Dispatch Dani', role: 'dispatch', active: true }
 ];
 for (const u of roleGlobalUsers) {
   const scoped = scopeTicketsForRoleClient(sampleTickets, u);

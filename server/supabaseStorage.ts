@@ -636,8 +636,8 @@ export function evaluateFileAccessPermission(
 ): AccessEvaluationResult {
   const role = user.role;
 
-  // 1. Super Admin & IT Support have full system inspection access
-  if (role === 'super_admin' || role === 'it_support') {
+  // 1. Super Admin has full system inspection access
+  if (role === 'super_admin') {
     return {
       allowed: true,
       statusCode: 200,
@@ -646,13 +646,13 @@ export function evaluateFileAccessPermission(
     };
   }
 
-  // 2. Dispatch and Management Data have operational backend access to all tickets/files
-  if (role === 'dispatch' || role === 'management_data') {
+  // 2. Dispatch has operational backend access to all tickets/files
+  if (role === 'dispatch') {
     return {
       allowed: true,
       statusCode: 200,
       role,
-      reason: `Diizinkan: Role ${role} memiliki wewenang operasional manajemen data dan dispatch.`
+      reason: `Diizinkan: Role ${role} memiliki wewenang operasional dispatch.`
     };
   }
 

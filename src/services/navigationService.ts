@@ -40,14 +40,31 @@ export function normalizeNavigationConfig(raw: any): NavigationConfig {
     badgeColor: m.badgeColor
   }));
 
-  if (!standaloneMenus.some(m => m.id === 'overdue_wo')) {
+  const liveChatMenu = standaloneMenus.find(
+    m => m.id === 'contact_centre' || String(m.name || '').trim().toLowerCase() === 'livechat'
+  );
+  const existingOverdueMenu = standaloneMenus.find(m => m.id === 'overdue_wo');
+  if (!existingOverdueMenu) {
     const ticketsMenu = standaloneMenus.find(m => m.id === 'tickets');
     const overdueDefault = DEFAULT_NAVIGATION_CONFIG.standaloneMenus.find(m => m.id === 'overdue_wo');
     if (overdueDefault) {
+      const targetLiveChatOrder = ticketsMenu ? Number(ticketsMenu.order || 2) + 0.5 : 2.5;
+      const overdueOrder = liveChatMenu ? Number(liveChatMenu.order || 6) : 6;
+      if (liveChatMenu && Number(liveChatMenu.order || 0) > targetLiveChatOrder) {
+        liveChatMenu.order = targetLiveChatOrder;
+      }
       standaloneMenus.push({
         ...overdueDefault,
-        order: ticketsMenu ? Number(ticketsMenu.order || 2) + 0.5 : 2.5
+        name: 'Overdue WO',
+        order: overdueOrder
       });
+    }
+  } else if (String(existingOverdueMenu.name || '').trim() === 'OVERDUE WO') {
+    existingOverdueMenu.name = 'Overdue WO';
+    if (liveChatMenu && Number(existingOverdueMenu.order || 0) < Number(liveChatMenu.order || 0)) {
+      const prevOverdueOrder = existingOverdueMenu.order;
+      existingOverdueMenu.order = liveChatMenu.order;
+      liveChatMenu.order = prevOverdueOrder;
     }
   }
 

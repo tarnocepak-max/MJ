@@ -478,9 +478,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       super_admin: 0,
       dispatch: 0,
       leader: 0,
-      installer: 0,
-      management_data: 0,
-      it_support: 0
+      installer: 0
     };
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     let recentNewCount = 0;
@@ -510,8 +508,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       byRole.super_admin,
       byRole.dispatch,
       byRole.leader,
-      byRole.management_data,
-      byRole.it_support,
       byRole.installer,
       activeCount
     ];
@@ -860,11 +856,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
         ? 'dp'
         : createRole === 'leader'
         ? 'ld'
-        : createRole === 'installer'
-        ? 'tk'
-        : createRole === 'management_data'
-        ? 'md'
-        : 'it';
+        : 'tk';
     let candidate = base || `mj_${rolePrefix}_${Math.floor(100 + Math.random() * 900)}`;
     if (users.some(u => u.username.toLowerCase() === candidate)) {
       candidate = `${candidate}_${Math.floor(10 + Math.random() * 90)}`;
@@ -1115,20 +1107,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             Installer
           </span>
         );
-      case 'management_data':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[10.5px] bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_1.5px_0_#260112] whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-200" />
-            Management Data
-          </span>
-        );
-      case 'it_support':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[10.5px] bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            IT Support App
-          </span>
-        );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-[10.5px] bg-[#F3EAFF] text-[#4B4452] dark:bg-[#261942] dark:text-[#CABDE8] whitespace-nowrap">
@@ -1177,7 +1155,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             </h2>
 
             <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] max-w-2xl leading-relaxed">
-              Kelola akun operator NOC, dispatcher, leader area, teknisi lapangan FTTH, management data, dan IT support beserta otorisasi akses sistem pada Supabase PostgreSQL.
+              Kelola akun superadmin, dispatcher, leader area, dan teknisi lapangan FTTH beserta otorisasi akses sistem pada Supabase PostgreSQL.
             </p>
           </div>
 
@@ -1431,7 +1409,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
         </button>
       </div>
 
-      {/* Role & Tab Navigation Strip (includes Management Data & IT Support App + Modal Trigger) */}
+      {/* Role & Tab Navigation Strip + Lock Filter Chip */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="mj-tactile-tab-bar p-1.5 inline-flex items-center gap-1.5 self-start overflow-x-auto no-scrollbar max-w-full">
           <button
@@ -1449,39 +1427,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             className="text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/70 dark:hover:bg-[#261942] px-3.5 py-2 min-h-[38px] rounded-lg text-xs flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
           >
             <UserPlus className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
-            <span>Tambah User Baru (6 Role)</span>
+            <span>Tambah User Baru (4 Role)</span>
           </button>
         </div>
 
-        {/* Extra Official Role & Lock Quick Filter Chips */}
+        {/* Lock Quick Filter Chip */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setRoleFilter(roleFilter === 'management_data' ? 'ALL' : 'management_data');
-              setStatusFilter('ALL');
-            }}
-            className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer text-[11px] ${
-              roleFilter === 'management_data' ? 'tactile-chip-active' : 'tactile-chip text-[#4B4452] dark:text-[#E9D5FF]'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>Management Data ({userStats.byRole.management_data})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setRoleFilter(roleFilter === 'it_support' ? 'ALL' : 'it_support');
-              setStatusFilter('ALL');
-            }}
-            className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer text-[11px] ${
-              roleFilter === 'it_support' ? 'tactile-chip-active' : 'tactile-chip text-[#4B4452] dark:text-[#E9D5FF]'
-            }`}
-          >
-            <Cpu className="w-3.5 h-3.5" />
-            <span>IT Support App ({userStats.byRole.it_support})</span>
-          </button>
 
           <button
             type="button"
@@ -1556,8 +1507,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 <option value="dispatch">2. Dispatch ({userStats.byRole.dispatch})</option>
                 <option value="leader">3. Leader Area ({userStats.byRole.leader})</option>
                 <option value="installer">4. Installer / Teknisi ({userStats.byRole.installer})</option>
-                <option value="management_data">5. Management Data ({userStats.byRole.management_data})</option>
-                <option value="it_support">6. IT Support App ({userStats.byRole.it_support})</option>
               </select>
 
               {/* 3. Area / Vendor Select */}
@@ -2126,7 +2075,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   </span>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#CEC3D4] dark:bg-[#5B35B1]" />
                   <span className="font-mono text-[10.5px] font-bold text-[#7D7484] dark:text-[#C5B3DF]">
-                    RBAC 6-ROLE • SUPABASE AUTH
+                    RBAC 4-ROLE • SUPABASE AUTH
                   </span>
                 </div>
                 <h2
@@ -2136,7 +2085,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   Tambah Akun User Baru
                 </h2>
                 <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
-                  Daftarkan akun operator NOC, dispatcher, leader area, teknisi lapangan, management data, atau IT support ke Supabase PostgreSQL.
+                  Daftarkan akun superadmin, dispatcher, leader area, atau teknisi lapangan FTTH ke Supabase PostgreSQL.
                 </p>
               </div>
 
@@ -2374,7 +2323,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 })()}
               </div>
 
-              {/* SECTION B: Peran Otorisasi (RBAC Role - 6 Official MoraJaws Roles) */}
+              {/* SECTION B: Peran Otorisasi (RBAC Role - 4 Official MoraJaws Roles) */}
               <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10.5px] text-[#6A46C1] dark:text-[#DAB9FF] uppercase tracking-widest font-extrabold flex items-center gap-1.5">
@@ -2427,26 +2376,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                       summaryDesc: 'Hak akses khusus portal teknisi lapangan untuk menerima tugas WO terassign, update progress teknis, bukti foto OPM, dan LiveChat WO.',
                       icon: <Wrench className="w-4 h-4" />,
                       iconBg: 'bg-[#EEE4FF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF]'
-                    },
-                    {
-                      role: 'management_data' as UserRole,
-                      title: 'Management Data',
-                      tier: 'Tier 1 (Data Ops)',
-                      desc: 'Import Excel/CSV, pemetaan kolom master, distribusi & arsip data WO.',
-                      summaryTitle: 'MANAGEMENT DATA',
-                      summaryDesc: 'Hak akses mencakup portal import WO massal, pemetaan master data, database sync & management, serta otoritas penghapusan data WO.',
-                      icon: <Database className="w-4 h-4" />,
-                      iconBg: 'bg-[#480123] text-white'
-                    },
-                    {
-                      role: 'it_support' as UserRole,
-                      title: 'IT Support App',
-                      tier: 'Tier 2 (SysAdmin)',
-                      desc: 'Audit log (Read-Only), kesehatan sistem, login logs & konfigurasi UI.',
-                      summaryTitle: 'IT SUPPORT APP',
-                      summaryDesc: 'Hak akses mencakup pemantauan System Health, Login Log, Audit Log (Read-Only), serta pengaturan tampilan & konfigurasi aplikasi.',
-                      icon: <Cpu className="w-4 h-4" />,
-                      iconBg: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                     }
                   ].map(item => {
                     const isSelected = createRole === item.role;
@@ -2526,14 +2455,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                     installer: {
                       title: 'TEKNISI / INSTALLER',
                       summary: 'Hak akses portal lapangan mencakup penerimaan tugas WO terassign, check-in GPS, unggah foto eviden & redaman OPM, serta komunikasi LiveChat WO.'
-                    },
-                    management_data: {
-                      title: 'MANAGEMENT DATA',
-                      summary: 'Hak akses mencakup portal import Excel/CSV massal, pemetaan master kolom, database sync & management, serta otoritas arsip/penghapusan WO.'
-                    },
-                    it_support: {
-                      title: 'IT SUPPORT APP',
-                      summary: 'Hak akses mencakup pemantauan System Health, Login Log, Audit Log (Read-Only), serta konfigurasi tampilan aplikasi.'
                     }
                   };
                   const activeMeta = roleMeta[createRole];
@@ -2975,8 +2896,6 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   <option value="dispatch">2. Dispatch</option>
                   <option value="leader">3. Leader Area</option>
                   <option value="installer">4. Installer</option>
-                  <option value="management_data">5. Management Data</option>
-                  <option value="it_support">6. IT Support Application</option>
                 </select>
               </div>
 

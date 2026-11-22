@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, CheckCheck, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { Bell, CheckCheck, MessageSquare, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import {
   NotificationCategory,
   NotificationFilterState,
@@ -16,7 +16,13 @@ interface NotificationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   items: NotificationItem[];
-  counts: { all: number; unread: number; read: number };
+  counts: {
+    all: number;
+    unread: number;
+    read: number;
+    liveChatUnread?: number;
+    liveChatTotal?: number;
+  };
   filters: NotificationFilterState;
   availableCategories: NotificationCategory[];
   isLoading: boolean;
@@ -64,6 +70,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
 
   if (!isOpen || typeof document === 'undefined') return null;
 
+  const liveChatUnreadCount = counts.liveChatUnread ?? 0;
+  const isLiveChatFilterActive = filters.category === 'live_chat';
+  const showGroupedSections = filters.category === 'all';
+  const liveChatItems = showGroupedSections
+    ? items.filter(item => item.category === 'live_chat')
+    : [];
+  const otherItems = showGroupedSections
+    ? items.filter(item => item.category !== 'live_chat')
+    : items;
+
   const hasFilterActive =
     filters.category !== 'all' ||
     filters.priority !== 'all' ||
@@ -102,7 +118,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-[#EEE5FF]/85 mt-1 truncate">
-                Riwayat &amp; antrean notifikasi operasional MoraJaws
+                Prioritas Live Chat &amp; antrean notifikasi operasional MoraJaws
               </p>
             </div>
           </div>
@@ -153,6 +169,39 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             counts={counts}
           />
 
+          {(liveChatUnreadCount > 0 || isLiveChatFilterActive) && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[13px] bg-blue-50/90 dark:bg-blue-950/45 border border-blue-200/80 dark:border-blue-700/50">
+              <div className="flex items-center gap-2 min-w-0">
+                <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-300 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11.5px] font-extrabold text-blue-900 dark:text-blue-100 truncate">
+                    {liveChatUnreadCount > 0
+                      ? `Prioritas Live Chat · ${liveChatUnreadCount} WO belum dibaca`
+                      : 'Filter Aktif: Live Chat'}
+                  </p>
+                  <p className="text-[10px] text-blue-700/85 dark:text-blue-300/85 truncate">
+                    Pesan Live Chat selalu ditampilkan di urutan paling atas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeFilter({
+                    category: isLiveChatFilterActive ? 'all' : 'live_chat'
+                  })
+                }
+                className={`px-2.5 py-1.5 rounded-[10px] text-[10.5px] font-extrabold cursor-pointer transition-colors shrink-0 ${
+                  isLiveChatFilterActive
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white dark:bg-[#231245] text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-700/70 hover:bg-blue-100/70'
+                }`}
+              >
+                {isLiveChatFilterActive ? 'Semua Kategori' : 'Hanya Live Chat'}
+              </button>
+            </div>
+          )}
+
           <NotificationFilter
             filters={filters}
             onChange={onChangeFilter}
@@ -201,6 +250,46 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
               hasActiveFilter={hasFilterActive}
               onResetFilters={onResetFilters}
             />
+          ) : showGroupedSections && liveChatItems.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between px-1 pt-0.5 pb-1">
+                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Prioritas Live Chat</span>
+                </span>
+                <span className="font-mono text-[10.5px] font-bold text-blue-700 dark:text-blue-300 tabular-nums">
+                  {liveChatItems.length}
+                </span>
+              </div>
+              {liveChatItems.map(item => (
+                <NotificationCard
+                  key={item.id}
+                  item={item}
+                  onSelect={selected => onSelectItem(selected)}
+                  onMarkRead={onMarkRead}
+                />
+              ))}
+              {otherItems.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between px-1 pt-2.5 pb-1">
+                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#756C86] dark:text-[#BFB2DC]">
+                      Notifikasi Operasional Lainnya
+                    </span>
+                    <span className="font-mono text-[10.5px] font-bold text-[#756C86] dark:text-[#BFB2DC] tabular-nums">
+                      {otherItems.length}
+                    </span>
+                  </div>
+                  {otherItems.map(item => (
+                    <NotificationCard
+                      key={item.id}
+                      item={item}
+                      onSelect={selected => onSelectItem(selected)}
+                      onMarkRead={onMarkRead}
+                    />
+                  ))}
+                </>
+              )}
+            </>
           ) : (
             items.map(item => (
               <NotificationCard

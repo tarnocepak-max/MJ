@@ -67,8 +67,6 @@ const ROLE_CENTER_TITLES: Record<string, string> = {
   super_admin: 'Superadmin KPI & Status Center',
   dispatch: 'Central Dispatch & Verification Center',
   leader: 'Leader Field Dispatch & Assignment Center',
-  management_data: 'Data Governance & Operations Center',
-  it_support: 'System & Audit Operations Center',
   installer: 'Technician Operations Center'
 };
 
@@ -188,9 +186,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
 
   const isGlobalRole =
     currentUser.role === 'super_admin' ||
-    currentUser.role === 'dispatch' ||
-    currentUser.role === 'management_data' ||
-    currentUser.role === 'it_support';
+    currentUser.role === 'dispatch';
 
   const canVerifyReports = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
   const canAssignTech = currentUser.role === 'super_admin' || currentUser.role === 'leader';
@@ -1696,7 +1692,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
               type="button"
               onClick={() =>
                 onNavigate(
-                  currentUser.role === 'super_admin' || currentUser.role === 'it_support'
+                  currentUser.role === 'super_admin'
                     ? 'audit_logs'
                     : 'history_progress'
                 )
@@ -2142,14 +2138,14 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
             type="button"
             onClick={() =>
               onNavigate(
-                currentUser.role === 'super_admin' || currentUser.role === 'it_support'
+                currentUser.role === 'super_admin'
                   ? 'audit_logs'
                   : roleActionTarget
               )
             }
             className="px-3.5 py-2 rounded-lg bg-white dark:bg-[#261942] text-[#58149c] dark:text-[#dab9ff] border border-[#e8ddff] dark:border-[#4b386b] text-xs font-bold shadow-[0_1px_3px_rgba(33,24,58,0.06)] hover:bg-[#f3eaff] dark:hover:bg-[#342b4e] transition-all cursor-pointer whitespace-nowrap"
           >
-            {currentUser.role === 'super_admin' || currentUser.role === 'it_support'
+            {currentUser.role === 'super_admin'
               ? 'Buka Audit Trail'
               : 'Buka Daftar WO'}
           </button>

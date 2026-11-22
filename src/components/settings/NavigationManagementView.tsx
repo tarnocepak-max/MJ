@@ -113,8 +113,8 @@ export const NavigationManagementView: React.FC = () => {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
 
-  // Security check: Only Super Admin and authorized IT Support can modify navigation
-  if (currentUser.role !== 'super_admin' && currentUser.role !== 'it_support') {
+  // Security check: Only Superadmin can modify navigation
+  if (currentUser.role !== 'super_admin') {
     return (
       <div className="bg-[#160D29] border border-[#35105E] rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8 shadow-xl">
         <div className="w-12 h-12 bg-rose-950/60 text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-500/30">

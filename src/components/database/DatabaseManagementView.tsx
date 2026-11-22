@@ -246,10 +246,10 @@ export const DatabaseManagementView: React.FC = () => {
     }
   };
 
-  // Reconcile duplicate WOs (Management Data Exclusive - Strict RBAC)
+  // Reconcile duplicate WOs (Superadmin Exclusive - Strict RBAC)
   const handleReconcileKeepFirst = (woKey: string) => {
-    if (currentUser.role !== 'management_data') {
-      toast.error('Akses Ditolak: Hanya Management Data yang memiliki wewenang merekonsiliasi/menghapus duplikasi Work Order.', 'Akses Ditolak');
+    if (currentUser.role !== 'super_admin') {
+      toast.error('Akses Ditolak: Hanya Superadmin yang memiliki wewenang merekonsiliasi/menghapus duplikasi Work Order.', 'Akses Ditolak');
       return;
     }
     const list = duplicatesMap.get(woKey) || [];
@@ -263,8 +263,8 @@ export const DatabaseManagementView: React.FC = () => {
 
   // Comprehensive automated deduplication across Supabase PostgreSQL
   const handleRunComprehensiveDeduplication = async () => {
-    if (currentUser.role !== 'management_data') {
-      toast.error('Akses Ditolak: Hanya role Management Data yang berwenang mengeksekusi pembersihan dan penghapusan duplikasi Work Order.', 'Akses Ditolak');
+    if (currentUser.role !== 'super_admin') {
+      toast.error('Akses Ditolak: Hanya role Superadmin yang berwenang mengeksekusi pembersihan dan penghapusan duplikasi Work Order.', 'Akses Ditolak');
       return;
     }
     setIsDeduplicating(true);
@@ -305,7 +305,7 @@ export const DatabaseManagementView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          {(currentUser.role === 'super_admin' || currentUser.role === 'management_data') && (
+          {currentUser.role === 'super_admin' && (
             <button
               type="button"
               onClick={handleDownloadBackup}
@@ -920,7 +920,7 @@ export const DatabaseManagementView: React.FC = () => {
                           ({dupList.length} duplikasi ditemukan)
                         </span>
                       </div>
-                      {currentUser.role === 'management_data' && (
+                      {currentUser.role === 'super_admin' && (
                         <button
                           onClick={() => handleReconcileKeepFirst(woKey)}
                           className="btn-3d-crimson px-3 py-1.5 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"

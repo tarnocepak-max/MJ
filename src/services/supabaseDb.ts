@@ -275,7 +275,7 @@ export class SupabaseRepository {
   }
 
   /**
-   * SOFT DELETE: Mark work order as deleted (Restricted to Management Data)
+   * SOFT DELETE: Mark work order as deleted (Restricted to Superadmin)
    */
   async deleteWorkOrder(id: string, reason?: string, deletedBy?: string, isSandbox = false): Promise<SupabaseResponse<Ticket>> {
     if (isSandbox || id.startsWith('migration_sandbox')) {

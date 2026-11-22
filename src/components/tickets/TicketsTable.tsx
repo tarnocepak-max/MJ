@@ -1494,7 +1494,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </span>
           </span>
 
-          {['super_admin', 'management_data'].includes(currentUser.role) ? (
+          {currentUser.role === 'super_admin' ? (
             <button
               type="button"
               onClick={() => onNavigate('import')}
@@ -1712,7 +1712,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 <Zap className="w-3.5 h-3.5 text-[#7135B5]" />
                 <span className="text-[#35105E]">+ Form Sameday</span>
               </button>
-            ) : ['super_admin', 'management_data'].includes(currentUser.role) ? (
+            ) : currentUser.role === 'super_admin' ? (
               <button
                 type="button"
                 onClick={() => onNavigate('import')}
@@ -1735,7 +1735,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           <div className="text-[10px] text-[#D8B4FE] font-medium truncate">
             {currentUser.role === 'dispatch'
               ? 'Prioritas Khusus MyRepublic'
-              : ['super_admin', 'management_data'].includes(currentUser.role)
+              : currentUser.role === 'super_admin'
               ? 'Input Batch WO Baru'
               : 'Koordinasi Lapangan'}
           </div>
@@ -2114,14 +2114,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       <span>Assign Teknisi</span>
                     </button>
                   </>
-                ) : currentUser.role !== 'super_admin' && currentUser.role !== 'management_data' ? (
+                ) : currentUser.role !== 'super_admin' ? (
                   <span className="inline-flex items-center gap-1 text-[11px] text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded-md">
                     <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                     <span>Assign/Reassign khusus Leader</span>
                   </span>
                 ) : null}
 
-                {currentUser.role === 'management_data' && (
+                {currentUser.role === 'super_admin' && (
                   <button
                     type="button"
                     onClick={() => setShowBulkDeleteModal(true)}
@@ -3637,7 +3637,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   )}
                                 </button>
 
-                                {currentUser.role === 'management_data' && (
+                                {currentUser.role === 'super_admin' && (
                                   <button
                                     type="button"
                                     onClick={e => {
@@ -3645,7 +3645,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                       setTicketToDelete(ticket);
                                     }}
                                     className="btn-3d-icon w-7 h-7 text-[#DC4C5A] cursor-pointer"
-                                    title="Hapus Work Order (Management Data Only)"
+                                    title="Hapus Work Order (Superadmin)"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -3698,7 +3698,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 type="button"
                 onClick={() =>
                   onNavigate(
-                    currentUser.role === 'super_admin' || currentUser.role === 'it_support'
+                    currentUser.role === 'super_admin'
                       ? 'audit_logs'
                       : currentUser.role === 'dispatch'
                       ? 'verification_desk'
@@ -3708,7 +3708,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 className="text-xs font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
                 <span>
-                  {currentUser.role === 'super_admin' || currentUser.role === 'it_support'
+                  {currentUser.role === 'super_admin'
                     ? 'Buka Audit Log Lengkap'
                     : currentUser.role === 'dispatch'
                     ? 'Buka Antrean Verifikasi'
@@ -3781,8 +3781,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         </div>
       )}
 
-      {/* Management Data Bulk Delete Confirmation Modal */}
-      {showBulkDeleteModal && currentUser.role === 'management_data' && (
+      {/* Superadmin Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && currentUser.role === 'super_admin' && (
         <ManagementDataDeleteModal
           isOpen={showBulkDeleteModal}
           onClose={() => setShowBulkDeleteModal(false)}
@@ -3795,8 +3795,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         />
       )}
 
-      {/* Management Data Single Ticket Delete Confirmation Modal */}
-      {ticketToDelete && currentUser.role === 'management_data' && (
+      {/* Superadmin Single Ticket Delete Confirmation Modal */}
+      {ticketToDelete && currentUser.role === 'super_admin' && (
         <ManagementDataDeleteModal
           isOpen={Boolean(ticketToDelete)}
           onClose={() => setTicketToDelete(null)}

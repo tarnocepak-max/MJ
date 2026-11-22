@@ -1017,10 +1017,8 @@ export const NavigationConfigView: React.FC = () => {
                 >
                   <option value="all">Semua Role RBAC ({sortedStandaloneMenus.length})</option>
                   <option value="super_admin">Super Admin</option>
-                  <option value="management_data">Management Data</option>
                   <option value="dispatch">Dispatch</option>
                   <option value="leader">Leader / Korlap</option>
-                  <option value="it_support">IT Support</option>
                   <option value="installer">Teknisi / Installer</option>
                 </select>
               </div>
@@ -1463,8 +1461,6 @@ export const NavigationConfigView: React.FC = () => {
                   <option value="super_admin">Super Admin</option>
                   <option value="dispatch">Dispatch</option>
                   <option value="leader">Leader / Korlap</option>
-                  <option value="management_data">Management Data</option>
-                  <option value="it_support">IT Support</option>
                   <option value="installer">Teknisi / Installer</option>
                 </select>
               </div>
@@ -2445,7 +2441,7 @@ export const NavigationConfigView: React.FC = () => {
               Hak Akses Role
             </label>
             <div className="flex flex-wrap gap-2">
-              {['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'].map(r => (
+              {['super_admin', 'dispatch', 'leader', 'installer'].map(r => (
                 <label key={r} className="flex items-center gap-1.5 text-xs text-purple-300">
                   <input
                     type="checkbox"

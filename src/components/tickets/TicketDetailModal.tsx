@@ -130,7 +130,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
 
-  // Delete confirm state (management_data exclusive)
+  // Delete confirm state (super_admin exclusive)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Technical report editor & chat visibility
@@ -660,12 +660,12 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <span>{ticket.isArchived ? 'Restore' : 'Arsipkan'}</span>
             </button>
 
-            {currentUser.role === 'management_data' && (
+            {currentUser.role === 'super_admin' && (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 className="btn-3d-danger h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                title="Hapus Work Order (Khusus Management Data)"
+                title="Hapus Work Order (Superadmin)"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Hapus WO</span>
@@ -1780,8 +1780,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
       )}
 
-      {/* Management Data Delete Modal Guard */}
-      {showDeleteConfirm && currentUser.role === 'management_data' && (
+      {/* Superadmin Delete Modal Guard */}
+      {showDeleteConfirm && currentUser.role === 'super_admin' && (
         <ManagementDataDeleteModal
           isOpen={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}

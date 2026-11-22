@@ -172,7 +172,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
     }
   }, [activeTab, loadGpsTrackingConfig]);
 
-  if (currentUser.role !== 'super_admin' && currentUser.role !== 'management_data') {
+  if (currentUser.role !== 'super_admin') {
     return (
       <div className="card-3d-lavender rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8">
         <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/80 text-[#BA1A1A] dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-900">
@@ -182,7 +182,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           Akses Ditolak: Otoritas Setup Terpusat Dibatasi
         </h3>
         <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
-          Parameter kontraktor, cakupan area, dan pemetaan kolom dalam Setup Terpusat MoraJaws hanya dapat diakses oleh <strong>Super Admin</strong> dan <strong>Management Data</strong>.
+          Parameter kontraktor, cakupan area, dan pemetaan kolom dalam Setup Terpusat MoraJaws hanya dapat diakses oleh <strong>Superadmin</strong>.
         </p>
         <div className="p-3 mj-tactile-well text-xs text-[#4B4452] dark:text-[#D8B4FE] font-medium">
           Akun Anda: <span className="font-bold capitalize text-[#1F1638] dark:text-white">{currentUser.name} ({currentUser.role})</span>.

@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'dispatch' | 'leader' | 'installer' | 'management_data' | 'it_support';
+export type UserRole = 'super_admin' | 'dispatch' | 'leader' | 'installer';
 
 export type DataSyncStatus = 'LOADING' | 'SYNCING' | 'SAVED' | 'OFFLINE' | 'ERROR';
 
@@ -814,8 +814,6 @@ export interface NavigationSettings {
     dispatch?: NavigationDisplayMode;
     leader?: NavigationDisplayMode;
     installer?: NavigationDisplayMode;
-    management_data?: NavigationDisplayMode;
-    it_support?: NavigationDisplayMode;
   };
   categoryModes?: Record<string, NavigationDisplayMode>;
 }

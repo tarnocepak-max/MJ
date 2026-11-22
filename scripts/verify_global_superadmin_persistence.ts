@@ -64,9 +64,7 @@ function createGlobalPersistenceMockSupabase() {
     ['super_admin', { id: 'role_sa', code: 'super_admin', name: 'Super Admin', permissions: [...DEFAULT_ROLE_PERMISSIONS.super_admin], version: 1, updated_at: new Date().toISOString() }],
     ['dispatch', { id: 'role_disp', code: 'dispatch', name: 'Dispatch', permissions: [...DEFAULT_ROLE_PERMISSIONS.dispatch], version: 1, updated_at: new Date().toISOString() }],
     ['leader', { id: 'role_lead', code: 'leader', name: 'Leader / Korlap', permissions: [...DEFAULT_ROLE_PERMISSIONS.leader], version: 1, updated_at: new Date().toISOString() }],
-    ['installer', { id: 'role_inst', code: 'installer', name: 'Installer', permissions: [...DEFAULT_ROLE_PERMISSIONS.installer], version: 1, updated_at: new Date().toISOString() }],
-    ['management_data', { id: 'role_mgmt', code: 'management_data', name: 'Management Data', permissions: [...DEFAULT_ROLE_PERMISSIONS.management_data], version: 1, updated_at: new Date().toISOString() }],
-    ['it_support', { id: 'role_it', code: 'it_support', name: 'IT Support', permissions: [...DEFAULT_ROLE_PERMISSIONS.it_support], version: 1, updated_at: new Date().toISOString() }]
+    ['installer', { id: 'role_inst', code: 'installer', name: 'Installer', permissions: [...DEFAULT_ROLE_PERMISSIONS.installer], version: 1, updated_at: new Date().toISOString() }]
   ]);
 
   const usersList = [
@@ -74,7 +72,7 @@ function createGlobalPersistenceMockSupabase() {
     { id: 'u_disp_global', username: 'dispatch1', name: 'Dispatch One', role: 'dispatch', active: true, is_deleted: false, session_version: 1, payload: { sessionVersion: 1 } },
     { id: 'u_lead_global', username: 'leader1', name: 'Leader One', role: 'leader', contractor: 'PT Mora', area: 'Jakarta', active: true, is_deleted: false, session_version: 1, payload: { sessionVersion: 1 } },
     { id: 'u_inst_global', username: 'installer1', name: 'Installer One', role: 'installer', contractor: 'PT Mora', area: 'Jakarta', active: true, is_deleted: false, session_version: 1, payload: { sessionVersion: 1 } },
-    { id: 'u_mgmt_global', username: 'mgmt1', name: 'Management Data One', role: 'management_data', active: true, is_deleted: false, session_version: 1, payload: { sessionVersion: 1 } }
+    { id: 'u_mgmt_global', username: 'mgmt1', name: 'Management Data One', role: 'super_admin', active: true, is_deleted: false, session_version: 1, payload: { sessionVersion: 1 } }
   ];
 
   let forcedAppSettingsError: any = null;

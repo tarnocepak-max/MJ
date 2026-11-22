@@ -30,8 +30,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const canViewSlaEngine =
     currentUser?.role === 'super_admin' ||
     currentUser?.role === 'dispatch' ||
-    currentUser?.role === 'leader' ||
-    currentUser?.role === 'management_data';
+    currentUser?.role === 'leader';
 
   const handleKpiDrillDown = (
     filterKey: WOKpiFilterKey,

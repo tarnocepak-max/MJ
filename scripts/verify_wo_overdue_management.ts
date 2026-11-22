@@ -123,7 +123,7 @@ async function run() {
       userId: 'u-mgmt',
       username: 'datamgmt',
       name: 'Management Data',
-      role: 'management_data',
+      role: 'super_admin',
       sessionVersion: 1,
       loginAt: nowIso,
       lastActivityAt: nowIso,
@@ -213,7 +213,7 @@ async function run() {
       userId: 'u-itsupport-1',
       username: 'itsupport',
       name: 'Fajar Pratama (IT Support)',
-      role: 'it_support',
+      role: 'super_admin',
       sessionVersion: 1,
       loginAt: nowIso,
       lastActivityAt: nowIso,
@@ -680,23 +680,23 @@ async function run() {
       `ldMjsHasKcs=${ldMjsWos.includes(woKcsOverdue)}, crossAssignStatus=${crossReassign.status}`
     );
 
-    // Scenario 16: Installer own-WO isolation & IT Support 403 block
+    // Scenario 16: Installer own-WO isolation & EXCEPTION category 403 block (consolidated Superadmin has 200)
     const inMjsOv = await api('GET', '/api/work-orders/overdue', tokens.installer_mjs_1);
     const inMjsList: any[] = inMjsOv.json?.tickets || [];
     const inMjsWos = new Set(inMjsList.map(t => t.woNumber));
-    const itOv = await api('GET', '/api/work-orders/overdue', tokens.it_support);
-    const itCls = await api('GET', '/api/work-orders/classifications', tokens.it_support);
+    const inExc = await api('GET', '/api/work-orders/classifications?category=EXCEPTION', tokens.installer_mjs_1);
+    const saMigratedOv = await api('GET', '/api/work-orders/overdue', tokens.it_support);
     assertCheck(
-      'RBAC_InstallerAndIT',
-      'Scenario 16: Installer sees strictly own assigned Overdue WOs; IT Support gets 403 on operational overdue endpoints',
+      'RBAC_InstallerAndConsolidatedSuperadmin',
+      'Scenario 16: Installer sees strictly own assigned Overdue WOs & gets 403 on EXCEPTION; migrated Superadmin retains full access',
       inMjsOv.status === 200 &&
         inMjsWos.has(woNov07Critical) &&
         !inMjsWos.has(woKcsOverdue) &&
         !inMjsWos.has(woPastImport) &&
         inMjsList.every(t => t.installerId === 'u-installer-1' || t.installerName === 'Andi Saputra') &&
-        itOv.status === 403 &&
-        itCls.status === 403,
-      `inMjsCount=${inMjsList.length}, itOv=${itOv.status}, itCls=${itCls.status}`
+        inExc.status === 403 &&
+        saMigratedOv.status === 200,
+      `inMjsCount=${inMjsList.length}, inExc=${inExc.status}, saMigratedOv=${saMigratedOv.status}`
     );
 
     // Scenario 17: SQL migration verification

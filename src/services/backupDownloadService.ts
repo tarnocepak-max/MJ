@@ -52,7 +52,7 @@ export async function downloadProductionBackup(): Promise<BackupDownloadResult> 
     if (response.status === 403) {
       return {
         success: false,
-        error: 'Akses Ditolak (HTTP 403): Otoritas unduh backup dibatasi untuk Super Admin dan Data Management.'
+        error: 'Akses Ditolak (HTTP 403): Otoritas unduh backup dibatasi HANYA untuk Super Admin.'
       };
     }
 

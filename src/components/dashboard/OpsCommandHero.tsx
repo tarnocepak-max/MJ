@@ -946,7 +946,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                 >
                   <Clock className="w-4 h-4" />
                 </button>
-                {['super_admin', 'dispatch', 'management_data'].includes(currentUser.role) && (
+                {['super_admin', 'dispatch'].includes(currentUser.role) && (
                   <button
                     type="button"
                     onClick={() => {

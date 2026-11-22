@@ -47,8 +47,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Inbox,
-  AlertTriangle,
-  Zap
+  AlertTriangle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -147,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const canAccessMenuId = (menuId: string): boolean => {
     if (menuId === 'overdue_wo') {
-      return ['super_admin', 'dispatch', 'leader', 'management_data'].includes(userRole);
+      return ['super_admin', 'dispatch', 'leader'].includes(userRole);
     }
     if (userRole === 'super_admin') return true;
     const permMap: Record<string, any> = {
@@ -219,7 +218,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     const rawList: StandaloneMenuItem[] = Array.isArray(standaloneMenus) ? standaloneMenus : [];
-    const list: StandaloneMenuItem[] = [...rawList];
+    const list: StandaloneMenuItem[] = rawList.map(m => (m ? { ...m } : m));
     const hasVerificationDesk = list.some(m => m && m.id === 'verification_desk');
     if (!hasVerificationDesk && (userRole === 'super_admin' || userRole === 'dispatch')) {
       list.push({
@@ -231,16 +230,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
         roles: ['super_admin', 'dispatch']
       });
     }
-    const hasOverdueWo = list.some(m => m && m.id === 'overdue_wo');
-    if (!hasOverdueWo && ['super_admin', 'dispatch', 'leader', 'management_data'].includes(userRole)) {
+    const liveChatItem = list.find(
+      m =>
+        m &&
+        (m.id === 'contact_centre' ||
+          ['livechat', 'live chat'].includes(String(m.label || '').trim().toLowerCase()))
+    );
+    const existingOverdueWo = list.find(m => m && m.id === 'overdue_wo');
+    if (!existingOverdueWo && ['super_admin', 'dispatch', 'leader'].includes(userRole)) {
+      const ticketsItem = list.find(m => m && m.id === 'tickets');
+      const targetLiveChatOrder = ticketsItem ? Number(ticketsItem.order || 3) + 0.5 : 2.5;
+      const overdueOrder = liveChatItem ? Number(liveChatItem.order || 6) : 6;
+      if (liveChatItem && Number(liveChatItem.order || 0) > targetLiveChatOrder) {
+        liveChatItem.order = targetLiveChatOrder;
+      }
       list.push({
         id: 'overdue_wo',
-        label: 'OVERDUE WO',
+        label: 'Overdue WO',
         icon: 'AlertTriangle',
-        order: 2.5,
+        order: overdueOrder,
         visible: true,
-        roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+        roles: ['super_admin', 'dispatch', 'leader']
       });
+    } else if (existingOverdueWo && String(existingOverdueWo.label || '').trim() === 'OVERDUE WO') {
+      existingOverdueWo.label = 'Overdue WO';
+      if (liveChatItem && Number(existingOverdueWo.order || 0) < Number(liveChatItem.order || 0)) {
+        const prevOverdueOrder = existingOverdueWo.order;
+        existingOverdueWo.order = liveChatItem.order;
+        liveChatItem.order = prevOverdueOrder;
+      }
     }
 
     return [...list]
@@ -1130,23 +1148,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 </div>
               </div>
-
-              {(userRole === 'super_admin' || userRole === 'dispatch') && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleItemClick(butuhApprovalCount > 0 ? 'verification_desk' : 'tickets')
-                  }
-                  className="btn-3d-darkpurple w-full py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-                >
-                  <Zap className="w-3.5 h-3.5 text-[#D8B4FE] shrink-0" />
-                  <span>
-                    {butuhApprovalCount > 0
-                      ? `Antrean Verifikasi (${butuhApprovalCount})`
-                      : 'Triage Work Orders'}
-                  </span>
-                </button>
-              )}
 
               <div className="flex items-center gap-1.5">
                 {userRole === 'super_admin' && (

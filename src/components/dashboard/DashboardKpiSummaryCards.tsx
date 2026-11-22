@@ -77,9 +77,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
   const isGlobalRole =
     currentUser.role === 'super_admin' ||
-    currentUser.role === 'dispatch' ||
-    currentUser.role === 'management_data' ||
-    currentUser.role === 'it_support';
+    currentUser.role === 'dispatch';
 
   const isInstaller = currentUser.role === 'installer';
 

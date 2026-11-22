@@ -132,7 +132,7 @@ function createPhase15aMockClient(options: {
       name: 'Management Data Staff',
       username: 'mgmt_data',
       email: 'mgmt@morajaws.net',
-      role: 'management_data',
+      role: 'super_admin',
       active: true,
       is_deleted: false,
       payload: { authUserId: 'sb-uid-mgmt-01', sessionVersion: 1 }
@@ -168,7 +168,7 @@ function createPhase15aMockClient(options: {
       name: 'IT Support Team',
       username: 'it_support',
       email: 'itsupport@morajaws.net',
-      role: 'it_support',
+      role: 'super_admin',
       active: true,
       is_deleted: false,
       payload: { authUserId: 'sb-uid-it-01', sessionVersion: 1 }
@@ -592,7 +592,7 @@ async function runPhase15aTests() {
       name: 'Management Data Staff',
       username: 'mgmt_data',
       email: 'mgmt@morajaws.net',
-      role: 'management_data',
+      role: 'super_admin',
       active: true,
       passwordHash: 'DEF_HASH',
       createdAt: '2026-01-01T00:00:00Z',
@@ -631,7 +631,7 @@ async function runPhase15aTests() {
       name: 'IT Support Team',
       username: 'it_support',
       email: 'itsupport@morajaws.net',
-      role: 'it_support',
+      role: 'super_admin',
       active: true,
       passwordHash: 'DEF_HASH',
       createdAt: '2026-01-01T00:00:00Z',
@@ -1005,10 +1005,10 @@ async function runPhase15aTests() {
       const rolesToTest = [
         { ident: 'superadmin', expectedRole: 'super_admin' },
         { ident: 'dispatch_staff', expectedRole: 'dispatch' },
-        { ident: 'mgmt_data', expectedRole: 'management_data' },
+        { ident: 'mgmt_data', expectedRole: 'super_admin' },
         { ident: 'leader_ahmad', expectedRole: 'leader' },
         { ident: 'installer_budi', expectedRole: 'installer' },
-        { ident: 'it_support', expectedRole: 'it_support' }
+        { ident: 'it_support', expectedRole: 'super_admin' }
       ];
 
       let allRolesPassed = true;

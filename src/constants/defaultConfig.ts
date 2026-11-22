@@ -327,7 +327,7 @@ export const DEFAULT_UI_CONFIG: UIConfiguration = {
   toolbar: {
     buttons: [
       { id: 'btn_refresh', label: 'Refresh', icon: 'RotateCw', visible: true, order: 1, group: 'secondary' },
-      { id: 'btn_import_wo', label: 'Import WO', icon: 'FileSpreadsheet', visible: true, order: 2, group: 'primary', roleRequired: ['super_admin', 'management_data'] },
+      { id: 'btn_import_wo', label: 'Import WO', icon: 'FileSpreadsheet', visible: true, order: 2, group: 'primary', roleRequired: ['super_admin'] },
       { id: 'btn_export', label: 'Export Data', icon: 'Download', visible: true, order: 3, group: 'secondary' },
       { id: 'btn_view_presets', label: 'View Presets', icon: 'LayoutGrid', visible: true, order: 4, group: 'secondary' },
       { id: 'btn_table_settings', label: 'Customize Table', icon: 'SlidersHorizontal', visible: true, order: 5, group: 'secondary' },
@@ -421,7 +421,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     icon: 'LayoutDashboard',
     order: 1,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support']
+    roles: ['super_admin', 'dispatch', 'leader']
   },
   {
     id: 'verification_desk',
@@ -437,7 +437,7 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     icon: 'Map',
     order: 3,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+    roles: ['super_admin', 'dispatch', 'leader']
   },
   {
     id: 'tickets',
@@ -448,12 +448,20 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     roles: ['super_admin', 'dispatch']
   },
   {
+    id: 'contact_centre',
+    label: 'Contact Centre',
+    icon: 'MessageSquare',
+    order: 3.5,
+    visible: true,
+    roles: ['super_admin', 'dispatch', 'leader']
+  },
+  {
     id: 'report_data_wo',
     label: 'Report Data WO',
     icon: 'FileSpreadsheet',
     order: 4,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'management_data']
+    roles: ['super_admin', 'dispatch']
   },
   {
     id: 'import',
@@ -461,12 +469,12 @@ export const DEFAULT_STANDALONE_MENUS: StandaloneMenuItem[] = [
     icon: 'FileSpreadsheet',
     order: 5,
     visible: true,
-    roles: ['super_admin', 'management_data']
+    roles: ['super_admin']
   },
   {
-    id: 'contact_centre',
-    label: 'Contact Centre',
-    icon: 'MessageSquare',
+    id: 'overdue_wo',
+    label: 'Overdue WO',
+    icon: 'AlertTriangle',
     order: 6,
     visible: true,
     roles: ['super_admin', 'dispatch', 'leader']
@@ -544,7 +552,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'contractor_area',
     order: 3,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+    roles: ['super_admin', 'dispatch', 'leader']
   },
   {
     id: 'location_basecamp',
@@ -571,7 +579,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'contractor_area',
     order: 6,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+    roles: ['super_admin', 'dispatch', 'leader']
   },
 
   // 2. Installer (Strict Access: Only super_admin and installer)
@@ -603,7 +611,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     order: 1,
     visible: true,
     highlight: true,
-    roles: ['super_admin', 'dispatch', 'management_data']
+    roles: ['super_admin', 'dispatch']
   },
   {
     id: 'nav_config',
@@ -630,7 +638,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 4,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'management_data']
+    roles: ['super_admin', 'dispatch']
   },
   {
     id: 'templates',
@@ -657,7 +665,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 7,
     visible: true,
-    roles: ['super_admin', 'it_support']
+    roles: ['super_admin']
   },
   {
     id: 'login_logs',
@@ -666,7 +674,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 8,
     visible: true,
-    roles: ['super_admin', 'dispatch', 'it_support']
+    roles: ['super_admin', 'dispatch']
   },
   {
     id: 'system_health',
@@ -675,7 +683,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 9,
     visible: true,
-    roles: ['super_admin', 'it_support']
+    roles: ['super_admin']
   },
   {
     id: 'offline_sync',
@@ -1238,10 +1246,10 @@ export const DEFAULT_USERS: User[] = [
   {
     id: 'u-mgmt',
     userId: 'u-mgmt',
-    name: 'Staff Management Data',
+    name: 'Staff Management Data (Super Admin)',
     username: 'datamgmt',
     email: 'data.ops@morajaws.net',
-    role: 'management_data',
+    role: 'super_admin',
     active: true,
     passwordHash: DEFAULT_PASSWORD_HASH,
     lastLoginAt: '2026-01-01T00:00:00Z',

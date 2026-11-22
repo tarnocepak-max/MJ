@@ -32,10 +32,9 @@ export type Permission =
   | 'manage_whatsapp_templates';
 
 /**
- * Central Permission Matrix strictly aligned with MoraJaws Phase 9O RBAC decisions:
- * - Audit Logs: super_admin (READ), it_support (READ-ONLY). All other roles DENY.
- * - Penghapusan WO: management_data ONLY. super_admin and all other roles DENY.
- * - WhatsApp Templates: super_admin & dispatch ALLOW. All other roles DENY.
+ * Central Permission Matrix (4 Roles):
+ * - Superadmin holds full system, data management, deletion, audit logs, and configuration authority.
+ * - Dispatch, Leader, and Installer retain their operational permissions intact.
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   super_admin: [
@@ -58,6 +57,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'manage_contractors',
     'view_audit_logs',
     'database_management',
+    'delete_wo_data',
+    'delete_customer_data',
+    'permanent_delete',
     'edit_wo_data',
     'system_health',
     'application_configuration',
@@ -89,26 +91,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_assigned_wo',
     'edit_technical_report',
     'access_live_chat'
-  ],
-  management_data: [
-    'login',
-    'view_all_wo',
-    'view_contractor_wo',
-    'import_data',
-    'distribute_wo',
-    'manage_field_mapping',
-    'database_management',
-    'delete_wo_data',
-    'application_configuration',
-    'setting_droplist'
-  ],
-  it_support: [
-    'login',
-    'system_health',
-    'application_configuration',
-    'ui_configuration',
-    'setting_droplist',
-    'view_audit_logs'
   ]
 };
 
@@ -116,14 +98,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   super_admin: [...DEFAULT_ROLE_PERMISSIONS.super_admin],
   dispatch: [...DEFAULT_ROLE_PERMISSIONS.dispatch],
   leader: [...DEFAULT_ROLE_PERMISSIONS.leader],
-  installer: [...DEFAULT_ROLE_PERMISSIONS.installer],
-  management_data: [...DEFAULT_ROLE_PERMISSIONS.management_data],
-  it_support: [...DEFAULT_ROLE_PERMISSIONS.it_support]
+  installer: [...DEFAULT_ROLE_PERMISSIONS.installer]
 };
 
 export function setDynamicRolePermissions(matrix: Record<string, string[]>) {
   if (!matrix || typeof matrix !== 'object') return;
-  const roles: UserRole[] = ['super_admin', 'dispatch', 'leader', 'installer', 'management_data', 'it_support'];
+  const roles: UserRole[] = ['super_admin', 'dispatch', 'leader', 'installer'];
   for (const r of roles) {
     if (Array.isArray(matrix[r])) {
       ROLE_PERMISSIONS[r] = Array.from(new Set(matrix[r])) as Permission[];
@@ -136,9 +116,7 @@ export function getRolePermissionsSnapshot(): Record<UserRole, Permission[]> {
     super_admin: [...ROLE_PERMISSIONS.super_admin],
     dispatch: [...ROLE_PERMISSIONS.dispatch],
     leader: [...ROLE_PERMISSIONS.leader],
-    installer: [...ROLE_PERMISSIONS.installer],
-    management_data: [...ROLE_PERMISSIONS.management_data],
-    it_support: [...ROLE_PERMISSIONS.it_support]
+    installer: [...ROLE_PERMISSIONS.installer]
   };
 }
 
@@ -192,17 +170,13 @@ export function createSession(user: User): AuthSession {
 export function getRoleDisplayName(role: UserRole): string {
   switch (role) {
     case 'super_admin':
-      return 'Super Admin';
+      return 'Superadmin';
     case 'dispatch':
       return 'Dispatch';
     case 'leader':
       return 'Leader';
     case 'installer':
       return 'Installer';
-    case 'management_data':
-      return 'Management Data';
-    case 'it_support':
-      return 'IT Support Application';
     default:
       return role;
   }

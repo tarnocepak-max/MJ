@@ -241,10 +241,10 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // =========================================================================
   // 1. MENU UTAMA STATIC MANDIRI (Positioned directly at top of Sidebar)
   // =========================================================================
-  { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Mandiri', order: 1, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data', 'it_support'] },
+  { id: 'dashboard', label: 'Dashboard Monitoring', category: 'Mandiri', order: 1, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
   { id: 'tickets', label: 'Work Order Management', category: 'Mandiri', order: 2, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'schedule', label: 'Jadwal & Kalender', category: 'Mandiri', order: 3, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'import', label: 'Import Data WO', category: 'Mandiri', order: 4, visible: true, roles: ['super_admin', 'management_data'] },
+  { id: 'import', label: 'Import Data WO', category: 'Mandiri', order: 4, visible: true, roles: ['super_admin'] },
   { id: 'installer_portal', label: 'Dashboard Installer', category: 'Mandiri', order: 5, visible: true, roles: ['installer'] },
   { id: 'installer_tasks', label: 'Tugas Saya', category: 'Mandiri', order: 6, visible: true, roles: ['installer'] },
   { id: 'users', label: 'Manajemen Akun', category: 'Mandiri', order: 7, visible: true, roles: ['super_admin'] },
@@ -256,7 +256,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   { id: 'wo_assignment', label: 'Assign WO', category: 'WO CONTRACTOR', order: 9, visible: true, roles: ['leader'] },
   { id: 'progress_dashboard', label: 'Dashboard Progress WO', category: 'WO CONTRACTOR', order: 10, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
   { id: 'installer_mgmt', label: 'Pendaftaran Akun Teknisi', category: 'WO CONTRACTOR', order: 11, visible: true, roles: ['super_admin', 'leader'] },
-  { id: 'contractor_recap', label: 'Rekap Total WO per Kontraktor', category: 'WO CONTRACTOR', order: 13, visible: true, roles: ['super_admin', 'dispatch', 'leader', 'management_data'] },
+  { id: 'contractor_recap', label: 'Rekap Total WO per Kontraktor', category: 'WO CONTRACTOR', order: 13, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
 
   // =========================================================================
   // 3. KATEGORI: PELANGGAN — ACCORDION
@@ -267,19 +267,19 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // =========================================================================
   // 4. KATEGORI: LAPORAN — ACCORDION
   // =========================================================================
-  { id: 'report_data_wo', label: 'Report Data WO', category: 'Laporan', order: 16, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
-  { id: 'report_installer', label: 'Report Installer', category: 'Laporan', order: 17, visible: true, roles: ['super_admin', 'dispatch', 'management_data', 'leader'] },
-  { id: 'audit_logs', label: 'Audit Trail Log', category: 'Laporan', order: 18, visible: true, roles: ['super_admin', 'it_support'] },
-  { id: 'login_logs', label: 'Riwayat Sesi Login', category: 'Laporan', order: 19, visible: true, roles: ['super_admin', 'dispatch', 'it_support'] },
-  { id: 'system_health', label: 'Kesehatan Sistem', category: 'Laporan', order: 20, visible: true, roles: ['super_admin', 'it_support'] },
+  { id: 'report_data_wo', label: 'Report Data WO', category: 'Laporan', order: 16, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'report_installer', label: 'Report Installer', category: 'Laporan', order: 17, visible: true, roles: ['super_admin', 'dispatch', 'leader'] },
+  { id: 'audit_logs', label: 'Audit Trail Log', category: 'Laporan', order: 18, visible: true, roles: ['super_admin'] },
+  { id: 'login_logs', label: 'Riwayat Sesi Login', category: 'Laporan', order: 19, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'system_health', label: 'Kesehatan Sistem', category: 'Laporan', order: 20, visible: true, roles: ['super_admin'] },
 
   // =========================================================================
   // 5. KATEGORI: SETUP — ACCORDION
   // =========================================================================
-  { id: 'setup', label: 'Setup', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'setup', label: 'Setup', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'nav_config', label: 'Konfigurasi Menu Navigasi', category: 'Setup', order: 22, visible: true, roles: ['super_admin'] },
   { id: 'management_role', label: 'Role & Permission', category: 'Setup', order: 23, visible: true, roles: ['super_admin'] },
-  { id: 'droplist_management', label: 'Droplist Management', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch', 'management_data'] },
+  { id: 'droplist_management', label: 'Droplist Management', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'sound_settings', label: 'Pengaturan Notifikasi', category: 'Setup', order: 25, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'settings', label: 'Pengaturan Sistem', category: 'Setup', order: 26, visible: false, roles: ['super_admin'] },
   { id: 'offline_sync', label: 'Sinkronisasi Offline', category: 'Setup', order: 27, visible: true, roles: ['super_admin', 'dispatch'] },
@@ -379,7 +379,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ...toolbarCfg,
     buttons: (toolbarCfg?.buttons || DEFAULT_UI_CONFIG.toolbar.buttons).map(btn => {
       if (btn.id === 'btn_import_wo') {
-        return { ...btn, roleRequired: ['super_admin', 'management_data'] as UserRole[] };
+        return { ...btn, roleRequired: ['super_admin'] as UserRole[] };
       }
       if (btn.id === 'btn_bulk_assign') {
         return { ...btn, roleRequired: ['leader'] as UserRole[] };
@@ -548,8 +548,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         ) {
           return false;
         }
-        // Konsolidasi: hilangkan menu terpisah Pengaturan Sistem/Master Data lama yang sudah digabung ke SETUP TERPUSAT MORAJAWS
+        // Hapus menu terpisah Pengaturan Sistem/Master Data/Management Data Portal lama yang sudah digabung ke Super Admin
         if (
+          id === 'management_data_portal' ||
           id === 'settings' ||
           id === 'master_data' ||
           id === 'master_data_config' ||
@@ -565,12 +566,15 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return true;
       })
       .map(item => {
-        const safeRoles = Array.isArray(item.roles) ? item.roles : [];
+        const cleanRoleList = (Array.isArray(item.roles) ? item.roles : []).filter(
+          r => r === 'super_admin' || r === 'dispatch' || r === 'leader' || r === 'installer'
+        );
+        const safeRoles = Array.from(new Set(cleanRoleList));
         if (item.id === 'setup') {
           return {
             ...item,
             label: 'Setup',
-            roles: ['super_admin', 'dispatch', 'management_data']
+            roles: ['super_admin', 'dispatch']
           };
         }
         if (item.id === 'wo_assignment') {
@@ -593,7 +597,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ...item,
             label: 'Monitoring SLA Kontraktor & Vendor',
             categoryId: 'contractor_area',
-            roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+            roles: ['super_admin', 'dispatch', 'leader']
           };
         }
         return { ...item, roles: safeRoles };
@@ -619,7 +623,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         categoryId: 'contractor_area',
         order: 6,
         visible: true,
-        roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+        roles: ['super_admin', 'dispatch', 'leader']
       });
     }
 
@@ -628,25 +632,30 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const sanitizeStandaloneMenus = (items: StandaloneMenuItem[]): StandaloneMenuItem[] => {
     if (!Array.isArray(items)) return DEFAULT_STANDALONE_MENUS;
-    const cleaned = items.map(item => {
-      const roles = Array.isArray(item.roles) ? item.roles : ['super_admin'];
-      if (item.id === 'import') {
+    const cleaned = items
+      .filter(item => item && item.id && item.id !== 'management_data_portal')
+      .map(item => {
+        const rawRoles = Array.isArray(item.roles) ? item.roles : ['super_admin'];
+        const roles = Array.from(
+          new Set(rawRoles.filter(r => r === 'super_admin' || r === 'dispatch' || r === 'leader' || r === 'installer'))
+        );
+        if (item.id === 'import') {
+          return {
+            ...item,
+            roles: ['super_admin']
+          };
+        }
+        if (item.id === 'monitoring_maps') {
+          return {
+            ...item,
+            roles: roles.filter(r => r !== 'installer')
+          };
+        }
         return {
           ...item,
-          roles: ['super_admin', 'management_data']
+          roles: roles.length > 0 ? roles : ['super_admin']
         };
-      }
-      if (item.id === 'monitoring_maps') {
-        return {
-          ...item,
-          roles: roles.filter(r => r !== 'installer' && r !== 'it_support')
-        };
-      }
-      return {
-        ...item,
-        roles
-      };
-    });
+      });
 
     if (!cleaned.some(i => i?.id === 'monitoring_maps')) {
       cleaned.splice(1, 0, {
@@ -655,8 +664,39 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         icon: 'Map',
         order: 2,
         visible: true,
-        roles: ['super_admin', 'dispatch', 'leader', 'management_data']
+        roles: ['super_admin', 'dispatch', 'leader']
       });
+    }
+
+    const liveChatItem = cleaned.find(
+      i =>
+        i?.id === 'contact_centre' ||
+        ['livechat', 'live chat'].includes(String(i?.label || '').trim().toLowerCase())
+    );
+    const existingOverdue = cleaned.find(i => i?.id === 'overdue_wo');
+
+    if (!existingOverdue) {
+      const ticketsItem = cleaned.find(i => i?.id === 'tickets');
+      const targetLiveChatOrder = ticketsItem ? Number(ticketsItem.order || 3) + 0.5 : 2.5;
+      const overdueOrder = liveChatItem ? Number(liveChatItem.order || 6) : 6;
+      if (liveChatItem && Number(liveChatItem.order || 0) > targetLiveChatOrder) {
+        liveChatItem.order = targetLiveChatOrder;
+      }
+      cleaned.push({
+        id: 'overdue_wo',
+        label: 'Overdue WO',
+        icon: 'AlertTriangle',
+        order: overdueOrder,
+        visible: true,
+        roles: ['super_admin', 'dispatch', 'leader']
+      });
+    } else if (String(existingOverdue.label || '').trim() === 'OVERDUE WO') {
+      existingOverdue.label = 'Overdue WO';
+      if (liveChatItem && Number(existingOverdue.order || 0) < Number(liveChatItem.order || 0)) {
+        const prevOverdueOrder = existingOverdue.order;
+        existingOverdue.order = liveChatItem.order;
+        liveChatItem.order = prevOverdueOrder;
+      }
     }
 
     return cleaned;

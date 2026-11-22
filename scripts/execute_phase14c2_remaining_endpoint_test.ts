@@ -177,7 +177,7 @@ function createMockClient(options: {
       username: 'mgmt_data',
       name: 'Petugas Data',
       email: 'mgmt@morajaws.net',
-      role: 'management_data',
+      role: 'super_admin',
       active: true,
       is_deleted: false,
       session_version: 1,
@@ -199,7 +199,7 @@ function createMockClient(options: {
       username: 'it_support_bambang',
       name: 'IT Support Bambang',
       email: 'itsupport@morajaws.net',
-      role: 'it_support',
+      role: 'super_admin',
       active: true,
       is_deleted: false,
       session_version: 1,
@@ -423,7 +423,7 @@ function setupTestAuthSessions() {
     userId: 'u_management_data_01',
     username: 'mgmt_data',
     name: 'Petugas Data',
-    role: 'management_data',
+    role: 'super_admin',
     sessionVersion: 1,
     loginAt: nowIso,
     lastActivityAt: nowIso,
@@ -452,14 +452,14 @@ function setupTestAuthSessions() {
     deviceType: 'desktop'
   });
 
-  // 4. IT Support
+  // 4. Consolidated Superadmin (ex IT Support)
   SERVER_SESSIONS.push({
     sessionId: 'sess_itsupport_01',
     token: 'token_itsupport_valid',
     userId: 'u_itsupport_01',
     username: 'it_support_bambang',
     name: 'IT Support Bambang',
-    role: 'it_support',
+    role: 'super_admin',
     sessionVersion: 1,
     loginAt: nowIso,
     lastActivityAt: nowIso,
@@ -795,15 +795,15 @@ async function runPhase14C2Suite() {
         `HTTP ${res.status}: Field wajib yang tidak lengkap ditolak.`);
     }
 
-    // Test 19: POST /api/tickets/bulk-delete - Non-Management-Data Role Forbidden (HTTP 403)
+    // Test 19: POST /api/tickets/bulk-delete - Non-Superadmin Role Forbidden (HTTP 403)
     {
-      const res = await makeRequest(PORT, 'POST', '/api/tickets/bulk-delete', 'token_superadmin_valid', {
+      const res = await makeRequest(PORT, 'POST', '/api/tickets/bulk-delete', 'token_dispatch_valid', {
         ticketIds: ['wo_test_mock_202'],
-        reason: 'Penghapusan berkala oleh Super Admin'
+        reason: 'Penghapusan berkala oleh Dispatch'
       });
       const pass = res.status === 403 && res.data.code === 'REQUIRE_MANAGEMENT_DATA';
-      recordTest(19, 'POST /api/tickets/bulk-delete - Non-Management-Data Forbidden (HTTP 403)', 'Work Orders & Search', pass,
-        `HTTP ${res.status}: Super Admin tanpa role management_data ditolak.`);
+      recordTest(19, 'POST /api/tickets/bulk-delete - Non-Superadmin Forbidden (HTTP 403)', 'Work Orders & Search', pass,
+        `HTTP ${res.status}: Role non-super_admin (Dispatch) ditolak melakukan bulk delete.`);
     }
 
     // Test 20: POST /api/tickets/bulk-delete - Short Reason Rejected (HTTP 400)

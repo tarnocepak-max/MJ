@@ -12,7 +12,7 @@ import type { SandboxOutboxRow } from './sandboxOutbox.ts';
 export interface SandboxUserSession {
   uid: string; // MoraJaws User ID
   name: string;
-  role: 'super_admin' | 'dispatch' | 'management_data' | 'leader' | 'installer' | 'it_support';
+  role: 'super_admin' | 'dispatch' | 'leader' | 'installer';
   active: boolean;
   contractorId?: string;
   contractorName?: string;
@@ -53,8 +53,8 @@ export class SandboxAccessController {
       };
     }
 
-    // Check 2: Global roles (Super Admin, Dispatch, Management Data)
-    if (user.role === 'super_admin' || user.role === 'dispatch' || user.role === 'management_data') {
+    // Check 2: Global roles (Super Admin, Dispatch)
+    if (user.role === 'super_admin' || user.role === 'dispatch') {
       return {
         isPermitted: true,
         sanitizedPayload: {
@@ -142,7 +142,7 @@ export class SandboxAccessController {
         woNumber: aggregateId,
         reason:
           reason === 'deleted_by_management'
-            ? 'Tiket telah dihapus oleh Management Data.'
+            ? 'Tiket telah dihapus oleh Super Admin.'
             : reason === 'reassigned_to_another_contractor'
             ? 'Tiket dialihkan ke penugasan lain.'
             : 'Akses terhadap tiket telah dicabut.',

@@ -92,7 +92,7 @@ async function run() {
       userId: 'u-mgmt',
       username: 'datamgmt',
       name: 'Management Data',
-      role: 'management_data',
+      role: 'super_admin',
       sessionVersion: 1,
       loginAt: nowIso,
       lastActivityAt: nowIso,
@@ -277,7 +277,7 @@ async function run() {
     // -------------------------------------------------------------------------
     // APP FLOW 2: Leader-Only Technician Assignment & Reassignment
     // -------------------------------------------------------------------------
-    for (const nonLeader of ['super_admin', 'dispatch', 'management_data', 'installer'] as const) {
+    for (const nonLeader of ['super_admin', 'dispatch', 'installer'] as const) {
       const aRes = await api('POST', '/api/tickets/assign', tokens[nonLeader], {
         ticketId: tAreaMatch.id,
         installerName: 'Andi Saputra'
@@ -315,7 +315,7 @@ async function run() {
     assertCheck('AppFlow2', 'Leader MJS assigns scoped WO to active scoped installer Andi Saputra', validAssign.status === 200 && validAssign.json?.success === true);
 
     // Reassign blocked for non-leader
-    for (const nonLeader of ['super_admin', 'dispatch', 'management_data', 'installer'] as const) {
+    for (const nonLeader of ['super_admin', 'dispatch', 'installer'] as const) {
       const rRes = await api('POST', '/api/tickets/reassign', tokens[nonLeader], {
         ticketId: tAreaMatch.id,
         newInstallerName: 'Andi Saputra',

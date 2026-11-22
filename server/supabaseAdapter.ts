@@ -2291,7 +2291,7 @@ export async function deleteWorkOrderFromSupabase(
         is_deleted: true,
         deleted_at: new Date().toISOString(),
         deleted_by: deletedBy || 'System',
-        deletion_reason: reason || 'Soft deleted via Management Data',
+        deletion_reason: reason || 'Soft deleted via Super Admin',
         updated_at: new Date().toISOString()
       })
       .eq('id', cleanId)

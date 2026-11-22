@@ -28,7 +28,7 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
 
   const totalActiveTickets = scopedTickets.filter(t => !t.isArchived && !t.isDeleted).length;
   const isSuperOrDispatch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
-  const canImportWO = currentUser.role === 'super_admin' || currentUser.role === 'management_data';
+  const canImportWO = currentUser.role === 'super_admin';
 
   const touchSizeClass =
     config.device?.android?.touchTargetSize === 'large'
@@ -49,10 +49,10 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
         {/* Tab 1: Dashboard */}
         <button
           type="button"
-          onClick={() => onNavigate(currentUser.role === 'management_data' ? 'management_data_portal' : 'dashboard')}
-          aria-current={activeTab === 'dashboard' || activeTab === 'management_data_portal' ? 'page' : undefined}
+          onClick={() => onNavigate('dashboard')}
+          aria-current={activeTab === 'dashboard' ? 'page' : undefined}
           className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-[52px] min-h-[46px] px-1.5 rounded-full cursor-pointer relative ${
-            activeTab === 'dashboard' || activeTab === 'management_data_portal'
+            activeTab === 'dashboard'
               ? 'mj-floating-nav-pill-active text-white font-extrabold'
               : 'mj-floating-nav-pill-idle font-medium'
           }`}

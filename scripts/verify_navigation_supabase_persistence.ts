@@ -210,8 +210,7 @@ function setupSessions() {
     { sessionId: 's_sa', token: 'tok_superadmin_test_123', userId: 'u_superadmin_nav', username: 'superadmin', name: 'Super Admin', role: 'super_admin' as const },
     { sessionId: 's_disp', token: 'tok_dispatch_test_123', userId: 'u_dispatch_nav', username: 'dispatch_1', name: 'Dispatch User', role: 'dispatch' as const },
     { sessionId: 's_lead', token: 'tok_leader_test_123', userId: 'u_leader_nav', username: 'leader_1', name: 'Leader User', role: 'leader' as const },
-    { sessionId: 's_inst', token: 'tok_installer_test_123', userId: 'u_installer_nav', username: 'installer_1', name: 'Installer User', role: 'installer' as const },
-    { sessionId: 's_mgmt', token: 'tok_mgmt_test_123', userId: 'u_mgmt_nav', username: 'mgmt_1', name: 'Management Data', role: 'management_data' as const }
+    { sessionId: 's_inst', token: 'tok_installer_test_123', userId: 'u_installer_nav', username: 'installer_1', name: 'Installer User', role: 'installer' as const }
   ];
 
   for (const r of roles) {
@@ -399,8 +398,7 @@ async function run() {
     const forbiddenRoles: Array<[string, string]> = [
       ['dispatch', 'tok_dispatch_test_123'],
       ['leader', 'tok_leader_test_123'],
-      ['installer', 'tok_installer_test_123'],
-      ['management_data', 'tok_mgmt_test_123']
+      ['installer', 'tok_installer_test_123']
     ];
     let allForbiddenRejected = true;
     const rejectionMsgs: string[] = [];

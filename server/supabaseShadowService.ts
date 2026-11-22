@@ -77,7 +77,7 @@ export function validateShadowCaller(caller?: ShadowCaller): { authorized: boole
       reason: 'UNAUTHENTICATED: Akses ditolak. Sesi autentikasi tidak ditemukan.'
     };
   }
-  const allowedRoles = ['super_admin', 'admin', 'management_data', 'developer', 'dispatch'];
+  const allowedRoles = ['super_admin', 'dispatch'];
   const userRole = (caller.role || '').toLowerCase();
   if (!allowedRoles.includes(userRole)) {
     return {

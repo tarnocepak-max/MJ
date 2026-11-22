@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCheck, Maximize2 } from 'lucide-react';
+import { Bell, CheckCheck, Maximize2, MessageSquare } from 'lucide-react';
 import {
   NotificationCategory,
   NotificationFilterState,
@@ -15,7 +15,13 @@ interface NotificationDropdownProps {
   onClose: () => void;
   onViewAll: () => void;
   items: NotificationItem[];
-  counts: { all: number; unread: number; read: number };
+  counts: {
+    all: number;
+    unread: number;
+    read: number;
+    liveChatUnread?: number;
+    liveChatTotal?: number;
+  };
   filters: NotificationFilterState;
   availableCategories: NotificationCategory[];
   isLoading: boolean;
@@ -48,6 +54,15 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   if (!isOpen) return null;
 
   const visibleItems = items.slice(0, 8);
+  const liveChatUnreadCount = counts.liveChatUnread ?? 0;
+  const isLiveChatFilterActive = filters.category === 'live_chat';
+  const showGroupedSections = filters.category === 'all';
+  const visibleLiveChatItems = showGroupedSections
+    ? visibleItems.filter(item => item.category === 'live_chat')
+    : [];
+  const visibleOtherItems = showGroupedSections
+    ? visibleItems.filter(item => item.category !== 'live_chat')
+    : visibleItems;
   const hasFilterActive =
     filters.category !== 'all' ||
     filters.priority !== 'all' ||
@@ -84,7 +99,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 </span>
               </div>
               <p className="text-[10.5px] text-[#EEE5FF]/85 mt-0.5 truncate">
-                Pembaruan WO, QC, Live Chat &amp; Sinkronisasi
+                Prioritas Live Chat, WO, QC &amp; Sinkronisasi
               </p>
             </div>
           </div>
@@ -101,7 +116,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </button>
         </div>
 
-        {/* Tabs + Compact Category & Priority Filter */}
+        {/* Tabs + LiveChat Priority Quick Bar + Compact Filter */}
         <div className="px-3.5 pt-3 pb-2.5 bg-white/60 dark:bg-[#190C30]/60 border-b border-[#EEE5FF] dark:border-[#3D1D72] space-y-2.5 shrink-0">
           <NotificationTabs
             activeTab={filters.tab}
@@ -109,6 +124,35 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             counts={counts}
             compact
           />
+
+          {(liveChatUnreadCount > 0 || isLiveChatFilterActive) && (
+            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[12px] bg-blue-50/90 dark:bg-blue-950/45 border border-blue-200/80 dark:border-blue-700/50">
+              <div className="flex items-center gap-2 min-w-0">
+                <MessageSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-300 shrink-0" />
+                <span className="text-[11px] font-bold text-blue-900 dark:text-blue-100 truncate">
+                  {liveChatUnreadCount > 0
+                    ? `Prioritas Live Chat (${liveChatUnreadCount} baru)`
+                    : 'Filter: Live Chat'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeFilter({
+                    category: isLiveChatFilterActive ? 'all' : 'live_chat'
+                  })
+                }
+                className={`px-2 py-1 rounded-[9px] text-[10px] font-extrabold cursor-pointer transition-colors shrink-0 ${
+                  isLiveChatFilterActive
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white dark:bg-[#231245] text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-700/70 hover:bg-blue-100/70'
+                }`}
+              >
+                {isLiveChatFilterActive ? 'Semua Kategori' : 'Fokus Live Chat'}
+              </button>
+            </div>
+          )}
+
           <NotificationFilter
             filters={filters}
             onChange={onChangeFilter}
@@ -137,6 +181,48 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               onResetFilters={onResetFilters}
               compact
             />
+          ) : showGroupedSections && visibleLiveChatItems.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between px-1 pt-0.5 pb-1">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                  <MessageSquare className="w-3 h-3" />
+                  <span>Prioritas Live Chat</span>
+                </span>
+                <span className="font-mono text-[10px] font-bold text-blue-700 dark:text-blue-300 tabular-nums">
+                  {visibleLiveChatItems.length}
+                </span>
+              </div>
+              {visibleLiveChatItems.map(item => (
+                <NotificationCard
+                  key={item.id}
+                  item={item}
+                  onSelect={selected => onSelectItem(selected)}
+                  onMarkRead={onMarkRead}
+                  compact
+                />
+              ))}
+              {visibleOtherItems.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between px-1 pt-2 pb-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#756C86] dark:text-[#BFB2DC]">
+                      Notifikasi Operasional Lainnya
+                    </span>
+                    <span className="font-mono text-[10px] font-bold text-[#756C86] dark:text-[#BFB2DC] tabular-nums">
+                      {visibleOtherItems.length}
+                    </span>
+                  </div>
+                  {visibleOtherItems.map(item => (
+                    <NotificationCard
+                      key={item.id}
+                      item={item}
+                      onSelect={selected => onSelectItem(selected)}
+                      onMarkRead={onMarkRead}
+                      compact
+                    />
+                  ))}
+                </>
+              )}
+            </>
           ) : (
             visibleItems.map(item => (
               <NotificationCard

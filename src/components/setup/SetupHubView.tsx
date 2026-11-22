@@ -141,11 +141,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
 
   const userRole = currentUser?.role || 'installer';
 
-  // Check role-based tab access (App Flow 6: block Leader, Installer, & IT Support)
+  // Check role-based tab access (App Flow: allow Superadmin and Dispatch)
   const isSuperadmin = userRole === 'super_admin';
   const isDispatch = userRole === 'dispatch';
-  const isManagement = userRole === 'management_data';
-  const canAccessSetupHub = isSuperadmin || isManagement || isDispatch;
+  const canAccessSetupHub = isSuperadmin || isDispatch;
 
   const totalNavMenusCount = useMemo(() => {
     return (standaloneMenus?.length || 0) + (submenuItems?.length || 0);
@@ -164,8 +163,8 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
       return tabs;
     }
 
-    // 1. Konfigurasi Sistem & Master Data (Super Admin & Management Data)
-    if (isSuperadmin || isManagement) {
+    // 1. Konfigurasi Sistem & Master Data (Superadmin)
+    if (isSuperadmin) {
       tabs.push({
         key: 'app_config',
         label: 'Konfigurasi Sistem',
@@ -209,12 +208,12 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         label: 'Role & Permission',
         shortLabel: 'RBAC',
         icon: Shield,
-        badge: '6'
+        badge: '4'
       });
     }
 
-    // 3. Kategori Report (Superadmin, Dispatch, Management Data)
-    if (isSuperadmin || isDispatch || isManagement) {
+    // 3. Kategori Report (Superadmin & Dispatch)
+    if (isSuperadmin || isDispatch) {
       tabs.push({
         key: 'droplists',
         label: 'Kategori Report',
@@ -263,7 +262,6 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
     canAccessSetupHub,
     isSuperadmin,
     isDispatch,
-    isManagement,
     totalNavMenusCount,
     config.ticketsTable.columns.length,
     contractors.length,
@@ -715,7 +713,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {/* ZONE C: MAIN TAB CONTENT WORKSPACE */}
         <div className="lg:col-span-8 xl:col-span-9 min-w-0 transition-all">
           {/* 1. Konfigurasi Sistem & Master Data Terpusat */}
-          {currentTab === 'app_config' && (isSuperadmin || isManagement) && (
+          {currentTab === 'app_config' && isSuperadmin && (
             <div className="space-y-4">
               <SystemSettings defaultTab="core_config" embeddedInSetupHub />
             </div>
@@ -773,7 +771,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
           )}
 
           {/* 8. Database & Sinkronisasi */}
-          {currentTab === 'database' && (isSuperadmin || isManagement) && (
+          {currentTab === 'database' && isSuperadmin && (
             <div className="space-y-4">
               <div className="mj-tactile-tab-bar rounded-xl flex items-center gap-1.5 p-1.5 text-xs font-semibold overflow-x-auto no-scrollbar">
                 <button

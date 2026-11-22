@@ -72,7 +72,6 @@ const TAB_TITLES: Record<string, string> = {
   audit_logs: 'Audit Trail Log',
   login_logs: 'Riwayat Sesi Login',
   system_health: 'Kesehatan Sistem',
-  management_data_portal: 'Management Data Portal',
   database_management: 'Database Application',
   database_sync: 'Monitoring Sinkronisasi',
   sheets_sync: 'Google Sheets Sync',
@@ -285,8 +284,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         return <Building2 className="w-3.5 h-3.5 text-[#E59A27]" />;
       case 'installer':
         return <Wrench className="w-3.5 h-3.5 text-[#16A36A]" />;
-      case 'management_data':
-        return <Database className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />;
       default:
         return <Shield className="w-3.5 h-3.5 text-[#766B83]" />;
     }
@@ -576,8 +573,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                       ? 'DISPATCH'
                       : currentUser.role === 'leader'
                       ? 'LEADER'
-                      : currentUser.role === 'management_data'
-                      ? 'DATA'
                       : 'OPS'}
                   </span>
                 </div>

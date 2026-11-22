@@ -111,11 +111,14 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
   const style = CATEGORY_STYLES[item.category];
   const Icon = style.icon;
   const isUnread = !item.isRead;
+  const isPriorityLiveChat = item.category === 'live_chat' && isUnread;
 
   return (
     <div
       className={`group relative rounded-[18px] border transition-all duration-150 ${
-        isUnread
+        isPriorityLiveChat
+          ? 'bg-gradient-to-br from-white via-white to-blue-50/75 dark:from-[#231245] dark:via-[#211548] dark:to-[#16234B] border-blue-300/90 dark:border-blue-500/55 shadow-[0_10px_24px_-10px_rgba(37,99,235,0.28),inset_0_1px_0_rgba(255,255,255,0.95)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]'
+          : isUnread
           ? 'bg-white dark:bg-[#231245] border-[#D6BEFF] dark:border-[#8648F5]/55 shadow-[0_8px_22px_-10px_rgba(84,36,168,0.22),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.12)]'
           : 'bg-[#F7F4FC]/90 dark:bg-[#190D33]/85 border-[#EEE5FF] dark:border-white/10 opacity-85 hover:opacity-100'
       } hover:-translate-y-[1px] hover:border-[#8648F5]/70 active:translate-y-[0.5px]`}
@@ -124,7 +127,11 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
       {isUnread && (
         <span
           aria-hidden="true"
-          className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-gradient-to-b from-[#8648F5] to-[#5424A8]"
+          className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${
+            isPriorityLiveChat
+              ? 'bg-gradient-to-b from-blue-500 via-[#8648F5] to-[#5424A8]'
+              : 'bg-gradient-to-b from-[#8648F5] to-[#5424A8]'
+          }`}
         />
       )}
 
@@ -137,9 +144,15 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
       >
         {/* Semantic Category Icon Tile */}
         <div
-          className={`w-9 h-9 rounded-[13px] border flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:shadow-none ${style.iconBoxClass}`}
+          className={`relative w-9 h-9 rounded-[13px] border flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:shadow-none ${style.iconBoxClass}`}
         >
           <Icon className="w-4 h-4" />
+          {isPriorityLiveChat && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-white dark:ring-[#231245]"
+            />
+          )}
         </div>
 
         {/* Main Hierarchy: Category + Priority, Title, Short Description, Timestamp */}
@@ -149,6 +162,11 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
               <span className={`text-[10px] font-extrabold uppercase tracking-wider truncate ${style.labelClass}`}>
                 {CATEGORY_LABELS[item.category]}
               </span>
+              {isPriorityLiveChat && (
+                <span className="px-1.5 py-0.5 rounded-[6px] bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700/70 text-[9px] font-extrabold uppercase tracking-wide leading-none shrink-0">
+                  Prioritas
+                </span>
+              )}
               {item.woNumber && (
                 <span className="font-mono text-[10px] font-bold text-[#756C86] dark:text-[#BFB2DC] truncate">
                   · {item.woNumber}
@@ -165,7 +183,9 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
               {isUnread && (
                 <span
                   title="Belum dibaca"
-                  className="w-2 h-2 rounded-full bg-[#8648F5] ring-2 ring-[#EEE5FF] dark:ring-[#30104B] shrink-0"
+                  className={`w-2 h-2 rounded-full ring-2 ring-[#EEE5FF] dark:ring-[#30104B] shrink-0 ${
+                    isPriorityLiveChat ? 'bg-blue-500' : 'bg-[#8648F5]'
+                  }`}
                 />
               )}
             </div>
