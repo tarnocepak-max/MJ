@@ -148,6 +148,7 @@ import {
   normalizeGpsTrackingConfig,
   getEffectiveGpsTrackingConfig,
   createInstallerTrackingSession,
+  ensureInstallerTrackingSession,
   endInstallerTrackingSession,
   recordInstallerLocationStatusUpdate,
   recordInstallerHeartbeat,
@@ -3620,6 +3621,22 @@ export async function createExpressApp(options?: {
       ipAddress: clientIp,
       userAgent
     });
+
+    if (user.role === 'installer') {
+      await createInstallerTrackingSession({
+        installer: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          phone: user.phone,
+          contractor: user.contractor,
+          contractorId: user.contractorId,
+          area: user.area
+        },
+        sessionId,
+        userAgent
+      });
+    }
 
     res.cookie('mora_access_token', tokens.accessToken, {
       httpOnly: true,
@@ -12753,7 +12770,7 @@ export async function createExpressApp(options?: {
   // ---------------------------------------------------------------------------
   // AUTOMATIC INSTALLER LOGIN & LIVE GPS TRACKING API
   // ---------------------------------------------------------------------------
-  const GPS_MAP_VIEW_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'installer']);
+  const GPS_MAP_VIEW_ROLES = new Set(['super_admin', 'dispatch', 'leader', 'management_data', 'installer']);
 
   app.get('/api/installer-tracking/config', requireAuth, async (_req: AuthenticatedRequest, res: Response) => {
     try {
@@ -12761,6 +12778,57 @@ export async function createExpressApp(options?: {
       return res.json({ success: true, config, defaults: DEFAULT_GPS_TRACKING_CONFIG });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat konfigurasi GPS tracking.' });
+    }
+  });
+
+  app.post('/api/installer-tracking/session/ensure', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'installer') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Sesi Live GPS hanya untuk akun role Installer.',
+          code: 'INSTALLER_ROLE_REQUIRED'
+        });
+      }
+      const requestedSessionId = String(req.body?.sessionId || req.body?.session_id || '').trim();
+      const resolvedSessionId =
+        String(req.session?.sessionId || requestedSessionId || '').trim() ||
+        `sess_${crypto.randomBytes(12).toString('hex')}`;
+
+      const ensured = await ensureInstallerTrackingSession({
+        installer: {
+          id: user.id,
+          name: user.name || user.username || 'Installer',
+          username: user.username || user.id,
+          phone: user.phone,
+          contractor: user.contractor,
+          contractorId: user.contractorId,
+          area: user.area
+        },
+        sessionId: resolvedSessionId,
+        deviceId: req.body?.deviceId ? String(req.body.deviceId) : undefined,
+        userAgent: req.headers['user-agent'] || 'Web Browser'
+      });
+
+      if (!ensured.success || !ensured.session) {
+        return res.status(500).json({
+          success: false,
+          error: 'Gagal menginisialisasi sesi Live GPS Installer.',
+          code: 'ENSURE_TRACKING_SESSION_FAILED'
+        });
+      }
+
+      return res.json({
+        success: true,
+        sessionId: ensured.session.sessionId,
+        location: ensured.view
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Terjadi kesalahan saat memastikan sesi tracking Installer.'
+      });
     }
   });
 
@@ -12786,6 +12854,7 @@ export async function createExpressApp(options?: {
 
       const result = await recordInstallerLocationUpdate({
         installer: user,
+        allowSessionAutoCreate: Boolean(req.session?.sessionId && req.session.sessionId === resolvedSessionId),
         point: {
           sessionId: resolvedSessionId,
           latitude: Number(latitude),
@@ -12878,7 +12947,8 @@ export async function createExpressApp(options?: {
       const result = await recordInstallerHeartbeat({
         installer: user,
         sessionId: resolvedSessionId,
-        locationStatusHint: locationStatus
+        locationStatusHint: locationStatus,
+        allowSessionAutoCreate: Boolean(req.session?.sessionId && req.session.sessionId === resolvedSessionId)
       });
 
       if (!result.success) {
@@ -12919,7 +12989,8 @@ export async function createExpressApp(options?: {
       const result = await recordInstallerLocationStatusUpdate({
         installer: user,
         sessionId: resolvedSessionId,
-        locationStatus: resolvedStatus
+        locationStatus: resolvedStatus,
+        allowSessionAutoCreate: Boolean(req.session?.sessionId && req.session.sessionId === resolvedSessionId)
       });
 
       if (!result.success) {

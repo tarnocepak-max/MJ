@@ -21,10 +21,12 @@ export type GpsSyncUiStage =
 
 export interface InstallerGpsUiSnapshot {
   active: boolean;
+  isBusy: boolean;
   stage: GpsSyncUiStage;
   stageBadge: string;
   headline: string;
   detail: string;
+  errorMessage: string | null;
   onlineStatus: InstallerOnlineStatus;
   locationStatus: InstallerLocationStatus;
   permissionState: 'granted' | 'prompt' | 'denied' | 'unsupported';
@@ -78,6 +80,8 @@ class InstallerGpsTrackingController {
   private activeSessionId: string | null = null;
   private lastSentCoords: { lat: number; lng: number; timestampMs: number } | null = null;
   private isFlushingQueue = false;
+  private watchFallbackLowAccuracy = false;
+  private activeConnectPromise: Promise<{ ok: boolean; message: string }> | null = null;
   private hasShownConnectedToastThisSession = false;
   private hasShownDeniedToastThisSession = false;
   private hasShownSyncToastThisSession = false;
@@ -87,10 +91,12 @@ class InstallerGpsTrackingController {
 
   private snapshot: InstallerGpsUiSnapshot = {
     active: false,
+    isBusy: false,
     stage: 'IDLE',
     stageBadge: 'IDLE',
     headline: 'Tracking Nonaktif',
     detail: 'Menunggu sesi Installer aktif.',
+    errorMessage: null,
     onlineStatus: 'Offline',
     locationStatus: 'Waiting for GPS',
     permissionState: 'prompt',
@@ -205,7 +211,6 @@ class InstallerGpsTrackingController {
       const parsed = JSON.parse(raw);
       if (!parsed?.userId || !parsed?.token || parsed?.role !== 'installer') return null;
       const sessionId = String(parsed.sessionId || '').trim();
-      if (!sessionId) return null;
       return {
         userId: String(parsed.userId),
         role: String(parsed.role),
@@ -215,6 +220,46 @@ class InstallerGpsTrackingController {
     } catch {
       return null;
     }
+  }
+
+  private persistSessionIdToStorage(sessionId: string) {
+    try {
+      const raw = localStorage.getItem('morajaws_auth_session');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.sessionId !== sessionId) {
+        localStorage.setItem('morajaws_auth_session', JSON.stringify({ ...parsed, sessionId }));
+      }
+    } catch {}
+  }
+
+  private async ensureBackendTrackingSession(): Promise<string | null> {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return this.activeSessionId;
+    }
+    const stored = this.readSessionFromStorage();
+    const candidateSessionId = String(this.activeSessionId || stored?.sessionId || '').trim();
+    try {
+      const res = await fetch('/api/installer-tracking/session/ensure', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          sessionId: candidateSessionId || undefined
+        })
+      });
+      if (!res.ok) return this.activeSessionId;
+      const json = await res.json().catch(() => null);
+      if (json?.success && json.sessionId) {
+        const confirmedSessionId = String(json.sessionId).trim();
+        if (confirmedSessionId) {
+          this.activeSessionId = confirmedSessionId;
+          this.persistSessionIdToStorage(confirmedSessionId);
+          this.emitState({ sessionId: confirmedSessionId });
+          return confirmedSessionId;
+        }
+      }
+    } catch {}
+    return this.activeSessionId;
   }
 
   private handleOnlineRecovery = () => {
@@ -240,7 +285,11 @@ class InstallerGpsTrackingController {
     }
 
     const stored = this.readSessionFromStorage();
-    const resolvedSessionId = String(params.sessionId || stored?.sessionId || '').trim();
+    let resolvedSessionId = String(params.sessionId || stored?.sessionId || '').trim();
+
+    if (!resolvedSessionId) {
+      resolvedSessionId = (await this.ensureBackendTrackingSession()) || '';
+    }
     if (!resolvedSessionId) {
       return;
     }
@@ -255,6 +304,7 @@ class InstallerGpsTrackingController {
     this.activeUserId = params.userId;
     this.activeSessionId = resolvedSessionId;
     this.lastSentCoords = null;
+    this.watchFallbackLowAccuracy = false;
     this.hasShownConnectedToastThisSession = false;
     this.hasShownDeniedToastThisSession = false;
     this.hasShownSyncToastThisSession = false;
@@ -263,6 +313,8 @@ class InstallerGpsTrackingController {
 
     this.emitState({
       active: true,
+      isBusy: false,
+      errorMessage: null,
       stage: 'GPS_INITIALIZATION',
       stageBadge: 'GPS INITIALIZATION',
       headline: 'Inisialisasi GPS Installer',
@@ -273,7 +325,10 @@ class InstallerGpsTrackingController {
       sessionId: resolvedSessionId
     });
 
-    await this.loadServerTrackingConfig();
+    await Promise.all([
+      this.ensureBackendTrackingSession(),
+      this.loadServerTrackingConfig()
+    ]);
     this.setupLiveConfigSubscription();
 
     if (typeof window !== 'undefined') {
@@ -410,7 +465,7 @@ class InstallerGpsTrackingController {
     this.startGeolocationWatch();
   }
 
-  private startGeolocationWatch() {
+  private startGeolocationWatch(useHighAccuracy = !this.watchFallbackLowAccuracy) {
     this.stopGeolocationWatch();
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
 
@@ -420,11 +475,16 @@ class InstallerGpsTrackingController {
           this.handlePositionUpdate(pos).catch(() => {});
         },
         err => {
+          if (useHighAccuracy && err.code !== err.PERMISSION_DENIED) {
+            this.watchFallbackLowAccuracy = true;
+            this.startGeolocationWatch(false);
+            return;
+          }
           this.handlePositionError(err).catch(() => {});
         },
         {
-          enableHighAccuracy: true,
-          maximumAge: 5000,
+          enableHighAccuracy: useHighAccuracy,
+          maximumAge: useHighAccuracy ? 5000 : 20000,
           timeout: 15000
         }
       );
@@ -442,49 +502,162 @@ class InstallerGpsTrackingController {
     }
   }
 
-  public async requestOrRetryGps(): Promise<void> {
-    if (!this.activeSessionId) return;
-    this.emitState({
-      stage: 'GPS_INITIALIZATION',
-      stageBadge: 'GPS INITIALIZATION',
-      headline: 'Meminta Akses GPS Ulang...',
-      detail: 'Memeriksa izin lokasi perangkat dan mengambil posisi terkini.'
+  private getCurrentPositionAsync(options: PositionOptions): Promise<GeolocationPosition> {
+    return new Promise((resolve, reject) => {
+      if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+        reject(new Error('GEOLOCATION_UNSUPPORTED'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, options);
     });
-
-    const perm = await queryLocationPermissionStatus();
-    this.emitState({ permissionState: perm });
-    if (perm === 'denied') {
-      await this.handlePermissionDenied(true);
-      return;
-    }
-    this.startGeolocationWatch();
   }
 
-  public async syncNow(): Promise<void> {
-    if (!this.activeSessionId) return;
-    if (this.loadOfflineQueue().length > 0 && navigator.onLine) {
-      await this.flushOfflineQueue();
+  public connectAndSyncNow(): Promise<{ ok: boolean; message: string }> {
+    if (this.activeConnectPromise) {
+      return this.activeConnectPromise;
     }
-    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          this.handlePositionUpdate(pos, { forceSend: true }).catch(() => {});
-        },
-        err => {
-          this.handlePositionError(err).catch(() => {});
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
-      );
+
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      const msg = 'Browser atau perangkat Anda tidak mendukung fitur Geolocation GPS.';
+      this.emitState({
+        isBusy: false,
+        stage: 'LOCATION_ERROR',
+        stageBadge: 'LOCATION ERROR',
+        headline: 'Perangkat Tidak Mendukung GPS',
+        detail: msg,
+        errorMessage: msg,
+        permissionState: 'unsupported',
+        locationStatus: 'GPS Disabled'
+      });
+      this.reportLocationStatus('GPS Disabled').catch(() => {});
+      return Promise.resolve({ ok: false, message: msg });
     }
+
+    // CRITICAL: Invoke navigator.geolocation synchronously inside the button-click call stack
+    // so browsers preserve user-gesture activation for permission prompts.
+    const highAccuracyPromise = this.getCurrentPositionAsync({
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 12000
+    });
+
+    this.emitState({
+      active: true,
+      isBusy: true,
+      errorMessage: null,
+      stage: 'LOCATION_SYNC',
+      stageBadge: 'LOCATION SYNC',
+      headline: 'Mengambil Koordinat GPS...',
+      detail: 'Meminta izin & mengunci koordinat perangkat untuk disinkronkan ke Monitoring Maps...'
+    });
+
+    this.activeConnectPromise = (async () => {
+      try {
+        const stored = this.readSessionFromStorage();
+        if (!this.activeUserId && stored?.userId) {
+          this.activeUserId = stored.userId;
+        }
+        if (!this.activeSessionId) {
+          await this.ensureBackendTrackingSession();
+        }
+        if (!this.activeSessionId) {
+          const msg = 'Sesi Installer belum siap. Silakan login ulang.';
+          this.emitState({
+            isBusy: false,
+            stage: 'LOCATION_ERROR',
+            stageBadge: 'SESSION REQUIRED',
+            headline: 'Sesi Installer Tidak Ditemukan',
+            detail: msg,
+            errorMessage: msg
+          });
+          return { ok: false, message: msg };
+        }
+
+        let position: GeolocationPosition;
+        let usedFallbackAccuracy = false;
+        try {
+          position = await highAccuracyPromise;
+        } catch (firstErr: any) {
+          if (firstErr?.code === 1) {
+            throw firstErr;
+          }
+          usedFallbackAccuracy = true;
+          position = await this.getCurrentPositionAsync({
+            enableHighAccuracy: false,
+            maximumAge: 30000,
+            timeout: 12000
+          });
+        }
+
+        this.watchFallbackLowAccuracy = usedFallbackAccuracy;
+
+        if (this.loadOfflineQueue().length > 0 && navigator.onLine) {
+          await this.flushOfflineQueue();
+        }
+
+        const synced = await this.handlePositionUpdate(position, { forceSend: true });
+        this.startGeolocationWatch(!usedFallbackAccuracy);
+
+        if (synced) {
+          const acc = Number.isFinite(position.coords.accuracy)
+            ? Math.round(position.coords.accuracy)
+            : '?';
+          const msg = `GPS terhubung (${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)} · ±${acc}m) & tersinkron ke Monitoring Maps.`;
+          this.emitState({ isBusy: false, errorMessage: null });
+          return { ok: true, message: msg };
+        }
+
+        const pendingMsg = navigator.onLine
+          ? 'Koordinat diperoleh, menunggu respons sinkronisasi server...'
+          : 'Koordinat tersimpan lokal, akan disinkronkan otomatis saat internet aktif.';
+        this.emitState({ isBusy: false, errorMessage: pendingMsg });
+        return { ok: false, message: pendingMsg };
+      } catch (err: any) {
+        if (err?.code === 1) {
+          await this.handlePermissionDenied(true);
+          return {
+            ok: false,
+            message: 'Izin lokasi ditolak di browser. Aktifkan izin Lokasi pada pengaturan situs browser Anda lalu coba lagi.'
+          };
+        }
+        if (err && typeof err.code === 'number') {
+          await this.handlePositionError(err as GeolocationPositionError);
+        }
+        const errMsg =
+          err?.code === 3
+            ? 'Waktu pencarian sinyal GPS habis (Timeout). Pastikan GPS/Lokasi perangkat menyala lalu tekan coba lagi.'
+            : 'Layanan lokasi perangkat tidak aktif atau sinyal lokasi tidak tersedia.';
+        this.emitState({
+          isBusy: false,
+          errorMessage: errMsg
+        });
+        return { ok: false, message: errMsg };
+      } finally {
+        this.activeConnectPromise = null;
+      }
+    })();
+
+    return this.activeConnectPromise;
+  }
+
+  public requestOrRetryGps(): Promise<{ ok: boolean; message: string }> {
+    return this.connectAndSyncNow();
+  }
+
+  public syncNow(): Promise<{ ok: boolean; message: string }> {
+    return this.connectAndSyncNow();
   }
 
   private async handlePermissionDenied(forceToast = false) {
     this.stopGeolocationWatch();
+    const deniedMsg = 'Izin lokasi ditolak. Aktifkan izin GPS browser untuk mengakses portal & mengirim posisi ke Monitoring Maps.';
     this.emitState({
+      isBusy: false,
       stage: 'LOCATION_ERROR',
       stageBadge: 'LOCATION ERROR',
       headline: 'Location Permission Required',
-      detail: 'Izin lokasi ditolak. Login tetap aktif, namun posisi live tidak dikirim ke peta.',
+      detail: deniedMsg,
+      errorMessage: deniedMsg,
       permissionState: 'denied',
       locationStatus: 'Permission Denied'
     });
@@ -497,8 +670,7 @@ class InstallerGpsTrackingController {
         type: 'warning',
         badge: 'Location Permission Required',
         title: 'Izin Lokasi Diperlukan',
-        message:
-          'Akses GPS ditolak. Login tetap berjalan, aktifkan izin lokasi di browser bila ingin sinkronisasi posisi ke Monitoring Maps.'
+        message: deniedMsg
       });
     }
   }
@@ -515,14 +687,16 @@ class InstallerGpsTrackingController {
       err.code === err.TIMEOUT ? 'Sinyal GPS Tidak Stabil' : 'GPS Perangkat Tidak Aktif';
     const detail =
       err.code === err.TIMEOUT
-        ? 'Timeout mendapatkan koordinat satelit (No Signal). Sistem akan mencoba ulang otomatis.'
+        ? 'Timeout mendapatkan koordinat lokasi (No Signal). Pastikan layanan lokasi perangkat aktif lalu coba ulang.'
         : 'Layanan lokasi perangkat nonaktif (GPS Disabled). Aktifkan GPS perangkat Anda.';
 
     this.emitState({
+      isBusy: false,
       stage: 'LOCATION_ERROR',
       stageBadge: 'LOCATION ERROR',
       headline,
       detail,
+      errorMessage: detail,
       locationStatus: nextLocStatus
     });
     await this.reportLocationStatus(nextLocStatus);
@@ -531,12 +705,12 @@ class InstallerGpsTrackingController {
   private async handlePositionUpdate(
     position: GeolocationPosition,
     options?: { forceSend?: boolean }
-  ): Promise<void> {
-    if (!this.activeSessionId || !this.snapshot.active) return;
+  ): Promise<boolean> {
+    if (!this.activeSessionId || !this.snapshot.active) return false;
 
     const coords = position.coords;
     if (!isValidCoordinatePair(coords.latitude, coords.longitude)) {
-      return;
+      return false;
     }
 
     const lat = Number(coords.latitude.toFixed(7));
@@ -557,7 +731,8 @@ class InstallerGpsTrackingController {
       permissionState: 'granted',
       latitude: lat,
       longitude: lng,
-      accuracyMeters: acc
+      accuracyMeters: acc,
+      errorMessage: null
     });
 
     // Deduplication & configurable threshold check
@@ -570,21 +745,19 @@ class InstallerGpsTrackingController {
         lng
       );
 
-      // Identical coordinates & interval hasn't elapsed
       if (
         Math.abs(this.lastSentCoords.lat - lat) < 0.000001 &&
         Math.abs(this.lastSentCoords.lng - lng) < 0.000001 &&
         elapsedSec < this.config.syncIntervalSeconds
       ) {
-        return;
+        return true;
       }
 
-      // Has not moved significantly AND interval hasn't elapsed yet
       if (
         movedMeters < this.config.minDistanceMeters &&
         elapsedSec < this.config.syncIntervalSeconds
       ) {
-        return;
+        return true;
       }
     }
 
@@ -609,23 +782,33 @@ class InstallerGpsTrackingController {
         headline: 'Internet Terputus — Antre Offline',
         detail: `${this.loadOfflineQueue().length} titik koordinat disimpan lokal dan akan disinkronkan saat online.`
       });
-      return;
+      return false;
     }
 
     try {
-      const res = await fetch('/api/installer-tracking/location', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(point)
-      });
+      const postLocation = async (sessionIdToSend: string) => {
+        return fetch('/api/installer-tracking/location', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ ...point, sessionId: sessionIdToSend })
+        });
+      };
+
+      let res = await postLocation(this.activeSessionId);
+      if (res.status === 404) {
+        const recoveredSessionId = await this.ensureBackendTrackingSession();
+        if (recoveredSessionId) {
+          point.sessionId = recoveredSessionId;
+          res = await postLocation(recoveredSessionId);
+        }
+      }
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403 || res.status === 409) {
-          // Session revoked/ended/superseded on server -> stop tracking cleanly
           const errJson = await res.json().catch(() => null);
           if (res.status === 409 || errJson?.code === 'SESSION_SUPERSEDED' || errJson?.code === 'SESSION_ENDED') {
             this.stopTracking({ silent: true });
-            return;
+            return false;
           }
         }
         throw new Error(`HTTP ${res.status}`);
@@ -635,6 +818,8 @@ class InstallerGpsTrackingController {
       const syncedIso = new Date().toISOString();
 
       this.emitState({
+        isBusy: false,
+        errorMessage: null,
         stage: 'LOCATION_CONNECTED',
         stageBadge: 'LOCATION CONNECTED',
         onlineStatus: 'Online',
@@ -655,15 +840,15 @@ class InstallerGpsTrackingController {
           stage: 'LOCATION_CONNECTED',
           type: 'success',
           badge: 'LOCATION CONNECTED',
-          title: 'Lokasi Berhasil Disinkronkan',
+          title: 'GPS Terhubung ke Monitoring Maps',
           message: `GPS perangkat aktif (${lat.toFixed(5)}, ${lng.toFixed(5)} · akurasi ±${acc ?? '?'}m).`
         });
       }
 
-      // Flush any previously queued offline coordinates
       if (this.loadOfflineQueue().length > 0) {
         this.flushOfflineQueue().catch(() => {});
       }
+      return true;
     } catch {
       this.enqueueOfflinePoint(point);
       this.lastSentCoords = { lat, lng, timestampMs: nowMs };
@@ -671,8 +856,10 @@ class InstallerGpsTrackingController {
         stage: 'LOCATION_SYNC',
         stageBadge: 'RETRY QUEUED',
         headline: 'Sinkronisasi Tertunda',
-        detail: `Koneksi lambat/offline — ${this.loadOfflineQueue().length} koordinat menunggu pengiriman ulang.`
+        detail: `Koneksi lambat/offline — ${this.loadOfflineQueue().length} koordinat menunggu pengiriman ulang.`,
+        errorMessage: 'Sinkronisasi ke server tertunda. Coba tekan Sinkronkan ulang.'
       });
+      return false;
     }
   }
 
@@ -796,6 +983,8 @@ class InstallerGpsTrackingController {
     if (!options?.silent) {
       this.emitState({
         active: false,
+        isBusy: false,
+        errorMessage: null,
         stage: 'IDLE',
         stageBadge: 'OFFLINE',
         headline: 'Sesi GPS Dihentikan',
@@ -805,6 +994,7 @@ class InstallerGpsTrackingController {
         latitude: null,
         longitude: null,
         accuracyMeters: null,
+        lastSyncedAt: null,
         queuedPointsCount: 0,
         sessionId: null
       });

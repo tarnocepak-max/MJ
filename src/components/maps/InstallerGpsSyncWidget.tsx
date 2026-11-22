@@ -79,6 +79,21 @@ export const InstallerGpsSyncWidget: React.FC = () => {
     ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-400/35'
     : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border-[#D8C5FF] dark:border-[#7135B5]/40';
 
+  const handleManualSync = async () => {
+    const res = await installerGpsTracker.connectAndSyncNow();
+    if (res.ok) {
+      toast.success(res.message, 'Sinkronisasi GPS Berhasil', {
+        badge: 'MAPS MONITOR LIVE',
+        withSound: true
+      });
+    } else {
+      toast.warning(res.message, 'Sinkronisasi GPS Tertunda', {
+        badge: 'GPS STATUS',
+        duration: 5000
+      });
+    }
+  };
+
   return (
     <div
       className="fixed bottom-[76px] right-3 sm:bottom-5 sm:right-5 z-[1100] flex flex-col items-end max-w-[calc(100vw-24px)] sm:max-w-[320px]"
@@ -161,6 +176,13 @@ export const InstallerGpsSyncWidget: React.FC = () => {
             </div>
           )}
 
+          {isConnected && (
+            <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-400/30 px-2.5 py-1.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+              <span>Tersinkron Realtime ke Monitoring Maps</span>
+            </div>
+          )}
+
           {snap.queuedPointsCount > 0 && (
             <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-amber-500/10 border border-amber-400/30 px-2.5 py-1.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
               <CloudUpload className="w-3.5 h-3.5 shrink-0" />
@@ -172,20 +194,22 @@ export const InstallerGpsSyncWidget: React.FC = () => {
             {isError ? (
               <button
                 type="button"
-                onClick={() => installerGpsTracker.requestOrRetryGps()}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#58149C] hover:bg-[#7135B5] text-white text-[11px] font-bold py-2 px-3 transition-colors shadow-sm"
+                disabled={snap.isBusy}
+                onClick={() => void handleManualSync()}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#58149C] hover:bg-[#7135B5] disabled:opacity-65 disabled:cursor-wait text-white text-[11px] font-bold py-2 px-3 transition-colors shadow-sm cursor-pointer"
               >
-                <LocateFixed className="w-3.5 h-3.5" />
-                Aktifkan / Coba Ulang GPS
+                <LocateFixed className={`w-3.5 h-3.5 ${snap.isBusy ? 'animate-spin' : ''}`} />
+                {snap.isBusy ? 'Menghubungkan GPS...' : 'Aktifkan / Coba Ulang GPS'}
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => installerGpsTracker.syncNow()}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#58149C] hover:bg-[#7135B5] text-white text-[11px] font-bold py-2 px-3 transition-colors shadow-sm"
+                disabled={snap.isBusy}
+                onClick={() => void handleManualSync()}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#58149C] hover:bg-[#7135B5] disabled:opacity-65 disabled:cursor-wait text-white text-[11px] font-bold py-2 px-3 transition-colors shadow-sm cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Sinkronkan Lokasi Sekarang
+                <RefreshCw className={`w-3.5 h-3.5 ${snap.isBusy ? 'animate-spin' : ''}`} />
+                {snap.isBusy ? 'Menyinkronkan GPS...' : 'Sinkronkan Lokasi Sekarang'}
               </button>
             )}
           </div>

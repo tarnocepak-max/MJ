@@ -475,6 +475,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
 
     const tickTimer = window.setInterval(() => {
       setNowTickMs(Date.now());
+      void fetchLiveInstallers();
     }, 15000);
 
     return () => {

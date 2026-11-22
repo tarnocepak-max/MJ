@@ -167,6 +167,31 @@ function ensureLocalTrackingStores() {
   };
 }
 
+// Runtime mirror store used both in local JSON mode and as seamless fallback
+// if Supabase tracking tables are temporarily unavailable or unmigrated.
+function upsertRuntimeSessionCache(session: InstallerSessionRecord) {
+  const stores = ensureLocalTrackingStores();
+  const idx = stores.sessions.findIndex(s => s.sessionId === session.sessionId);
+  if (idx >= 0) {
+    stores.sessions[idx] = session;
+  } else {
+    stores.sessions.unshift(session);
+    if (stores.sessions.length > 1000) {
+      stores.sessions.length = 1000;
+    }
+  }
+}
+
+function upsertRuntimeCurrentLocationCache(loc: InstallerCurrentLocationRecord) {
+  const stores = ensureLocalTrackingStores();
+  const idx = stores.currentLocations.findIndex(c => c.installerId === loc.installerId);
+  if (idx >= 0) {
+    stores.currentLocations[idx] = loc;
+  } else {
+    stores.currentLocations.push(loc);
+  }
+}
+
 export async function getEffectiveGpsTrackingConfig(): Promise<GpsTrackingConfig> {
   try {
     if (isSupabaseMode()) {
@@ -378,7 +403,7 @@ export function checkInstallerTrackingReadAccess(
   viewer: { id: string; role: string; contractor?: string; contractorId?: string; area?: string }
 ): boolean {
   if (!viewer || !record) return false;
-  if (viewer.role === 'super_admin' || viewer.role === 'dispatch') {
+  if (viewer.role === 'super_admin' || viewer.role === 'dispatch' || viewer.role === 'management_data') {
     return true;
   }
   if (viewer.role === 'installer') {
@@ -400,7 +425,16 @@ export function checkInstallerTrackingReadAccess(
 
 async function resolveTrackingViewForInstaller(
   installerId: string,
-  preferredSessionId?: string
+  preferredSessionId?: string,
+  fallbackInstaller?: {
+    id: string;
+    name?: string;
+    username?: string;
+    phone?: string;
+    contractor?: string;
+    contractorId?: string;
+    area?: string;
+  }
 ): Promise<InstallerLiveLocationView | null> {
   const config = await getEffectiveGpsTrackingConfig();
   let installerUser: any = null;
@@ -410,50 +444,55 @@ async function resolveTrackingViewForInstaller(
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      const [{ data: uRow }, { data: sRows }, { data: cRow }] = await Promise.all([
-        client.from('users').select('*').eq('id', installerId).maybeSingle(),
-        client
-          .from('installer_sessions')
-          .select('*')
-          .eq('installer_id', installerId)
-          .order('login_at', { ascending: false })
-          .limit(5),
-        client
-          .from('installer_current_locations')
-          .select('*')
-          .eq('installer_id', installerId)
-          .maybeSingle()
-      ]);
-      if (uRow) {
-        const p = uRow.payload && typeof uRow.payload === 'object' ? uRow.payload : {};
-        installerUser = {
-          id: uRow.id,
-          name: uRow.name || p.name,
-          username: uRow.username || p.username,
-          phone: uRow.phone || p.phone,
-          contractor: uRow.contractor || p.contractor,
-          contractorId: uRow.contractor_id || p.contractorId,
-          area: uRow.area || p.area
-        };
-      }
-      if (Array.isArray(sRows) && sRows.length > 0) {
-        const picked =
-          (preferredSessionId ? sRows.find(r => r.session_id === preferredSessionId) : null) ||
-          sRows.find(r => r.session_status === 'active') ||
-          sRows[0];
-        if (picked) session = mapRowToInstallerSession(picked);
-      }
-      if (cRow) {
-        currentLoc = mapRowToCurrentLocation(cRow);
+      try {
+        const [{ data: uRow }, { data: sRows, error: sErr }, { data: cRow, error: cErr }] = await Promise.all([
+          client.from('users').select('*').eq('id', installerId).maybeSingle(),
+          client
+            .from('installer_sessions')
+            .select('*')
+            .eq('installer_id', installerId)
+            .order('login_at', { ascending: false })
+            .limit(5),
+          client
+            .from('installer_current_locations')
+            .select('*')
+            .eq('installer_id', installerId)
+            .maybeSingle()
+        ]);
+        if (uRow) {
+          const p = uRow.payload && typeof uRow.payload === 'object' ? uRow.payload : {};
+          installerUser = {
+            id: uRow.id,
+            name: uRow.name || p.name,
+            username: uRow.username || p.username,
+            phone: uRow.phone || p.phone,
+            contractor: uRow.contractor || p.contractor,
+            contractorId: uRow.contractor_id || p.contractorId,
+            area: uRow.area || p.area
+          };
+        }
+        if (!sErr && Array.isArray(sRows) && sRows.length > 0) {
+          const picked =
+            (preferredSessionId ? sRows.find(r => r.session_id === preferredSessionId) : null) ||
+            sRows.find(r => r.session_status === 'active') ||
+            sRows[0];
+          if (picked) session = mapRowToInstallerSession(picked);
+        }
+        if (!cErr && cRow) {
+          currentLoc = mapRowToCurrentLocation(cRow);
+        }
+      } catch (err: any) {
+        console.warn('[InstallerGPS] resolveTrackingViewForInstaller Supabase fallback:', err?.message || err);
       }
     }
   }
 
-  if (!installerUser && isLocalJsonModeAllowed()) {
-    installerUser = db.users.find(u => u.id === installerId) || null;
+  if (!installerUser) {
+    installerUser = db.users.find(u => u.id === installerId) || fallbackInstaller || null;
   }
-  if (!session && isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
+
+  const stores = ensureLocalTrackingStores();
+  if (!session) {
     const candidates = stores.sessions
       .filter(s => s.installerId === installerId)
       .sort((a, b) => new Date(b.loginAt).getTime() - new Date(a.loginAt).getTime());
@@ -462,6 +501,8 @@ async function resolveTrackingViewForInstaller(
       candidates.find(s => s.sessionStatus === 'active') ||
       candidates[0] ||
       null;
+  }
+  if (!currentLoc) {
     currentLoc = stores.currentLocations.find(c => c.installerId === installerId) || null;
   }
 
@@ -561,35 +602,62 @@ export async function createInstallerTrackingSession(params: {
     }
   }
 
+  // Always mirror in runtime cache so SSE / MonitoringMaps stay reliable even if Supabase tables are unavailable
+  const stores = ensureLocalTrackingStores();
+  stores.sessions.forEach(s => {
+    if (s.installerId === params.installer.id && s.sessionStatus === 'active') {
+      s.sessionStatus = 'superseded';
+      s.onlineStatus = 'Offline';
+      s.logoutAt = nowIso;
+      s.updatedAt = nowIso;
+    }
+  });
+  upsertRuntimeSessionCache(newSession);
+  const existingLoc = stores.currentLocations.find(c => c.installerId === params.installer.id);
+  if (existingLoc) {
+    existingLoc.isActive = false;
+    existingLoc.locationStatus = 'Location Stale';
+    existingLoc.updatedAt = nowIso;
+  }
+
   if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
-    stores.sessions.forEach(s => {
-      if (s.installerId === params.installer.id && s.sessionStatus === 'active') {
-        s.sessionStatus = 'superseded';
-        s.onlineStatus = 'Offline';
-        s.logoutAt = nowIso;
-        s.updatedAt = nowIso;
-      }
-    });
-    stores.sessions.unshift(newSession);
-    if (stores.sessions.length > 1000) {
-      stores.sessions.length = 1000;
-    }
-    const existingLoc = stores.currentLocations.find(c => c.installerId === params.installer.id);
-    if (existingLoc) {
-      existingLoc.isActive = false;
-      existingLoc.locationStatus = 'Location Stale';
-      existingLoc.updatedAt = nowIso;
-    }
     saveDatabaseToDisk();
   }
 
-  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId);
+  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId, params.installer);
   if (view) {
     broadcastSupabaseChange('installer_tracking', 'UPSERT', view);
   }
 
   return newSession;
+}
+
+export async function ensureInstallerTrackingSession(params: {
+  installer: {
+    id: string;
+    name: string;
+    username: string;
+    phone?: string;
+    contractor?: string;
+    contractorId?: string;
+    area?: string;
+  };
+  sessionId: string;
+  deviceId?: string;
+  userAgent?: string;
+}): Promise<{
+  success: boolean;
+  session: InstallerSessionRecord | null;
+  view: InstallerLiveLocationView | null;
+}> {
+  const existing = await loadAuthoritativeInstallerSession(params.sessionId);
+  if (existing && existing.installerId === params.installer.id && existing.sessionStatus === 'active') {
+    const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId, params.installer);
+    return { success: true, session: existing, view };
+  }
+  const created = await createInstallerTrackingSession(params);
+  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId, params.installer);
+  return { success: Boolean(created), session: created, view };
 }
 
 /**
@@ -649,27 +717,29 @@ export async function endInstallerTrackingSession(params: {
     }
   }
 
-  if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
-    stores.sessions.forEach(s => {
-      const matchSession = sessionId ? s.sessionId === sessionId : false;
-      const matchInstaller = installerId ? s.installerId === installerId : false;
-      if ((matchSession || (!sessionId && matchInstaller)) && s.sessionStatus === 'active') {
-        s.sessionStatus = reason;
-        s.onlineStatus = 'Offline';
-        s.logoutAt = nowIso;
-        s.updatedAt = nowIso;
-        if (!resolvedInstallerId) resolvedInstallerId = s.installerId;
-      }
-    });
-    if (resolvedInstallerId) {
-      const existingLoc = stores.currentLocations.find(c => c.installerId === resolvedInstallerId);
-      if (existingLoc) {
-        existingLoc.isActive = false;
-        existingLoc.locationStatus = 'Location Stale';
-        existingLoc.updatedAt = nowIso;
-      }
+  // Update runtime mirror cache cleanly
+  const stores = ensureLocalTrackingStores();
+  stores.sessions.forEach(s => {
+    const matchSession = sessionId ? s.sessionId === sessionId : false;
+    const matchInstaller = installerId ? s.installerId === installerId : false;
+    if ((matchSession || (!sessionId && matchInstaller)) && s.sessionStatus === 'active') {
+      s.sessionStatus = reason;
+      s.onlineStatus = 'Offline';
+      s.logoutAt = nowIso;
+      s.updatedAt = nowIso;
+      if (!resolvedInstallerId) resolvedInstallerId = s.installerId;
     }
+  });
+  if (resolvedInstallerId) {
+    const existingLoc = stores.currentLocations.find(c => c.installerId === resolvedInstallerId);
+    if (existingLoc) {
+      existingLoc.isActive = false;
+      existingLoc.locationStatus = 'Location Stale';
+      existingLoc.updatedAt = nowIso;
+    }
+  }
+
+  if (isLocalJsonModeAllowed()) {
     saveDatabaseToDisk();
   }
 
@@ -689,21 +759,22 @@ async function loadAuthoritativeInstallerSession(
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      const { data, error } = await client
-        .from('installer_sessions')
-        .select('*')
-        .eq('session_id', sessionId)
-        .maybeSingle();
-      if (!error && data) {
-        return mapRowToInstallerSession(data);
-      }
+      try {
+        const { data, error } = await client
+          .from('installer_sessions')
+          .select('*')
+          .eq('session_id', sessionId)
+          .maybeSingle();
+        if (!error && data) {
+          const mapped = mapRowToInstallerSession(data);
+          upsertRuntimeSessionCache(mapped);
+          return mapped;
+        }
+      } catch {}
     }
   }
-  if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
-    return stores.sessions.find(s => s.sessionId === sessionId) || null;
-  }
-  return null;
+  const stores = ensureLocalTrackingStores();
+  return stores.sessions.find(s => s.sessionId === sessionId) || null;
 }
 
 function validateSessionOwnershipAndActive(
@@ -738,9 +809,19 @@ function validateSessionOwnershipAndActive(
 }
 
 export async function recordInstallerLocationStatusUpdate(params: {
-  installer: { id: string; role: string; name?: string };
+  installer: {
+    id: string;
+    role: string;
+    name?: string;
+    username?: string;
+    phone?: string;
+    contractor?: string;
+    contractorId?: string;
+    area?: string;
+  };
   sessionId: string;
   locationStatus: InstallerLocationStatus;
+  allowSessionAutoCreate?: boolean;
 }): Promise<{
   success: boolean;
   status?: number;
@@ -757,7 +838,21 @@ export async function recordInstallerLocationStatusUpdate(params: {
     };
   }
 
-  const existing = await loadAuthoritativeInstallerSession(params.sessionId);
+  let existing = await loadAuthoritativeInstallerSession(params.sessionId);
+  if (!existing && params.allowSessionAutoCreate) {
+    existing = await createInstallerTrackingSession({
+      installer: {
+        id: params.installer.id,
+        name: params.installer.name || params.installer.username || 'Installer',
+        username: params.installer.username || params.installer.id,
+        phone: params.installer.phone,
+        contractor: params.installer.contractor,
+        contractorId: params.installer.contractorId,
+        area: params.installer.area
+      },
+      sessionId: params.sessionId
+    });
+  }
   const check = validateSessionOwnershipAndActive(existing, params.installer.id);
   if (check.valid === false) {
     return { success: false, status: check.status, code: check.code, message: check.message };
@@ -768,53 +863,55 @@ export async function recordInstallerLocationStatusUpdate(params: {
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      await client
-        .from('installer_sessions')
-        .update({
-          last_heartbeat_at: nowIso,
-          online_status: 'Online',
-          location_status: params.locationStatus,
-          updated_at: nowIso
-        })
-        .eq('session_id', params.sessionId)
-        .eq('installer_id', params.installer.id);
-
-      if (EXPLICIT_FAULT_LOCATION_STATUSES.has(params.locationStatus)) {
+      try {
         await client
-          .from('installer_current_locations')
+          .from('installer_sessions')
           .update({
+            last_heartbeat_at: nowIso,
+            online_status: 'Online',
             location_status: params.locationStatus,
-            is_active: false,
             updated_at: nowIso
           })
+          .eq('session_id', params.sessionId)
           .eq('installer_id', params.installer.id);
-      }
+
+        if (EXPLICIT_FAULT_LOCATION_STATUSES.has(params.locationStatus)) {
+          await client
+            .from('installer_current_locations')
+            .update({
+              location_status: params.locationStatus,
+              is_active: false,
+              updated_at: nowIso
+            })
+            .eq('installer_id', params.installer.id);
+        }
+      } catch {}
     }
   }
 
+  const stores = ensureLocalTrackingStores();
+  const s = stores.sessions.find(
+    row => row.sessionId === params.sessionId && row.installerId === params.installer.id
+  );
+  if (s) {
+    s.lastHeartbeatAt = nowIso;
+    s.onlineStatus = 'Online';
+    s.locationStatus = params.locationStatus;
+    s.updatedAt = nowIso;
+  }
+  if (EXPLICIT_FAULT_LOCATION_STATUSES.has(params.locationStatus)) {
+    const c = stores.currentLocations.find(row => row.installerId === params.installer.id);
+    if (c) {
+      c.locationStatus = params.locationStatus;
+      c.isActive = false;
+      c.updatedAt = nowIso;
+    }
+  }
   if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
-    const s = stores.sessions.find(
-      row => row.sessionId === params.sessionId && row.installerId === params.installer.id
-    );
-    if (s) {
-      s.lastHeartbeatAt = nowIso;
-      s.onlineStatus = 'Online';
-      s.locationStatus = params.locationStatus;
-      s.updatedAt = nowIso;
-    }
-    if (EXPLICIT_FAULT_LOCATION_STATUSES.has(params.locationStatus)) {
-      const c = stores.currentLocations.find(row => row.installerId === params.installer.id);
-      if (c) {
-        c.locationStatus = params.locationStatus;
-        c.isActive = false;
-        c.updatedAt = nowIso;
-      }
-    }
     saveDatabaseToDisk();
   }
 
-  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId);
+  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId, params.installer);
   if (view) {
     broadcastSupabaseChange('installer_tracking', 'UPSERT', view);
   }
@@ -822,9 +919,19 @@ export async function recordInstallerLocationStatusUpdate(params: {
 }
 
 export async function recordInstallerHeartbeat(params: {
-  installer: { id: string; role: string };
+  installer: {
+    id: string;
+    role: string;
+    name?: string;
+    username?: string;
+    phone?: string;
+    contractor?: string;
+    contractorId?: string;
+    area?: string;
+  };
   sessionId: string;
   locationStatusHint?: InstallerLocationStatus;
+  allowSessionAutoCreate?: boolean;
 }): Promise<{
   success: boolean;
   status?: number;
@@ -832,7 +939,21 @@ export async function recordInstallerHeartbeat(params: {
   message?: string;
   view?: InstallerLiveLocationView | null;
 }> {
-  const existing = await loadAuthoritativeInstallerSession(params.sessionId);
+  let existing = await loadAuthoritativeInstallerSession(params.sessionId);
+  if (!existing && params.allowSessionAutoCreate) {
+    existing = await createInstallerTrackingSession({
+      installer: {
+        id: params.installer.id,
+        name: params.installer.name || params.installer.username || 'Installer',
+        username: params.installer.username || params.installer.id,
+        phone: params.installer.phone,
+        contractor: params.installer.contractor,
+        contractorId: params.installer.contractorId,
+        area: params.installer.area
+      },
+      sessionId: params.sessionId
+    });
+  }
   const check = validateSessionOwnershipAndActive(existing, params.installer.id);
   if (check.valid === false) {
     return { success: false, status: check.status, code: check.code, message: check.message };
@@ -845,14 +966,17 @@ export async function recordInstallerHeartbeat(params: {
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      const { data } = await client
-        .from('installer_current_locations')
-        .select('*')
-        .eq('installer_id', params.installer.id)
-        .maybeSingle();
-      if (data) currentLoc = mapRowToCurrentLocation(data);
+      try {
+        const { data, error } = await client
+          .from('installer_current_locations')
+          .select('*')
+          .eq('installer_id', params.installer.id)
+          .maybeSingle();
+        if (!error && data) currentLoc = mapRowToCurrentLocation(data);
+      } catch {}
     }
-  } else if (isLocalJsonModeAllowed()) {
+  }
+  if (!currentLoc) {
     const stores = ensureLocalTrackingStores();
     currentLoc = stores.currentLocations.find(c => c.installerId === params.installer.id) || null;
   }
@@ -872,34 +996,36 @@ export async function recordInstallerHeartbeat(params: {
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      await client
-        .from('installer_sessions')
-        .update({
-          last_heartbeat_at: nowIso,
-          online_status: 'Online',
-          location_status: evaluated.locationStatus,
-          updated_at: nowIso
-        })
-        .eq('session_id', params.sessionId)
-        .eq('installer_id', params.installer.id);
+      try {
+        await client
+          .from('installer_sessions')
+          .update({
+            last_heartbeat_at: nowIso,
+            online_status: 'Online',
+            location_status: evaluated.locationStatus,
+            updated_at: nowIso
+          })
+          .eq('session_id', params.sessionId)
+          .eq('installer_id', params.installer.id);
+      } catch {}
     }
   }
 
+  const stores = ensureLocalTrackingStores();
+  const s = stores.sessions.find(
+    row => row.sessionId === params.sessionId && row.installerId === params.installer.id
+  );
+  if (s) {
+    s.lastHeartbeatAt = nowIso;
+    s.onlineStatus = 'Online';
+    s.locationStatus = evaluated.locationStatus;
+    s.updatedAt = nowIso;
+  }
   if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
-    const s = stores.sessions.find(
-      row => row.sessionId === params.sessionId && row.installerId === params.installer.id
-    );
-    if (s) {
-      s.lastHeartbeatAt = nowIso;
-      s.onlineStatus = 'Online';
-      s.locationStatus = evaluated.locationStatus;
-      s.updatedAt = nowIso;
-      saveDatabaseToDisk();
-    }
+    saveDatabaseToDisk();
   }
 
-  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId);
+  const view = await resolveTrackingViewForInstaller(params.installer.id, params.sessionId, params.installer);
   if (view) {
     broadcastSupabaseChange('installer_tracking', 'UPSERT', view);
   }
@@ -917,9 +1043,19 @@ export interface LiveLocationPointInput {
 }
 
 export async function recordInstallerLocationUpdate(params: {
-  installer: { id: string; role: string };
+  installer: {
+    id: string;
+    role: string;
+    name?: string;
+    username?: string;
+    phone?: string;
+    contractor?: string;
+    contractorId?: string;
+    area?: string;
+  };
   point: LiveLocationPointInput;
   suppressBroadcast?: boolean;
+  allowSessionAutoCreate?: boolean;
 }): Promise<{
   success: boolean;
   deduplicated?: boolean;
@@ -949,7 +1085,21 @@ export async function recordInstallerLocationUpdate(params: {
     };
   }
 
-  const existingSession = await loadAuthoritativeInstallerSession(point.sessionId);
+  let existingSession = await loadAuthoritativeInstallerSession(point.sessionId);
+  if (!existingSession && params.allowSessionAutoCreate) {
+    existingSession = await createInstallerTrackingSession({
+      installer: {
+        id: installer.id,
+        name: installer.name || installer.username || 'Installer',
+        username: installer.username || installer.id,
+        phone: installer.phone,
+        contractor: installer.contractor,
+        contractorId: installer.contractorId,
+        area: installer.area
+      },
+      sessionId: point.sessionId
+    });
+  }
   const check = validateSessionOwnershipAndActive(existingSession, installer.id);
   if (check.valid === false) {
     return { success: false, status: check.status, code: check.code, message: check.message };
@@ -981,14 +1131,17 @@ export async function recordInstallerLocationUpdate(params: {
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      const { data } = await client
-        .from('installer_current_locations')
-        .select('*')
-        .eq('installer_id', installer.id)
-        .maybeSingle();
-      if (data) prevCurrent = mapRowToCurrentLocation(data);
+      try {
+        const { data, error } = await client
+          .from('installer_current_locations')
+          .select('*')
+          .eq('installer_id', installer.id)
+          .maybeSingle();
+        if (!error && data) prevCurrent = mapRowToCurrentLocation(data);
+      } catch {}
     }
-  } else if (isLocalJsonModeAllowed()) {
+  }
+  if (!prevCurrent) {
     const stores = ensureLocalTrackingStores();
     prevCurrent = stores.currentLocations.find(c => c.installerId === installer.id) || null;
   }
@@ -1004,8 +1157,7 @@ export async function recordInstallerLocationUpdate(params: {
     Math.abs(prevCurrent.longitude - lng) < 0.000001 &&
     prevCurrent.recordedAt === recordedIso
   ) {
-    // Still refresh heartbeat cleanly
-    const view = await resolveTrackingViewForInstaller(installer.id, point.sessionId);
+    const view = await resolveTrackingViewForInstaller(installer.id, point.sessionId, installer);
     return { success: true, deduplicated: true, view };
   }
 
@@ -1095,75 +1247,72 @@ export async function recordInstallerLocationUpdate(params: {
     }
   }
 
+  // Always update runtime cache mirror so MonitoringMaps + SSE work seamlessly
+  const stores = ensureLocalTrackingStores();
+  const s = stores.sessions.find(
+    row => row.sessionId === point.sessionId && row.installerId === installer.id
+  );
+  if (s) {
+    s.lastHeartbeatAt = nowIso;
+    if (!s.lastLocationAt || new Date(recordedIso).getTime() >= new Date(s.lastLocationAt).getTime()) {
+      s.lastLocationAt = recordedIso;
+    }
+    s.onlineStatus = 'Online';
+    s.locationStatus = 'Location Fresh';
+    s.updatedAt = nowIso;
+  }
+
+  const existingCurrentIdx = stores.currentLocations.findIndex(
+    c => c.installerId === installer.id
+  );
+  const shouldReplaceCurrent =
+    existingCurrentIdx < 0 ||
+    !stores.currentLocations[existingCurrentIdx].isActive ||
+    new Date(recordedIso).getTime() >=
+      new Date(stores.currentLocations[existingCurrentIdx].recordedAt).getTime();
+
+  if (shouldReplaceCurrent) {
+    const nextCurrent: InstallerCurrentLocationRecord = {
+      id: `icl_${installer.id}`,
+      installerId: installer.id,
+      sessionId: point.sessionId,
+      latitude: lat,
+      longitude: lng,
+      accuracy: acc,
+      speed,
+      heading,
+      recordedAt: recordedIso,
+      locationStatus: 'Location Fresh',
+      isActive: true,
+      updatedAt: nowIso
+    };
+    upsertRuntimeCurrentLocationCache(nextCurrent);
+  }
+
+  if (shouldInsertHistory) {
+    stores.history.unshift({
+      id: `ilh_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+      installerId: installer.id,
+      sessionId: point.sessionId,
+      latitude: lat,
+      longitude: lng,
+      accuracy: acc,
+      speed,
+      heading,
+      recordedAt: recordedIso,
+      createdAt: nowIso
+    });
+    const cutoffMs = Date.now() - config.historyRetentionDays * 24 * 60 * 60 * 1000;
+    (db as any).installerLocationHistory = stores.history
+      .filter(h => new Date(h.recordedAt).getTime() >= cutoffMs)
+      .slice(0, 5000);
+  }
+
   if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
-    const s = stores.sessions.find(
-      row => row.sessionId === point.sessionId && row.installerId === installer.id
-    );
-    if (s) {
-      s.lastHeartbeatAt = nowIso;
-      if (!s.lastLocationAt || new Date(recordedIso).getTime() >= new Date(s.lastLocationAt).getTime()) {
-        s.lastLocationAt = recordedIso;
-      }
-      s.onlineStatus = 'Online';
-      s.locationStatus = 'Location Fresh';
-      s.updatedAt = nowIso;
-    }
-
-    const existingCurrentIdx = stores.currentLocations.findIndex(
-      c => c.installerId === installer.id
-    );
-    const shouldReplaceCurrent =
-      existingCurrentIdx < 0 ||
-      !stores.currentLocations[existingCurrentIdx].isActive ||
-      new Date(recordedIso).getTime() >=
-        new Date(stores.currentLocations[existingCurrentIdx].recordedAt).getTime();
-
-    if (shouldReplaceCurrent) {
-      const nextCurrent: InstallerCurrentLocationRecord = {
-        id: `icl_${installer.id}`,
-        installerId: installer.id,
-        sessionId: point.sessionId,
-        latitude: lat,
-        longitude: lng,
-        accuracy: acc,
-        speed,
-        heading,
-        recordedAt: recordedIso,
-        locationStatus: 'Location Fresh',
-        isActive: true,
-        updatedAt: nowIso
-      };
-      if (existingCurrentIdx >= 0) {
-        stores.currentLocations[existingCurrentIdx] = nextCurrent;
-      } else {
-        stores.currentLocations.push(nextCurrent);
-      }
-    }
-
-    if (shouldInsertHistory) {
-      stores.history.unshift({
-        id: `ilh_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-        installerId: installer.id,
-        sessionId: point.sessionId,
-        latitude: lat,
-        longitude: lng,
-        accuracy: acc,
-        speed,
-        heading,
-        recordedAt: recordedIso,
-        createdAt: nowIso
-      });
-      const cutoffMs = Date.now() - config.historyRetentionDays * 24 * 60 * 60 * 1000;
-      (db as any).installerLocationHistory = stores.history
-        .filter(h => new Date(h.recordedAt).getTime() >= cutoffMs)
-        .slice(0, 5000);
-    }
-
     saveDatabaseToDisk();
   }
 
-  const view = await resolveTrackingViewForInstaller(installer.id, point.sessionId);
+  const view = await resolveTrackingViewForInstaller(installer.id, point.sessionId, installer);
   if (view && !suppressBroadcast) {
     broadcastSupabaseChange('installer_tracking', 'UPSERT', view);
   }
@@ -1272,33 +1421,47 @@ export async function getScopedInstallerLiveLocations(
   let sessions: InstallerSessionRecord[] = [];
   let currentLocations: InstallerCurrentLocationRecord[] = [];
 
+  const stores = ensureLocalTrackingStores();
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
-      const [usersRes, sessRes, locRes] = await Promise.all([
-        getUsersFromSupabase(),
-        client
-          .from('installer_sessions')
-          .select('*')
-          .order('login_at', { ascending: false })
-          .limit(500),
-        client.from('installer_current_locations').select('*').limit(500)
-      ]);
-      if (usersRes.success && Array.isArray(usersRes.data)) {
-        allUsers = usersRes.data;
-      }
-      if (Array.isArray(sessRes.data)) {
-        sessions = sessRes.data.map(mapRowToInstallerSession);
-      }
-      if (Array.isArray(locRes.data)) {
-        currentLocations = locRes.data.map(mapRowToCurrentLocation);
+      try {
+        const [usersRes, sessRes, locRes] = await Promise.all([
+          getUsersFromSupabase(),
+          client
+            .from('installer_sessions')
+            .select('*')
+            .order('login_at', { ascending: false })
+            .limit(500),
+          client.from('installer_current_locations').select('*').limit(500)
+        ]);
+        if (usersRes.success && Array.isArray(usersRes.data)) {
+          allUsers = usersRes.data;
+        }
+        if (!sessRes.error && Array.isArray(sessRes.data) && sessRes.data.length > 0) {
+          sessions = sessRes.data.map(mapRowToInstallerSession);
+        } else {
+          sessions = stores.sessions;
+        }
+        if (!locRes.error && Array.isArray(locRes.data) && locRes.data.length > 0) {
+          currentLocations = locRes.data.map(mapRowToCurrentLocation);
+        } else {
+          currentLocations = stores.currentLocations;
+        }
+      } catch {
+        allUsers = db.users || [];
+        sessions = stores.sessions;
+        currentLocations = stores.currentLocations;
       }
     }
   } else if (isLocalJsonModeAllowed()) {
-    const stores = ensureLocalTrackingStores();
     allUsers = db.users || [];
     sessions = stores.sessions;
     currentLocations = stores.currentLocations;
+  }
+
+  if (allUsers.length === 0 && Array.isArray(db.users)) {
+    allUsers = db.users;
   }
 
   const installersById = new Map<string, any>();

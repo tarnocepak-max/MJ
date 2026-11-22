@@ -1471,16 +1471,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    let sessionIdFromStorage: string | null = null;
-    try {
-      const rawSess = localStorage.getItem('morajaws_auth_session');
-      if (rawSess) {
-        const parsed = JSON.parse(rawSess);
-        sessionIdFromStorage = parsed?.sessionId || null;
-      }
-    } catch {}
+    const startTrackingFromSession = () => {
+      let sessionIdFromStorage: string | null = null;
+      try {
+        const rawSess = localStorage.getItem('morajaws_auth_session');
+        if (rawSess) {
+          const parsed = JSON.parse(rawSess);
+          sessionIdFromStorage = parsed?.sessionId || null;
+        }
+      } catch {}
 
-    if (sessionIdFromStorage) {
       installerGpsTracker
         .startForAuthenticatedInstaller({
           userId: currentUser.id,
@@ -1488,7 +1488,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sessionId: sessionIdFromStorage
         })
         .catch(() => {});
-    }
+    };
+
+    startTrackingFromSession();
+
+    window.addEventListener('morajaws:auth-changed', startTrackingFromSession);
+    return () => {
+      window.removeEventListener('morajaws:auth-changed', startTrackingFromSession);
+    };
   }, [isLoggedIn, currentUser?.id, currentUser?.role]);
 
   // Explicit Supabase PostgreSQL data refresh via Express proxy

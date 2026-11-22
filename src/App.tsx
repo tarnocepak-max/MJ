@@ -27,6 +27,12 @@ import { InstallerDashboardView } from './components/portals/InstallerDashboardV
 import { InstallerWhatsAppCenter } from './components/whatsapp/InstallerWhatsAppCenter';
 import { ManagementDataPortal } from './components/portals/ManagementDataPortal';
 import { InstallerGpsSyncWidget } from './components/maps/InstallerGpsSyncWidget';
+import { InstallerGpsGate } from './components/maps/InstallerGpsGate';
+import {
+  installerGpsTracker,
+  type InstallerGpsUiSnapshot
+} from './services/installerGpsTrackingService';
+import { isValidCoordinatePair } from './services/mapsService';
 
 import { StaffLoginPortal } from './components/auth/StaffLoginPortal';
 import { ForcePasswordChangeModal } from './components/auth/ForcePasswordChangeModal';
@@ -132,6 +138,24 @@ const MainLayout: React.FC = () => {
   const { toast } = useToast();
 
   const isInstaller = Boolean(isLoggedIn && currentUser?.role === 'installer');
+  const [gpsSnapshot, setGpsSnapshot] = useState<InstallerGpsUiSnapshot>(() =>
+    installerGpsTracker.getSnapshot()
+  );
+
+  useEffect(() => {
+    if (!isInstaller) return;
+    return installerGpsTracker.subscribe(setGpsSnapshot);
+  }, [isInstaller]);
+
+  const isInstallerGpsConnected = Boolean(
+    !isInstaller ||
+      (gpsSnapshot.active &&
+        gpsSnapshot.permissionState === 'granted' &&
+        isValidCoordinatePair(gpsSnapshot.latitude, gpsSnapshot.longitude) &&
+        gpsSnapshot.lastSyncedAt !== null &&
+        gpsSnapshot.locationStatus !== 'Permission Denied' &&
+        gpsSnapshot.locationStatus !== 'GPS Disabled')
+  );
 
   const installerAllowedTabs = useMemo(
     () => [
@@ -463,6 +487,17 @@ const MainLayout: React.FC = () => {
           onLogout={logout}
         />
       </div>
+    );
+  }
+
+  // Strict Installer GPS Gate: Do not render Installer Portal until browser GPS is granted, locked, and synced to Monitoring Maps
+  if (isInstaller && !isInstallerGpsConnected) {
+    return (
+      <InstallerGpsGate
+        currentUser={currentUser}
+        gpsSnapshot={gpsSnapshot}
+        onLogout={logout}
+      />
     );
   }
 
