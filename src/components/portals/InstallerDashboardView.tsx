@@ -482,7 +482,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
   const heroStepChecks = activeHeroTicket
     ? [
         { label: '1. Check-In', done: isTicketCheckedIn(activeHeroTicket) || Boolean(activeHeroTicket.checkInAt) },
-        { label: '2. Foto', done: heroPhotosCount >= 4 },
+        { label: '2. Foto', done: heroPhotosCount >= 3 },
         { label: '3. OPM & ONT', done: Boolean(heroOpmVal !== null && activeHeroTicket.ontSerialNumber) },
         { label: '4. BAST', done: Boolean(activeHeroTicket.checkOutAt || activeHeroTicket.customerSignatureUrl) }
       ]
@@ -886,7 +886,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             {
               key: 'field_requested' as WOKpiFilterKey,
               label: 'Requested',
-              sublabel: 'Status: Assigned',
+              sublabel: 'Status: REQUESTED',
               value: fieldDispatchCounts.requested,
               icon: ClipboardList,
               accentBg: 'bg-[#EAE8FF] dark:bg-[#2A194B]',
@@ -1280,7 +1280,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   {/* Status Badges + Tech Strip */}
                   <div className="flex items-center justify-between gap-2 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl px-2.5 py-1.5 text-[11px] text-[#52647A] dark:text-[#C4B5D6]">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} />
+                      <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} displayRole="installer" />
                       {canonicalApproval === 'REVISION' && <StatusApprovalBadge status="REVISION" />}
                       {bucket === 'selesai' && canonicalReport !== 'NONE' && (
                         <StatusBadge status={canonicalReport} variant="report" />

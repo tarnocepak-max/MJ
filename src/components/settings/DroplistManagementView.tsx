@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { HierarchicalStatus, HierarchicalReason, HierarchicalRemark, DroplistItem } from '../../types';
+import { HierarchicalStatus, HierarchicalReason, DroplistItem } from '../../types';
 import {
   Layers,
   Plus,
@@ -13,7 +13,6 @@ import {
   MoveRight,
   AlertTriangle,
   FolderTree,
-  Tag,
   CheckCircle2,
   CornerDownRight,
   ArrowUp,
@@ -48,9 +47,6 @@ export const DroplistManagementView: React.FC = () => {
     updateHierarchicalReason,
     deleteHierarchicalReason,
     moveHierarchicalReason,
-    addHierarchicalRemark,
-    updateHierarchicalRemark,
-    deleteHierarchicalRemark,
     reconcileDroplistsNow
   } = useApp();
   const { toast } = useToast();
@@ -67,10 +63,9 @@ export const DroplistManagementView: React.FC = () => {
   const [confirmDeleteStatus, setConfirmDeleteStatus] = useState<{
     status: HierarchicalStatus;
     totalReasons: number;
-    totalRemarks: number;
   } | null>(null);
 
-  // Expand / Collapse state for Level 1 (Status) & Level 2 (Reason)
+  // Expand / Collapse state for Level 1 (Status)
   const [expandedStatusIds, setExpandedStatusIds] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     (hierarchicalStatuses || []).forEach(s => {
@@ -78,7 +73,6 @@ export const DroplistManagementView: React.FC = () => {
     });
     return init;
   });
-  const [expandedReasonIds, setExpandedReasonIds] = useState<Record<string, boolean>>({});
 
   // Modals state
   const [isAddStatusOpen, setIsAddStatusOpen] = useState(false);
@@ -91,20 +85,15 @@ export const DroplistManagementView: React.FC = () => {
   const [newReasonName, setNewReasonName] = useState('');
   const [newReasonCode, setNewReasonCode] = useState('');
 
-  // Remark Modal
-  const [targetReasonIdForRemark, setTargetReasonIdForRemark] = useState<{ statusId: string; reasonId: string } | null>(null);
-  const [newRemarkText, setNewRemarkText] = useState('');
-
   // Move Reason Modal
   const [movingReason, setMovingReason] = useState<{ reason: HierarchicalReason; fromStatusId: string } | null>(null);
   const [targetMoveStatusId, setTargetMoveStatusId] = useState<string>('');
 
   // Edit in place / Edit Modal
   const [editingItem, setEditingItem] = useState<{
-    type: 'status' | 'reason' | 'remark';
+    type: 'status' | 'reason';
     id: string;
     parentStatusId?: string;
-    parentReasonId?: string;
     name: string;
     code?: string;
     color?: string;
@@ -159,14 +148,12 @@ export const DroplistManagementView: React.FC = () => {
     };
   }, []);
 
-  // Compute Total Metrics across the entire hierarchy
+  // Compute Total Metrics across the 2-level hierarchy
   const metrics = useMemo(() => {
     let totalStatuses = 0;
     let activeStatuses = 0;
     let totalReasons = 0;
     let activeReasons = 0;
-    let totalRemarks = 0;
-    let activeRemarks = 0;
 
     (hierarchicalStatuses || []).forEach(s => {
       totalStatuses++;
@@ -175,11 +162,6 @@ export const DroplistManagementView: React.FC = () => {
       (s.reasons || []).forEach(r => {
         totalReasons++;
         if (r.active !== false && (r as any).isActive !== false) activeReasons++;
-
-        (r.remarks || []).forEach(rm => {
-          totalRemarks++;
-          if (rm.active !== false && (rm as any).isActive !== false) activeRemarks++;
-        });
       });
     });
 
@@ -187,9 +169,7 @@ export const DroplistManagementView: React.FC = () => {
       totalStatuses,
       activeStatuses,
       totalReasons,
-      activeReasons,
-      totalRemarks,
-      activeRemarks
+      activeReasons
     };
   }, [hierarchicalStatuses]);
 
@@ -198,26 +178,16 @@ export const DroplistManagementView: React.FC = () => {
     setExpandedStatusIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const toggleReasonExpand = (id: string) => {
-    setExpandedReasonIds(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const handleExpandAll = () => {
     const sMap: Record<string, boolean> = {};
-    const rMap: Record<string, boolean> = {};
     hierarchicalStatuses.forEach(s => {
       sMap[s.id] = true;
-      (s.reasons || []).forEach(r => {
-        rMap[r.id] = true;
-      });
     });
     setExpandedStatusIds(sMap);
-    setExpandedReasonIds(rMap);
   };
 
   const handleCollapseAll = () => {
     setExpandedStatusIds({});
-    setExpandedReasonIds({});
   };
 
   // Reorder Handlers with Database-First OCC persistence via AppContext
@@ -273,43 +243,6 @@ export const DroplistManagementView: React.FC = () => {
     }
   };
 
-  const handleMoveRemarkOrder = async (statusId: string, reasonId: string, remarkId: string, direction: 'up' | 'down') => {
-    if (!isSuperAdmin || isSaving) return;
-    const status = hierarchicalStatuses.find(s => s.id === statusId);
-    const reason = status?.reasons.find(r => r.id === reasonId);
-    if (!reason) return;
-    const idx = reason.remarks.findIndex(rm => rm.id === remarkId);
-    if (idx === -1) return;
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= reason.remarks.length) return;
-    const updated = hierarchicalStatuses.map(s => {
-      if (s.id !== statusId) return s;
-      return {
-        ...s,
-        reasons: s.reasons.map(r => {
-          if (r.id !== reasonId) return r;
-          const remarksCopy = [...r.remarks];
-          const temp = remarksCopy[idx];
-          remarksCopy[idx] = remarksCopy[targetIdx];
-          remarksCopy[targetIdx] = temp;
-          return {
-            ...r,
-            remarks: remarksCopy.map((rm, i) => ({ ...rm, order: i + 1 }))
-          };
-        })
-      };
-    });
-    setIsSaving(true);
-    try {
-      const res = await saveHierarchicalDroplistsDirect(updated, `Reordered Remark ${remarkId}`);
-      if (res.success) {
-        toast.success('Urutan Remarks berhasil disimpan ke database.');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Reconcile Data Action
   const handleTriggerReconcile = async () => {
     if (!isSuperAdmin || isReconciling || isSaving) return;
@@ -336,21 +269,12 @@ export const DroplistManagementView: React.FC = () => {
         if (!q) return status;
 
         const statusMatch = String(status.name || '').toLowerCase().includes(q) || (status.code && String(status.code).toLowerCase().includes(q));
-        const matchingReasons = (status.reasons || [])
-          .map(reason => {
-            const reasonMatch = String(reason.name || '').toLowerCase().includes(q) || (reason.code && String(reason.code).toLowerCase().includes(q));
-            const matchingRemarks = (reason.remarks || []).filter(rem =>
-              String(rem.text || rem.name || '').toLowerCase().includes(q)
-            );
-            if (reasonMatch || matchingRemarks.length > 0) {
-              return {
-                ...reason,
-                remarks: reasonMatch ? reason.remarks : matchingRemarks
-              };
-            }
-            return null;
-          })
-          .filter(Boolean) as HierarchicalReason[];
+        const matchingReasons = (status.reasons || []).filter(reason => {
+          return (
+            String(reason.name || '').toLowerCase().includes(q) ||
+            Boolean(reason.code && String(reason.code).toLowerCase().includes(q))
+          );
+        });
 
         if (statusMatch || matchingReasons.length > 0) {
           return {
@@ -444,7 +368,7 @@ export const DroplistManagementView: React.FC = () => {
         <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 dark:bg-amber-950/50 dark:border-amber-500/40 dark:text-amber-200 text-xs flex items-center gap-2.5">
           <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <span>
-            <strong>Mode Baca (Read-Only):</strong> Perubahan droplist global (Status WO, Reason, Remarks, dan Droplist Statis) hanya dapat dilakukan oleh <strong>Super Admin</strong>.
+            <strong>Mode Baca (Read-Only):</strong> Perubahan droplist global (Status WO, Reason WO, dan Droplist Statis) hanya dapat dilakukan oleh <strong>Super Admin</strong>.
           </span>
         </div>
       )}
@@ -470,7 +394,7 @@ export const DroplistManagementView: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 mt-0.5">
-              Satu sistem konfigurasi terpadu 3-tingkat: <strong>Status WO (Level 1)</strong> → <strong>Reason WO (Level 2)</strong> → <strong>Remarks (Level 3)</strong>.
+              Sistem konfigurasi terpadu 2-tingkat: <strong>Status WO (Level 1)</strong> → <strong>Reason WO (Level 2)</strong>.
             </p>
           </div>
         </div>
@@ -507,9 +431,9 @@ export const DroplistManagementView: React.FC = () => {
       </div>
 
       {/* ============================================================ */}
-      {/* 3-LEVEL ARCHITECTURE METRICS SUMMARY CARDS                   */}
+      {/* 2-LEVEL ARCHITECTURE METRICS SUMMARY CARDS                   */}
       {/* ============================================================ */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Level 1: Status WO */}
         <div className="bg-white dark:bg-[#160D29]/80 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 p-3.5 flex items-center justify-between shadow-xs dark:shadow-none">
           <div>
@@ -545,24 +469,6 @@ export const DroplistManagementView: React.FC = () => {
             {metrics.totalReasons}
           </div>
         </div>
-
-        {/* Level 3: Remarks */}
-        <div className="bg-white dark:bg-[#160D29]/80 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 p-3.5 flex items-center justify-between shadow-xs dark:shadow-none">
-          <div>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#8492A5] dark:text-[#D8B4FE]/60 block">
-              Level 3 (Sub-child / Rootcause)
-            </span>
-            <div className="text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5">
-              Remarks
-            </div>
-            <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono mt-0.5">
-              {metrics.activeRemarks} Aktif <span className="text-[#8492A5] dark:text-[#D8B4FE]/40">/ {metrics.totalRemarks} Total</span>
-            </div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E]/80 dark:border-[#A855F7]/40 dark:text-white flex items-center justify-center font-bold text-sm">
-            {metrics.totalRemarks}
-          </div>
-        </div>
       </div>
 
       {/* ============================================================ */}
@@ -579,7 +485,7 @@ export const DroplistManagementView: React.FC = () => {
           }`}
         >
           <FolderTree className={`w-3.5 h-3.5 ${activeMainTab === 'hierarchy' ? 'text-white dark:text-[#E9D5FF]' : 'text-[#5145A6] dark:text-[#E9D5FF]'}`} />
-          <span>Hierarchical Tree (Status → Reason → Remarks)</span>
+          <span>Hierarchical Tree (Status → Reason)</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
             activeMainTab === 'hierarchy'
               ? 'bg-white/20 text-white'
@@ -614,7 +520,7 @@ export const DroplistManagementView: React.FC = () => {
               <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#D8B4FE]/60 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari status, reason, atau remarks di seluruh hirarki..."
+                placeholder="Cari status atau reason di seluruh hirarki..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/30 border border-[#DDE6F0] dark:border-[#D8B4FE]/25 rounded-xl text-xs text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
@@ -663,7 +569,6 @@ export const DroplistManagementView: React.FC = () => {
                 const isExpanded = Boolean(expandedStatusIds[status.id]);
                 const statusReasons = status.reasons || [];
                 const totalStatusReasons = statusReasons.length;
-                const totalStatusRemarks = statusReasons.reduce((acc, r) => acc + (r.remarks?.length || 0), 0);
                 const isStatusActive = status.active !== false && (status as any).isActive !== false;
 
                 return (
@@ -732,7 +637,7 @@ export const DroplistManagementView: React.FC = () => {
                           </div>
 
                           <div className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
-                            {totalStatusReasons} Reason WO • {totalStatusRemarks} Remarks
+                            {totalStatusReasons} Reason WO
                           </div>
                         </div>
                       </div>
@@ -807,8 +712,7 @@ export const DroplistManagementView: React.FC = () => {
                             if (totalStatusReasons > 0) {
                               setConfirmDeleteStatus({
                                 status,
-                                totalReasons: totalStatusReasons,
-                                totalRemarks: totalStatusRemarks
+                                totalReasons: totalStatusReasons
                               });
                               return;
                             }
@@ -836,9 +740,7 @@ export const DroplistManagementView: React.FC = () => {
                           </div>
                         ) : (
                           statusReasons.map(reason => {
-                            const isReasonExpanded = Boolean(expandedReasonIds[reason.id]);
                             const isReasonActive = reason.active !== false && (reason as any).isActive !== false;
-                            const reasonRemarks = reason.remarks || [];
 
                             return (
                               <div
@@ -850,21 +752,8 @@ export const DroplistManagementView: React.FC = () => {
                                 }`}
                               >
                                 {/* Reason Header */}
-                                <div className="p-3 bg-[#F4F7FB] dark:bg-[#1F1138]/60 flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] dark:border-[#D8B4FE]/15">
+                                <div className="p-3 bg-[#F4F7FB] dark:bg-[#1F1138]/60 flex flex-wrap items-center justify-between gap-2">
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleReasonExpand(reason.id)}
-                                      className="p-0.5 rounded text-[#52647A] hover:text-[#26364A] dark:text-[#D8B4FE]/70 dark:hover:text-white cursor-pointer"
-                                      title={isReasonExpanded ? 'Tutup Remarks' : 'Buka Remarks'}
-                                    >
-                                      {isReasonExpanded ? (
-                                        <ChevronDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A855F7]" />
-                                      ) : (
-                                        <ChevronRight className="w-3.5 h-3.5" />
-                                      )}
-                                    </button>
-
                                     <CornerDownRight className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A855F7] shrink-0" />
 
                                     <span className="font-bold text-xs text-[#26364A] dark:text-white">
@@ -897,10 +786,6 @@ export const DroplistManagementView: React.FC = () => {
                                     >
                                       {isReasonActive ? 'Aktif' : 'Nonaktif'}
                                     </button>
-
-                                    <span className="text-[10px] text-[#8492A5] dark:text-[#D8B4FE]/60 font-mono">
-                                      ({reasonRemarks.length} Remarks)
-                                    </span>
                                   </div>
 
                                   {/* Reason Actions */}
@@ -926,25 +811,6 @@ export const DroplistManagementView: React.FC = () => {
                                         <ArrowDown className="w-2.5 h-2.5" />
                                       </button>
                                     </div>
-
-                                    {/* Add Remark */}
-                                    <button
-                                      type="button"
-                                      disabled={!isSuperAdmin || isSaving}
-                                      onClick={() => {
-                                        if (!isSuperAdmin) return;
-                                        setTargetReasonIdForRemark({
-                                          statusId: status.id,
-                                          reasonId: reason.id
-                                        });
-                                        setNewRemarkText('');
-                                      }}
-                                      className="px-2 py-0.5 bg-[#EAE8FF] hover:bg-[#DCD7FA] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#7135B5]/30 dark:hover:bg-[#7135B5]/60 dark:text-[#E9D5FF] rounded text-[10.5px] font-semibold flex items-center gap-1 dark:border-[#D8B4FE]/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                      title="Tambah Remark (Level 3)"
-                                    >
-                                      <Plus className="w-3 h-3" />
-                                      <span>+ Remark</span>
-                                    </button>
 
                                     {/* Move to another status */}
                                     <button
@@ -1005,126 +871,6 @@ export const DroplistManagementView: React.FC = () => {
                                   </div>
                                 </div>
 
-                                {/* LEVEL 3: REMARKS LIST */}
-                                {isReasonExpanded && (
-                                  <div className="p-2.5 sm:p-3 bg-[#F4F7FB]/80 dark:bg-[#140827]/80 space-y-1.5 ml-3 sm:ml-6 border-l-2 border-[#6657C8]/40 dark:border-[#A855F7]/40">
-                                    {reasonRemarks.length === 0 ? (
-                                      <div className="p-2 text-center text-[11px] text-[#8492A5] dark:text-[#D8B4FE]/50 italic">
-                                        Belum ada remarks/rootcause untuk reason ini. Klik "+ Remark" di atas.
-                                      </div>
-                                    ) : (
-                                      reasonRemarks.map(rem => {
-                                        const isRemActive = rem.active !== false && (rem as any).isActive !== false;
-                                        return (
-                                          <div
-                                            key={rem.id}
-                                            className={`p-2 rounded-lg border flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 transition-colors ${
-                                              isRemActive
-                                                ? 'bg-white border-[#DDE6F0] hover:border-[#9E95DE] dark:bg-[#1E1138]/60 dark:border-[#D8B4FE]/20 dark:hover:border-[#A855F7]/40'
-                                                : 'bg-[#EDF3F8] border-[#E2E8F0] opacity-60 dark:bg-[#120822] dark:border-white/5'
-                                            }`}
-                                          >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                              <Tag className="w-3 h-3 text-[#6657C8] dark:text-[#A855F7] shrink-0" />
-                                              <span className="text-xs text-[#26364A] dark:text-white font-medium truncate">
-                                                {rem.text || rem.name}
-                                              </span>
-                                              <span className="text-[9px] font-mono px-1 rounded bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/60 dark:text-[#D8B4FE]/80">
-                                                Level 3
-                                              </span>
-
-                                              {/* Toggle Active Remark */}
-                                              <button
-                                                type="button"
-                                                disabled={!isSuperAdmin || isSaving}
-                                                onClick={async () => {
-                                                  if (!isSuperAdmin || isSaving) return;
-                                                  const nextState = !isRemActive;
-                                                  setIsSaving(true);
-                                                  try {
-                                                    await updateHierarchicalRemark(status.id, reason.id, rem.id, { active: nextState, isActive: nextState });
-                                                  } finally {
-                                                    setIsSaving(false);
-                                                  }
-                                                }}
-                                                className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                  isRemActive
-                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:border-transparent dark:bg-emerald-500/20 dark:text-emerald-300'
-                                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-400'
-                                                }`}
-                                              >
-                                                {isRemActive ? 'Aktif' : 'Nonaktif'}
-                                              </button>
-                                            </div>
-
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              {/* Reorder Remark */}
-                                              <div className="flex items-center border border-[#DDE6F0] dark:border-[#D8B4FE]/20 rounded overflow-hidden bg-white dark:bg-[#35105E]/30">
-                                                <button
-                                                  type="button"
-                                                  disabled={!isSuperAdmin || isSaving}
-                                                  onClick={() => handleMoveRemarkOrder(status.id, reason.id, rem.id, 'up')}
-                                                  className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/60 dark:hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                                  title="Geser Remark ke Atas"
-                                                >
-                                                  <ArrowUp className="w-2.5 h-2.5" />
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  disabled={!isSuperAdmin || isSaving}
-                                                  onClick={() => handleMoveRemarkOrder(status.id, reason.id, rem.id, 'down')}
-                                                  className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/60 dark:hover:text-white cursor-pointer border-l border-[#DDE6F0] dark:border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                                                  title="Geser Remark ke Bawah"
-                                                >
-                                                  <ArrowDown className="w-2.5 h-2.5" />
-                                                </button>
-                                              </div>
-
-                                              {/* Edit Remark */}
-                                              <button
-                                                type="button"
-                                                disabled={!isSuperAdmin || isSaving}
-                                                onClick={() => {
-                                                  if (!isSuperAdmin) return;
-                                                  setEditingItem({
-                                                    type: 'remark',
-                                                    id: rem.id,
-                                                    parentStatusId: status.id,
-                                                    parentReasonId: reason.id,
-                                                    name: rem.text || rem.name
-                                                  });
-                                                }}
-                                                className="p-1 text-[#52647A] hover:text-[#5145A6] dark:text-[#D8B4FE]/60 dark:hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                                title="Edit Remark"
-                                              >
-                                                <Edit2 className="w-3 h-3" />
-                                              </button>
-
-                                              {/* Delete Remark */}
-                                              <button
-                                                type="button"
-                                                disabled={!isSuperAdmin || isSaving}
-                                                onClick={async () => {
-                                                  if (!isSuperAdmin || isSaving) return;
-                                                  setIsSaving(true);
-                                                  try {
-                                                    await deleteHierarchicalRemark(status.id, reason.id, rem.id);
-                                                  } finally {
-                                                    setIsSaving(false);
-                                                  }
-                                                }}
-                                                className="p-1 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                                title="Hapus Remark"
-                                              >
-                                                <Trash2 className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                )}
                               </div>
                             );
                           })
@@ -1442,80 +1188,6 @@ export const DroplistManagementView: React.FC = () => {
       </ResponsiveModal>
 
       {/* ============================================================ */}
-      {/* MODAL: ADD LEVEL 3 REMARK                                    */}
-      {/* ============================================================ */}
-      <ResponsiveModal
-        isOpen={Boolean(targetReasonIdForRemark)}
-        onClose={() => setTargetReasonIdForRemark(null)}
-        title="Tambah Remarks / Rootcause Baru (Level 3)"
-        icon={<Tag className="w-4 h-4" />}
-        variant="dark_purple"
-        size="sm"
-        mobileVariant="sheet"
-        zIndexClass="z-70"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setTargetReasonIdForRemark(null)}
-              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              disabled={!isSuperAdmin || isSaving || !targetReasonIdForRemark}
-              onClick={async () => {
-                if (!isSuperAdmin || isSaving || !targetReasonIdForRemark) return;
-                if (!newRemarkText.trim()) {
-                  toast.error('Teks remark tidak boleh kosong');
-                  return;
-                }
-                const pStatus = hierarchicalStatuses.find(s => s.id === targetReasonIdForRemark.statusId);
-                const pReason = pStatus?.reasons?.find(r => r.id === targetReasonIdForRemark.reasonId);
-                const remCount = pReason?.remarks?.length || 0;
-                setIsSaving(true);
-                try {
-                  const res = await addHierarchicalRemark(
-                    targetReasonIdForRemark.statusId,
-                    targetReasonIdForRemark.reasonId,
-                    {
-                      name: newRemarkText.trim(),
-                      text: newRemarkText.trim(),
-                      order: remCount + 1,
-                      active: true,
-                      isActive: true
-                    }
-                  );
-                  if (res.success) {
-                    setTargetReasonIdForRemark(null);
-                  }
-                } finally {
-                  setIsSaving(false);
-                }
-              }}
-              className="px-5 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold dark:border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
-            >
-              {isSaving ? 'Menyimpan...' : 'Simpan Remark'}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3 text-xs">
-          <div>
-            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Teks Catatan / Rootcause <span className="text-rose-500 dark:text-rose-400">*</span></label>
-            <textarea
-              rows={3}
-              placeholder="Contoh: Instalasi selesai sesuai standar SOP MoraJaws. Redaman terukur -18.2 dBm..."
-              value={newRemarkText}
-              onChange={e => setNewRemarkText(e.target.value)}
-              className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none text-xs"
-            />
-          </div>
-        </div>
-      </ResponsiveModal>
-
-      {/* ============================================================ */}
       {/* MODAL: MOVE REASON TO ANOTHER STATUS WO                      */}
       {/* ============================================================ */}
       <ResponsiveModal
@@ -1566,7 +1238,7 @@ export const DroplistManagementView: React.FC = () => {
         {movingReason && (
           <div className="space-y-4 text-xs">
             <p className="text-[#52647A] dark:text-[#D8B4FE]/80">
-              Pindahkan reason <strong className="text-[#26364A] dark:text-white">"{movingReason.reason.name}"</strong> beserta seluruh ({movingReason.reason.remarks?.length || 0}) remarks-nya ke Status WO tujuan.
+              Pindahkan reason <strong className="text-[#26364A] dark:text-white">"{movingReason.reason.name}"</strong> ke Status WO tujuan.
             </p>
             <div className="space-y-2">
               <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF]">Pilih Status Tujuan (Level 1):</label>
@@ -1587,7 +1259,7 @@ export const DroplistManagementView: React.FC = () => {
       </ResponsiveModal>
 
       {/* ============================================================ */}
-      {/* MODAL: EDIT ITEM (STATUS, REASON, OR REMARK)                 */}
+      {/* MODAL: EDIT ITEM (STATUS OR REASON)                          */}
       {/* ============================================================ */}
       <ResponsiveModal
         isOpen={Boolean(editingItem)}
@@ -1634,11 +1306,6 @@ export const DroplistManagementView: React.FC = () => {
                       name: editingItem.name.trim(),
                       code: editingItem.code?.trim() || editingItem.name.trim().toUpperCase().replace(/\s+/g, '_')
                     });
-                  } else if (editingItem.type === 'remark' && editingItem.parentStatusId && editingItem.parentReasonId) {
-                    res = await updateHierarchicalRemark(editingItem.parentStatusId, editingItem.parentReasonId, editingItem.id, {
-                      name: editingItem.name.trim(),
-                      text: editingItem.name.trim()
-                    });
                   }
                   if (res.success) {
                     setEditingItem(null);
@@ -1666,17 +1333,15 @@ export const DroplistManagementView: React.FC = () => {
               />
             </div>
 
-            {editingItem.type !== 'remark' && (
-              <div>
-                <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Kode Identifier</label>
-                <input
-                  type="text"
-                  value={editingItem.code || ''}
-                  onChange={e => setEditingItem({ ...editingItem, code: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none font-mono uppercase"
-                />
-              </div>
-            )}
+            <div>
+              <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Kode Identifier</label>
+              <input
+                type="text"
+                value={editingItem.code || ''}
+                onChange={e => setEditingItem({ ...editingItem, code: e.target.value })}
+                className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+              />
+            </div>
 
             {editingItem.type === 'status' && (
               <div>
@@ -1743,7 +1408,7 @@ export const DroplistManagementView: React.FC = () => {
       >
         {confirmDeleteStatus && (
           <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 leading-relaxed">
-            Status WO ini memiliki <strong className="text-[#26364A] dark:text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons dan <strong className="text-[#26364A] dark:text-white">{confirmDeleteStatus.totalRemarks}</strong> remarks. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
+            Status WO ini memiliki <strong className="text-[#26364A] dark:text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
           </p>
         )}
       </ResponsiveModal>

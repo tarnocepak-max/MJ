@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Ticket, GeotagStatus, TechnicalPhotoSlotKey, DispatchApprovalWoAgentStatus } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import { StatusAgentBadge, StatusApprovalBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
@@ -63,7 +64,8 @@ import {
   Satellite,
   ExternalLink,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertTriangle
 } from 'lucide-react';
 
 interface TicketDetailModalProps {
@@ -117,6 +119,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     toast
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
+  const vv = useVisualViewportModal(isOpen);
 
   // Dispatcher verification & decision state
   const [selectedWoAgentStatus, setSelectedWoAgentStatus] = useState<DispatchApprovalWoAgentStatus>('Done');
@@ -314,6 +317,20 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       });
     });
 
+    if (Array.isArray(ticket.kendalaReports)) {
+      ticket.kendalaReports.forEach((kr, idx) => {
+        if (!kr?.photoUrl) return;
+        const timeStr = kr.createdAt ? `${formatJakartaTimeOnly(kr.createdAt)} WIB` : '';
+        const sub = [kr.installerName, kr.reasonLabel || 'KENDALA', timeStr].filter(Boolean).join(' · ');
+        pushPhoto(
+          kr.photoUrl,
+          `Foto Kendala Lapangan #${idx + 1}`,
+          sub,
+          `kendala-${kr.id || idx}`
+        );
+      });
+    }
+
     return items;
   }, [ticket, ticketMessages]);
 
@@ -463,13 +480,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     latestProgress?.reasonReportLabel ||
     latestProgress?.reasonReport ||
     ticket.reasonReportLabel ||
-    ticket.technicalReport?.mainCategory ||
-    '-';
-  const tier3Label =
-    latestProgress?.rootcauseLabel ||
-    latestProgress?.rootCause ||
-    ticket.rootcauseLabel ||
-    ticket.technicalReport?.rootCause ||
     '-';
 
   const topGradientBar =
@@ -525,8 +535,17 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         aria-modal="true"
         aria-labelledby="modal-ticket-title"
         onClick={e => e.stopPropagation()}
+        style={
+          vv.viewportHeight
+            ? {
+                maxHeight: isCompactUI
+                  ? `${vv.viewportHeight}px`
+                  : `${Math.max(360, vv.viewportHeight - (vv.isKeyboardOpen ? 12 : 32))}px`
+              }
+            : undefined
+        }
         className={`relative w-full bg-white/95 dark:bg-[#1E1238] shadow-2xl border border-[#DDE6F0] dark:border-[#35105E] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
-          isCompactUI ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl max-h-[94vh] rounded-2xl'
+          isCompactUI ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl max-h-[94dvh] rounded-2xl'
         }`}
       >
         {/* TOP SYSTEM & SYNC STRIP */}
@@ -711,7 +730,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         )}
 
         {/* SCROLLABLE INTERACTIVE BODY STAGE */}
-        <div className="flex-1 overflow-y-auto bg-[#F4F7FB] dark:bg-[#140827] p-3.5 sm:p-5 space-y-5 text-xs">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F4F7FB] dark:bg-[#140827] p-3.5 sm:p-5 space-y-5 text-xs">
           {/* ============================================================== */}
           {/* ZONE 1: DISPATCH APPROVAL & VERIFIKASI HUB                     */}
           {/* ============================================================== */}
@@ -851,10 +870,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* 4. Laporan 3-Tingkat */}
+              {/* 4. Laporan Lapangan (2-Tingkat: Status & Reason) */}
               <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5]">Laporan 3-Tingkat</span>
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5]">Laporan Lapangan</span>
                   <Network className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
                 </div>
                 <div className="text-xs font-bold text-[#218A63] dark:text-[#16A36A] truncate">
@@ -862,7 +881,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 </div>
                 <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 leading-snug">
                   <div className="truncate">L2: {tier2Label}</div>
-                  <div className="truncate text-[#8492A5] text-[10.5px]">L3: {tier3Label}</div>
                 </div>
               </div>
             </div>
@@ -1053,7 +1071,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                       Laporan Pengerjaan Installer
                     </div>
                     <div className="text-[11.5px] font-semibold text-[#26364A] dark:text-white">
-                      {tier1Label} {tier2Label !== '-' ? `· ${tier2Label}` : ''} {tier3Label !== '-' ? `· ${tier3Label}` : ''}
+                      {tier1Label} {tier2Label !== '-' ? `· ${tier2Label}` : ''}
                     </div>
                     <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                       {latestProgress?.remarksReport || ticket.remarksWOInstaller || 'Tidak ada catatan tambahan dari teknisi.'}
@@ -1510,15 +1528,15 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   </div>
 
                   {ticket.technicalReport && !showReportEditor && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <div className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
                         <div className="text-[10px] text-[#8492A5] uppercase font-bold">Hasil Pekerjaan</div>
                         <div className="font-bold text-[#218A63] dark:text-[#16A36A] mt-0.5">{ticket.technicalReport.workResult}</div>
                       </div>
                       <div className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
-                        <div className="text-[10px] text-[#8492A5] uppercase font-bold">Root Cause</div>
-                        <div className="font-semibold text-[#26364A] dark:text-white mt-0.5 truncate">
-                          {ticket.technicalReport.rootCause || '-'}
+                        <div className="text-[10px] text-[#8492A5] uppercase font-bold">Deskripsi Teknis</div>
+                        <div className="font-semibold text-[#26364A] dark:text-white mt-0.5 truncate" title={ticket.technicalReport.technicalDescription || '-'}>
+                          {ticket.technicalReport.technicalDescription || '-'}
                         </div>
                       </div>
                       <div className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
@@ -1541,6 +1559,91 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     />
                   )}
                 </div>
+
+                {/* Laporan Kendala Lapangan (Installer KENDALA Submissions) */}
+                {Array.isArray(ticket.kendalaReports) && ticket.kendalaReports.length > 0 && (
+                  <div className="pt-3 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-[#C88735] dark:text-amber-400" />
+                        <span className="font-bold text-[13px] text-[#26364A] dark:text-white">
+                          Laporan Kendala Lapangan
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-[#FFF2D9] dark:bg-amber-950/60 border border-[#F2CF95] dark:border-amber-800/60 text-[10px] font-bold text-[#9D661F] dark:text-amber-300 tabular-nums">
+                        {ticket.kendalaReports.length} Laporan
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {ticket.kendalaReports.map((kr, idx) => {
+                        const safePhoto = kr.photoUrl ? getSafePreviewUrl(kr.photoUrl) : '';
+                        const timeLabel = kr.createdAt
+                          ? `${new Date(kr.createdAt).toLocaleString('id-ID')} · ${formatJakartaTimeOnly(kr.createdAt)} WIB`
+                          : '-';
+                        return (
+                          <div
+                            key={kr.id || `kr-${idx}`}
+                            className="p-3 rounded-xl bg-[#FFFDF7] dark:bg-[#160D29] border border-[#F2CF95] dark:border-amber-800/50 flex flex-col sm:flex-row items-start gap-3"
+                          >
+                            {safePhoto && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setZoomPhoto({
+                                    id: `kendala-detail-${kr.id || idx}`,
+                                    url: safePhoto,
+                                    title: `Foto Kendala Lapangan #${idx + 1}`,
+                                    subtitle: [kr.installerName, kr.reasonLabel || 'KENDALA', kr.createdAt ? `${formatJakartaTimeOnly(kr.createdAt)} WIB` : '']
+                                      .filter(Boolean)
+                                      .join(' · ')
+                                  })
+                                }
+                                className="relative w-full sm:w-28 h-24 rounded-lg overflow-hidden border border-[#F2CF95] dark:border-amber-800/60 bg-[#EDF3F8] dark:bg-[#261942] shrink-0 group cursor-pointer"
+                                title="Klik untuk memperbesar foto bukti kendala"
+                              >
+                                <img
+                                  src={safePhoto}
+                                  alt={`Bukti kendala ${idx + 1}`}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                />
+                                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-[#26364A]/85 text-white font-mono text-[9px] flex items-center gap-1">
+                                  <ZoomIn className="w-2.5 h-2.5" />
+                                  Zoom
+                                </span>
+                              </button>
+                            )}
+
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="px-2 py-0.5 rounded bg-[#FFF2D9] dark:bg-amber-950/70 border border-[#F2CF95] dark:border-amber-700/60 text-[10px] font-bold text-[#9D661F] dark:text-amber-300">
+                                    {kr.reasonLabel || 'KENDALA LAPANGAN'}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded bg-[#EDF3F8] dark:bg-[#261942] text-[10px] font-semibold text-[#52647A] dark:text-[#DAB9FF]">
+                                    {kr.status || 'Pending Technical'}
+                                  </span>
+                                </div>
+                                <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#C5B3DF] tabular-nums">
+                                  {timeLabel}
+                                </span>
+                              </div>
+
+                              <p className="text-xs text-[#26364A] dark:text-white leading-relaxed whitespace-pre-wrap">
+                                {kr.description}
+                              </p>
+
+                              <div className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8]">
+                                Pelapor: <strong className="text-[#26364A] dark:text-white">{kr.installerName}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1671,7 +1774,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="btn-3d-ceramic flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold cursor-pointer"
+              className="btn-3d-ceramic flex-1 sm:flex-initial px-4 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold cursor-pointer"
             >
               Tutup Modal
             </button>
@@ -1691,7 +1794,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     ? `Simpan Dispatch Approval (${selectedWoAgentStatus}) dan selesaikan tiket`
                     : 'Menunggu laporan teknisi masuk antrean BUTUH APPROVAL'
                 }
-                className="btn-3d-success flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="btn-3d-success flex-1 sm:flex-initial px-4 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>
@@ -1708,7 +1811,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="btn-3d-primary flex-1 sm:flex-initial px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                className="btn-3d-primary flex-1 sm:flex-initial px-4 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Cetak Berita Acara (BA)</span>
@@ -1721,14 +1824,16 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       {/* Evidence Photo Lightbox + GeoTag Interactive Mini Map */}
       {zoomPhoto && (
         <div
-          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
           onClick={() => setZoomPhoto(null)}
         >
           <div
-            className="relative w-full max-w-3xl max-h-[92vh] flex flex-col gap-3 bg-[#160D29] border border-[#A78BFA]/30 rounded-2xl p-3.5 sm:p-4"
+            className="relative w-full max-w-3xl max-h-[92dvh] min-h-0 flex flex-col gap-3 bg-[#160D29] border border-[#A78BFA]/30 rounded-2xl p-3.5 sm:p-4 overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 text-white">
+            <div className="flex items-center justify-between gap-3 text-white shrink-0">
               <div className="min-w-0">
                 <div className="font-bold text-sm truncate">{zoomPhoto.title}</div>
                 <div className="text-[11px] text-[#DAB9FF] font-mono truncate">
@@ -1741,24 +1846,25 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setZoomPhoto(null)}
-                className="p-2 bg-black/60 text-white rounded-full border border-white/20 hover:bg-[#DC4C5A] transition-colors cursor-pointer shadow-lg shrink-0"
+                aria-label="Tutup lightbox foto"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center bg-black/60 text-white rounded-full border border-white/20 hover:bg-[#DC4C5A] transition-colors cursor-pointer shadow-lg shrink-0"
                 title="Tutup"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex justify-center bg-black/40 rounded-xl overflow-hidden">
+            <div className="flex justify-center bg-black/40 rounded-xl overflow-hidden shrink-0">
               <img
                 src={zoomPhoto.url}
                 alt={zoomPhoto.title}
                 referrerPolicy="no-referrer"
-                className="max-w-full max-h-[52vh] object-contain"
+                className="max-w-full max-h-[52dvh] object-contain"
               />
             </div>
 
             {isValidCoordinatePair(zoomPhoto.latitude, zoomPhoto.longitude) && (
-              <div className="rounded-xl bg-[#1E1238] border border-white/10 p-2.5">
+              <div className="rounded-xl bg-[#1E1238] border border-white/10 p-2.5 shrink-0">
                 <GeoLocationMiniMap
                   latitude={zoomPhoto.latitude}
                   longitude={zoomPhoto.longitude}

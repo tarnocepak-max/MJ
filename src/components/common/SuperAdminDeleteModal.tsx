@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Lock
 } from 'lucide-react';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 export type DeleteTargetType = 'customer' | 'user';
 
@@ -38,6 +39,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
   const [confirmPhrase, setConfirmPhrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const vv = useVisualViewportModal(isOpen);
 
   if (!isOpen) return null;
 
@@ -93,16 +95,22 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-70 flex items-center justify-center bg-[#26364A]/40 dark:bg-slate-950/70 p-3 sm:p-4 backdrop-blur-sm">
-      <div className="bg-white/95 backdrop-blur-xl dark:backdrop-blur-none dark:bg-slate-900 rounded-2xl shadow-2xl border border-[#F3C5CA] dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+    <div
+      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
+      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-[#26364A]/40 dark:bg-slate-950/70 p-0 sm:p-4 backdrop-blur-sm"
+    >
+      <div
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="bg-white/95 backdrop-blur-xl dark:backdrop-blur-none dark:bg-slate-900 rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-[#F3C5CA] dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      >
         {/* Header with Security Badge */}
-        <div className="px-5 py-4 bg-[#FCE9EB]/85 dark:bg-rose-950/60 border-b border-[#F3C5CA] dark:border-rose-900/60 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="px-4 sm:px-5 py-4 bg-[#FCE9EB]/85 dark:bg-rose-950/60 border-b border-[#F3C5CA] dark:border-rose-900/60 flex items-start justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[#D45B66] dark:bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
               <ShieldAlert className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#F9D9DD] dark:bg-rose-900 text-[#9B2C37] dark:text-rose-200">
                   Super Admin Guard
                 </span>
@@ -110,22 +118,24 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                   Protokol Keamanan Ketat
                 </span>
               </div>
-              <h3 className="font-bold text-[#26364A] dark:text-white text-sm sm:text-base mt-0.5">
+              <h3 className="font-bold text-[#26364A] dark:text-white text-sm sm:text-base mt-0.5 truncate">
                 Konfirmasi Penghapusan {getTargetTitle()}
               </h3>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-[#8492A5] hover:text-[#26364A] dark:text-slate-400 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+            aria-label="Tutup"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-[#8492A5] hover:text-[#26364A] dark:text-slate-400 dark:hover:text-slate-200 rounded-lg cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body Content */}
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-4 sm:p-5 space-y-4 text-xs flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {!isSuperAdmin ? (
             <div className="p-4 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/80 border border-[#F3C5CA] dark:border-rose-800 text-[#9B2C37] dark:text-rose-200 space-y-2">
               <div className="font-bold flex items-center gap-1.5">
@@ -242,17 +252,17 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3.5 bg-[#EDF3F8]/85 dark:bg-slate-800/60 border-t border-[#DDE6F0] dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#EDF3F8]/85 dark:bg-slate-800/60 border-t border-[#DDE6F0] dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="text-[11px] text-[#8492A5] dark:text-slate-400 font-medium">
             Operator: <span className="font-semibold text-[#26364A] dark:text-slate-300">{currentUser.name}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+              className="btn-3d-secondary px-3.5 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-semibold cursor-pointer"
             >
               Batal
             </button>
@@ -262,7 +272,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                 type="button"
                 onClick={handleExecuteDelete}
                 disabled={isSubmitting || confirmPhrase.trim().toUpperCase() !== REQUIRED_PHRASE || !reason.trim()}
-                className="btn-3d-danger px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="btn-3d-danger px-4 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isSubmitting ? 'Memproses...' : deleteMode === 'permanent' ? 'Hapus Permanen' : 'Eksekusi Soft Delete'}</span>

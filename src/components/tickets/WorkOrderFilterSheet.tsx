@@ -158,7 +158,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
         </div>
 
         {/* Scrollable Filter Sections */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 text-xs">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5 text-xs">
           {/* Approval Dispatch Pills */}
           <div className="space-y-2">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#C5B3DF]">
@@ -312,7 +312,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
         </div>
 
         {/* Sticky Footer Actions */}
-        <div className="px-4 py-3 pb-safe bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2.5 shrink-0">
+        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onResetAll}

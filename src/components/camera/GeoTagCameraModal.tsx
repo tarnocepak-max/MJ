@@ -439,7 +439,7 @@ export const GeoTagCameraModal: React.FC<GeoTagCameraModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg max-h-[96vh] bg-[#0B1222] text-white sm:rounded-2xl rounded-t-2xl border border-slate-700/80 shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full sm:max-w-lg max-h-[94dvh] bg-[#0B1222] text-white sm:rounded-2xl rounded-t-2xl border border-slate-700/80 shadow-2xl flex flex-col overflow-hidden">
         {/* Top Bar */}
         <div className="px-4 py-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
           <div className="min-w-0">
@@ -454,7 +454,7 @@ export const GeoTagCameraModal: React.FC<GeoTagCameraModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer shrink-0"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer shrink-0"
             aria-label="Tutup Kamera"
           >
             <X className="w-4 h-4" />
@@ -500,7 +500,7 @@ export const GeoTagCameraModal: React.FC<GeoTagCameraModalProps> = ({
         )}
 
         {/* Body Stage */}
-        <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 space-y-3">
           {!rawCapturedCanvasData ? (
             <>
               {/* Live Camera Viewport */}
@@ -597,7 +597,7 @@ export const GeoTagCameraModal: React.FC<GeoTagCameraModalProps> = ({
                 <img
                   src={previewUrl}
                   alt={slotTitle}
-                  className="w-full max-h-[42vh] object-contain mx-auto"
+                  className="w-full max-h-[42dvh] object-contain mx-auto"
                 />
               </div>
 

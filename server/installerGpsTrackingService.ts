@@ -30,11 +30,11 @@ import {
 export const DEFAULT_GPS_TRACKING_CONFIG: GpsTrackingConfig = {
   enabled: true,
   autoStartOnLogin: true,
-  syncIntervalSeconds: 20,
+  syncIntervalSeconds: 60,
   minDistanceMeters: 15,
-  heartbeatIntervalSeconds: 20,
-  heartbeatTimeoutSeconds: 60,
-  locationStaleThresholdSeconds: 90,
+  heartbeatIntervalSeconds: 60,
+  heartbeatTimeoutSeconds: 150,
+  locationStaleThresholdSeconds: 180,
   historyRetentionDays: 30,
   offlineQueueMaxEntries: 100,
   maxAcceptableAccuracyMeters: 500

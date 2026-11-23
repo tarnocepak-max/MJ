@@ -32,7 +32,7 @@ export const CANONICAL_COLUMN_GROUPS: CanonicalColumnGroupMeta[] = [
   { id: 'E', title: 'E. Infrastruktur Jaringan FTTH & Redaman' },
   { id: 'F', title: 'F. Perangkat CPE, ONT & Router' },
   { id: 'G', title: 'G. Kontraktor, Korlap & Penugasan Teknisi' },
-  { id: 'H', title: 'H. Laporan Lapangan 3-Tingkat & Audit' }
+  { id: 'H', title: 'H. Laporan Lapangan & Audit' }
 ];
 
 const DEFAULT_DISPATCH_VISIBLE_KEYS = new Set([
@@ -97,7 +97,6 @@ const QC_AUDIT_VISIBLE_KEYS = new Set([
   'installerName',
   'reportStatusLabel',
   'reasonReportLabel',
-  'rootcauseLabel',
   'photoEvidenceCount',
   'dataQualityFlags'
 ]);
@@ -155,10 +154,9 @@ export const DEFAULT_COLUMNS: ColumnConfig[] = [
   { key: 'installerContact', label: 'No. Kontak Teknisi', visible: false, order: 37, width: 120, format: 'phone', categoryGroup: 'G', description: 'installer_phone' },
   { key: 'reassignHistoryCount', label: 'Riwayat Reassign Teknisi', visible: false, order: 38, width: 110, categoryGroup: 'G', badgeHint: 'Counter Badge', description: 'reassign_history_count' },
 
-  // H. Laporan Lapangan 3-Tingkat & Audit (8 Kolom)
+  // H. Laporan Lapangan & Audit (7 Kolom)
   { key: 'reportStatusLabel', label: 'Status Laporan Level 1', visible: true, order: 39, width: 130, categoryGroup: 'H', description: 'report_level_1_status (Done, Pending, Cancel)' },
   { key: 'reasonReportLabel', label: 'Reason Report Level 2', visible: false, order: 40, width: 150, categoryGroup: 'H', description: 'report_level_2_reason' },
-  { key: 'rootcauseLabel', label: 'Rootcause Code Level 3', visible: false, order: 41, width: 160, categoryGroup: 'H', description: 'report_level_3_rootcause' },
   { key: 'remarksWOInstaller', label: 'Catatan Teknisi / Remarks', visible: true, order: 42, width: 200, wrapText: true, categoryGroup: 'H', description: 'technician_remarks' },
   { key: 'photoEvidenceCount', label: 'Bukti Foto Fisik (Jumlah Upload)', visible: false, order: 43, width: 110, categoryGroup: 'H', description: 'photo_evidence_count' },
   { key: 'customerSignatureUrl', label: 'Link Tanda Tangan Pelanggan', visible: false, order: 44, width: 130, categoryGroup: 'H', description: 'customer_signature_url' },

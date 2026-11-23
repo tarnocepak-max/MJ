@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import {
   ShieldCheck,
   Shield,
@@ -36,6 +37,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const vv = useVisualViewportModal(isOpen);
 
   if (!isOpen) return null;
 
@@ -65,8 +67,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-slate-950/70 p-0 sm:p-4 backdrop-blur-xs">
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={
+          vv.viewportHeight
+            ? { maxHeight: `${Math.max(320, vv.viewportHeight - (vv.isKeyboardOpen ? 8 : 20))}px` }
+            : undefined
+        }
+        className="bg-white dark:bg-slate-900 rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      >
         {/* Header */}
         <div className="px-5 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white relative shrink-0">
           <div className="flex items-center justify-between gap-2">
@@ -85,7 +96,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Tutup dialog"
-                className="min-w-[40px] min-h-[40px] flex items-center justify-center text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -94,7 +105,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </div>
 
         {/* Clean Login Form */}
-        <div className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+        <div className="p-5 sm:p-6 space-y-4 text-xs min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {/* Supabase Auth Production Info */}
           <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 text-indigo-900 dark:text-indigo-200 text-xs flex items-center gap-2.5">
             <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -168,7 +179,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="px-5 sm:px-6 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 shrink-0">
+        <div className="px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 shrink-0">
           <span>Sesi Aktif: 8 Jam (Token Berenkripsi)</span>
           <span>Audit Log Login: Tercatat Otomatis</span>
         </div>

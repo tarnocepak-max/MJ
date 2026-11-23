@@ -111,6 +111,8 @@ import {
   updateRolePermissionsInSupabase,
   appendProgressReportHistoryToSupabase,
   appendDistributionLogToSupabase,
+  insertKendalaReportToSupabase,
+  getKendalaReportsByTicketFromSupabase,
   postgresRowToTicket
 } from './server/supabaseAdapter.ts';
 import {
@@ -182,6 +184,8 @@ import {
   evaluateFileAccessPermission,
   uploadFile,
   uploadWoPhotoEvidence,
+  uploadKendalaEvidencePhoto,
+  deleteWoPhotoEvidenceObject,
   downloadFile,
   getSignedFileUrl,
   refreshSignedFileUrl,
@@ -5606,6 +5610,17 @@ export async function createExpressApp(options?: {
           error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
         });
       }
+
+      const verifiedCount = countVerifiedPhotoEvidence(ticket, report?.photoSlots);
+      if (verifiedCount < MIN_CHECKOUT_PHOTO_EVIDENCE) {
+        return res.status(400).json({
+          success: false,
+          code: 'PHOTO_EVIDENCE_INCOMPLETE',
+          requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
+          uploadedCount: verifiedCount,
+          error: `Check-out ditolak: Minimal ${MIN_CHECKOUT_PHOTO_EVIDENCE} foto bukti fisik wajib diunggah & terverifikasi (saat ini baru ${verifiedCount}/${MIN_CHECKOUT_PHOTO_EVIDENCE} foto).`
+        });
+      }
     }
 
     const now = new Date().toISOString();
@@ -5725,6 +5740,45 @@ export async function createExpressApp(options?: {
     barcode_sn: 'Barcode & SN ONT',
     opm: 'Redaman OPM'
   };
+
+  const MIN_CHECKOUT_PHOTO_EVIDENCE = 3;
+
+  function isVerifiedPersistedPhotoSlot(slot: any): boolean {
+    if (!slot || typeof slot !== 'object') return false;
+    if (slot.uploadStatus === 'failed' || slot.uploadStatus === 'uploading' || slot.uploadStatus === 'pending_offline') {
+      return false;
+    }
+    const url = typeof slot.url === 'string' ? slot.url.trim() : '';
+    if (!url || url.startsWith('data:')) return false;
+    const isAllowedUrl =
+      url.startsWith('/api/storage/') ||
+      url.startsWith('https://') ||
+      url.startsWith('http://');
+    if (!isAllowedUrl) return false;
+    return true;
+  }
+
+  function countVerifiedPhotoEvidence(ticket: any, overrideSlots?: any): number {
+    const serverSlots: any[] = Array.isArray(ticket?.technicalReport?.photoSlots)
+      ? ticket.technicalReport.photoSlots
+      : [];
+    const candidateSlots: any[] = Array.isArray(overrideSlots) ? overrideSlots : serverSlots;
+    const verifiedKeys = new Set<string>();
+
+    // Always prefer authoritative persisted server slots first, and only accept candidate slots that match a real persisted storage URL
+    serverSlots.forEach(s => {
+      if (isVerifiedPersistedPhotoSlot(s) && s.slotKey) {
+        verifiedKeys.add(String(s.slotKey));
+      }
+    });
+    candidateSlots.forEach(s => {
+      if (isVerifiedPersistedPhotoSlot(s) && s.slotKey) {
+        verifiedKeys.add(String(s.slotKey));
+      }
+    });
+
+    return verifiedKeys.size;
+  }
 
   function isValidServerGeoCoord(lat: unknown, lng: unknown): boolean {
     if (typeof lat !== 'number' || typeof lng !== 'number') return false;
@@ -6110,11 +6164,150 @@ export async function createExpressApp(options?: {
       );
     }
 
+    const previousSlot = existingSlots.find(s => s && s.slotKey === slotRecord.slotKey);
+    if (previousSlot?.storagePath && previousSlot.storagePath !== slotRecord.storagePath) {
+      deleteWoPhotoEvidenceObject({
+        storagePath: previousSlot.storagePath,
+        userId: req.user!.id,
+        userRole: req.user!.role
+      }).catch(() => {});
+    }
+
     return res.json({
       success: true,
       photoSlot: slotRecord,
       houseLocation: updatedTicket.houseLocation,
       fatLocation: updatedTicket.fatLocation,
+      ticket: updatedTicket
+    });
+  });
+
+  // Delete / Remove a previously uploaded Photo Evidence slot (prior to Check-out / Closure)
+  app.delete('/api/tickets/:id/photo-evidence/:slotKey', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const cleanId = (req.params.id || '').trim();
+    const cleanSlotKey = (req.params.slotKey || '').trim();
+
+    if (!cleanSlotKey || !ALLOWED_PHOTO_SLOT_KEYS.has(cleanSlotKey)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_SLOT_KEY',
+        error: 'Kategori foto (slotKey) tidak valid.'
+      });
+    }
+
+    if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+      return res.status(503).json({
+        success: false,
+        code: 'SUPABASE_NOT_CONFIGURED',
+        error: 'Database authoritative tidak tersedia.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) {
+        ticket = supaGet.data;
+      } else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
+    }
+    if (!ticket) {
+      return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
+    }
+
+    if (!checkTicketAccess(ticket, req.user!)) {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_WO_ACCESS',
+        error: 'Akses Ditolak: Anda tidak memiliki wewenang menghapus foto bukti Work Order ini.'
+      });
+    }
+
+    if (isTicketClosed(ticket) && req.user!.role === 'installer') {
+      return res.status(409).json({
+        success: false,
+        code: 'WO_CLOSED',
+        error: 'Work Order sudah berstatus CLOSED dan foto tidak dapat dihapus oleh teknisi.'
+      });
+    }
+
+    const existingTr = ticket.technicalReport && typeof ticket.technicalReport === 'object' ? ticket.technicalReport : {};
+    const existingSlots: any[] = Array.isArray(existingTr.photoSlots) ? [...existingTr.photoSlots] : [];
+    const targetSlot = existingSlots.find(s => s && s.slotKey === cleanSlotKey);
+
+    if (!targetSlot) {
+      return res.status(404).json({
+        success: false,
+        code: 'PHOTO_SLOT_NOT_FOUND',
+        error: 'Foto pada slot ini tidak ditemukan.'
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const nextSlots = existingSlots.filter(s => s && s.slotKey !== cleanSlotKey);
+    const nextPhotos = nextSlots.map(s => s.url).filter(Boolean);
+
+    const updates: Record<string, any> = {
+      technicalReport: {
+        ...existingTr,
+        photoSlots: nextSlots,
+        photos: nextPhotos,
+        photoAfterUrl: nextPhotos[0] || undefined,
+        updatedAt: nowIso
+      },
+      photoEvidenceCount: nextSlots.length,
+      updatedAt: nowIso,
+      updatedBy: req.user!.name
+    };
+
+    let updatedTicket = { ...ticket, ...updates };
+    if (isSupabaseMode()) {
+      const supaRes = await updateWorkOrderInSupabase(ticket.id, updates);
+      if (!supaRes.success && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'DATABASE_UNAVAILABLE',
+          error: 'Gagal memperbarui daftar foto pada database Supabase.'
+        });
+      }
+      if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const localIdx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
+      if (localIdx !== -1) {
+        db.tickets[localIdx] = updatedTicket;
+      }
+      saveDatabaseToDisk();
+    }
+
+    if (targetSlot.storagePath) {
+      deleteWoPhotoEvidenceObject({
+        storagePath: targetSlot.storagePath,
+        userId: req.user!.id,
+        userRole: req.user!.role
+      }).catch(() => {});
+    }
+
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
+
+    await logServerAuditAsync(
+      'WO Photo Evidence Deleted',
+      'report',
+      ticket.woNumber,
+      `Foto "${targetSlot.title || cleanSlotKey}" dihapus oleh ${req.user!.name} sebelum Check-out pada WO ${ticket.woNumber}`,
+      req.user
+    );
+
+    return res.json({
+      success: true,
+      deletedSlotKey: cleanSlotKey,
+      photoEvidenceCount: nextSlots.length,
       ticket: updatedTicket
     });
   });
@@ -6195,6 +6388,17 @@ export async function createExpressApp(options?: {
           error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
         });
       }
+
+      const verifiedCount = countVerifiedPhotoEvidence(ticket, technicalTelemetry?.photoSlots);
+      if (verifiedCount < MIN_CHECKOUT_PHOTO_EVIDENCE) {
+        return res.status(400).json({
+          success: false,
+          code: 'PHOTO_EVIDENCE_INCOMPLETE',
+          requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
+          uploadedCount: verifiedCount,
+          error: `Check-out ditolak: Minimal ${MIN_CHECKOUT_PHOTO_EVIDENCE} foto bukti fisik wajib diunggah & terverifikasi sebelum menyelesaikan pekerjaan (baru ${verifiedCount}/${MIN_CHECKOUT_PHOTO_EVIDENCE} foto).`
+        });
+      }
     }
 
     const now = new Date().toISOString();
@@ -6203,6 +6407,8 @@ export async function createExpressApp(options?: {
     const canonicalRepStatus = normalizeCanonicalReportStatus(rawReportStatus);
     const finalReportStatusLabel = canonicalRepStatus !== 'NONE' ? canonicalRepStatus : String(rawReportStatus).trim().toUpperCase();
     const nextVersionNumber = existingReports.length + 1;
+    const resolvedReasonLabel = reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || '';
+    const resolvedRootcauseLabel = rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause || undefined;
 
     const reportEntry = {
       ...entry,
@@ -6217,13 +6423,12 @@ export async function createExpressApp(options?: {
       reportStatus: finalReportStatusLabel,
       reportStatusId: reportStatusId || entry?.reportStatusId,
       reportStatusLabel: finalReportStatusLabel,
-      reasonReport: reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || '',
+      reasonReport: resolvedReasonLabel,
       reasonReportId: reasonReportId || entry?.reasonReportId,
-      reasonReportLabel: reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport,
-      rootCause: rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause || '',
-      rootcauseId: rootcauseId || entry?.rootcauseId,
-      rootcauseLabel: rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause,
-      remarksReport: remarks || entry?.remarksReport || rootcauseLabel || '-',
+      reasonReportLabel: resolvedReasonLabel,
+      ...(resolvedRootcauseLabel ? { rootCause: resolvedRootcauseLabel, rootcauseLabel: resolvedRootcauseLabel } : {}),
+      ...(rootcauseId || entry?.rootcauseId ? { rootcauseId: rootcauseId || entry?.rootcauseId } : {}),
+      remarksReport: remarks || entry?.remarksReport || resolvedReasonLabel || '-',
       approvalStatus: 'BUTUH APPROVAL'
     };
 
@@ -6512,6 +6717,315 @@ export async function createExpressApp(options?: {
     );
 
     res.json({ success: true, entry: reportEntry, ticket: updatedTicket });
+  });
+
+  // ---------------------------------------------------------------------------
+  // INSTALLER KENDALA REPORT (Mandatory Photo Evidence + Description)
+  // ---------------------------------------------------------------------------
+  app.post('/api/tickets/:id/kendala-report', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const cleanId = (req.params.id || '').trim();
+    const {
+      reasonId,
+      reasonLabel,
+      description,
+      fileData,
+      fileName,
+      mimeType,
+      targetInstallerStatus
+    } = req.body || {};
+
+    if (!description || typeof description !== 'string' || !description.trim()) {
+      return res.status(400).json({
+        success: false,
+        code: 'KENDALA_DESCRIPTION_REQUIRED',
+        error: 'Keterangan kendala wajib diisi sebelum mengirim laporan kendala.'
+      });
+    }
+
+    if (!fileData || typeof fileData !== 'string') {
+      return res.status(400).json({
+        success: false,
+        code: 'KENDALA_PHOTO_REQUIRED',
+        error: 'Foto bukti kendala wajib diunggah sebelum mengirim laporan kendala.'
+      });
+    }
+
+    if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+      return res.status(503).json({
+        success: false,
+        code: 'SUPABASE_NOT_CONFIGURED',
+        error: 'Database authoritative tidak tersedia.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) {
+        ticket = supaGet.data;
+      } else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
+    }
+    if (!ticket) {
+      return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
+    }
+
+    if (!checkTicketAccess(ticket, req.user!)) {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_WO_ACCESS',
+        error: 'Akses Ditolak: Anda tidak memiliki wewenang melaporkan kendala pada Work Order ini.'
+      });
+    }
+
+    if (isTicketClosed(ticket) && req.user!.role === 'installer') {
+      return res.status(409).json({
+        success: false,
+        code: 'WO_CLOSED',
+        error: 'Work Order sudah berstatus CLOSED dan tidak dapat dilaporkan kendala baru.'
+      });
+    }
+
+    // Parse & validate photo buffer
+    let resolvedMime = typeof mimeType === 'string' && mimeType.trim() ? mimeType.trim().toLowerCase() : 'image/jpeg';
+    let rawBase64 = fileData;
+    const dataUriMatch = fileData.match(/^data:([a-zA-Z0-9/+-]+);base64,(.*)$/);
+    if (dataUriMatch) {
+      resolvedMime = dataUriMatch[1].toLowerCase();
+      rawBase64 = dataUriMatch[2];
+    }
+    const buffer = Buffer.from(rawBase64, 'base64');
+    if (!buffer || buffer.length < 32) {
+      return res.status(400).json({
+        success: false,
+        code: 'EMPTY_IMAGE_BUFFER',
+        error: 'Data foto bukti kendala tidak valid atau kosong.'
+      });
+    }
+
+    const ext = resolvedMime === 'image/png' ? 'png' : resolvedMime === 'image/webp' ? 'webp' : 'jpg';
+    const safeFileName = (typeof fileName === 'string' && fileName.trim())
+      ? fileName.trim()
+      : `${ticket.woNumber}_kendala_${Date.now()}.${ext}`;
+
+    const storageRes = await uploadKendalaEvidencePhoto({
+      userId: req.user!.id,
+      userRole: req.user!.role,
+      woNumber: ticket.woNumber,
+      fileName: safeFileName,
+      fileBuffer: buffer,
+      mimeType: resolvedMime
+    });
+
+    if (!storageRes.success || !storageRes.downloadUrl) {
+      return res.status(400).json({
+        success: false,
+        code: 'STORAGE_UPLOAD_FAILED',
+        error: storageRes.error || 'Gagal menyimpan foto bukti kendala ke penyimpanan server.'
+      });
+    }
+
+    const now = new Date().toISOString();
+    const cleanDesc = description.trim();
+    const cleanReasonLabel = typeof reasonLabel === 'string' && reasonLabel.trim() ? reasonLabel.trim() : 'Kendala Lapangan';
+    const cleanReasonId = typeof reasonId === 'string' && reasonId.trim() ? reasonId.trim() : undefined;
+
+    const kendalaEntry = {
+      id: `knd_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      ticketId: ticket.id,
+      woNumber: ticket.woNumber,
+      installerId: req.user!.id,
+      installerName: req.user!.name,
+      ...(cleanReasonId ? { reasonId: cleanReasonId } : {}),
+      reasonLabel: cleanReasonLabel,
+      description: cleanDesc,
+      photoUrl: storageRes.downloadUrl,
+      storagePath: storageRes.storagePath,
+      fileName: safeFileName,
+      mimeType: resolvedMime,
+      fileSizeBytes: buffer.length,
+      status: 'Pending Technical' as const,
+      createdAt: now
+    };
+
+    const existingKendalas = Array.isArray(ticket.kendalaReports) ? [...ticket.kendalaReports] : [];
+    const nextKendalas = [kendalaEntry, ...existingKendalas];
+    const nextInstallerStatus =
+      targetInstallerStatus === 'Failed / Cancelled' ? 'Failed / Cancelled' : 'Pending Technical';
+
+    const updates: Record<string, any> = {
+      kendalaReports: nextKendalas,
+      statusWOInstaller: nextInstallerStatus,
+      remarksWOInstaller: `[${cleanReasonLabel}] ${cleanDesc}`,
+      updatedAt: now,
+      updatedBy: req.user!.name
+    };
+
+    let updatedTicket = { ...ticket, ...updates };
+    if (isSupabaseMode()) {
+      const supaRes = await updateWorkOrderInSupabase(ticket.id, updates);
+      if (!supaRes.success && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'DATABASE_UNAVAILABLE',
+          error: 'Gagal menyimpan laporan kendala ke database authoritative Supabase.'
+        });
+      }
+      if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+
+      await insertKendalaReportToSupabase({
+        ...kendalaEntry,
+        payload: { targetInstallerStatus: nextInstallerStatus }
+      });
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const localIdx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
+      if (localIdx !== -1) {
+        db.tickets[localIdx] = updatedTicket;
+      }
+    }
+
+    // Post LiveChat #ISSUE message with photo attachment so Dispatch & Leader see it immediately
+    const issueMsgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const issueText = `[LAPORAN KENDALA — ${cleanReasonLabel}] ${cleanDesc}`;
+    const issueAttachment = {
+      id: `att_knd_${Date.now()}`,
+      type: 'image' as const,
+      url: storageRes.downloadUrl,
+      downloadUrl: storageRes.downloadUrl,
+      storagePath: storageRes.storagePath,
+      fileName: safeFileName,
+      fileSize: buffer.length,
+      mimeType: resolvedMime
+    };
+
+    let postedMessage: any = {
+      id: issueMsgId,
+      ticketId: ticket.id,
+      woNumber: ticket.woNumber,
+      senderId: req.user!.id,
+      senderName: req.user!.name,
+      senderRole: req.user!.role,
+      text: issueText,
+      category: 'ISSUE',
+      attachments: [issueAttachment],
+      timestamp: now,
+      deliveredTo: [req.user!.id],
+      deliveredAt: { [req.user!.id]: now },
+      readBy: [req.user!.id],
+      readAt: { [req.user!.id]: now }
+    };
+
+    if (isSupabaseMode()) {
+      const msgInsert = await insertTicketMessageToSupabase({
+        id: issueMsgId,
+        ticketId: ticket.id,
+        woNumber: ticket.woNumber,
+        senderId: req.user!.id,
+        senderName: req.user!.name,
+        senderRole: req.user!.role,
+        messageText: issueText,
+        category: 'ISSUE',
+        isCheckIn: false,
+        attachments: [issueAttachment]
+      });
+      if (msgInsert.success && msgInsert.data) {
+        postedMessage = msgInsert.data;
+      }
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      db.ticketMessages = db.ticketMessages || [];
+      db.ticketMessages.push(postedMessage);
+      saveDatabaseToDisk();
+    }
+
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: ticket });
+    broadcastSupabaseChange('ticket_messages', 'INSERT', postedMessage, { scopeTicket: updatedTicket });
+
+    await logServerAuditAsync(
+      'Kendala Report Submitted',
+      'report',
+      ticket.woNumber,
+      `Laporan kendala (${cleanReasonLabel}) disertai foto bukti dikirim oleh ${req.user!.name} untuk WO ${ticket.woNumber}: ${cleanDesc}`,
+      req.user
+    );
+
+    return res.json({
+      success: true,
+      kendalaReport: kendalaEntry,
+      message: postedMessage,
+      ticket: updatedTicket
+    });
+  });
+
+  app.get('/api/tickets/:id/kendala-reports', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const cleanId = (req.params.id || '').trim();
+    if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+      return res.status(503).json({
+        success: false,
+        code: 'SUPABASE_NOT_CONFIGURED',
+        error: 'Database authoritative tidak tersedia.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) {
+        ticket = supaGet.data;
+      } else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
+    }
+    if (!ticket) {
+      return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
+    }
+
+    if (!checkTicketAccess(ticket, req.user!)) {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_WO_ACCESS',
+        error: 'Akses Ditolak: Anda tidak memiliki wewenang melihat laporan kendala Work Order ini.'
+      });
+    }
+
+    const fromPayload = Array.isArray(ticket.kendalaReports) ? ticket.kendalaReports : [];
+    let fromTable: any[] = [];
+    if (isSupabaseMode()) {
+      const tableRes = await getKendalaReportsByTicketFromSupabase(ticket.id);
+      if (tableRes.success && Array.isArray(tableRes.data)) {
+        fromTable = tableRes.data;
+      }
+    }
+
+    const mergedMap = new Map<string, any>();
+    [...fromTable, ...fromPayload].forEach(item => {
+      if (item && item.id && !mergedMap.has(item.id)) {
+        mergedMap.set(item.id, item);
+      }
+    });
+
+    const reports = Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    return res.json({
+      success: true,
+      ticketId: ticket.id,
+      woNumber: ticket.woNumber,
+      reports
+    });
   });
 
   // ---------------------------------------------------------------------------

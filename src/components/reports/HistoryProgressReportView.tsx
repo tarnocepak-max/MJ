@@ -120,7 +120,6 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
           item.area,
           item.reportStatus,
           item.reasonReport,
-          item.rootCause,
           item.remarks,
           item.dispatchApprover
         ]
@@ -149,7 +148,6 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
       'Area',
       'Report Status',
       'Reason Report',
-      'Rootcause',
       'Remarks',
       'Waktu Laporan',
       'Approval Status',
@@ -175,7 +173,6 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
       r.area,
       r.reportStatus,
       r.reasonReport,
-      r.rootCause,
       r.remarks,
       r.submittedAt ? formatJakartaTimestamp(r.submittedAt) : '-',
       r.approvalStatus,
@@ -310,18 +307,13 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
       },
       {
         key: 'reasonRemarks',
-        label: 'Reason · Rootcause · Remarks',
+        label: 'Reason · Remarks',
         priority: 'secondary',
         widthClass: 'min-w-[210px] max-w-[280px]',
         render: item => (
           <div className="space-y-0.5">
             {item.reasonReport && (
               <div className="font-semibold text-[#26364A] dark:text-white">{item.reasonReport}</div>
-            )}
-            {item.rootCause && (
-              <div className="text-[11px] text-[#52647A] dark:text-[#C5B3DF]">
-                Rootcause: {item.rootCause}
-              </div>
             )}
             <div className="text-[11px] text-[#8492A5] dark:text-[#A493C2] break-words">
               {item.remarks || '-'}

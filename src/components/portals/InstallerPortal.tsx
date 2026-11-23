@@ -2,12 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
-import { Ticket, TicketStatusWOInstaller, WOKpiFilterKey } from '../../types/index.ts';
+import { Ticket, WOKpiFilterKey } from '../../types/index.ts';
 import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { InstallerTicketFullview, FullviewFocusSection } from './InstallerTicketFullview';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
-import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
+import { KendalaReportModal } from '../tickets/KendalaReportModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import {
@@ -65,34 +65,6 @@ interface InstallerPortalProps {
   onOpenWhatsApp: (ticket: Ticket) => void;
   initialFilter?: StatusFilterCategory;
 }
-
-const KENDALA_ESCALATION_OPTIONS: EscalationReasonOption[] = [
-  {
-    id: 'port_odp_full',
-    label: 'Port FAT / ODP Penuh atau Tidak Ada Signal',
-    description: 'Memerlukan relokasi FAT atau penambahan splitter oleh tim jaringan.',
-    targetInstallerStatus: 'Pending Technical'
-  },
-  {
-    id: 'customer_reschedule',
-    label: 'Pelanggan Tidak di Tempat / Minta Reschedule',
-    description: 'Pelanggan menunda jadwal pemasangan ke sesi atau hari berikutnya.',
-    targetInstallerStatus: 'Pending Technical',
-    isReschedule: true
-  },
-  {
-    id: 'route_permit',
-    label: 'Hambatan Izin Jalur / Penarikan Dropcore',
-    description: 'Terdapat kendala akses tiang, pengelola cluster, atau jalur rumah.',
-    targetInstallerStatus: 'Pending Technical'
-  },
-  {
-    id: 'hardware_or_cancel',
-    label: 'Pelanggan Membatalkan / Gagal Instalasi',
-    description: 'Order dibatalkan di lokasi atau kondisi lokasi tidak memungkinkan.',
-    targetInstallerStatus: 'Failed / Cancelled'
-  }
-];
 
 function parseNumericDbm(raw?: string | number | null): number | null {
   if (raw === undefined || raw === null) return null;
@@ -213,7 +185,7 @@ export interface ContinueWorkGuidance {
 export const getContinueWorkGuidance = (ticket: Ticket): ContinueWorkGuidance => {
   const canonicalApproval = getTicketCanonicalApprovalStatus(ticket);
   const photoCount = getTicketPhotoEvidenceCount(ticket);
-  const requiredPhotos = PHOTO_SLOT_DEFINITIONS.length;
+  const requiredPhotos = 3;
 
   const hasTechInputs = Boolean(
     (ticket.technicalReport?.opticalPowerDbm || ticket.rosetRedamanDbm) &&
@@ -305,8 +277,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 }) => {
   const {
     tickets,
-    updateTicketStatus,
-    sendTicketMessage,
     currentUser,
     users,
     todayWIB,
@@ -432,7 +402,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   const [chatModalTicket, setChatModalTicket] = useState<Ticket | null>(null);
   const [checkInCameraTicket, setCheckInCameraTicket] = useState<Ticket | null>(null);
   const [kendalaTicket, setKendalaTicket] = useState<Ticket | null>(null);
-  const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
 
   // Scope operational queue to Today's appointments (plus completed work) when dateScope === 'today'
   const scopedTickets = useMemo(() => {
@@ -577,48 +546,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       setTicketChatCategory(ticket.id, category);
     }
     setChatModalTicket(ticket);
-  };
-
-  const handleConfirmKendala = async ({
-    selectedReason,
-    notes
-  }: {
-    selectedReason?: EscalationReasonOption;
-    notes: string;
-  }) => {
-    if (!kendalaTicket || !selectedReason) return;
-    setIsSubmittingKendala(true);
-    try {
-      const targetStatus: TicketStatusWOInstaller =
-        selectedReason.targetInstallerStatus || 'Pending Technical';
-      const prefix = selectedReason.isReschedule ? 'RESCHEDULE' : 'KENDALA LAPANGAN';
-      const remarkText = `[${prefix}: ${selectedReason.label}] ${notes}`;
-
-      updateTicketStatus(
-        kendalaTicket.id,
-        targetStatus === 'Failed / Cancelled' ? 'Cancelled' : undefined,
-        targetStatus,
-        remarkText
-      );
-
-      await sendTicketMessage(
-        kendalaTicket.id,
-        `${prefix} — ${selectedReason.label}. Catatan: ${notes}`,
-        [],
-        'ISSUE'
-      );
-
-      toast.warning(
-        `Kendala WO ${kendalaTicket.woNumber} dilaporkan ke Dispatch & tercatat di LiveChat (#ISSUE).`,
-        'Kendala Dilaporkan',
-        { withSound: true }
-      );
-      setKendalaTicket(null);
-    } catch (err: any) {
-      toast.error(err?.message || 'Gagal mengirim laporan kendala.', 'Gagal');
-    } finally {
-      setIsSubmittingKendala(false);
-    }
   };
 
   if (activeFullviewTicket) {
@@ -1078,7 +1005,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                           <StatusApprovalBadge status={canonicalApproval} />
                         )}
                         {canonicalReport === 'NONE' && canonicalApproval === 'NONE' && (
-                          <StatusInstallerBadge status={ticket.statusWOInstaller} />
+                          <StatusInstallerBadge status={ticket.statusWOInstaller} displayRole="installer" />
                         )}
                       </div>
                     </div>
@@ -1180,7 +1107,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                         </h3>
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-1 shrink-0">
-                        <StatusInstallerBadge status={ticket.statusWOInstaller || 'In Progress'} />
+                        <StatusInstallerBadge status={ticket.statusWOInstaller || 'In Progress'} displayRole="installer" />
                         {canonicalApproval === 'REVISION' && (
                           <StatusApprovalBadge status="REVISION" />
                         )}
@@ -1365,7 +1292,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       {ticket.woNumber}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} />
+                      <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} displayRole="installer" />
                     </div>
                   </div>
 
@@ -1493,26 +1420,11 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         </div>
       </section>
 
-      {/* Kendala / Reschedule Escalation Modal */}
-      <TactileConfirmModal
+      {/* Kendala / Reschedule Escalation Modal with Mandatory Photo & Session Draft */}
+      <KendalaReportModal
         isOpen={Boolean(kendalaTicket)}
+        ticket={kendalaTicket}
         onClose={() => setKendalaTicket(null)}
-        variant="danger"
-        badge={kendalaTicket ? `ESKALASI KENDALA • ${kendalaTicket.woNumber}` : 'ESKALASI KENDALA'}
-        title={`Laporkan Kendala / Tunda WO ${kendalaTicket?.woNumber || ''}`}
-        subtitle={
-          kendalaTicket
-            ? `Pelanggan: ${kendalaTicket.customerName}. Laporan akan langsung memperbarui status teknis WO dan mengirim notifikasi kategori #ISSUE ke Dispatch.`
-            : undefined
-        }
-        reasonOptions={KENDALA_ESCALATION_OPTIONS}
-        requireNotes={true}
-        notesLabel="Keterangan Detail Lapangan"
-        notesPlaceholder="Jelaskan kendala di lokasi (misal: port FAT penuh, pelanggan minta dijadwalkan besok pagi pukul 09:00)..."
-        confirmLabel="Kirim Laporan Kendala"
-        cancelLabel="Batal"
-        isSubmitting={isSubmittingKendala}
-        onConfirm={handleConfirmKendala}
       />
 
       {/* Quick LiveChat Modal */}

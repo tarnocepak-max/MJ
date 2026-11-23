@@ -135,11 +135,7 @@ const getTicketColumnValue = (ticket: Ticket, key: string): any => {
         latestReport?.reasonReport
       );
     case 'rootcauseLabel':
-      return (
-        ticket.rootcauseLabel ||
-        latestReport?.rootcauseLabel ||
-        latestReport?.rootCause
-      );
+      return undefined;
     case 'rejectionReason':
       return ticket.rejectionReason || ticket.dispatchRejectionNotes;
     case 'reassignHistoryCount': {
@@ -1341,16 +1337,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               <div className="lg:col-span-4 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Ringkasan Laporan 3-Tingkat</span>
+                  <span>Ringkasan Laporan Lapangan</span>
                 </div>
                 {latestReport ? (
                   <div className="space-y-1 text-xs">
                     <div className="font-semibold text-[#26364A] dark:text-white">
                       {latestReport.reportStatusLabel || latestReport.reportStatus} &rarr;{' '}
                       {latestReport.reasonReportLabel || latestReport.reasonReport}
-                    </div>
-                    <div className="text-[#52647A] dark:text-[#CEC0E8] text-[11px]">
-                      Rootcause: {latestReport.rootcauseLabel || latestReport.rootCause || '-'}
                     </div>
                     {latestReport.remarksReport && (
                       <p className="p-2 rounded bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#CEC0E8] text-[11px]">
@@ -1361,7 +1354,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 ) : ticket.technicalReport ? (
                   <div className="space-y-1 text-xs">
                     <div className="font-semibold text-[#26364A] dark:text-white">
-                      {ticket.technicalReport.workResult} ({ticket.technicalReport.mainCategory})
+                      {ticket.technicalReport.workResult}
                     </div>
                     <p className="text-[#52647A] dark:text-[#CEC0E8] text-[11px]">
                       {ticket.technicalReport.technicalDescription || '-'}

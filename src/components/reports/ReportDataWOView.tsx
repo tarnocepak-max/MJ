@@ -75,7 +75,6 @@ export const ReportDataWOView: React.FC = () => {
     | 'overdue'
     | 'reassign_history'
     | 'contractor_sla'
-    | 'root_cause'
     | 'incomplete_data'
   >('all_wo');
 
@@ -134,8 +133,6 @@ export const ReportDataWOView: React.FC = () => {
         if (!isOverdue(t)) return false;
       } else if (reportType === 'reassign_history') {
         if (!t.assignmentHistory || t.assignmentHistory.length === 0) return false;
-      } else if (reportType === 'root_cause') {
-        if (!t.technicalReport?.rootCause) return false;
       } else if (reportType === 'incomplete_data') {
         const isCid7 = /^[0-9]{7}$/.test((t.idCustomer || t.customerId || '').trim());
         const hasAppDate = Boolean(t.appointmentDate && t.appointmentDate.trim());
@@ -207,7 +204,7 @@ export const ReportDataWOView: React.FC = () => {
       }
       if (colFilters.remarks.trim()) {
         const q = colFilters.remarks.toLowerCase().trim();
-        const r = String(t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || '').toLowerCase();
+        const r = String(t.remarksWOInstaller || t.remarksAgent || '').toLowerCase();
         if (!r.includes(q)) return false;
       }
 
@@ -259,7 +256,7 @@ export const ReportDataWOView: React.FC = () => {
         case 'statusInstaller':
           return item.statusWOInstaller || '';
         case 'remarks':
-          return item.technicalReport?.rootCause || item.remarksWOInstaller || item.remarksAgent || '';
+          return item.remarksWOInstaller || item.remarksAgent || '';
         default:
           return (item as any)[col];
       }
@@ -309,7 +306,7 @@ export const ReportDataWOView: React.FC = () => {
       'Contractor',
       'Installer',
       'Status Installer',
-      'Remarks / Root Cause'
+      'Catatan / Remarks'
     ].join('\t');
 
     const rows = sortedReportData.map((t, idx) =>
@@ -325,7 +322,7 @@ export const ReportDataWOView: React.FC = () => {
         t.contactorName || t.contractorName || '',
         t.installerName || '',
         t.statusWOInstaller || '',
-        t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || ''
+        t.remarksWOInstaller || t.remarksAgent || ''
       ].join('\t')
     );
 
@@ -359,7 +356,6 @@ export const ReportDataWOView: React.FC = () => {
       'Installer': t.installerName,
       'Status Agent': t.statusWOAgent,
       'Status Installer': t.statusWOInstaller,
-      'Root Cause': t.technicalReport?.rootCause || '-',
       'Work Result': t.technicalReport?.workResult || '-',
       'Remarks': t.remarksWOInstaller || t.remarksAgent || '-'
     }));
@@ -393,7 +389,6 @@ export const ReportDataWOView: React.FC = () => {
       'Installer': t.installerName,
       'Status Agent': t.statusWOAgent,
       'Status Installer': t.statusWOInstaller,
-      'Root Cause': t.technicalReport?.rootCause || '-',
       'Work Result': t.technicalReport?.workResult || '-',
       'Remarks': t.remarksWOInstaller || t.remarksAgent || '-'
     }));
@@ -535,7 +530,6 @@ export const ReportDataWOView: React.FC = () => {
           { id: 'overdue', label: 'Overdue (Terlewat)', count: activeTickets.filter(isOverdue).length },
           { id: 'wo_installer', label: 'Kinerja Teknisi', count: activeTickets.filter(t => Boolean(t.installerName)).length },
           { id: 'reassign_history', label: 'Riwayat Reassign', count: activeTickets.filter(t => t.assignmentHistory && t.assignmentHistory.length > 0).length },
-          { id: 'root_cause', label: 'Laporan Root Cause', count: activeTickets.filter(t => Boolean(t.technicalReport?.rootCause)).length },
           { id: 'incomplete_data', label: 'Data Tidak Lengkap', count: activeTickets.filter(t => !/^[0-9]{7}$/.test((t.idCustomer || '').trim()) || !t.appointmentDate).length }
         ].map(tab => (
           <button
@@ -732,7 +726,7 @@ export const ReportDataWOView: React.FC = () => {
               const globalIdx = pageSize === 'ALL' ? idx + 1 : (currentPage - 1) * pageSize + idx + 1;
               const isExpanded = Boolean(expandedCards[t.id]);
               const contractorLabel = t.contactorName || t.contractorName || '-';
-              const remarksText = t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || '-';
+              const remarksText = t.remarksWOInstaller || t.remarksAgent || '-';
 
               return (
                 <article
@@ -812,7 +806,7 @@ export const ReportDataWOView: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2] mb-0.5">
-                          Catatan / Root Cause
+                          Catatan / Remarks
                         </div>
                         <p className="text-[#26364A] dark:text-[#E8DDFF] break-words mj-tactile-well p-2.5 rounded-xl">
                           {remarksText}
@@ -923,7 +917,7 @@ export const ReportDataWOView: React.FC = () => {
                   </th>
                   <th className="py-2.5 px-3 min-w-[140px]">
                     <SortableColumnHeader
-                      label="Catatan / Root Cause"
+                      label="Catatan / Remarks"
                       columnKey="remarks"
                       currentSortColumn={sortState.column}
                       currentDirection={sortState.direction}
@@ -1049,7 +1043,7 @@ export const ReportDataWOView: React.FC = () => {
                   <td className="p-1.5">
                     <input
                       type="text"
-                      placeholder="Root cause / remarks..."
+                      placeholder="Cari remarks..."
                       value={colFilters.remarks}
                       onChange={e => {
                         setColFilters(prev => ({ ...prev, remarks: e.target.value }));
@@ -1082,8 +1076,8 @@ export const ReportDataWOView: React.FC = () => {
                       <td className="py-2.5 px-3">
                         <StatusInstallerBadge status={t.statusWOInstaller} />
                       </td>
-                      <td className="py-2.5 px-3 text-[#52647A] dark:text-[#C5B3DF] max-w-xs truncate" title={t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || ''}>
-                        {t.technicalReport?.rootCause || t.remarksWOInstaller || t.remarksAgent || '-'}
+                      <td className="py-2.5 px-3 text-[#52647A] dark:text-[#C5B3DF] max-w-xs truncate" title={t.remarksWOInstaller || t.remarksAgent || ''}>
+                        {t.remarksWOInstaller || t.remarksAgent || '-'}
                       </td>
                     </tr>
                   );

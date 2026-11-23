@@ -1124,7 +1124,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
         </button>
 
         {/* Sheet Content Container */}
-        <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col gap-3.5 max-h-[78dvh] overflow-y-auto">
+        <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col gap-3.5 max-h-[78dvh] overflow-y-auto overscroll-contain">
           {/* Header Row with Dismiss */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -1137,7 +1137,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
               type="button"
               onClick={() => setIsNotesSheetOpen(false)}
               aria-label="Tutup"
-              className="w-8 h-8 rounded-full bg-[#363244] flex items-center justify-center text-[#cbc3d7] hover:text-white active:scale-95 cursor-pointer shrink-0"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full bg-[#363244] flex items-center justify-center text-[#cbc3d7] hover:text-white active:scale-95 cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>

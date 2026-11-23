@@ -42,6 +42,7 @@ import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tabl
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import { SuperAdminDeleteModal } from '../common/SuperAdminDeleteModal';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
 import {
@@ -396,6 +397,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const createModalVv = useVisualViewportModal(isCreateModalOpen);
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [areaVendorFilter, setAreaVendorFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'inactive' | 'locked'>('ALL');
@@ -2053,7 +2055,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
       {/* STITCH HIGH-PRECISION CENTERED MODAL: TAMBAH AKUN USER BARU (ALL 6 ROLES) */}
       {isCreateModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/45 dark:bg-[#0D0518]/75 backdrop-blur-[6px] overflow-y-auto"
+          style={createModalVv.keyboardInset > 0 ? { paddingBottom: `${createModalVv.keyboardInset}px` } : undefined}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/45 dark:bg-[#0D0518]/75 backdrop-blur-[6px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-user-modal-title"
@@ -2063,7 +2066,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             }
           }}
         >
-          <div className="mj-sheet-enter relative w-full max-w-[700px] sm:my-auto bg-white dark:bg-[#1E1238] rounded-t-2xl sm:rounded-2xl shadow-[0_25px_60px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(197,190,239,0.55)] dark:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.72),0_0_0_1px_rgba(167,139,250,0.3)] overflow-hidden flex flex-col max-h-[94dvh]">
+          <div
+            style={createModalVv.isKeyboardOpen ? { maxHeight: `${Math.max(280, createModalVv.viewportHeight - 16)}px` } : undefined}
+            className="mj-sheet-enter relative w-full max-w-[700px] sm:my-auto bg-white dark:bg-[#1E1238] rounded-t-2xl sm:rounded-2xl shadow-[0_25px_60px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(197,190,239,0.55)] dark:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.72),0_0_0_1px_rgba(167,139,250,0.3)] overflow-hidden flex flex-col max-h-[94dvh]"
+          >
             {/* Top Crystal Specular Rim Line */}
             <div className="h-1.5 w-full bg-gradient-to-r from-[#5145A6] via-[#2E7D8B] to-[#6657C8] dark:from-[#58149C] dark:via-[#A380FE] dark:to-[#58149C] shrink-0" />
 
@@ -2098,7 +2104,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 }}
                 title="Tutup Modal"
                 aria-label="Tutup Modal"
-                className="btn-3d-icon w-9 h-9 shrink-0 cursor-pointer"
+                className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 shrink-0 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2108,7 +2114,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             <form
               id="addUserStitchForm"
               onSubmit={handleCreateUserSubmit}
-              className="px-5 sm:px-7 py-5 space-y-5 overflow-y-auto flex-1 text-xs"
+              className="px-5 sm:px-7 py-5 space-y-5 overflow-y-auto overscroll-contain min-h-0 flex-1 text-xs"
             >
               {createError && (
                 <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2 text-rose-800 dark:text-rose-200 text-xs">
@@ -2579,12 +2585,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             </form>
 
             {/* Modal Footer (MoraJaws 3D Mechanical Action Buttons) */}
-            <div className="px-5 sm:px-7 py-4 bg-[#F4F7FB] dark:bg-[#160D29] border-t border-[#E2E8F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+            <div className="px-5 sm:px-7 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#F4F7FB] dark:bg-[#160D29] border-t border-[#E2E8F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2.5 shrink-0">
               <button
                 type="button"
                 disabled={isCreatingUser}
                 onClick={resetCreateForm}
-                className="btn-3d-ceramic px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="btn-3d-ceramic px-3.5 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset Form</span>
@@ -2595,7 +2601,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   type="button"
                   disabled={isCreatingUser}
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="btn-3d-lilac px-4 py-2 min-h-[40px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  className="btn-3d-lilac px-4 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -2603,7 +2609,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   type="submit"
                   form="addUserStitchForm"
                   disabled={isCreatingUser}
-                  className="btn-3d-darkpurple px-5 py-2 min-h-[40px] rounded-xl text-xs font-extrabold tracking-wide flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="btn-3d-darkpurple px-5 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-extrabold tracking-wide flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <UserPlus className="w-4 h-4 text-[#EAE8FF] dark:text-[#DAB9FF]" />
                   <span>

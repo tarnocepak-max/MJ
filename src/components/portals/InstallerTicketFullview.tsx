@@ -73,7 +73,8 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
-import { TactileConfirmModal, EscalationReasonOption } from '../common/TactileConfirmModal';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { KendalaReportModal } from '../tickets/KendalaReportModal';
 import {
   PHOTO_SLOT_DEFINITIONS,
   PhotoSlotDefinition,
@@ -151,9 +152,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 }) => {
   const {
     tickets,
-    updateTicketStatus,
     saveProgressReport,
     uploadWoPhotoEvidence,
+    deleteWoPhotoEvidence,
     currentUser,
     getMessagesForTicket,
     refreshMessagesForTicket,
@@ -194,7 +195,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     customerTested: true
   });
   const [showKendalaModal, setShowKendalaModal] = useState(false);
-  const [isSubmittingKendala, setIsSubmittingKendala] = useState(false);
   const [showEscalationMenu, setShowEscalationMenu] = useState(false);
 
   const checkInSectionRef = useRef<HTMLDetailsElement>(null);
@@ -204,18 +204,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const reportAccordionRef = useRef<HTMLDetailsElement>(null);
   const checkoutFormRef = useRef<HTMLFormElement>(null);
   const signatureSectionRef = useRef<HTMLDetailsElement>(null);
+  const uploadingSlotKeysRef = useRef<Set<PhotoSlotKey>>(new Set());
 
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [savedReportSnapshot, setSavedReportSnapshot] = useState<{
     status: string;
     reason: string;
-    rootCause: string;
     remarks: string;
   } | null>(null);
+  const qcViewport = useVisualViewportModal(showQcConfirmSheet);
 
   // -------------------------------------------------------------
-  // 3-TIER CASCADE REPORT STATE
+  // 2-TIER CASCADE REPORT STATE (Status WO -> Reason WO)
   // -------------------------------------------------------------
   const latestReport = activeTicket.progressReports?.[0];
   const ticketClosed = isTicketClosed(activeTicket);
@@ -239,18 +240,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   });
   const [reasonReportId, setReasonReportId] = useState<string>(() => {
     return latestReport?.reasonReportId || activeTicket.reasonReportId || '';
-  });
-
-  const [rootCause, setRootCause] = useState<string>(() => {
-    return (
-      latestReport?.rootCause ||
-      activeTicket.rootcauseLabel ||
-      activeTicket.technicalReport?.rootCause ||
-      ''
-    );
-  });
-  const [rootcauseId, setRootcauseId] = useState<string>(() => {
-    return latestReport?.rootcauseId || activeTicket.rootcauseId || '';
   });
 
   const [remarksReport, setRemarksReport] = useState<string>(() => {
@@ -312,6 +301,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [slotUploadState, setSlotUploadState] = useState<Partial<Record<PhotoSlotKey, SlotUploadMeta>>>(
     {}
   );
+  const [deletingSlotKey, setDeletingSlotKey] = useState<PhotoSlotKey | null>(null);
 
   // Lightbox Modal State
   const [lightboxState, setLightboxState] = useState<{
@@ -356,8 +346,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         if (draft.reportStatusId) setReportStatusId(draft.reportStatusId);
         if (draft.reasonReport) setReasonReport(draft.reasonReport);
         if (draft.reasonReportId) setReasonReportId(draft.reasonReportId);
-        if (draft.rootCause) setRootCause(draft.rootCause);
-        if (draft.rootcauseId) setRootcauseId(draft.rootcauseId);
         if (typeof draft.remarksReport === 'string' && draft.remarksReport.trim()) {
           setRemarksReport(draft.remarksReport);
         }
@@ -439,8 +427,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           reportStatusId,
           reasonReport,
           reasonReportId,
-          rootCause,
-          rootcauseId,
           remarksReport,
           opmDbm,
           ontSerialNumber,
@@ -475,8 +461,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       reportStatusId,
       reasonReport,
       reasonReportId,
-      rootCause,
-      rootcauseId,
       remarksReport,
       opmDbm,
       ontSerialNumber,
@@ -499,7 +483,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       Boolean(
         reportStatus ||
           reasonReport ||
-          rootCause ||
           remarksReport.trim() ||
           opmDbm ||
           ontSerialNumber ||
@@ -516,7 +499,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     ticketClosed,
     reportStatus,
     reasonReport,
-    rootCause,
     remarksReport,
     opmDbm,
     ontSerialNumber,
@@ -579,7 +561,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   }, [sessionStartIso, activeTicket.checkOutAt, nowTick]);
 
   // -------------------------------------------------------------
-  // 3-TIER HIERARCHICAL OPTIONS & DEPENDENT HANDLERS
+  // 2-TIER HIERARCHICAL OPTIONS & DEPENDENT HANDLERS (Status WO -> Reason WO)
   // -------------------------------------------------------------
   const availableStatusOptions = useMemo(() => {
     if (hierarchicalStatuses && hierarchicalStatuses.length > 0) {
@@ -620,16 +602,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     );
   }, [availableReasonOptions, reasonReport, reasonReportId, selectedStatusObj]);
 
-  const availableRootcauseOptions = useMemo(() => {
+  const availableRemarksTemplates = useMemo(() => {
     if (!selectedReasonObj) return [];
     return (selectedReasonObj.remarks || [])
       .filter(rm => rm.active !== false && (rm as any).isActive !== false)
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map(rm => rm.text || rm.name);
   }, [selectedReasonObj]);
-
-  const availableRemarksTemplates = useMemo(() => {
-    return availableRootcauseOptions.map(rm => rm.text || rm.name);
-  }, [availableRootcauseOptions]);
 
   const handleReportStatusChange = (newStatusName: string) => {
     setReportStatus(newStatusName);
@@ -639,8 +618,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setReportStatusId(matched?.id || '');
     setReasonReport('');
     setReasonReportId('');
-    setRootCause('');
-    setRootcauseId('');
     setReportError(null);
   };
 
@@ -650,25 +627,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       r => r.name === newReasonName || r.id === newReasonName
     );
     setReasonReportId(matched?.id || '');
-    setRootCause('');
-    setRootcauseId('');
     setReportError(null);
-  };
-
-  const handleRootcauseChange = (newRootcauseText: string) => {
-    setRootCause(newRootcauseText);
-    const matched = availableRootcauseOptions.find(
-      rm =>
-        (rm.text || rm.name) === newRootcauseText ||
-        rm.name === newRootcauseText ||
-        rm.id === newRootcauseText
-    );
-    setRootcauseId(matched?.id || '');
-    setReportError(null);
-
-    if (!remarksReport.trim()) {
-      setRemarksReport(matched?.text || matched?.name || newRootcauseText);
-    }
   };
 
   // -------------------------------------------------------------
@@ -885,26 +844,81 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     [opmDbm, ontSerialNumber, activeTicket.fatCode, fatPort, activeTicket.fatPort]
   );
 
+  const verifiedUploadedSlotsList = useMemo(() => {
+    return uploadedPhotoSlotsList.filter(slot => {
+      const url = String(slot.url || '').trim();
+      if (!url || url.startsWith('data:')) return false;
+      const meta = slotUploadState[slot.slotKey];
+      if (meta?.status === 'uploading' || meta?.status === 'failed') return false;
+      if (slot.uploadStatus === 'uploading' || slot.uploadStatus === 'failed') return false;
+      const isPersistedUrl =
+        url.startsWith('/uploads/') ||
+        url.includes('/api/storage/public/') ||
+        url.startsWith('https://') ||
+        url.startsWith('http://');
+      return isPersistedUrl && Boolean((slot.storagePath && slot.storagePath.trim()) || slot.uploadedAt);
+    });
+  }, [uploadedPhotoSlotsList, slotUploadState]);
+
+  const verifiedUploadedPhotoCount = verifiedUploadedSlotsList.length;
+
+  const isAnySlotUploading = useMemo(() => {
+    return Object.values(slotUploadState).some(m => m?.status === 'uploading') || deletingSlotKey !== null;
+  }, [slotUploadState, deletingSlotKey]);
+
   const executeSlotUpload = useCallback(
     async (slotDef: PhotoSlotDefinition, payload: CapturedPhotoPayload) => {
-      const gps = payload.gps;
-      const hasValidGps = Boolean(gps && isValidCoordinatePair(gps.latitude, gps.longitude));
-      const badgeValue = computeSlotBadgeText(slotDef);
-      const localCapturedLabel = formatJakartaTimeOnly(payload.capturedAtIso);
+      if (uploadingSlotKeysRef.current.has(slotDef.slotKey)) {
+        return;
+      }
+      uploadingSlotKeysRef.current.add(slotDef.slotKey);
 
-      setPhotoSlots(prev => ({
-        ...prev,
-        [slotDef.slotKey]: {
+      try {
+        const gps = payload.gps;
+        const hasValidGps = Boolean(gps && isValidCoordinatePair(gps.latitude, gps.longitude));
+        const badgeValue = computeSlotBadgeText(slotDef);
+        const localCapturedLabel = formatJakartaTimeOnly(payload.capturedAtIso);
+
+        setPhotoSlots(prev => ({
+          ...prev,
+          [slotDef.slotKey]: {
+            slotKey: slotDef.slotKey,
+            title: slotDef.title,
+            url: payload.fileData,
+            fileName: payload.fileName,
+            fileSizeBytes: payload.fileSizeBytes,
+            mimeType: payload.mimeType,
+            capturedAt: localCapturedLabel,
+            capturedAtIso: payload.capturedAtIso,
+            badgeText: badgeValue,
+            statusTag: hasValidGps ? slotDef.verifiedTag : 'NO GPS',
+            latitude: hasValidGps ? gps!.latitude : undefined,
+            longitude: hasValidGps ? gps!.longitude : undefined,
+            gpsAccuracyMeters: gps?.accuracyMeters,
+            altitudeMeters: gps?.altitudeMeters,
+            headingDeg: gps?.headingDeg,
+            speedMps: gps?.speedMps,
+            locationSource: gps?.locationSource,
+            permissionStatus: gps?.permissionStatus,
+            geotagStatus: gps?.geotagStatus || 'missing',
+            captureMethod: payload.captureMethod,
+            uploadStatus: 'uploading',
+            clientCaptureId: payload.clientCaptureId
+          }
+        }));
+
+        setSlotUploadState(prev => ({
+          ...prev,
+          [slotDef.slotKey]: { status: 'uploading', pendingPayload: payload }
+        }));
+
+        const res = await uploadWoPhotoEvidence(activeTicket.id, {
           slotKey: slotDef.slotKey,
           title: slotDef.title,
-          url: payload.fileData,
+          fileData: payload.fileData,
           fileName: payload.fileName,
-          fileSizeBytes: payload.fileSizeBytes,
           mimeType: payload.mimeType,
-          capturedAt: localCapturedLabel,
-          capturedAtIso: payload.capturedAtIso,
-          badgeText: badgeValue,
-          statusTag: hasValidGps ? slotDef.verifiedTag : 'NO GPS',
+          capturedAt: payload.capturedAtIso,
           latitude: hasValidGps ? gps!.latitude : undefined,
           longitude: hasValidGps ? gps!.longitude : undefined,
           gpsAccuracyMeters: gps?.accuracyMeters,
@@ -915,88 +929,64 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           permissionStatus: gps?.permissionStatus,
           geotagStatus: gps?.geotagStatus || 'missing',
           captureMethod: payload.captureMethod,
-          uploadStatus: 'uploading',
-          clientCaptureId: payload.clientCaptureId
-        }
-      }));
-
-      setSlotUploadState(prev => ({
-        ...prev,
-        [slotDef.slotKey]: { status: 'uploading', pendingPayload: payload }
-      }));
-
-      const res = await uploadWoPhotoEvidence(activeTicket.id, {
-        slotKey: slotDef.slotKey,
-        title: slotDef.title,
-        fileData: payload.fileData,
-        fileName: payload.fileName,
-        mimeType: payload.mimeType,
-        capturedAt: payload.capturedAtIso,
-        latitude: hasValidGps ? gps!.latitude : undefined,
-        longitude: hasValidGps ? gps!.longitude : undefined,
-        gpsAccuracyMeters: gps?.accuracyMeters,
-        altitudeMeters: gps?.altitudeMeters,
-        headingDeg: gps?.headingDeg,
-        speedMps: gps?.speedMps,
-        locationSource: gps?.locationSource,
-        permissionStatus: gps?.permissionStatus,
-        geotagStatus: gps?.geotagStatus || 'missing',
-        captureMethod: payload.captureMethod,
-        badgeText: badgeValue,
-        statusTag: hasValidGps ? slotDef.verifiedTag : 'NO GPS',
-        clientCaptureId: payload.clientCaptureId,
-        woNumber: activeTicket.woNumber
-      });
-
-      if (res.success && res.photoSlot) {
-        setPhotoSlots(prev => ({
-          ...prev,
-          [slotDef.slotKey]: res.photoSlot!
-        }));
-        setSlotUploadState(prev => {
-          const copy = { ...prev };
-          delete copy[slotDef.slotKey];
-          return copy;
+          badgeText: badgeValue,
+          statusTag: hasValidGps ? slotDef.verifiedTag : 'NO GPS',
+          clientCaptureId: payload.clientCaptureId,
+          woNumber: activeTicket.woNumber
         });
 
-        if (slotDef.slotKey === 'customer_house' && res.houseLocation) {
-          toast.success(
-            `Foto #01 Rumah tersimpan & Lokasi Rumah WO otomatis diperbarui.`,
-            'Lokasi Rumah Diperbarui'
-          );
-        } else if (slotDef.slotKey === 'fat_attenuation' && res.fatLocation) {
-          toast.success(
-            `Foto #03 Redaman FAT tersimpan & Lokasi FAT WO otomatis diperbarui.`,
-            'Lokasi FAT Diperbarui'
-          );
+        if (res.success && res.photoSlot) {
+          setPhotoSlots(prev => ({
+            ...prev,
+            [slotDef.slotKey]: res.photoSlot!
+          }));
+          setSlotUploadState(prev => {
+            const copy = { ...prev };
+            delete copy[slotDef.slotKey];
+            return copy;
+          });
+
+          if (slotDef.slotKey === 'customer_house' && res.houseLocation) {
+            toast.success(
+              `Foto #01 Rumah tersimpan & Lokasi Rumah WO otomatis diperbarui.`,
+              'Lokasi Rumah Diperbarui'
+            );
+          } else if (slotDef.slotKey === 'fat_attenuation' && res.fatLocation) {
+            toast.success(
+              `Foto #03 Redaman FAT tersimpan & Lokasi FAT WO otomatis diperbarui.`,
+              'Lokasi FAT Diperbarui'
+            );
+          } else {
+            toast.success(`Foto [${slotDef.slotNumber}] "${slotDef.title}" berhasil diunggah.`);
+          }
         } else {
-          toast.success(`Foto [${slotDef.slotNumber}] "${slotDef.title}" berhasil diunggah.`);
-        }
-      } else {
-        const errText = res.error || 'Gagal mengunggah foto ke server.';
-        setPhotoSlots(prev => {
-          const curr = prev[slotDef.slotKey];
-          if (!curr) return prev;
-          return {
+          const errText = res.error || 'Gagal mengunggah foto ke server.';
+          setPhotoSlots(prev => {
+            const curr = prev[slotDef.slotKey];
+            if (!curr) return prev;
+            return {
+              ...prev,
+              [slotDef.slotKey]: {
+                ...curr,
+                uploadStatus: 'failed'
+              }
+            };
+          });
+          setSlotUploadState(prev => ({
             ...prev,
             [slotDef.slotKey]: {
-              ...curr,
-              uploadStatus: 'failed'
+              status: 'failed',
+              error: errText,
+              pendingPayload: payload
             }
-          };
-        });
-        setSlotUploadState(prev => ({
-          ...prev,
-          [slotDef.slotKey]: {
-            status: 'failed',
-            error: errText,
-            pendingPayload: payload
-          }
-        }));
-        toast.error(
-          `${errText} Tekan "Retry" untuk mengirim ulang tanpa ambil foto ulang.`,
-          'Upload Foto Tertunda'
-        );
+          }));
+          toast.error(
+            `${errText} Tekan "Retry" untuk mengirim ulang tanpa ambil foto ulang.`,
+            'Upload Foto Tertunda'
+          );
+        }
+      } finally {
+        uploadingSlotKeysRef.current.delete(slotDef.slotKey);
       }
     },
     [activeTicket.id, activeTicket.woNumber, computeSlotBadgeText, toast, uploadWoPhotoEvidence]
@@ -1022,6 +1012,48 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       await executeSlotUpload(slotDef, pending);
     },
     [executeSlotUpload, openCameraForSlot, slotUploadState]
+  );
+
+  const handleDeletePhotoSlot = useCallback(
+    async (slotDef: PhotoSlotDefinition) => {
+      if (ticketClosed || deletingSlotKey || uploadingSlotKeysRef.current.has(slotDef.slotKey)) return;
+      const existing = photoSlots[slotDef.slotKey];
+      if (!existing) return;
+
+      // Local-only unuploaded/failed draft photo
+      const isLocalOnly =
+        String(existing.url || '').startsWith('data:') ||
+        (!existing.storagePath && !existing.uploadedAt);
+      if (isLocalOnly) {
+        setPhotoSlots(prev => ({ ...prev, [slotDef.slotKey]: null }));
+        setSlotUploadState(prev => {
+          const next = { ...prev };
+          delete next[slotDef.slotKey];
+          return next;
+        });
+        toast.info(`Draft foto "${slotDef.title}" dihapus.`);
+        return;
+      }
+
+      setDeletingSlotKey(slotDef.slotKey);
+      try {
+        const res = await deleteWoPhotoEvidence(activeTicket.id, slotDef.slotKey);
+        if (res.success) {
+          setPhotoSlots(prev => ({ ...prev, [slotDef.slotKey]: null }));
+          setSlotUploadState(prev => {
+            const next = { ...prev };
+            delete next[slotDef.slotKey];
+            return next;
+          });
+          toast.info(`Foto "${slotDef.title}" berhasil dihapus dari slot.`);
+        } else {
+          toast.error(res.error || 'Gagal menghapus foto bukti.', 'Hapus Foto Gagal');
+        }
+      } finally {
+        setDeletingSlotKey(null);
+      }
+    },
+    [ticketClosed, deletingSlotKey, photoSlots, deleteWoPhotoEvidence, activeTicket.id, toast]
   );
 
   // -------------------------------------------------------------
@@ -1357,8 +1389,26 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return false;
     }
 
+    if (isAnySlotUploading) {
+      playErrorSound();
+      const msg = 'Masih ada foto bukti fisik yang sedang diunggah/dihapus. Tunggu hingga selesai sebelum Check-Out.';
+      setReportError(msg);
+      toast.warning(msg, 'Proses Foto Berjalan');
+      return false;
+    }
+
+    if (verifiedUploadedPhotoCount < 3) {
+      playErrorSound();
+      const msg = `Check-Out wajib melampirkan minimal 3 foto bukti fisik yang berhasil diunggah ke server (saat ini ${verifiedUploadedPhotoCount}/3).`;
+      setReportError(msg);
+      toast.error(msg, 'Foto Bukti Kurang (Min. 3)');
+      if (photoAccordionRef.current) photoAccordionRef.current.open = true;
+      photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return false;
+    }
+
     if (!reportStatus) {
-      const msg = 'LEVEL 1: Report Status wajib dipilih.';
+      const msg = 'LEVEL 1: Status WO wajib dipilih.';
       setReportError(msg);
       toast.warning(msg, 'Lengkapi Report');
       if (reportAccordionRef.current) reportAccordionRef.current.open = true;
@@ -1366,15 +1416,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return false;
     }
     if (!reasonReport) {
-      const msg = 'LEVEL 2: Reason Report wajib dipilih.';
-      setReportError(msg);
-      toast.warning(msg, 'Lengkapi Report');
-      if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-      checkoutFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return false;
-    }
-    if (availableRootcauseOptions.length > 0 && !rootCause) {
-      const msg = 'LEVEL 3: Rootcause Code wajib dipilih.';
+      const msg = 'LEVEL 2: Reason WO wajib dipilih.';
       setReportError(msg);
       toast.warning(msg, 'Lengkapi Report');
       if (reportAccordionRef.current) reportAccordionRef.current.open = true;
@@ -1395,13 +1437,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const handleOpenQcSheet = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isSubmittingReport) return;
+    if (isSubmittingReport || isAnySlotUploading) return;
     if (!validateBeforeSubmit()) return;
     setShowQcConfirmSheet(true);
   };
 
   const handleSaveReport = async () => {
-    if (isSubmittingReport) return;
+    if (isSubmittingReport || isAnySlotUploading) return;
     if (!validateBeforeSubmit()) return;
 
     setShowQcConfirmSheet(false);
@@ -1409,7 +1451,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setIsSubmittingReport(true);
     startLoading({
       title: 'MENYIMPAN REPORT & CHECK-OUT...',
-      subtitle: 'Menyimpan laporan 3-tingkat, telemetri teknis, 7 bukti foto & Check-Out ke database'
+      subtitle: 'Menyimpan laporan Status WO → Reason WO, telemetri teknis, bukti foto & Check-Out ke database'
     });
 
     try {
@@ -1424,8 +1466,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         reportStatusId,
         reasonReport,
         reasonReportId,
-        rootCause,
-        rootcauseId,
         remarksReport: remarksReport.trim(),
         technicalTelemetry: {
           opticalPowerDbm: normalizedOpm || undefined,
@@ -1434,8 +1474,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           dropcoreLength: dropcoreLength.trim() || undefined,
           fatPort: fatPort.trim() || undefined,
           usedMaterials: usedMaterials.trim() || undefined,
-          photoSlots: uploadedPhotoSlotsList,
-          photos: uploadedPhotoSlotsList.map(s => s.url),
+          photoSlots: verifiedUploadedSlotsList,
+          photos: verifiedUploadedSlotsList.map(s => s.url),
           customerSignatureUrl: customerSignatureUrl || undefined,
           customerConsentConfirmed
         }
@@ -1450,7 +1490,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         setSavedReportSnapshot({
           status: reportStatus,
           reason: reasonReport,
-          rootCause,
           remarks: remarksReport.trim()
         });
         setShowSuccessAlert(true);
@@ -1465,6 +1504,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         setReportError(errMsg);
         if ((res as any).code === 'CHECK_IN_REQUIRED') {
           toast.error(errMsg, 'Check-In PROGRESS Diperlukan');
+        } else if ((res as any).code === 'PHOTO_EVIDENCE_INCOMPLETE') {
+          toast.error(errMsg, 'Foto Bukti Wajib Kurang');
+          if (photoAccordionRef.current) photoAccordionRef.current.open = true;
         } else {
           showGlobalError({
             errorCode: 'MJ-DB-002',
@@ -1498,43 +1540,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     }
   };
 
-  const handleConfirmKendalaFromFullview = async ({
-    selectedReason,
-    notes
-  }: {
-    selectedReason?: EscalationReasonOption;
-    notes: string;
-  }) => {
-    if (!selectedReason) return;
-    setIsSubmittingKendala(true);
-    try {
-      const targetStatus = selectedReason.targetInstallerStatus || 'Pending Technical';
-      const prefix = selectedReason.isReschedule ? 'RESCHEDULE' : 'KENDALA LAPANGAN';
-      updateTicketStatus(
-        activeTicket.id,
-        targetStatus === 'Failed / Cancelled' ? 'Cancelled' : undefined,
-        targetStatus,
-        `[${prefix}: ${selectedReason.label}] ${notes}`
-      );
-      await sendTicketMessage(
-        activeTicket.id,
-        `${prefix} — ${selectedReason.label}. Catatan: ${notes}`,
-        [],
-        'ISSUE'
-      );
-      toast.warning(
-        `Kendala WO ${activeTicket.woNumber} dilaporkan ke Dispatch (#ISSUE).`,
-        'Kendala Dilaporkan',
-        { withSound: true }
-      );
-      setShowKendalaModal(false);
-    } catch (err: any) {
-      toast.error(err?.message || 'Gagal melaporkan kendala.', 'Gagal');
-    } finally {
-      setIsSubmittingKendala(false);
-    }
-  };
-
   const handleConfirmRedirect = () => {
     if (isRedirecting) return;
     setIsRedirecting(true);
@@ -1557,7 +1562,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         userRole: 'installer',
         reportStatus: activeTicket.statusWOInstaller || 'Completed',
         reasonReport: activeTicket.technicalReport.workResult || 'Laporan Teknis Awal',
-        rootCause: activeTicket.technicalReport.rootCause || '-',
         remarksReport:
           activeTicket.technicalReport.technicalDescription ||
           activeTicket.remarksWOInstaller ||
@@ -1666,18 +1670,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const isCheckInStepDone = !requiresProgressCheckIn || Boolean(activeTicket.checkInAt);
   const isInstallationStepDone =
     isCheckInStepDone && (Boolean(opmDbm.trim()) || Boolean(ontSerialNumber.trim()) || Boolean(fatPort.trim()));
-  const isPhotosStepDone = uploadedPhotoCount >= totalPhotoSlots;
+  const isPhotosStepDone = verifiedUploadedPhotoCount >= 3;
   const isReportStepDone = Boolean(
-    (reportStatus &&
-      reasonReport &&
-      (availableRootcauseOptions.length === 0 || rootCause) &&
-      remarksReport.trim()) ||
+    (reportStatus && reasonReport && remarksReport.trim()) ||
       (activeTicket.progressReports && activeTicket.progressReports.length > 0 && canonicalApproval !== 'REVISION')
   );
   const isCheckOutDone = Boolean(activeTicket.checkOutAt) || ticketClosed;
 
   const isCheckoutFormReady = Boolean(
-    reportStatus && reasonReport && (availableRootcauseOptions.length === 0 || rootCause) && remarksReport.trim()
+    reportStatus && reasonReport && remarksReport.trim() && verifiedUploadedPhotoCount >= 3 && !isAnySlotUploading
   );
 
   const relatedActivities = useMemo(() => {
@@ -1923,7 +1924,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     WO Information
                   </h2>
                 </div>
-                <StatusInstallerBadge status={activeTicket.statusWOInstaller} />
+                <StatusInstallerBadge status={activeTicket.statusWOInstaller} displayRole="installer" />
               </div>
 
               <div className="space-y-1.5 text-xs">
@@ -2181,7 +2182,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   label: 'Report',
                   done: isReportStepDone,
                   active: isCheckInStepDone && !isReportStepDone,
-                  sub: isReportStepDone ? 'Siap' : '3-Tier',
+                  sub: isReportStepDone ? 'Siap' : 'L1 → L2',
                   onClick: () => {
                     if (reportAccordionRef.current) reportAccordionRef.current.open = true;
                     reportAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2412,7 +2413,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 activeTicket={activeTicket}
                 photoSlots={photoSlots}
                 uploadedCount={uploadedPhotoCount}
+                verifiedUploadedCount={verifiedUploadedPhotoCount}
                 slotUploadState={slotUploadState}
+                deletingSlotKey={deletingSlotKey}
                 expandedMapSlot={expandedMapSlot}
                 onToggleMapSlot={setExpandedMapSlot}
                 ticketClosed={ticketClosed}
@@ -2422,6 +2425,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 onOpenCamera={openCameraForSlot}
                 onRetryUpload={handleRetrySlotUpload}
                 onViewPhoto={(url, slotDef) => setLightboxState({ url, slotDef })}
+                onDeletePhoto={handleDeletePhotoSlot}
               />
             </div>
           </details>
@@ -2742,7 +2746,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     Report &amp; Koordinasi Lapangan
                   </h2>
                   <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                    Laporan 3-Tingkat (L1/L2/L3), Catatan Commissioning, Riwayat &amp; LiveChat
+                    Laporan Status WO &amp; Reason WO, Catatan Commissioning, Riwayat &amp; LiveChat
                   </span>
                 </div>
               </div>
@@ -2765,7 +2769,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                {/* Left: 3-Tier Cascade Report + Work Description */}
+                {/* Left: 2-Tier Cascade Report (Status WO -> Reason WO) + Work Description */}
                 <form
                   ref={checkoutFormRef}
                   onSubmit={handleOpenQcSheet}
@@ -2776,7 +2780,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       <div className="flex items-center gap-2">
                         <GitBranch className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                         <h3 className="font-display font-bold text-[13.5px] text-[#26364A] dark:text-[#f5eeff]">
-                          Laporan Teknis 3-Tingkat
+                          Laporan Teknis Lapangan
                         </h3>
                       </div>
                       <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10px] font-bold">
@@ -2785,46 +2789,42 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     </div>
 
                     {/* Flow Tracker */}
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-white dark:bg-[#1E1238] rounded-lg text-[10.5px] font-mono border border-[#DDE6F0] dark:border-[#35105E]">
+                    <div className="flex items-center justify-center gap-3 px-3 py-1.5 bg-white dark:bg-[#1E1238] rounded-lg text-[10.5px] font-mono border border-[#DDE6F0] dark:border-[#35105E]">
                       <span className={reportStatus ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
-                        L1: Status
+                        L1: Status WO
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A79BC0]" />
                       <span className={reasonReport ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
-                        L2: Reason
-                      </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A79BC0]" />
-                      <span className={rootCause ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
-                        L3: Rootcause
+                        L2: Reason WO
                       </span>
                     </div>
 
                     <div className="space-y-2.5">
                       <div>
                         <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                          Level 1: Report Status <span className="text-[#D45B66] dark:text-rose-400">*</span>
+                          Level 1: Status WO <span className="text-[#D45B66] dark:text-rose-400">*</span>
                         </label>
                         <div className="relative">
                           <select
                             value={reportStatus}
                             disabled={ticketClosed || isSubmittingReport}
                             onChange={e => handleReportStatusChange(e.target.value)}
-                            className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-55"
+                            className="w-full min-h-[44px] bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-55"
                           >
-                            <option value="">-- Pilih Report Status (Level 1) --</option>
+                            <option value="">-- Pilih Status WO (Level 1) --</option>
                             {availableStatusOptions.map(st => (
                               <option key={st.id} value={st.name}>
                                 {st.name}
                               </option>
                             ))}
                           </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
                         </div>
                       </div>
 
                       <div>
                         <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                          Level 2: Reason Report <span className="text-[#D45B66] dark:text-rose-400">*</span>
+                          Level 2: Reason WO <span className="text-[#D45B66] dark:text-rose-400">*</span>
                         </label>
                         <div className="relative">
                           <select
@@ -2836,15 +2836,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               availableReasonOptions.length === 0
                             }
                             onChange={e => handleReasonReportChange(e.target.value)}
-                            className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
+                            className="w-full min-h-[44px] bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
                           >
                             {!reportStatus ? (
-                              <option value="">-- Pilih Report Status Terlebih Dahulu --</option>
+                              <option value="">-- Pilih Status WO Terlebih Dahulu --</option>
                             ) : availableReasonOptions.length === 0 ? (
                               <option value="">-- Tidak ada pilihan tersedia --</option>
                             ) : (
                               <>
-                                <option value="">-- Pilih Reason Report (Level 2) --</option>
+                                <option value="">-- Pilih Reason WO (Level 2) --</option>
                                 {availableReasonOptions.map(rs => (
                                   <option key={rs.id} value={rs.name}>
                                     {rs.name}
@@ -2853,42 +2853,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               </>
                             )}
                           </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                          Level 3: Rootcause Code <span className="text-[#D45B66] dark:text-rose-400">*</span>
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={rootCause}
-                            disabled={
-                              ticketClosed ||
-                              isSubmittingReport ||
-                              !reasonReport ||
-                              availableRootcauseOptions.length === 0
-                            }
-                            onChange={e => handleRootcauseChange(e.target.value)}
-                            className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
-                          >
-                            {!reasonReport ? (
-                              <option value="">-- Pilih Reason Report Terlebih Dahulu --</option>
-                            ) : availableRootcauseOptions.length === 0 ? (
-                              <option value="">-- Tidak ada pilihan tersedia --</option>
-                            ) : (
-                              <>
-                                <option value="">-- Pilih Rootcause Code (Level 3) --</option>
-                                {availableRootcauseOptions.map(rm => (
-                                  <option key={rm.id} value={rm.text || rm.name}>
-                                    {rm.text || rm.name}
-                                  </option>
-                                ))}
-                              </>
-                            )}
-                          </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
                         </div>
                       </div>
                     </div>
@@ -3029,9 +2994,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                                 </div>
 
                                 <div className="text-[11px] text-[#52647A] dark:text-[#C4B5D6]">
-                                  <span>Reason: <strong className="text-[#26364A] dark:text-[#f5eeff]">{item.reasonReport}</strong></span>
-                                  {' · '}
-                                  <span>Rootcause: <strong className="text-[#5145A6] dark:text-[#DAB9FF]">{item.rootCause}</strong></span>
+                                  <span>Reason WO: <strong className="text-[#26364A] dark:text-[#f5eeff]">{item.reasonReport}</strong></span>
                                 </div>
 
                                 {item.remarksReport && (
@@ -3204,7 +3167,17 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             {/* Progress Meta Row */}
             <div className="flex items-center justify-between gap-2 px-0.5 text-[11px] font-mono">
               <span className="text-[#52647A] dark:text-[#C4B5D6] tabular-nums">
-                Foto SOP: <strong className="text-[#26364A] dark:text-[#f5eeff]">{uploadedPhotoCount}/{totalPhotoSlots}</strong>
+                Foto Wajib:{' '}
+                <strong
+                  className={
+                    verifiedUploadedPhotoCount >= 3
+                      ? 'text-[#218A63] dark:text-emerald-400'
+                      : 'text-[#9B2C37] dark:text-rose-300'
+                  }
+                >
+                  {Math.min(3, verifiedUploadedPhotoCount)}/3
+                </strong>{' '}
+                <span className="text-[#8492A5] dark:text-[#A79BC0]">(Total {uploadedPhotoCount}/{totalPhotoSlots})</span>
               </span>
 
               {ticketClosed ? (
@@ -3216,6 +3189,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <span className="text-[#9D661F] dark:text-amber-300 font-bold inline-flex items-center gap-1">
                   <Camera className="w-3.5 h-3.5" />
                   <span>Lakukan CHECK-IN Dahulu</span>
+                </span>
+              ) : verifiedUploadedPhotoCount < 3 ? (
+                <span className="text-[#9B2C37] dark:text-rose-300 font-bold inline-flex items-center gap-1">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Unggah Min. 3 Foto Wajib</span>
                 </span>
               ) : !isCheckoutFormReady ? (
                 <span className="text-[#5145A6] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1">
@@ -3268,7 +3246,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                             setShowEscalationMenu(false);
                             setShowKendalaModal(true);
                           }}
-                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#FCE9EB] dark:hover:bg-rose-950/40 font-bold text-[#9B2C37] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
+                          className="w-full min-h-[44px] text-left px-3 py-2.5 rounded-lg hover:bg-[#FCE9EB] dark:hover:bg-rose-950/40 font-bold text-[#9B2C37] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
                         >
                           <ShieldAlert className="w-4 h-4" />
                           <span>Laporkan Kendala / Reschedule (#ISSUE)</span>
@@ -3292,7 +3270,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               ) : (
                 <button
                   type="button"
-                  disabled={ticketClosed || isSubmittingReport}
+                  disabled={ticketClosed || isSubmittingReport || isAnySlotUploading}
                   onClick={handleOpenQcSheet}
                   className={`mj-btn-installer-primary flex-1 px-4 text-sm font-bold gap-2 cursor-pointer ${
                     isSubmittingReport ? 'mj-btn-loading' : ''
@@ -3302,6 +3280,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   <span className="truncate">
                     {ticketClosed
                       ? 'WO Selesai (Terkunci)'
+                      : isAnySlotUploading
+                      ? 'Mengunggah Foto...'
                       : isSubmittingReport
                       ? 'Menyimpan...'
                       : canonicalApproval === 'REVISION'
@@ -3323,11 +3303,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           role="dialog"
           aria-modal="true"
           aria-labelledby="qc-confirm-sheet-title"
+          style={qcViewport.keyboardInset > 0 ? { paddingBottom: `${qcViewport.keyboardInset}px` } : undefined}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div className="absolute inset-0" onClick={() => setShowQcConfirmSheet(false)} />
 
-          <div className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FFFFFF] dark:bg-[#1E1238] text-[#26364A] dark:text-[#f5eeff] rounded-t-[1.5rem] sm:rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+          <div
+            style={
+              qcViewport.isKeyboardOpen
+                ? { maxHeight: `${Math.max(280, qcViewport.viewportHeight - 12)}px` }
+                : undefined
+            }
+            className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FFFFFF] dark:bg-[#1E1238] text-[#26364A] dark:text-[#f5eeff] rounded-t-[1.5rem] sm:rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
+          >
             <div className="flex justify-center pt-2.5 pb-1 sm:hidden shrink-0">
               <div className="w-10 h-1.5 rounded-full bg-[#CBD5E1] dark:bg-[#4B386B]" />
             </div>
@@ -3358,14 +3346,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               <button
                 type="button"
                 onClick={() => setShowQcConfirmSheet(false)}
-                className="mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0"
+                className="mj-btn-icon-3d-installer min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 cursor-pointer shrink-0"
                 aria-label="Tutup Konfirmasi QC"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
               {/* Telemetry Summary */}
               <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3.5 space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -3484,17 +3472,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2 shrink-0">
+            <div className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2 shrink-0">
               <button
                 type="button"
                 disabled={
                   isSubmittingReport ||
+                  isAnySlotUploading ||
+                  verifiedUploadedPhotoCount < 3 ||
                   !sopChecks.dropcoreNeat ||
                   !sopChecks.opmClean ||
                   !sopChecks.customerTested
                 }
                 onClick={handleSaveReport}
-                className={`mj-btn-installer-primary w-full py-3 px-4 text-sm gap-2 cursor-pointer ${
+                className={`mj-btn-installer-primary min-h-[44px] w-full py-3 px-4 text-sm gap-2 cursor-pointer ${
                   isSubmittingReport ? 'mj-btn-loading' : ''
                 }`}
               >
@@ -3507,7 +3497,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 type="button"
                 disabled={isSubmittingReport}
                 onClick={() => setShowQcConfirmSheet(false)}
-                className="mj-btn-installer-neutral mj-btn-compact w-full py-2.5 px-4 text-xs cursor-pointer"
+                className="mj-btn-installer-neutral mj-btn-compact min-h-[44px] w-full py-2.5 px-4 text-xs cursor-pointer"
               >
                 Periksa Ulang / Kembali
               </button>
@@ -3517,47 +3507,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       )}
 
       {/* ============================================================== */}
-      {/* KENDALA / RESCHEDULE ESCALATION MODAL                          */}
+      {/* KENDALA / RESCHEDULE ESCALATION MODAL (MANDATORY PHOTO+DESC)   */}
       {/* ============================================================== */}
-      <TactileConfirmModal
+      <KendalaReportModal
         isOpen={showKendalaModal}
+        ticket={activeTicket}
         onClose={() => setShowKendalaModal(false)}
-        variant="danger"
-        badge={`ESKALASI KENDALA • ${activeTicket.woNumber}`}
-        title={`Laporkan Kendala / Tunda WO ${activeTicket.woNumber}`}
-        subtitle={`Pelanggan: ${activeTicket.customerName}. Laporan akan memperbarui status teknis dan mengirim pesan #ISSUE ke LiveChat Dispatch.`}
-        reasonOptions={[
-          {
-            id: 'port_odp_full',
-            label: 'Port FAT / ODP Penuh atau Tidak Ada Signal',
-            description: 'Memerlukan relokasi FAT atau tindakan tim jaringan.',
-            targetInstallerStatus: 'Pending Technical'
-          },
-          {
-            id: 'customer_reschedule',
-            label: 'Pelanggan Tidak di Tempat / Minta Reschedule',
-            description: 'Jadwal pemasangan ditunda atas permintaan pelanggan.',
-            targetInstallerStatus: 'Pending Technical',
-            isReschedule: true
-          },
-          {
-            id: 'route_permit',
-            label: 'Hambatan Izin Jalur / Lokasi Tidak Memungkinkan',
-            description: 'Kendala akses cluster, tiang, atau perizinan jalur.',
-            targetInstallerStatus: 'Pending Technical'
-          },
-          {
-            id: 'cancelled_on_site',
-            label: 'Pelanggan Membatalkan / Gagal Instalasi',
-            description: 'Pekerjaan dibatalkan di lokasi.',
-            targetInstallerStatus: 'Failed / Cancelled'
-          }
-        ]}
-        requireNotes={true}
-        confirmLabel="Kirim Laporan Kendala"
-        cancelLabel="Batal"
-        isSubmitting={isSubmittingKendala}
-        onConfirm={handleConfirmKendalaFromFullview}
       />
 
       {/* ============================================================== */}
@@ -3567,61 +3522,65 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-200"
+          className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-200"
         >
-          <div className="w-full max-w-md bg-[#FFFFFF] dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] p-6 shadow-2xl text-center space-y-4">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#E4F5EC] dark:bg-emerald-950/50 border border-[#B7E4CC] dark:border-emerald-700/60 flex items-center justify-center">
-              <CheckCircle2 className="w-7 h-7 text-[#218A63] dark:text-emerald-400" />
+          <div className="w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden bg-[#FFFFFF] dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl text-center">
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-[#E4F5EC] dark:bg-emerald-950/50 border border-[#B7E4CC] dark:border-emerald-700/60 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-[#218A63] dark:text-emerald-400" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold text-[#26364A] dark:text-[#f5eeff] uppercase tracking-tight">
+                  Report &amp; Check-Out Tersimpan
+                </h3>
+                <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] mt-1 leading-relaxed">
+                  Laporan berhasil dikirim ke Dispatch dengan status{' '}
+                  <strong className="text-[#5145A6] dark:text-[#DAB9FF]">BUTUH APPROVAL</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-left text-xs space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">No. Work Order:</span>
+                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Status WO:</span>
+                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
+                    {savedReportSnapshot?.status || reportStatus}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Reason WO:</span>
+                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate max-w-[190px]">
+                    {savedReportSnapshot?.reason || reasonReport}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Bukti Foto Fisik:</span>
+                  <span className="font-mono font-bold text-[#218A63] dark:text-emerald-400">
+                    {verifiedUploadedPhotoCount} Terunggah (Total {uploadedPhotoCount}/{totalPhotoSlots})
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <h3 className="text-lg font-bold text-[#26364A] dark:text-[#f5eeff] uppercase tracking-tight">
-                Report &amp; Check-Out Tersimpan
-              </h3>
-              <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] mt-1 leading-relaxed">
-                Laporan berhasil dikirim ke Dispatch dengan status{' '}
-                <strong className="text-[#5145A6] dark:text-[#DAB9FF]">BUTUH APPROVAL</strong>.
-              </p>
+            <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2 shrink-0">
+              <button
+                type="button"
+                disabled={isRedirecting}
+                onClick={handleConfirmRedirect}
+                className={`mj-btn-installer-primary min-h-[44px] w-full py-3 px-5 text-xs sm:text-sm gap-2 cursor-pointer ${
+                  isRedirecting ? 'mj-btn-loading' : ''
+                }`}
+              >
+                <ArrowRight className="w-4 h-4" />
+                <span>
+                  {isRedirecting ? 'Mengalihkan...' : 'Kembali ke Daftar WO'}
+                </span>
+              </button>
             </div>
-
-            <div className="p-3.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-left text-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[#8492A5] dark:text-[#A79BC0]">No. Work Order:</span>
-                <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#8492A5] dark:text-[#A79BC0]">Report Status:</span>
-                <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
-                  {savedReportSnapshot?.status || reportStatus}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#8492A5] dark:text-[#A79BC0]">Reason Report:</span>
-                <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate max-w-[190px]">
-                  {savedReportSnapshot?.reason || reasonReport}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
-                <span className="text-[#8492A5] dark:text-[#A79BC0]">Bukti Foto SOP:</span>
-                <span className="font-mono font-bold text-[#218A63] dark:text-emerald-400">
-                  {uploadedPhotoCount}/{totalPhotoSlots} Terlampir
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled={isRedirecting}
-              onClick={handleConfirmRedirect}
-              className={`mj-btn-installer-primary w-full py-3 px-5 text-xs sm:text-sm gap-2 cursor-pointer ${
-                isRedirecting ? 'mj-btn-loading' : ''
-              }`}
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span>
-                {isRedirecting ? 'Mengalihkan...' : 'Kembali ke Daftar WO'}
-              </span>
-            </button>
           </div>
         </div>
       )}
@@ -3688,6 +3647,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         ticketClosed={ticketClosed}
         onClose={() => setLightboxState(null)}
         onRetake={slotDef => openCameraForSlot(slotDef)}
+        onDelete={slotDef => handleDeletePhotoSlot(slotDef)}
       />
     </div>
   );

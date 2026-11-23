@@ -19,6 +19,16 @@ interface StatusBadgeProps {
   variant?: StatusBadgeVariant;
   size?: 'xs' | 'sm';
   className?: string;
+  displayRole?: 'installer' | 'leader' | 'dispatch' | 'super_admin';
+}
+
+export function formatInstallerStatusDisplay(rawStatus?: string | null, displayRole?: string): string {
+  const clean = String(rawStatus || '').trim();
+  const upper = clean.toUpperCase();
+  if (displayRole === 'installer' && (upper === 'ASSIGNED' || upper === 'SUDAH ASSIGN')) {
+    return 'REQUESTED';
+  }
+  return clean || 'Unassigned';
 }
 
 const BADGE_TONES = {
@@ -103,9 +113,9 @@ function resolveBadgeStyle(rawStatus: string, variant: StatusBadgeVariant): { la
     return { label: 'PENDING', style: BADGE_TONES.amber, dot: 'bg-[#C88735] dark:bg-[#B45309]' };
   }
 
-  // ASSIGNED / CHECK-IN / PROGRESS
-  if (u === 'ASSIGNED' || u === 'SUDAH ASSIGN') {
-    return { label: 'ASSIGNED', style: BADGE_TONES.blue, dot: 'bg-[#3E81C6] dark:bg-[#1D4ED8]' };
+  // ASSIGNED / REQUESTED / CHECK-IN / PROGRESS
+  if (u === 'ASSIGNED' || u === 'SUDAH ASSIGN' || u === 'REQUESTED') {
+    return { label: u === 'REQUESTED' ? 'REQUESTED' : 'ASSIGNED', style: BADGE_TONES.blue, dot: 'bg-[#3E81C6] dark:bg-[#1D4ED8]' };
   }
   if (u === 'CHECK-IN' || u === 'SUDAH CHECK-IN' || u === 'PROGRESS' || u === 'IN PROGRESS' || u === 'ON SITE' || u === 'EN ROUTE' || u === 'SEDANG DIKERJAKAN') {
     const label =
@@ -134,9 +144,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
   variant = 'auto',
   size = 'xs',
-  className = ''
+  className = '',
+  displayRole
 }) => {
-  const { label, style, dot } = resolveBadgeStyle(status || '-', variant);
+  const effectiveStatus = formatInstallerStatusDisplay(status, displayRole);
+  const { label, style, dot } = resolveBadgeStyle(effectiveStatus || '-', variant);
   const sizeClass = size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-2.5 py-0.5 text-[10px]';
 
   return (
@@ -166,15 +178,18 @@ export const StatusAgentBadge: React.FC<{ status: TicketStatusWOAgent | string }
   );
 };
 
-export const StatusInstallerBadge: React.FC<{ status: TicketStatusWOInstaller | string }> = ({ status }) => {
-  const norm = String(status || 'Unassigned').trim();
+export const StatusInstallerBadge: React.FC<{
+  status: TicketStatusWOInstaller | string;
+  displayRole?: 'installer' | 'leader' | 'dispatch' | 'super_admin';
+}> = ({ status, displayRole }) => {
+  const norm = formatInstallerStatusDisplay(status, displayRole);
   const upper = norm.toUpperCase();
   let tone = BADGE_TONES.neutral;
   if (upper === 'COMPLETE' || upper === 'COMPLETED' || upper === 'INSTALLED') tone = BADGE_TONES.green;
   else if (upper === 'PENDING' || upper === 'PENDING TECHNICAL') tone = BADGE_TONES.amber;
   else if (upper.includes('RESCHEDULE')) tone = BADGE_TONES.violet;
   else if (upper.includes('CANCEL') || upper.includes('FAILED')) tone = BADGE_TONES.red;
-  else if (upper === 'ASSIGNED' || upper === 'EN ROUTE' || upper === 'ON SITE' || upper === 'IN PROGRESS' || upper === 'PROGRESS') tone = BADGE_TONES.blue;
+  else if (upper === 'ASSIGNED' || upper === 'REQUESTED' || upper === 'EN ROUTE' || upper === 'ON SITE' || upper === 'IN PROGRESS' || upper === 'PROGRESS') tone = BADGE_TONES.blue;
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide tabular-nums border rounded-full whitespace-nowrap ${tone}`}>

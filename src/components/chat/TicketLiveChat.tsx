@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { MessageStatusReceipt } from './MessageStatusReceipt';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { DropupSelect } from '../common/DropupSelect';
 
 interface TicketLiveChatProps {
   ticket: Ticket;
@@ -936,31 +937,53 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
         </div>
       ) : (
         <div className="bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-slate-800 shrink-0">
-          {/* Mandatory Category Pills + Quick Action Chips */}
-          <div className="px-3 pt-2.5 pb-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            {activeCategories.map(cat => {
-              const isActive = selectedCategory.toUpperCase() === String(cat.name).toUpperCase();
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => {
-                    handleSelectCategory(cat.name);
-                    toast.success(`Kategori #${cat.name} aktif.`);
-                  }}
-                  className={`inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
-                    isActive
-                      ? 'bg-[#2563EB] text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {isActive && <Check className="w-3 h-3" />}
-                  <span>#{cat.name}</span>
-                </button>
-              );
-            })}
+          {/* Mandatory Category Selector (Dropup for Installer) + Quick Action Chips */}
+          {currentUser.role === 'installer' && (
+            <div className="px-3 pt-2.5 pb-1">
+              <DropupSelect
+                value={selectedCategory}
+                onChange={val => {
+                  handleSelectCategory(val);
+                  toast.success(`Kategori #${val} aktif.`);
+                }}
+                ariaLabel="Kategori LiveChat"
+                placeholder="-- Pilih Kategori Chat Wajib (mis. PROGRESS) --"
+                options={activeCategories.map(cat => ({
+                  value: cat.name,
+                  label: `#${cat.name}`,
+                  description: cat.description || undefined
+                }))}
+              />
+            </div>
+          )}
+          <div className={`px-3 ${currentUser.role === 'installer' ? 'pt-1' : 'pt-2.5'} pb-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar`}>
+            {currentUser.role !== 'installer' && (
+              <>
+                {activeCategories.map(cat => {
+                  const isActive = selectedCategory.toUpperCase() === String(cat.name).toUpperCase();
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        handleSelectCategory(cat.name);
+                        toast.success(`Kategori #${cat.name} aktif.`);
+                      }}
+                      className={`inline-flex items-center gap-1 px-3 min-h-[38px] rounded-full text-[11px] font-bold whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
+                        isActive
+                          ? 'bg-[#2563EB] text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-[#1E293B] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {isActive && <Check className="w-3 h-3" />}
+                      <span>#{cat.name}</span>
+                    </button>
+                  );
+                })}
 
-            <span className="h-4 w-px bg-slate-200 dark:bg-slate-700 shrink-0 mx-0.5" />
+                <span className="h-4 w-px bg-slate-200 dark:bg-slate-700 shrink-0 mx-0.5" />
+              </>
+            )}
 
             <button
               type="button"

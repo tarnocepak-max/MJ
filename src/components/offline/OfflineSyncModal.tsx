@@ -130,10 +130,10 @@ export const OfflineSyncModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[92dvh] rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/50">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 bg-slate-50/80 dark:bg-slate-800/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl ${
               !isOnline
@@ -174,15 +174,17 @@ export const OfflineSyncModal: React.FC = () => {
           </div>
 
           <button
+            type="button"
             onClick={() => setIsOfflineModalOpen(false)}
-            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Tutup"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 px-5 pt-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold overflow-x-auto">
+        <div className="flex items-center gap-1 px-4 sm:px-5 pt-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold overflow-x-auto no-scrollbar shrink-0">
           <button
             onClick={() => setActiveTab('status')}
             className={`pb-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
@@ -238,7 +240,7 @@ export const OfflineSyncModal: React.FC = () => {
         </div>
 
         {/* Modal Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-5">
           {/* TAB 1: STATUS & SINKRONISASI */}
           {activeTab === 'status' && (
             <div className="space-y-5">
@@ -641,16 +643,16 @@ export const OfflineSyncModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2 text-slate-500 font-mono text-[11px]">
-            <HardDrive className="w-3.5 h-3.5" />
-            <span>MoraJaws Offline Storage Engine v1.0 (IndexedDB)</span>
+        <div className="px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 flex items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-2 text-slate-500 font-mono text-[11px] min-w-0 truncate">
+            <HardDrive className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">MoraJaws Offline Storage Engine v1.0 (IndexedDB)</span>
           </div>
 
           <button
             type="button"
             onClick={() => setIsOfflineModalOpen(false)}
-            className="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-semibold text-slate-800 dark:text-slate-200 rounded-lg transition-colors"
+            className="px-4 py-2 min-h-[44px] sm:min-h-0 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-semibold text-slate-800 dark:text-slate-200 rounded-lg transition-colors shrink-0 cursor-pointer"
           >
             Tutup
           </button>

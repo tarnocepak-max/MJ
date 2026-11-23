@@ -30,7 +30,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 }) => {
   const {
     currentUser,
-    rootCauseCategories,
     workResultsList,
     saveTechnicalReport,
     verifyTechnicalReport
@@ -42,12 +41,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
   const requiresCheckIn = currentUser.role === 'installer' && !ticket.checkInAt;
 
   const [isEditing, setIsEditing] = useState(!existingReport);
-  const [mainCategory, setMainCategory] = useState(
-    existingReport?.mainCategory || rootCauseCategories[0]?.name || 'Gangguan Fiber Optic dan Jaringan'
-  );
-  const [rootCause, setRootCause] = useState(
-    existingReport?.rootCause || rootCauseCategories[0]?.items[0] || 'Fiber Optic Putus'
-  );
   const [workResult, setWorkResult] = useState(
     existingReport?.workResult || workResultsList[0] || 'Berhasil Diperbaiki'
   );
@@ -78,17 +71,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const currentCategoryObj = rootCauseCategories.find(c => c.name === mainCategory);
-  const availableRootCauses = currentCategoryObj?.items || [];
-
-  const handleMainCategoryChange = (newCat: string) => {
-    setMainCategory(newCat);
-    const catObj = rootCauseCategories.find(c => c.name === newCat);
-    if (catObj && catObj.items.length > 0) {
-      setRootCause(catObj.items[0]);
-    }
-  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'before' | 'after') => {
     const file = e.target.files?.[0];
@@ -135,8 +117,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
     }
 
     const result = saveTechnicalReport(ticket.id, {
-      mainCategory,
-      rootCause,
       workResult,
       technicalDescription: technicalDescription.trim(),
       correctiveAction: correctiveAction.trim(),
@@ -153,7 +133,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
     if (result.success) {
       playReportSavedSound();
       setIsEditing(false);
-      setNotice({ type: 'success', text: 'Laporan teknis pekerjaan & root cause berhasil disimpan!' });
+      setNotice({ type: 'success', text: 'Laporan teknis pekerjaan berhasil disimpan!' });
       toast.success('Laporan teknis berhasil disimpan & Check-out tercatat.', 'Laporan Tersimpan', {
         withSound: true
       });
@@ -249,16 +229,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
-              <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Kategori Utama</span>
-              <span className="font-bold text-[#26364A] dark:text-white text-xs">{existingReport.mainCategory}</span>
-            </div>
-
-            <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
-              <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Penyebab Utama (Root Cause)</span>
-              <span className="font-bold text-[#9B2C37] dark:text-rose-300 text-xs">{existingReport.rootCause}</span>
-            </div>
-
             <div className="md:col-span-2 p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
               <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Deskripsi Teknis Kendala</span>
               <p className="text-[#26364A] dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.technicalDescription}</p>
@@ -335,7 +305,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               </div>
               <div>
                 <h4 className="font-display font-bold text-[#26364A] dark:text-white text-[13.5px]">
-                  Formulir Laporan Lapangan &amp; Root Cause
+                  Formulir Laporan Teknis Lapangan
                 </h4>
                 <p className="text-[11px] text-[#52647A] dark:text-slate-400">
                   Wajib diisi oleh teknisi sebelum WO diverifikasi &amp; ditutup oleh Dispatch.
@@ -372,36 +342,6 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
-                Kategori Utama Gangguan <span className="text-[#D45B66]">*</span>
-              </label>
-              <select
-                value={mainCategory}
-                onChange={e => handleMainCategoryChange(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
-              >
-                {rootCauseCategories.map(cat => (
-                  <option key={cat.id} value={cat.name}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
-                Penyebab Masalah (Root Cause) <span className="text-[#D45B66]">*</span>
-              </label>
-              <select
-                value={rootCause}
-                onChange={e => setRootCause(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
-              >
-                {availableRootCauses.map(rc => (
-                  <option key={rc} value={rc}>{rc}</option>
-                ))}
-                <option value="Lainnya">Lainnya (Jelaskan di deskripsi teknis)</option>
-              </select>
-            </div>
 
             <div>
               <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
@@ -558,18 +498,24 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
       {zoomImage && (
         <div
-          className="fixed inset-0 z-70 bg-[#0B1220]/85 flex items-center justify-center p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-70 bg-[#0B1220]/85 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
           onClick={() => setZoomImage(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div
+            className="relative max-w-4xl w-full max-h-[92dvh] flex flex-col items-center justify-center overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setZoomImage(null)}
-              className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center bg-[#0F172A]/90 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
+              aria-label="Tutup preview foto"
+              className="absolute top-2.5 right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center bg-[#0F172A]/90 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
-            <img src={getSafePreviewUrl(zoomImage)} alt="Bukti Foto Zoom" className="max-w-full max-h-[85vh] object-contain rounded-xl" />
+            <img src={getSafePreviewUrl(zoomImage)} alt="Bukti Foto Zoom" className="max-w-full max-h-[82dvh] object-contain rounded-xl" />
           </div>
         </div>
       )}

@@ -16,7 +16,8 @@ import {
   Info,
   Phone,
   GitBranch,
-  ChevronDown
+  ChevronDown,
+  AlertTriangle
 } from 'lucide-react';
 import { Ticket } from '../../types/index.ts';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
@@ -718,11 +719,28 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                         {String(realOpm).includes('dBm') ? realOpm : `${realOpm} dBm`}
                       </span>
                     </div>
-                    {(t.remarksWOInstaller || t.technicalReport?.rootCause) && (
+                    {(t.remarksWOInstaller || t.technicalReport?.technicalDescription) && (
                       <p className="text-[11px] text-[#52647A] dark:text-[#e8ddff] line-clamp-2">
-                        {t.remarksWOInstaller || t.technicalReport?.rootCause}
+                        {t.remarksWOInstaller || t.technicalReport?.technicalDescription}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {Array.isArray(t.kendalaReports) && t.kendalaReports.length > 0 && (
+                  <div className="rounded-xl bg-[#FFFDF7] dark:bg-amber-950/30 border border-[#F2CF95] dark:border-amber-800/50 p-2.5 space-y-1">
+                    <div className="flex items-center justify-between gap-2 text-[10.5px]">
+                      <span className="inline-flex items-center gap-1 font-bold text-[#9D661F] dark:text-amber-300 uppercase">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Kendala Lapangan ({t.kendalaReports.length})</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-[#8492A5] dark:text-amber-200/80">
+                        {t.kendalaReports[0]?.createdAt ? `${formatJakartaTimeOnly(t.kendalaReports[0].createdAt)} WIB` : ''}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#26364A] dark:text-amber-100 line-clamp-2">
+                      {t.kendalaReports[0]?.description}
+                    </p>
                   </div>
                 )}
 

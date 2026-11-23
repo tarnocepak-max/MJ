@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, ShieldAlert, X, CheckCircle2, Info } from 'lucide-react';
 import { NotificationInline } from '../notification/NotificationInline';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 export interface EscalationReasonOption {
   id: string;
@@ -46,6 +47,7 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
   const [selectedId, setSelectedId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const vvMetrics = useVisualViewportModal(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -54,6 +56,15 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
       setLocalError(null);
     }
   }, [isOpen, reasonOptions]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -82,22 +93,24 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
+      style={vvMetrics.keyboardInset > 0 ? { paddingBottom: `${vvMetrics.keyboardInset}px` } : undefined}
       className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/35 dark:bg-black/70 backdrop-blur-[4px] animate-in fade-in duration-150"
     >
-      <div className="absolute inset-0" onClick={onClose} />
+      <div className="absolute inset-0" onClick={() => !isSubmitting && onClose()} />
 
       <form
         onSubmit={handleSubmit}
-        className="mj-sheet-enter mj-notif-glass-panel relative z-10 w-full sm:max-w-lg rounded-t-[22px] sm:rounded-[22px] overflow-hidden"
+        style={vvMetrics.isKeyboardOpen ? { maxHeight: `${Math.max(260, vvMetrics.viewportHeight - 12)}px` } : undefined}
+        className="mj-sheet-enter mj-notif-glass-panel relative z-10 w-full sm:max-w-lg max-h-[92dvh] rounded-t-[22px] sm:rounded-[22px] flex flex-col overflow-hidden"
       >
         {/* Pull handle on mobile */}
-        <div className="flex justify-center pt-2.5 pb-1 sm:hidden">
+        <div className="flex justify-center pt-2.5 pb-1 sm:hidden shrink-0">
           <div className="w-10 h-1.5 rounded-full bg-[#CFDCE8] dark:bg-[#5424A8]" />
         </div>
 
         {/* Header */}
-        <div className="px-5 pt-3.5 pb-3.5 bg-white/80 dark:bg-[#190C30]/80 border-b border-[#DDE6F0] dark:border-[#3D1D72] flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
+        <div className="px-4 sm:px-5 pt-3.5 pb-3.5 bg-white/80 dark:bg-[#190C30]/80 border-b border-[#DDE6F0] dark:border-[#3D1D72] flex items-start justify-between gap-3 shrink-0">
+          <div className="flex items-start gap-3 min-w-0">
             <div
               className={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 border ${
                 isDanger
@@ -109,7 +122,7 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
             >
               <IconComp className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span
                 className={`text-[10px] font-extrabold uppercase tracking-wider block ${
                   isDanger
@@ -129,8 +142,9 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
 
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={onClose}
-            className="mj-notif-btn-3d-soft w-8 h-8 rounded-[11px] flex items-center justify-center cursor-pointer shrink-0"
+            className="mj-notif-btn-3d-soft min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-[36px] sm:min-h-[36px] rounded-[11px] flex items-center justify-center cursor-pointer shrink-0"
             aria-label="Tutup dialog"
           >
             <X className="w-4 h-4" />
@@ -138,7 +152,7 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 sm:p-5 space-y-4 flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {subtitle && (
             <p className="text-[12.5px] text-[#52647A] dark:text-[#E9D5FF]/90 leading-relaxed">
               {subtitle}
@@ -215,7 +229,7 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
         </div>
 
         {/* Footer 3D Tactile Buttons */}
-        <div className="px-5 py-4 bg-[#F8FAFD] dark:bg-[#140929] border-t border-[#DDE6F0] dark:border-[#3D1D72] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
+        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#140929] border-t border-[#DDE6F0] dark:border-[#3D1D72] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
             disabled={isSubmitting}

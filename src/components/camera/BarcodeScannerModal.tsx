@@ -14,6 +14,7 @@ import {
   Upload,
   X
 } from 'lucide-react';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 export interface ParsedBarcodePayload {
   serialNumber: string;
@@ -235,6 +236,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const activeStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scanHandledRef = useRef(false);
+  const vv = useVisualViewportModal(isOpen);
 
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [cameraState, setCameraState] = useState<'initializing' | 'scanning' | 'detected' | 'error'>(
@@ -502,9 +504,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="barcode-scanner-modal-title"
+      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
       className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center bg-[#0B0617]/90 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150"
     >
-      <div className="relative w-full sm:max-w-lg bg-[#160D29] text-white rounded-t-[24px] sm:rounded-2xl border border-[#35105E] shadow-2xl overflow-hidden flex flex-col max-h-[94dvh]">
+      <div
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="relative w-full sm:max-w-lg bg-[#160D29] text-white rounded-t-[24px] sm:rounded-2xl border border-[#35105E] shadow-2xl overflow-hidden flex flex-col max-h-[94dvh]"
+      >
         {/* Mobile Handle */}
         <div className="flex justify-center pt-2 pb-1 sm:hidden shrink-0">
           <div className="w-10 h-1 rounded-full bg-white/25" />
@@ -550,7 +556,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         </header>
 
         {/* Camera Viewport / Result Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3.5">
           {/* Live Video Frame */}
           <div className="relative rounded-2xl overflow-hidden bg-black border border-[#35105E] aspect-[4/3] w-full flex items-center justify-center">
             <video
@@ -760,7 +766,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <footer className="px-4 py-3.5 border-t border-[#35105E] bg-[#1B1033] flex items-center gap-2.5 shrink-0 pb-safe">
+        <footer className="px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] border-t border-[#35105E] bg-[#1B1033] flex items-center gap-2.5 shrink-0">
           {detectedPayload ? (
             <>
               <button

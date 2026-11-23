@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Shield, Sliders, Scale, CheckCircle2, AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
 import type { SlaThresholdConfig } from '../../types/sla';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface SlaConfigModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const vv = useVisualViewportModal(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -84,10 +86,16 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm sm:p-4">
-      <div className="bg-white/95 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
+    <div
+      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm sm:p-4"
+    >
+      <div
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="bg-white/95 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden"
+      >
         {/* Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2 bg-[#EDF3F8] dark:bg-[#160D29]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2 bg-[#EDF3F8] dark:bg-[#160D29] shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-transparent flex items-center justify-center shrink-0">
               <Sliders className="w-4 h-4" />
@@ -105,7 +113,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Tutup"
-            className="btn-3d-icon w-10 h-10 sm:w-9 sm:h-9 shrink-0 cursor-pointer"
+            className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -139,7 +147,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-5">
           {!canEdit && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/30 border border-[#F2CF95] dark:border-amber-800/60 text-xs text-[#9D661F] dark:text-amber-300">
               <Shield className="w-4 h-4 shrink-0 mt-0.5" />
@@ -452,7 +460,7 @@ export const SlaConfigModal: React.FC<SlaConfigModalProps> = ({
         </form>
 
         {/* Footer */}
-        <div className="px-4 sm:px-6 py-4 border-t border-[#DDE6F0] dark:border-[#35105E] bg-[#EDF3F8] dark:bg-[#160D29] flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#DDE6F0] dark:border-[#35105E] bg-[#EDF3F8] dark:bg-[#160D29] flex flex-wrap items-center justify-between gap-3 shrink-0">
           {canEdit ? (
             <button
               type="button"

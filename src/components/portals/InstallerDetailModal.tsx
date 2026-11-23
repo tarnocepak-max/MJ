@@ -465,9 +465,6 @@ export const InstallerDetailModal: React.FC<InstallerDetailModalProps> = ({
                             {rep.workResult}
                           </span>
                         </div>
-                        <div className="text-[#52647A] dark:text-[#E8DDFF] font-medium">
-                          Root Cause: <strong className="text-[#5145A6] dark:text-[#DAB9FF]">{rep.rootCause}</strong> ({rep.mainCategory})
-                        </div>
                         {rep.opticalPowerDbm && (
                           <div className="text-[11px] text-[#218A63] dark:text-emerald-400 font-mono">
                             Redaman OPM: {rep.opticalPowerDbm} dBm

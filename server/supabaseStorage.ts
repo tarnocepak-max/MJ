@@ -1264,6 +1264,89 @@ export async function uploadWoPhotoEvidence(params: {
 }
 
 /**
+ * Uploads a Kendala evidence photo via backend storage (Supabase Storage with local disk fallback).
+ */
+export async function uploadKendalaEvidencePhoto(params: {
+  userId: string;
+  userRole?: string;
+  woNumber: string;
+  fileName: string;
+  fileBuffer: Buffer;
+  mimeType: string;
+  bucket?: string;
+}): Promise<{
+  success: boolean;
+  storageProvider: 'supabase' | 'local_disk';
+  storagePath?: string;
+  fileId?: string;
+  sha256?: string;
+  downloadUrl?: string;
+  signedUrl?: string;
+  error?: string;
+}> {
+  return uploadWoPhotoEvidence({
+    userId: params.userId,
+    userRole: params.userRole,
+    woNumber: params.woNumber,
+    slotKey: 'kendala',
+    fileName: params.fileName,
+    fileBuffer: params.fileBuffer,
+    mimeType: params.mimeType,
+    bucket: params.bucket
+  });
+}
+
+/**
+ * Deletes a previously uploaded WO evidence photo object when replaced or removed prior to check-out.
+ */
+export async function deleteWoPhotoEvidenceObject(params: {
+  storagePath?: string;
+  userId: string;
+  userRole?: string;
+  bucket?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const cleanPath = String(params.storagePath || '').trim().replace(/^\/+/, '');
+  if (!cleanPath || cleanPath.includes('..') || cleanPath.includes('\\')) {
+    return { success: false, error: 'Storage path tidak valid.' };
+  }
+  if (!cleanPath.startsWith(`${STORAGE_FOLDERS.TECHNICAL_REPORTS}/`)) {
+    return { success: false, error: 'Path bukan merupakan objek bukti foto teknis.' };
+  }
+
+  const bucket = params.bucket || MORAJAWS_STORAGE_BUCKET;
+  const client = getSupabaseBackendClient();
+  let deletedAny = false;
+
+  if (client) {
+    try {
+      const { error } = await client.storage.from(bucket).remove([cleanPath]);
+      if (!error) deletedAny = true;
+    } catch {}
+  }
+
+  try {
+    const localBase = path.resolve(process.cwd(), 'data', 'uploads');
+    const targetFile = path.resolve(localBase, cleanPath);
+    if (targetFile.startsWith(localBase + path.sep) && fs.existsSync(targetFile)) {
+      fs.unlinkSync(targetFile);
+      deletedAny = true;
+    }
+  } catch {}
+
+  logStorageOperation({
+    operation: 'delete',
+    status: deletedAny ? 'success' : 'failed',
+    provider: 'supabase',
+    filePath: cleanPath,
+    userId: params.userId,
+    userRole: params.userRole,
+    timestamp: new Date().toISOString()
+  });
+
+  return { success: true };
+}
+
+/**
  * Downloads a file via the backend Storage Adapter with access evaluation.
  */
 export async function downloadFile(params: {

@@ -175,8 +175,8 @@ export interface TechnicalPhotoSlot {
 export interface TechnicalReport {
   id: string;
   ticketId: string;
-  mainCategory: string;
-  rootCause: string;
+  mainCategory?: string;
+  rootCause?: string;
   subCategory?: string;
   workResult: string;
   technicalDescription: string;
@@ -215,7 +215,7 @@ export interface ProgressReportEntry {
   userRole?: string;
   reportStatus: string;
   reasonReport: string;
-  rootCause: string;
+  rootCause?: string;
   remarksReport: string;
   installerName?: string;
   appointmentDate?: string;
@@ -238,6 +238,24 @@ export interface ProgressReportEntry {
   revisionReason?: string;
   versionNumber?: number;
   submittedById?: string;
+}
+
+export interface KendalaReportEntry {
+  id: string;
+  ticketId: string;
+  woNumber: string;
+  installerId: string;
+  installerName: string;
+  reasonId?: string;
+  reasonLabel?: string;
+  description: string;
+  photoUrl: string;
+  storagePath?: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSizeBytes?: number;
+  status?: 'Pending Technical' | 'Resolved';
+  createdAt: string;
 }
 
 export interface ChatAttachment {
@@ -466,9 +484,10 @@ export interface Ticket {
   remarksAgent?: string;
   remarks?: string;
 
-  // --- H. Technical Report & Wi-Fi Root Cause ---
+  // --- H. Technical Report & Report Hierarchy ---
   technicalReport?: TechnicalReport;
   progressReports?: ProgressReportEntry[];
+  kendalaReports?: KendalaReportEntry[];
   reportStatusId?: string;
   reportStatusLabel?: string;
   reasonReportId?: string;

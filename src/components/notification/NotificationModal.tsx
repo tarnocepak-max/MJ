@@ -44,17 +44,17 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#26364A]/35 dark:bg-black/70 backdrop-blur-[4px]"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/35 dark:bg-black/70 backdrop-blur-[4px]"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={`w-full ${maxWidthClass} mj-notif-glass-panel rounded-[22px] overflow-hidden text-[#26364A] dark:text-white animate-in fade-in zoom-in-95 duration-200`}
+        className={`w-full ${maxWidthClass} max-h-[92dvh] flex flex-col mj-notif-glass-panel rounded-t-[24px] sm:rounded-[22px] overflow-hidden text-[#26364A] dark:text-white animate-in fade-in zoom-in-95 duration-200`}
       >
         {/* Header */}
-        <div className={`px-5 py-4 text-white flex items-center justify-between gap-3 ${MODAL_HEADER_GRADIENT[variant]}`}>
+        <div className={`px-5 py-4 text-white flex items-center justify-between gap-3 shrink-0 ${MODAL_HEADER_GRADIENT[variant]}`}>
           <div className="flex items-center gap-3 min-w-0">
             {icon && (
               <div className="w-10 h-10 rounded-[14px] bg-white/16 border border-white/25 flex items-center justify-center shrink-0">
@@ -75,18 +75,18 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Tutup dialog"
-            className="mj-notif-btn-3d-glass w-8 h-8 rounded-[11px] flex items-center justify-center cursor-pointer shrink-0"
+            className="mj-notif-btn-3d-glass w-11 h-11 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-[11px] flex items-center justify-center cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5 bg-white/85 dark:bg-[#190C30]/85">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 bg-white/85 dark:bg-[#190C30]/85">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="px-5 py-3.5 bg-[#EDF3F8]/85 dark:bg-[#140929] border-t border-[#DDE6F0] dark:border-[#3D1D72] flex flex-wrap items-center justify-end gap-2.5">
+          <div className="px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#EDF3F8]/85 dark:bg-[#140929] border-t border-[#DDE6F0] dark:border-[#3D1D72] flex flex-wrap items-center justify-end gap-2.5 shrink-0">
             {footer}
           </div>
         )}

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ExternalLink, RefreshCw, Satellite, X } from 'lucide-react';
+import { ExternalLink, RefreshCw, Satellite, Trash2, X } from 'lucide-react';
 import { TechnicalPhotoSlot } from '../../../types/index.ts';
 import { getSafePreviewUrl } from '../../../services/storageCompatibility';
 import { formatJakartaTimeOnly } from '../../../services/workSessionService';
@@ -18,6 +18,7 @@ interface PhotoLightboxModalProps {
   ticketClosed: boolean;
   onClose: () => void;
   onRetake?: (slotDef: PhotoSlotDefinition) => void;
+  onDelete?: (slotDef: PhotoSlotDefinition) => void;
 }
 
 export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
@@ -26,7 +27,8 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
   matchedSlotDef,
   ticketClosed,
   onClose,
-  onRetake
+  onRetake,
+  onDelete
 }) => {
   useEffect(() => {
     if (!imageUrl) return;
@@ -68,7 +70,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white/95 dark:bg-white rounded-2xl border border-[#DDE6F0] dark:border-[#e8ddff] shadow-xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="w-full max-w-2xl bg-white/95 dark:bg-white rounded-2xl border border-[#DDE6F0] dark:border-[#e8ddff] shadow-xl overflow-hidden flex flex-col max-h-[92dvh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Modal Header */}
@@ -85,14 +87,14 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Tutup Pratinjau"
-            className="mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0"
+            className="mj-btn-icon-3d-installer min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Preview Image Area */}
-        <div className="p-3 sm:p-4 overflow-y-auto space-y-3">
+        <div className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto overscroll-contain space-y-3">
           <div className="relative w-full aspect-[4/3] max-h-[48vh] bg-[#F8FAFD] dark:bg-[#f8f1ff] rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-[#e8ddff] flex items-center justify-center">
             <img
               src={getSafePreviewUrl(imageUrl)}
@@ -151,14 +153,27 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
         </div>
 
         {/* Footer Buttons */}
-        <div className="px-4 py-3 border-t border-[#DDE6F0] dark:border-[#e8ddff] bg-white/95 dark:bg-white flex gap-2 shrink-0">
+        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#DDE6F0] dark:border-[#e8ddff] bg-white/95 dark:bg-white flex flex-wrap gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="mj-btn-installer-neutral flex-1 py-2.5 text-xs font-bold cursor-pointer"
+            className="mj-btn-installer-neutral min-h-[44px] flex-1 py-2.5 text-xs font-bold cursor-pointer"
           >
             Tutup
           </button>
+          {matchedSlotDef && !ticketClosed && onDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onDelete(matchedSlotDef);
+              }}
+              className="min-h-[44px] px-3 py-2.5 rounded-xl border border-[#F3C5CA] bg-[#FCE9EB] text-[#9B2C37] text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Hapus</span>
+            </button>
+          )}
           {matchedSlotDef && !ticketClosed && onRetake && (
             <button
               type="button"
@@ -166,7 +181,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
                 onClose();
                 onRetake(matchedSlotDef);
               }}
-              className="mj-btn-installer-primary flex-1 py-2.5 text-xs font-bold gap-1.5 cursor-pointer"
+              className="mj-btn-installer-primary min-h-[44px] flex-1 py-2.5 text-xs font-bold gap-1.5 cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Foto Ulang</span>

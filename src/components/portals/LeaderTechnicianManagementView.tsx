@@ -799,7 +799,7 @@ export const LeaderTechnicianManagementView: React.FC<LeaderTechnicianManagement
                         Kendala pada {issueTicket.woNumber} ({issueTicket.statusWOInstaller})
                       </span>
                       <span className="line-clamp-2">
-                        {issueTicket.remarksWOInstaller || issueTicket.technicalReport?.rootCause || 'Memerlukan koordinasi & pengecekan detail WO.'}
+                        {issueTicket.remarksWOInstaller || issueTicket.technicalReport?.technicalDescription || 'Memerlukan koordinasi & pengecekan detail WO.'}
                       </span>
                     </div>
                   </button>

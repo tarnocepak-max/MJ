@@ -100,7 +100,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Full Notification Drawer"
-        className="mj-notif-drawer-enter mj-notif-glass-panel relative z-10 m-2.5 sm:m-3.5 mb-[84px] sm:mb-3.5 w-[calc(100vw-1.25rem)] sm:w-[460px] max-w-[480px] rounded-[22px] overflow-hidden flex flex-col"
+        className="mj-notif-drawer-enter mj-notif-glass-panel relative z-10 m-2 sm:m-3.5 w-[calc(100vw-1rem)] sm:w-[460px] max-w-[480px] max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-1.75rem)] rounded-[22px] overflow-hidden flex flex-col"
       >
         {/* Crystal Aqua-Violet Glass Header */}
         <div className="mj-notif-header-glass px-4 sm:px-5 py-4 text-white flex items-center justify-between gap-3 shrink-0">
@@ -130,7 +130,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
               aria-pressed={showSettings}
               aria-label="Pengaturan suara notifikasi"
               title="Pengaturan Audio Notifikasi"
-              className={`mj-notif-btn-3d-glass w-9 h-9 rounded-[12px] flex items-center justify-center cursor-pointer ${
+              className={`mj-notif-btn-3d-glass w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-[12px] flex items-center justify-center cursor-pointer ${
                 showSettings ? 'ring-2 ring-white/50' : ''
               }`}
             >
@@ -141,7 +141,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
               onClick={onClose}
               aria-label="Tutup Notification Drawer"
               title="Tutup"
-              className="mj-notif-btn-3d-glass w-9 h-9 rounded-[12px] flex items-center justify-center cursor-pointer"
+              className="mj-notif-btn-3d-glass w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-[12px] flex items-center justify-center cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -234,7 +234,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         </div>
 
         {/* Scrollable Notification Feed Body */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5 bg-[#F4F7FB] dark:bg-[#140929]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 pb-[max(0.875rem,env(safe-area-inset-bottom))] space-y-2.5 bg-[#F4F7FB] dark:bg-[#140929]">
           {isLoading ? (
             <NotificationEmptyState mode="loading" />
           ) : error && items.length === 0 ? (

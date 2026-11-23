@@ -789,7 +789,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
                 const issueReason =
                   (cat === 'uncomplete' || cat === 'cancel')
-                    ? (t.remarksWOInstaller || (t as any).reasonWOInstaller || t.technicalReport?.rootCause || t.remarks || `Status laporan: ${t.statusWOInstaller}`)
+                    ? (t.remarksWOInstaller || (t as any).reasonWOInstaller || t.technicalReport?.technicalDescription || t.remarks || `Status laporan: ${t.statusWOInstaller}`)
                     : '';
 
                 const photos = collectEvidencePhotos(t);

@@ -204,7 +204,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
         onClick={onCloseMobile}
       >
         <div
-          className="w-80 max-w-[calc(100vw-2rem)] h-full bg-white/95 dark:bg-[#160D29] border-l border-[#DDE6F0] dark:border-[#35105E] shadow-2xl flex flex-col p-4 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className="w-80 max-w-[calc(100vw-2rem)] h-full bg-white/95 dark:bg-[#160D29] border-l border-[#DDE6F0] dark:border-[#35105E] shadow-2xl flex flex-col p-4 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between pb-3 border-b border-[#DDE6F0] dark:border-slate-800 mb-4">
@@ -216,7 +216,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
               type="button"
               onClick={onCloseMobile}
               aria-label="Tutup filter"
-              className="btn-3d-icon min-w-[40px] min-h-[40px] cursor-pointer"
+              className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

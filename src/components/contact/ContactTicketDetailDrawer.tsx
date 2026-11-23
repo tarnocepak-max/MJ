@@ -219,9 +219,6 @@ export const ContactTicketDetailDrawer: React.FC<ContactTicketDetailDrawerProps>
                   {hasValue(latestProgressReport.reasonReport) && (
                     <div>Reason: {latestProgressReport.reasonReport}</div>
                   )}
-                  {hasValue(latestProgressReport.rootCause) && (
-                    <div>Root Cause: {latestProgressReport.rootCause}</div>
-                  )}
                   {hasValue(latestProgressReport.remarksReport) && (
                     <div className="p-2 rounded-lg bg-white/85 dark:bg-[#160D29]/85 italic text-[#26364A] dark:text-[#E8DDFF]">
                       "{latestProgressReport.remarksReport}"

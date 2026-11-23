@@ -60,6 +60,7 @@ import { buildGoogleMapsCoordinateUrl, buildGoogleMapsSearchUrl, formatCoordinat
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface DispatchVerificationDeskProps {
   onNavigate: (tab: string) => void;
@@ -220,6 +221,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [hotDeskModalOpen, setHotDeskModalOpen] = useState(false);
+  const hotDeskViewport = useVisualViewportModal(hotDeskModalOpen);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [isRefreshingNow, setIsRefreshingNow] = useState(false);
   const [decisionNotes, setDecisionNotes] = useState('');
@@ -2262,11 +2264,21 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
           aria-modal="true"
           aria-label="Hot Desk QC Verifikasi — Review & Validasi Tiket Selesai Lapangan"
           onClick={() => setHotDeskModalOpen(false)}
-          className="fixed inset-0 z-50 bg-[#26364A]/45 dark:bg-[#090414]/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-[#26364A]/45 dark:bg-[#090414]/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="relative w-full max-w-[1120px] my-auto bg-white/95 dark:bg-[#1e1238] rounded-2xl shadow-[0_24px_50px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(207,220,232,0.85)] dark:shadow-[0_24px_50px_-12px_rgba(22,13,41,0.35),0_0_0_1px_rgba(113,53,181,0.18)] flex flex-col overflow-hidden"
+            style={
+              hotDeskViewport.viewportHeight
+                ? {
+                    maxHeight: `${Math.max(
+                      360,
+                      hotDeskViewport.viewportHeight - (hotDeskViewport.isKeyboardOpen ? 8 : 24)
+                    )}px`
+                  }
+                : undefined
+            }
+            className="relative w-full max-w-[1120px] max-h-[94dvh] bg-white/95 dark:bg-[#1e1238] rounded-t-[24px] sm:rounded-2xl shadow-[0_24px_50px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(207,220,232,0.85)] dark:shadow-[0_24px_50px_-12px_rgba(22,13,41,0.35),0_0_0_1px_rgba(113,53,181,0.18)] flex flex-col overflow-hidden"
           >
             {/* Top Specular Bevel Line */}
             <div className="h-[2px] w-full bg-gradient-to-r from-[#65B8C4] via-[#6657C8] to-[#5145A6] dark:from-cyan-400 dark:via-[#7135b5] dark:to-[#a380fe] opacity-95 shrink-0" />
@@ -2342,7 +2354,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                   type="button"
                   onClick={() => setHotDeskModalOpen(false)}
                   aria-label="Tutup Dialog"
-                  className="btn-3d-icon w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer"
+                  className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-lg flex items-center justify-center cursor-pointer shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2384,7 +2396,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             </div>
 
             {/* MODAL BODY: TWO-COLUMN MASTER INSPECTION LAYOUT */}
-            <div className="p-4 sm:p-6 max-h-[calc(86vh-205px)] overflow-y-auto">
+            <div className="p-4 sm:p-6 min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* LEFT COLUMN: FIELD EVIDENCE & TECHNICAL DATA AUDIT (7 Cols) */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
@@ -2846,6 +2858,68 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                       </div>
                     </div>
                   )}
+
+                  {/* Laporan Kendala Lapangan (Installer KENDALA) */}
+                  {Array.isArray(selectedTicket.kendalaReports) && selectedTicket.kendalaReports.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-[#FFFDF7] dark:bg-[#160d29] border border-[#F2CF95] dark:border-amber-800/50 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-[#9D661F] dark:text-amber-300 flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>Laporan Kendala Lapangan ({selectedTicket.kendalaReports.length})</span>
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedTicket.kendalaReports.map((kr, idx) => {
+                          const safePhoto = kr.photoUrl ? getSafePreviewUrl(kr.photoUrl) : '';
+                          const timeLabel = kr.createdAt ? `${formatJakartaTimeOnly(kr.createdAt)} WIB` : '';
+                          return (
+                            <div
+                              key={kr.id || `desk-kr-${idx}`}
+                              className="p-2.5 rounded-lg bg-white dark:bg-[#1e1238] border border-[#F2CF95]/80 dark:border-[#35105e] flex items-start gap-2.5"
+                            >
+                              {safePhoto && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setZoomPhoto({
+                                      url: safePhoto,
+                                      title: `Foto Kendala Lapangan #${idx + 1}`,
+                                      subtitle: [kr.installerName, kr.reasonLabel || 'KENDALA', timeLabel].filter(Boolean).join(' · ')
+                                    })
+                                  }
+                                  className="relative w-16 h-14 rounded-lg overflow-hidden border border-[#F2CF95] dark:border-amber-800/50 shrink-0 cursor-pointer group"
+                                  title="Lihat foto kendala"
+                                >
+                                  <img
+                                    src={safePhoto}
+                                    alt={`Foto kendala ${idx + 1}`}
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
+                                </button>
+                              )}
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex flex-wrap items-center justify-between gap-1 text-[10.5px]">
+                                  <span className="font-bold text-[#9D661F] dark:text-amber-300">
+                                    {kr.reasonLabel || 'KENDALA LAPANGAN'}
+                                  </span>
+                                  {timeLabel && (
+                                    <span className="font-mono text-[#8492A5] dark:text-[#cabde8]">{timeLabel}</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-[#26364A] dark:text-white leading-snug whitespace-pre-wrap">
+                                  {kr.description}
+                                </p>
+                                <div className="text-[10.5px] text-[#52647A] dark:text-[#cabde8]">
+                                  Oleh: <strong className="text-[#26364A] dark:text-white">{kr.installerName}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* RIGHT COLUMN: AUDIT CONTROLS, DISPATCH NOTES & DECISION ACTIONS (5 Cols) */}
@@ -3155,7 +3229,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             </div>
 
             {/* MODAL FOOTER: 3D TACTILE DECISION ACTION BUTTONS */}
-            <div className="px-4 sm:px-6 py-4 bg-[#EDF3F8] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] dark:shadow-none shrink-0">
+            <div className="px-4 sm:px-6 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#EDF3F8] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] dark:shadow-none shrink-0">
               {canManageApproval ? (
                 <>
                   <div className="flex items-center gap-2.5 w-full sm:w-auto">
@@ -3163,7 +3237,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                       type="button"
                       onClick={handleRequestRevisionSelected}
                       disabled={isRejecting || isApproving || isRescheduling}
-                      className="btn-3d-amber flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      className="btn-3d-amber flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-4 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
                     >
                       {isRejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
                       <span>Minta Revisi</span>
@@ -3173,7 +3247,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                       type="button"
                       onClick={() => setShowReschedulePanel(prev => !prev)}
                       disabled={isApproving || isRejecting || isRescheduling}
-                      className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
+                      className={`flex-1 sm:flex-none min-h-[44px] sm:min-h-[38px] px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer ${
                         showReschedulePanel
                           ? 'btn-3d-primary'
                           : 'btn-3d-lilac'
@@ -3194,7 +3268,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                         isRescheduling ||
                         selectedTicket.approvalStatus !== 'BUTUH APPROVAL'
                       }
-                      className="btn-3d-emerald w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-3d-emerald w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-6 py-2.5 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isApproving ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -3219,7 +3293,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                   <button
                     type="button"
                     onClick={() => setHotDeskModalOpen(false)}
-                    className="btn-3d-primary px-4 py-2 rounded-lg font-bold cursor-pointer"
+                    className="btn-3d-primary min-h-[44px] sm:min-h-[36px] px-4 py-2 rounded-lg font-bold cursor-pointer"
                   >
                     Tutup
                   </button>
@@ -3237,13 +3311,13 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
           aria-modal="true"
           aria-label={zoomPhoto.title}
           onClick={() => setZoomPhoto(null)}
-          className="fixed inset-0 z-[70] bg-[#26364A]/65 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-[70] bg-[#26364A]/65 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-[#1e1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3b1d78] max-w-3xl w-full overflow-hidden shadow-2xl"
+            className="bg-white dark:bg-[#1e1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3b1d78] max-w-3xl w-full max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl"
           >
-            <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between gap-3">
+            <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between gap-3 shrink-0">
               <div className="min-w-0">
                 <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white truncate">
                   {zoomPhoto.title}
@@ -3255,24 +3329,24 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
               <button
                 type="button"
                 onClick={() => setZoomPhoto(null)}
-                className="btn-3d-icon p-1.5 rounded-lg cursor-pointer"
+                className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-lg cursor-pointer shrink-0 flex items-center justify-center"
                 aria-label="Tutup preview foto"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-[#EDF3F8] dark:bg-[#160d29] flex items-center justify-center max-h-[70vh] overflow-hidden">
+            <div className="bg-[#EDF3F8] dark:bg-[#160d29] flex items-center justify-center min-h-0 flex-1 overflow-auto p-2">
               <img
                 src={zoomPhoto.url}
                 alt={zoomPhoto.title}
                 referrerPolicy="no-referrer"
-                className="max-h-[70vh] w-auto object-contain"
+                className="max-h-[65dvh] w-auto object-contain"
               />
             </div>
 
             {isValidCoordinatePair(zoomPhoto.latitude, zoomPhoto.longitude) && (
-              <div className="px-4 py-2.5 bg-[#F8FAFD] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+              <div className="px-4 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-2 text-xs font-mono shrink-0">
                 <span className="text-[#26364A] dark:text-white">
                   GPS: {formatCoordinates(zoomPhoto.latitude!, zoomPhoto.longitude!)}
                   {typeof zoomPhoto.gpsAccuracyMeters === 'number'

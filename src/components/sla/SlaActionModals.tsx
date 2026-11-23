@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Ticket } from '../../types/index';
 import type { SlaActionType, SlaVendorRow } from '../../types/sla';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface VendorWoDrilldownModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
   onSelectTicket
 }) => {
   const [search, setSearch] = useState('');
+  const vv = useVisualViewportModal(isOpen && Boolean(vendor));
 
   useEffect(() => {
     if (isOpen) setSearch('');
@@ -51,9 +53,15 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
   if (!isOpen || !vendor) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm sm:p-4">
-      <div className="bg-white/95 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#DDE6F0] dark:border-[#35105E] bg-[#EDF3F8] dark:bg-[#160D29] flex items-center justify-between gap-4">
+    <div
+      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm sm:p-4"
+    >
+      <div
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="bg-white/95 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden"
+      >
+        <div className="px-4 sm:px-6 py-4 border-b border-[#DDE6F0] dark:border-[#35105E] bg-[#EDF3F8] dark:bg-[#160D29] flex items-center justify-between gap-4 shrink-0">
           <div className="min-w-0">
             <h3 className="font-display font-bold text-base text-[#26364A] dark:text-white truncate">
               Detail Work Order — {vendor.contractorName}
@@ -66,13 +74,13 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Tutup"
-            className="btn-3d-icon w-10 h-10 sm:w-9 sm:h-9 shrink-0 cursor-pointer"
+            className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-4 sm:px-6 py-3 border-b border-[#DDE6F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238]">
+        <div className="px-4 sm:px-6 py-3 border-b border-[#DDE6F0] dark:border-[#35105E] bg-white dark:bg-[#1E1238] shrink-0">
           <div className="relative">
             <Search className="w-4 h-4 text-[#8492A5] dark:text-[#C5B3DF] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -85,7 +93,7 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-[#DDE6F0] dark:divide-[#35105E] pb-[env(safe-area-inset-bottom)]">
           {filteredTickets.length === 0 ? (
             <div className="py-12 text-center text-xs text-[#8492A5] dark:text-[#C5B3DF]">
               Tidak ada Work Order yang cocok untuk filter saat ini.
@@ -125,7 +133,7 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
                       onClose();
                       onSelectTicket(ticket, 'chat');
                     }}
-                    className="btn-3d-ceramic px-3 py-1.5 min-h-[40px] sm:min-h-0 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                    className="btn-3d-ceramic px-3 py-1.5 min-h-[44px] sm:min-h-0 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <MessageSquare className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                     LiveChat
@@ -136,7 +144,7 @@ export const VendorWoDrilldownModal: React.FC<VendorWoDrilldownModalProps> = ({
                       onClose();
                       onSelectTicket(ticket, 'overview');
                     }}
-                    className="btn-3d-primary px-3 py-1.5 min-h-[40px] sm:min-h-0 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    className="btn-3d-primary px-3 py-1.5 min-h-[44px] sm:min-h-0 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     Buka Fullview
@@ -202,6 +210,7 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
   const [postToLiveChat, setPostToLiveChat] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const vv = useVisualViewportModal(Boolean(context));
 
   useEffect(() => {
     if (context) {
@@ -248,8 +257,14 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm sm:p-4">
-      <div className="bg-white/95 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden">
+    <div
+      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm sm:p-4"
+    >
+      <div
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="bg-white/95 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden"
+      >
         <div className={`px-4 sm:px-6 py-4 border-b border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2 shrink-0 ${isCriticalStyle ? 'bg-[#FCE9EB] dark:bg-rose-950/35' : 'bg-[#EDF3F8] dark:bg-[#160D29]'}`}>
           <div className="flex items-center gap-3 min-w-0">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCriticalStyle ? 'bg-[#FCE9EB] border border-[#F3C5CA] dark:border-transparent dark:bg-rose-900/50 text-[#9B2C37] dark:text-rose-300' : 'bg-[#EAE8FF] border border-[#DCE3F2] dark:border-transparent dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF]'}`}>
@@ -260,12 +275,12 @@ export const SlaGovernanceActionModal: React.FC<SlaGovernanceActionModalProps> =
               <p className="text-[11px] text-[#52647A] dark:text-[#DAB9FF] truncate">{context.subtitle}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Tutup" className="btn-3d-icon w-10 h-10 sm:w-8 sm:h-8 shrink-0 cursor-pointer">
+          <button type="button" onClick={onClose} aria-label="Tutup" className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 shrink-0 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleConfirm} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleConfirm} className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-4 overflow-y-auto overscroll-contain min-h-0 flex-1">
           {error && (
             <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/30 border border-[#F3C5CA] dark:border-rose-800 text-xs text-[#9B2C37] dark:text-rose-300 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />

@@ -21,6 +21,7 @@ import {
 import { useApp } from '../../../context/AppContext';
 import { getSafePreviewUrl } from '../../../services/storageCompatibility';
 import { MessageStatusReceipt } from '../../chat/MessageStatusReceipt';
+import { DropupSelect } from '../../common/DropupSelect';
 
 interface FullviewLiveChatSectionProps {
   chatSectionRef: React.RefObject<HTMLDivElement | null>;
@@ -437,21 +438,17 @@ export const FullviewLiveChatSection: React.FC<FullviewLiveChatSectionProps> = (
             ))}
           </div>
 
-          <select
+          <DropupSelect
             value={chatCategory}
-            onChange={e => onSelectCategory(e.target.value)}
-            aria-label="Kategori LiveChat"
-            className="w-full px-3 py-2 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer"
-          >
-            <option value="">
-              -- Pilih Kategori Chat Wajib (mis. PROGRESS) --
-            </option>
-            {activeChatCategories.map(cat => (
-              <option key={cat.id} value={cat.name}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+            onChange={val => onSelectCategory(val)}
+            ariaLabel="Kategori LiveChat"
+            placeholder="-- Pilih Kategori Chat Wajib (mis. PROGRESS) --"
+            options={activeChatCategories.map(cat => ({
+              value: cat.name,
+              label: `#${cat.name}`,
+              description: cat.description || undefined
+            }))}
+          />
 
           <div className="flex items-center gap-1.5 bg-[#F8FAFD] dark:bg-[#160D29] p-1 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
             <input

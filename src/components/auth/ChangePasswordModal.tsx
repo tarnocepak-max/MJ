@@ -13,6 +13,7 @@ import {
 import type { User } from '../../types/index.ts';
 import { MAX_PASSWORD_LENGTH, validateStrongPasswordClient } from '../../utils/passwordPolicy';
 import { changePasswordWithRotation } from '../../services/authService';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -54,6 +55,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   );
 
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+
+  const vv = useVisualViewportModal(isOpen);
 
   if (!isOpen) return null;
 
@@ -137,18 +140,23 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[130] bg-slate-900/45 dark:bg-[#160D29]/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto pointer-events-auto"
+      className="fixed inset-0 z-[130] bg-slate-900/45 dark:bg-[#160D29]/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="change-password-modal-title"
       onClick={resetAndClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-[#1E1338] border border-[#DDE6F0] dark:border-[#49258C] shadow-[0_24px_60px_rgba(38,54,74,0.22)] dark:shadow-[0_24px_60px_rgba(18,8,38,0.55)] overflow-hidden"
+        style={
+          vv.viewportHeight
+            ? { maxHeight: `${Math.max(320, vv.viewportHeight - (vv.isKeyboardOpen ? 8 : 20))}px` }
+            : undefined
+        }
+        className="w-full max-w-md max-h-[92dvh] flex flex-col rounded-t-[24px] sm:rounded-2xl bg-white dark:bg-[#1E1338] border border-[#DDE6F0] dark:border-[#49258C] shadow-[0_24px_60px_rgba(38,54,74,0.22)] dark:shadow-[0_24px_60px_rgba(18,8,38,0.55)] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#58149C] dark:via-[#7135B5] dark:to-[#4A1285] text-[#26364A] dark:text-white border-b border-[#DDE6F0] dark:border-transparent flex items-center justify-between gap-3">
+        <div className="px-5 py-4 bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#58149C] dark:via-[#7135B5] dark:to-[#4A1285] text-[#26364A] dark:text-white border-b border-[#DDE6F0] dark:border-transparent flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-white/85 dark:bg-white/15 border border-[#C5BEEF] dark:border-white/25 flex items-center justify-center shrink-0">
               <KeyRound className="w-4 h-4 text-[#5145A6] dark:text-[#F4EAFF]" />
@@ -168,13 +176,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             onClick={resetAndClose}
             disabled={submitting}
             aria-label="Tutup modal ganti password"
-            className="w-8 h-8 rounded-lg bg-white/80 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20 border border-[#DDE6F0] dark:border-transparent flex items-center justify-center text-[#52647A] dark:text-white transition-colors cursor-pointer disabled:opacity-50"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-lg bg-white/80 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20 border border-[#DDE6F0] dark:border-transparent flex items-center justify-center text-[#52647A] dark:text-white transition-colors cursor-pointer disabled:opacity-50 shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 flex flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
           <div className="p-3 rounded-xl bg-[#EAE8FF] dark:bg-[#2A194F] border border-[#C5BEEF] dark:border-[#532B9E] text-xs text-[#26364A] dark:text-[#E9D5FF] leading-relaxed flex items-start gap-2">
             <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
             <span>
@@ -333,13 +342,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#DDE6F0] dark:border-[#3B1D78]">
+          </div>
+
+          {/* Sticky Footer Actions */}
+          <div className="px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-end gap-2 border-t border-[#DDE6F0] dark:border-[#3B1D78] shrink-0">
             <button
               type="button"
               disabled={submitting}
               onClick={resetAndClose}
-              className="btn-3d-lilac min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+              className="btn-3d-lilac min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
             >
               Batal
             </button>
@@ -347,7 +358,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             <button
               type="submit"
               disabled={submitting || !policy.valid || !passwordsMatch || !currentPassword}
-              className="btn-3d-primary min-h-[40px] px-5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-3d-primary min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{submitting ? 'Menyimpan...' : 'Simpan Password Baru'}</span>

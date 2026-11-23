@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { isTicketClosed } from '../../services/woLifecycleService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import {
   X,
   MapPin,
@@ -171,6 +172,8 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
         !String(m.id || '').startsWith('temp_')
     );
   }, [ticket, messages]);
+
+  const { viewportHeight, keyboardInset } = useVisualViewportModal(isOpen);
 
   if (!isOpen || !ticket) return null;
 
@@ -352,12 +355,18 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
       role="dialog"
       aria-modal="true"
       aria-labelledby="wo-quick-update-title"
+      style={keyboardInset > 0 ? { paddingBottom: `${keyboardInset}px` } : undefined}
       className="fixed inset-0 z-65 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm"
       onClick={onClose}
     >
       <section
         onClick={e => e.stopPropagation()}
-        className="mj-sheet-enter w-full sm:max-w-lg bg-white/95 dark:bg-[#1E1238] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-[#DDE6F0] dark:border-[#35105E] max-h-[90dvh] flex flex-col overflow-hidden"
+        style={
+          viewportHeight
+            ? { maxHeight: `${Math.max(320, Math.min(Math.round(viewportHeight * 0.94), window.innerHeight - 12))}px` }
+            : undefined
+        }
+        className="mj-sheet-enter w-full sm:max-w-lg bg-white/95 dark:bg-[#1E1238] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-[#DDE6F0] dark:border-[#35105E] max-h-[92dvh] flex flex-col overflow-hidden"
       >
         {/* Drag Handle & Sticky Header */}
         <header className="sticky top-0 z-20 bg-[#F8FAFD] dark:bg-[#160D29] pt-3 pb-3 px-4 border-b border-[#DDE6F0] dark:border-[#35105E] shrink-0">
@@ -392,7 +401,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
         </header>
 
         {/* Scrollable Sheet Body */}
-        <form id="wo-quick-update-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        <form id="wo-quick-update-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
           {ticketClosed && (
             <div className="mj-tactile-well p-3 rounded-xl text-[#52647A] dark:text-[#CEC0E8] text-xs font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-[#5145A6] dark:text-[#DAB9FF]" />
@@ -501,12 +510,12 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
                   <FileCheck2 className="w-5 h-5 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
                   <div className="min-w-0">
                     <div className="text-[13px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
-                      Buka Form Technical Report Lengkap (3-Tier &amp; QC)
+                      Buka Form Technical Report Lengkap &amp; QC
                     </div>
                     <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                       {hasProgressCheckIn
-                        ? 'Check-in #PROGRESS aktif — siap isi L1/L2/L3 & Redaman OPM'
-                        : 'Membutuhkan Check-in #PROGRESS & verifikasi 4 titik foto SOP'}
+                        ? 'Check-in #PROGRESS aktif — siap isi Status & Reason WO serta Redaman OPM'
+                        : 'Membutuhkan Check-in #PROGRESS & verifikasi min. 3 foto bukti wajib SOP'}
                     </div>
                   </div>
                 </div>
@@ -719,7 +728,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
         </form>
 
         {/* Sticky Ergonomic Footer */}
-        <div className="sticky bottom-0 z-30 bg-[#F8FAFD]/95 dark:bg-[#160D29]/95 backdrop-blur-md border-t border-[#DDE6F0] dark:border-[#35105E] px-4 py-3 pb-safe flex flex-col gap-2 shrink-0">
+        <div className="sticky bottom-0 z-30 bg-[#F8FAFD]/95 dark:bg-[#160D29]/95 backdrop-blur-md border-t border-[#DDE6F0] dark:border-[#35105E] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col gap-2 shrink-0">
           {!ticketClosed && !isReadOnlyLeader && (
             <button
               type="submit"

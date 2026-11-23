@@ -79,20 +79,7 @@ export const InstallerGpsSyncWidget: React.FC = () => {
     ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-400/35'
     : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] border-[#C5BEEF] dark:border-[#7135B5]/40';
 
-  const handleManualSync = async () => {
-    const res = await installerGpsTracker.connectAndSyncNow();
-    if (res.ok) {
-      toast.success(res.message, 'Sinkronisasi GPS Berhasil', {
-        badge: 'MAPS MONITOR LIVE',
-        withSound: true
-      });
-    } else {
-      toast.warning(res.message, 'Sinkronisasi GPS Tertunda', {
-        badge: 'GPS STATUS',
-        duration: 5000
-      });
-    }
-  };
+  const syncIntervalSec = snap.config?.syncIntervalSeconds || 60;
 
   return (
     <div
@@ -121,7 +108,7 @@ export const InstallerGpsSyncWidget: React.FC = () => {
             <button
               type="button"
               onClick={() => setExpanded(false)}
-              className="p-1 rounded-lg hover:bg-[#EDF3F8] dark:hover:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer"
+              className="min-w-[36px] min-h-[36px] p-1 rounded-lg hover:bg-[#EDF3F8] dark:hover:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center cursor-pointer"
               title="Perkecil panel GPS"
             >
               <ChevronDown className="w-4 h-4" />
@@ -176,10 +163,19 @@ export const InstallerGpsSyncWidget: React.FC = () => {
             </div>
           )}
 
-          {isConnected && (
+          {isConnected ? (
             <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-400/30 px-2.5 py-1.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-200">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-              <span>Tersinkron Realtime ke Monitoring Maps</span>
+              <span>Sinkronisasi otomatis aktif setiap {syncIntervalSec} detik</span>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-[#F4F7FB] dark:bg-[#22153D] border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-1.5 text-[10px] font-semibold text-[#52647A] dark:text-[#CFC2E8]">
+              <LocateFixed className="w-3.5 h-3.5 shrink-0 text-[#5145A6] dark:text-[#DAB9FF]" />
+              <span>
+                {isError
+                  ? 'Aktifkan GPS & izin lokasi perangkat; sistem akan menyinkronkan ulang otomatis.'
+                  : `Sinkronisasi lokasi otomatis berjalan setiap ${syncIntervalSec} detik.`}
+              </span>
             </div>
           )}
 
@@ -189,30 +185,6 @@ export const InstallerGpsSyncWidget: React.FC = () => {
               <span>{snap.queuedPointsCount} koordinat antre sinkronisasi</span>
             </div>
           )}
-
-          <div className="mt-3 flex items-center gap-2">
-            {isError ? (
-              <button
-                type="button"
-                disabled={snap.isBusy}
-                onClick={() => void handleManualSync()}
-                className="btn-3d-primary flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl disabled:opacity-65 disabled:cursor-wait text-white text-[11px] font-bold py-2 px-3 transition-colors shadow-sm cursor-pointer"
-              >
-                <LocateFixed className={`w-3.5 h-3.5 ${snap.isBusy ? 'animate-spin' : ''}`} />
-                {snap.isBusy ? 'Menghubungkan GPS...' : 'Aktifkan / Coba Ulang GPS'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={snap.isBusy}
-                onClick={() => void handleManualSync()}
-                className="btn-3d-primary flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl disabled:opacity-65 disabled:cursor-wait text-white text-[11px] font-bold py-2 px-3 transition-colors shadow-sm cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${snap.isBusy ? 'animate-spin' : ''}`} />
-                {snap.isBusy ? 'Menyinkronkan GPS...' : 'Sinkronkan Lokasi Sekarang'}
-              </button>
-            )}
-          </div>
         </div>
       )}
 

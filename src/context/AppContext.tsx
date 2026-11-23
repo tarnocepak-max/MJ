@@ -240,7 +240,7 @@ interface AppContextType {
     data: {
       reportStatus: string;
       reasonReport: string;
-      rootCause: string;
+      rootCause?: string;
       remarksReport: string;
       reportStatusId?: string;
       reportStatusLabel?: string;
@@ -297,6 +297,31 @@ interface AppContextType {
     ticket?: Ticket;
     error?: string;
     offline?: boolean;
+  }>;
+  deleteWoPhotoEvidence: (
+    ticketId: string,
+    slotKey: import('../types/index.ts').TechnicalPhotoSlotKey
+  ) => Promise<{
+    success: boolean;
+    ticket?: Ticket;
+    error?: string;
+  }>;
+  submitKendalaReport: (
+    ticketId: string,
+    payload: {
+      reasonId?: string;
+      reasonLabel?: string;
+      description: string;
+      fileData: string;
+      fileName: string;
+      mimeType: string;
+      targetInstallerStatus?: 'Pending Technical' | 'Failed / Cancelled';
+    }
+  ) => Promise<{
+    success: boolean;
+    kendalaReport?: import('../types/index.ts').KendalaReportEntry;
+    ticket?: Ticket;
+    error?: string;
   }>;
   startWorkOnTicket: (ticketId: string) => Promise<{ success: boolean; error?: string; ticket?: Ticket }>;
   approveProgressReport: (
@@ -3966,14 +3991,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ticketId,
       woNumber: ticket.woNumber,
       action: 'Laporan Pekerjaan Teknisi Diserahkan',
-      description: `Root Cause: ${report.rootCause} | Hasil: ${report.workResult}${checkOutAtVal ? ` | Check-out: ${formatJakartaTimestamp(checkOutAtVal)} (Durasi: ${workDurationStrVal})` : ''}`,
+      description: `Hasil: ${report.workResult}${report.rootCause ? ` | Catatan: ${report.rootCause}` : ''}${checkOutAtVal ? ` | Check-out: ${formatJakartaTimestamp(checkOutAtVal)} (Durasi: ${workDurationStrVal})` : ''}`,
       performedBy: currentUser.name,
       userRole: currentUser.role,
       timestamp: now
     };
     setTicketActivities(prev => [activity, ...prev]);
 
-    addAuditLog('Technical Report Submitted', 'ticket', ticketId, `Installer ${currentUser.name} submitted Wi-Fi report for WO ${ticket.woNumber} (${report.workResult})`);
+    addAuditLog('Technical Report Submitted', 'ticket', ticketId, `Installer ${currentUser.name} submitted technical report for WO ${ticket.woNumber} (${report.workResult})`);
 
     if (!isOnline) {
       enqueueChange({
@@ -4173,7 +4198,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     data: {
       reportStatus: string;
       reasonReport: string;
-      rootCause: string;
+      rootCause?: string;
       remarksReport: string;
       reportStatusId?: string;
       reportStatusLabel?: string;
@@ -4246,20 +4271,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           error: msg
         };
       }
+      // Check-out requires >= 3 uploaded & storage-verified physical photo evidence slots
+      const candidateSlots = Array.isArray(data.technicalTelemetry?.photoSlots) && data.technicalTelemetry!.photoSlots!.length > 0
+        ? data.technicalTelemetry!.photoSlots!
+        : (Array.isArray(ticket.technicalReport?.photoSlots) ? ticket.technicalReport!.photoSlots! : []);
+      const verifiedPhotoCount = candidateSlots.filter(slot => {
+        if (!slot || typeof slot.url !== 'string') return false;
+        const url = slot.url.trim();
+        if (!url || url.startsWith('data:')) return false;
+        const isPersistedUrl =
+          url.startsWith('/uploads/') ||
+          url.includes('/api/storage/public/') ||
+          url.startsWith('https://') ||
+          url.startsWith('http://');
+        if (!isPersistedUrl) return false;
+        return Boolean((slot.storagePath && slot.storagePath.trim()) || slot.uploadedAt);
+      }).length;
+      if (verifiedPhotoCount < 3) {
+        const msg = `Check-out membutuhkan minimal 3 foto bukti fisik yang berhasil diunggah ke server (terunggah ${verifiedPhotoCount}/3).`;
+        toast.error(msg, 'Bukti Foto Wajib Kurang');
+        return {
+          success: false,
+          code: 'PHOTO_EVIDENCE_INCOMPLETE',
+          error: msg
+        };
+      }
     }
 
-    // 2. Validate mandatory fields
+    // 2. Validate mandatory fields (2-Tier Hierarchy: Level 1 Status WO -> Level 2 Reason WO)
     if (!data.reportStatus?.trim()) {
-      return { success: false, error: 'Report Status (Level 1) wajib dipilih.' };
+      return { success: false, error: 'Status WO (Level 1) wajib dipilih.' };
     }
     if (!data.reasonReport?.trim()) {
-      return { success: false, error: 'Reason Report (Level 2) wajib dipilih.' };
+      return { success: false, error: 'Reason WO (Level 2) wajib dipilih.' };
     }
 
-    // 3. Strict 3-Tier Hierarchical Droplist Validation against Supabase app_settings/hierarchical_droplists
+    // 3. Strict 2-Tier Hierarchical Droplist Validation against Supabase app_settings/hierarchical_droplists
     let matchedStatus: HierarchicalStatus | undefined;
     let matchedReason: HierarchicalReason | undefined;
-    let matchedRemark: HierarchicalRemark | undefined;
 
     if (hierarchicalStatuses && hierarchicalStatuses.length > 0) {
       const normStatus = data.reportStatus.trim().toLowerCase();
@@ -4270,7 +4319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!matchedStatus) {
         return {
           success: false,
-          error: `Validasi Gagal: Report Status "${data.reportStatus}" tidak terdaftar dalam konfigurasi Setting Droplist.`
+          error: `Validasi Gagal: Status WO "${data.reportStatus}" tidak terdaftar dalam konfigurasi Setting Droplist.`
         };
       }
 
@@ -4278,7 +4327,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isStatusActive) {
         return {
           success: false,
-          error: `Validasi Gagal: Report Status "${matchedStatus.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
+          error: `Validasi Gagal: Status WO "${matchedStatus.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
         };
       }
 
@@ -4291,7 +4340,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!matchedReason) {
         return {
           success: false,
-          error: `Validasi Gagal: Reason Report "${data.reasonReport}" bukan merupakan pilihan turunan (child) yang sah dari Status "${matchedStatus.name}".`
+          error: `Validasi Gagal: Reason WO "${data.reasonReport}" bukan merupakan pilihan turunan (child) yang sah dari Status "${matchedStatus.name}".`
         };
       }
 
@@ -4299,51 +4348,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isReasonActive) {
         return {
           success: false,
-          error: `Validasi Gagal: Reason Report "${matchedReason.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
+          error: `Validasi Gagal: Reason WO "${matchedReason.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
         };
       }
-
-      // Level 3 Rootcause / Remarks Validation (Must strictly be sub-child of matchedReason when remarks exist)
-      const activeRemarksForReason = (matchedReason.remarks || []).filter(
-        rm => rm.active !== false && (rm as any).isActive !== false
-      );
-      if (activeRemarksForReason.length > 0) {
-        if (!data.rootCause?.trim()) {
-          return { success: false, error: 'Rootcause (Level 3 - Remarks) wajib dipilih.' };
-        }
-        const normRootcause = data.rootCause.trim().toLowerCase();
-        matchedRemark = (matchedReason.remarks || []).find(
-          rm => rm.id === data.rootcauseId ||
-                rm.name.trim().toLowerCase() === normRootcause ||
-                (rm.text && rm.text.trim().toLowerCase() === normRootcause)
-        );
-
-        if (!matchedRemark) {
-          return {
-            success: false,
-            error: `Validasi Gagal: Rootcause "${data.rootCause}" bukan merupakan pilihan turunan (sub-child) yang sah dari Reason "${matchedReason.name}".`
-          };
-        }
-
-        const isRemarkActive = matchedRemark.active !== false && (matchedRemark as any).isActive !== false;
-        if (!isRemarkActive) {
-          return {
-            success: false,
-            error: `Validasi Gagal: Rootcause "${matchedRemark.name}" telah dinonaktifkan oleh Admin untuk transaksi laporan baru.`
-          };
-        }
-      }
-    } else if (!data.rootCause?.trim()) {
-      return { success: false, error: 'Rootcause (Level 3 - Remarks) wajib dipilih.' };
     }
 
     const finalStatusName = matchedStatus ? matchedStatus.name : data.reportStatus.trim();
     const finalStatusId = matchedStatus ? matchedStatus.id : (data.reportStatusId || 'hs-' + finalStatusName.toLowerCase());
     const finalReasonName = matchedReason ? matchedReason.name : data.reasonReport.trim();
     const finalReasonId = matchedReason ? matchedReason.id : (data.reasonReportId || 'hr-' + finalReasonName.toLowerCase());
-    const finalRootcauseName = matchedRemark ? (matchedRemark.text || matchedRemark.name) : data.rootCause.trim();
-    const finalRootcauseId = matchedRemark ? matchedRemark.id : (data.rootcauseId || 'hrm-' + finalRootcauseName.toLowerCase());
-    const finalRemarks = (data.remarksReport || '').trim() || finalRootcauseName;
+    const finalRemarks = (data.remarksReport || '').trim() || finalReasonName;
 
     const now = new Date().toISOString();
     const entry: ProgressReportEntry = {
@@ -4358,9 +4372,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reasonReport: finalReasonName,
       reasonReportId: finalReasonId,
       reasonReportLabel: finalReasonName,
-      rootCause: finalRootcauseName,
-      rootcauseId: finalRootcauseId,
-      rootcauseLabel: finalRootcauseName,
       remarksReport: finalRemarks,
       installerName: ticket.installerName,
       appointmentDate: ticket.appointmentDate || '',
@@ -4375,7 +4386,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: ticket.technicalReport?.id || ('rep-' + Date.now()),
       ticketId,
       mainCategory: finalStatusName,
-      rootCause: finalRootcauseName,
       workResult: finalReasonName,
       technicalDescription: finalRemarks,
       correctiveAction: finalReasonName,
@@ -4442,8 +4452,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reportStatusLabel: finalStatusName,
       reasonReportId: finalReasonId,
       reasonReportLabel: finalReasonName,
-      rootcauseId: finalRootcauseId,
-      rootcauseLabel: finalRootcauseName,
       remarksWOInstaller: finalRemarks,
       technicalReport: techReport,
       ...(tel?.opticalPowerDbm ? { rosetRedamanDbm: tel.opticalPowerDbm } : {}),
@@ -4478,7 +4486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ticketId,
       woNumber: ticket.woNumber,
       action: `Progress Report: ${finalStatusName}`,
-      description: `Reason: ${finalReasonName} | Rootcause: ${finalRootcauseName} | Remarks: ${finalRemarks}`,
+      description: `Reason: ${finalReasonName} | Remarks: ${finalRemarks}`,
       performedBy: currentUser.name,
       userRole: currentUser.role,
       timestamp: now
@@ -4489,7 +4497,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'Progress Report Saved',
       'ticket',
       ticketId,
-      `Teknisi ${currentUser.name} melaporkan status ${finalStatusName} untuk WO ${ticket.woNumber} (Reason: ${finalReasonName}, Rootcause: ${finalRootcauseName})`
+      `Teknisi ${currentUser.name} melaporkan status ${finalStatusName} untuk WO ${ticket.woNumber} (Reason: ${finalReasonName})`
     );
 
     if (!isOnline) {
@@ -4518,8 +4526,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             reportStatusLabel: finalStatusName,
             reasonReportId: finalReasonId,
             reasonReportLabel: finalReasonName,
-            rootcauseId: finalRootcauseId,
-            rootcauseLabel: finalRootcauseName,
             technicalTelemetry: data.technicalTelemetry
           })
         });
@@ -4628,6 +4634,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         success: false,
         error: err?.message || 'Koneksi gagal saat mengunggah foto bukti.'
+      };
+    }
+  };
+
+  const deleteWoPhotoEvidence = async (
+    ticketId: string,
+    slotKey: import('../types/index.ts').TechnicalPhotoSlotKey
+  ) => {
+    const ticket = getTicketById(ticketId);
+    if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
+    if (!isOnline) {
+      return {
+        success: false,
+        error: 'Koneksi offline. Penghapusan foto bukti membutuhkan koneksi server aktif.'
+      };
+    }
+
+    try {
+      const resp = await fetch(
+        `/api/tickets/${encodeURIComponent(ticketId)}/photo-evidence/${encodeURIComponent(slotKey)}`,
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        }
+      );
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: json?.error || `Gagal menghapus foto bukti (HTTP ${resp.status}).`
+        };
+      }
+      if (json.ticket && json.ticket.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+      }
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      return {
+        success: true,
+        ticket: json.ticket
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Koneksi gagal saat menghapus foto bukti.'
+      };
+    }
+  };
+
+  const submitKendalaReport = async (
+    ticketId: string,
+    payload: {
+      reasonId?: string;
+      reasonLabel?: string;
+      description: string;
+      fileData: string;
+      fileName: string;
+      mimeType: string;
+      targetInstallerStatus?: 'Pending Technical' | 'Failed / Cancelled';
+    }
+  ) => {
+    const ticket = getTicketById(ticketId);
+    if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
+    if (!isOnline) {
+      return {
+        success: false,
+        error: 'Perangkat offline. Pengiriman laporan kendala & foto bukti membutuhkan koneksi internet.'
+      };
+    }
+
+    try {
+      setSyncStatus('SYNCING');
+      const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/kendala-report`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok || !json || json.success !== true) {
+        setSyncStatus('ERROR');
+        const errMsg = json?.error || `Gagal mengirim laporan kendala (HTTP ${resp.status}).`;
+        toast.error(errMsg, 'Laporan Kendala Gagal');
+        return {
+          success: false,
+          error: errMsg
+        };
+      }
+
+      if (json.ticket && json.ticket.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+      }
+      if (json.liveChatMessage && json.liveChatMessage.id) {
+        setTicketMessages(prev => {
+          if (prev.some(m => m.id === json.liveChatMessage.id)) return prev;
+          return [...prev, json.liveChatMessage];
+        });
+      }
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      toast.success(
+        `Laporan kendala & foto bukti WO ${ticket.woNumber} berhasil dikirim ke Leader & Dispatch.`,
+        'Laporan Kendala Terkirim'
+      );
+      return {
+        success: true,
+        kendalaReport: json.kendalaReport,
+        ticket: json.ticket
+      };
+    } catch (err: any) {
+      setSyncStatus('ERROR');
+      const errMsg = err?.message || 'Koneksi gagal saat mengirim laporan kendala.';
+      toast.error(errMsg, 'Laporan Kendala Gagal');
+      return {
+        success: false,
+        error: errMsg
       };
     }
   };
@@ -7599,6 +7721,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         saveTechnicalReport,
         saveProgressReport,
         uploadWoPhotoEvidence,
+        deleteWoPhotoEvidence,
+        submitKendalaReport,
         verifyTechnicalReport,
         startWorkOnTicket,
         approveProgressReport,

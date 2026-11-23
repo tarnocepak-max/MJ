@@ -12,6 +12,8 @@ export interface PhotoSlotDefinition {
   verifiedTag: string;
   validLabel: string;
   emptyHint: string;
+  mandatoryOrder?: 1 | 2 | 3;
+  mandatoryLabel?: string;
 }
 
 export interface SlotUploadMeta {
@@ -21,10 +23,10 @@ export interface SlotUploadMeta {
 }
 
 /**
- * 7-slot ordered SOP Bukti Foto Fisik:
- * 1. Foto Lokasi Rumah (customer_house)
- * 2. Foto Lokasi FAT (fat_pole)
- * 3. Foto Redaman FAT (fat_attenuation)
+ * 7-slot ordered SOP Bukti Foto Fisik (Minimal 3 foto bukti fisik wajib untuk Check-out):
+ * 1. Foto Lokasi Rumah (customer_house) — Bukti Foto Fisik No. 1 (Wajib)
+ * 2. Foto Lokasi FAT (fat_pole) — Bukti Foto Fisik No. 2 (Wajib)
+ * 3. Foto Redaman FAT (fat_attenuation) — Bukti Foto Fisik No. 3 (Wajib)
  * 4. Foto Port FAT (fat_port)
  * 5. Foto Instalasi Pelanggan (customer_install)
  * 6. Foto SN & MAC ONT (barcode_sn)
@@ -38,8 +40,10 @@ export const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
     title: 'Foto Lokasi Rumah',
     defaultTag: 'Lokasi Rumah',
     verifiedTag: 'LOKASI RUMAH',
-    validLabel: 'SOP Valid',
-    emptyHint: 'Ambil foto tampak depan rumah pelanggan (GPS Check-In)'
+    validLabel: 'Berhasil Diunggah',
+    emptyHint: 'Ambil foto tampak depan rumah pelanggan (GPS Check-In)',
+    mandatoryOrder: 1,
+    mandatoryLabel: 'Bukti Foto Fisik No. 1'
   },
   {
     slotNumber: '02',
@@ -48,8 +52,10 @@ export const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
     title: 'Foto Lokasi FAT',
     defaultTag: 'Tiang FAT',
     verifiedTag: 'GPS OK',
-    validLabel: 'Tagged',
-    emptyHint: 'Foto tiang & kotak label FAT yang digunakan'
+    validLabel: 'Berhasil Diunggah',
+    emptyHint: 'Foto tiang & kotak label FAT yang digunakan',
+    mandatoryOrder: 2,
+    mandatoryLabel: 'Bukti Foto Fisik No. 2'
   },
   {
     slotNumber: '03',
@@ -58,8 +64,10 @@ export const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
     title: 'Foto Redaman FAT',
     defaultTag: 'Redaman FAT',
     verifiedTag: 'LOKASI FAT',
-    validLabel: 'SOP Passed',
-    emptyHint: 'Foto hasil ukur OPM di titik FAT (Set Lokasi FAT)'
+    validLabel: 'Berhasil Diunggah',
+    emptyHint: 'Foto hasil ukur OPM di titik FAT (Set Lokasi FAT)',
+    mandatoryOrder: 3,
+    mandatoryLabel: 'Bukti Foto Fisik No. 3'
   },
   {
     slotNumber: '04',

@@ -52,11 +52,11 @@ export interface QueuedGpsPoint {
 export const DEFAULT_FRONTEND_GPS_CONFIG: GpsTrackingConfig = {
   enabled: true,
   autoStartOnLogin: true,
-  syncIntervalSeconds: 20,
+  syncIntervalSeconds: 60,
   minDistanceMeters: 15,
-  heartbeatIntervalSeconds: 20,
-  heartbeatTimeoutSeconds: 60,
-  locationStaleThresholdSeconds: 90,
+  heartbeatIntervalSeconds: 60,
+  heartbeatTimeoutSeconds: 150,
+  locationStaleThresholdSeconds: 180,
   historyRetentionDays: 30,
   offlineQueueMaxEntries: 100,
   maxAcceptableAccuracyMeters: 500
@@ -74,6 +74,7 @@ type ToastEventListener = (event: {
 class InstallerGpsTrackingController {
   private watchId: number | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private periodicSyncTimer: ReturnType<typeof setInterval> | null = null;
   private permissionStatusObj: PermissionStatus | null = null;
   private unsubConfigUpdate: (() => void) | null = null;
   private activeUserId: string | null = null;
@@ -354,6 +355,7 @@ class InstallerGpsTrackingController {
     }
 
     this.startHeartbeatLoop();
+    this.startPeriodicAutoSyncLoop();
     await this.beginPermissionAndWatch();
   }
 
@@ -378,14 +380,19 @@ class InstallerGpsTrackingController {
     }
     this.unsubConfigUpdate = subscribeToGlobalConfigUpdates(evt => {
       if (evt?.key === 'gps_tracking_config' && evt.value && typeof evt.value === 'object') {
-        const prevInterval = this.config.heartbeatIntervalSeconds;
+        const prevHeartbeat = this.config.heartbeatIntervalSeconds;
+        const prevSyncInterval = this.config.syncIntervalSeconds;
         this.config = { ...DEFAULT_FRONTEND_GPS_CONFIG, ...evt.value };
         this.emitState({ config: { ...this.config } });
-        if (prevInterval !== this.config.heartbeatIntervalSeconds) {
+        if (prevHeartbeat !== this.config.heartbeatIntervalSeconds) {
           this.startHeartbeatLoop();
+        }
+        if (prevSyncInterval !== this.config.syncIntervalSeconds) {
+          this.startPeriodicAutoSyncLoop();
         }
         if (!this.config.enabled) {
           this.stopGeolocationWatch();
+          this.stopPeriodicAutoSyncLoop();
           this.emitState({
             stage: 'IDLE',
             stageBadge: 'DISABLED BY ADMIN',
@@ -394,6 +401,7 @@ class InstallerGpsTrackingController {
             locationStatus: 'GPS Disabled'
           });
         } else if (this.snapshot.active && this.watchId === null) {
+          this.startPeriodicAutoSyncLoop();
           this.beginPermissionAndWatch().catch(() => {});
         }
       }
@@ -918,9 +926,38 @@ class InstallerGpsTrackingController {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
-    const intervalMs = Math.max(5000, (this.config.heartbeatIntervalSeconds || 20) * 1000);
+    const intervalMs = Math.max(15000, (this.config.heartbeatIntervalSeconds || 60) * 1000);
     this.heartbeatTimer = setInterval(() => {
       this.sendHeartbeat().catch(() => {});
+    }, intervalMs);
+  }
+
+  private stopPeriodicAutoSyncLoop() {
+    if (this.periodicSyncTimer) {
+      clearInterval(this.periodicSyncTimer);
+      this.periodicSyncTimer = null;
+    }
+  }
+
+  private startPeriodicAutoSyncLoop() {
+    this.stopPeriodicAutoSyncLoop();
+    const intervalMs = Math.max(15000, (this.config.syncIntervalSeconds || 60) * 1000);
+    this.periodicSyncTimer = setInterval(() => {
+      if (!this.snapshot.active || !this.activeSessionId || !this.config.enabled) return;
+      if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
+      if (this.snapshot.permissionState === 'denied') return;
+
+      this.getCurrentPositionAsync({
+        enableHighAccuracy: !this.watchFallbackLowAccuracy,
+        maximumAge: Math.min(30000, intervalMs),
+        timeout: 12000
+      })
+        .then(pos => this.handlePositionUpdate(pos))
+        .catch(err => {
+          if (err && typeof err.code === 'number') {
+            this.handlePositionError(err as GeolocationPositionError).catch(() => {});
+          }
+        });
     }, intervalMs);
   }
 
@@ -957,6 +994,7 @@ class InstallerGpsTrackingController {
 
   public stopTracking(options?: { silent?: boolean }) {
     this.stopGeolocationWatch();
+    this.stopPeriodicAutoSyncLoop();
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;

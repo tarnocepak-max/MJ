@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 export interface ResponsiveModalProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
   variant = 'default'
 }) => {
   const { isCompactUI } = useResponsiveViewport();
+  const vvMetrics = useVisualViewportModal(isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,8 +62,15 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
   const isFullscreenMobile = isCompactUI && mobileVariant === 'fullscreen';
   const isDarkTech = variant === 'dark_purple';
 
+  const modalHeightStyle: React.CSSProperties | undefined = vvMetrics.isKeyboardOpen
+    ? {
+        maxHeight: `${Math.max(280, vvMetrics.viewportHeight - (isFullscreenMobile ? 0 : 12))}px`
+      }
+    : undefined;
+
   return (
     <div
+      style={vvMetrics.keyboardInset > 0 ? { paddingBottom: `${vvMetrics.keyboardInset}px` } : undefined}
       className={`fixed inset-0 ${zIndexClass} flex ${
         isSheetMobile
           ? 'items-end justify-center p-0'
@@ -76,6 +85,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
       <div
         role="dialog"
         aria-modal="true"
+        style={modalHeightStyle}
         onClick={e => e.stopPropagation()}
         className={`relative w-full border shadow-2xl flex flex-col overflow-hidden ${
           isDarkTech

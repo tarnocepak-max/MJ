@@ -15,6 +15,7 @@ import type { User } from '../../types/index.ts';
 import { MAX_PASSWORD_LENGTH, validateStrongPasswordClient } from '../../utils/passwordPolicy';
 import { changePasswordWithRotation } from '../../services/authService';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface ForcePasswordChangeModalProps {
   user: User;
@@ -42,6 +43,7 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const vv = useVisualViewportModal(true);
 
   const policy = useMemo(
     () =>
@@ -120,14 +122,21 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
 
   return (
     <div
-      className="fixed inset-0 z-[120] bg-slate-900/50 dark:bg-[#160D29]/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-[120] bg-slate-900/50 dark:bg-[#160D29]/90 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="force-password-change-title"
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#1E1338] border border-[#DDE6F0] dark:border-[#49258C] shadow-[0_24px_60px_rgba(38,54,74,0.22)] dark:shadow-[0_24px_60px_rgba(18,8,38,0.65)] overflow-hidden">
+      <div
+        style={
+          vv.viewportHeight
+            ? { maxHeight: `${Math.max(320, vv.viewportHeight - (vv.isKeyboardOpen ? 8 : 20))}px` }
+            : undefined
+        }
+        className="w-full max-w-lg max-h-[92dvh] flex flex-col rounded-t-[24px] sm:rounded-2xl bg-white dark:bg-[#1E1338] border border-[#DDE6F0] dark:border-[#49258C] shadow-[0_24px_60px_rgba(38,54,74,0.22)] dark:shadow-[0_24px_60px_rgba(18,8,38,0.65)] overflow-hidden"
+      >
         {/* Top Accent Header */}
-        <div className="px-6 py-5 bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#58149C] dark:via-[#7135B5] dark:to-[#4A1285] text-[#26364A] dark:text-white border-b border-[#DDE6F0] dark:border-transparent flex items-center justify-between gap-4">
+        <div className="px-5 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#58149C] dark:via-[#7135B5] dark:to-[#4A1285] text-[#26364A] dark:text-white border-b border-[#DDE6F0] dark:border-transparent flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-white/85 dark:bg-white/15 border border-[#C5BEEF] dark:border-white/25 flex items-center justify-center shrink-0">
               <ShieldAlert className="w-5 h-5 text-[#5145A6] dark:text-[#F4EAFF]" />
@@ -146,7 +155,8 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 flex flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4">
           <div className="p-3.5 rounded-xl bg-[#EAE8FF] dark:bg-[#2A194F] border border-[#C5BEEF] dark:border-[#532B9E] text-xs text-[#26364A] dark:text-[#E9D5FF] leading-relaxed flex items-start gap-2.5">
             <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
             <div>
@@ -305,13 +315,15 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-[#DDE6F0] dark:border-[#3B1D78]">
+          </div>
+
+          {/* Sticky Footer Actions */}
+          <div className="px-5 sm:px-6 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-[#DDE6F0] dark:border-[#3B1D78] shrink-0">
             <button
               type="button"
               disabled={submitting}
               onClick={() => void onLogout()}
-              className="btn-3d-lilac min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="btn-3d-lilac min-h-[44px] sm:min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Keluar (Logout)</span>
@@ -320,7 +332,7 @@ export const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> =
             <button
               type="submit"
               disabled={submitting || !policy.valid || !passwordsMatch || !currentPassword}
-              className="btn-3d-primary min-h-[42px] px-5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-3d-primary min-h-[44px] sm:min-h-[42px] px-5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{submitting ? 'Memperbarui Kredensial...' : 'Simpan Sandi Baru & Lanjutkan'}</span>

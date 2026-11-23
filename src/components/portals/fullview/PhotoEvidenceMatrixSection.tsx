@@ -15,6 +15,7 @@ import {
   RefreshCw,
   RotateCcw,
   Router,
+  Trash2,
   AlertTriangle
 } from 'lucide-react';
 import { TechnicalPhotoSlot, Ticket } from '../../../types/index.ts';
@@ -48,6 +49,9 @@ interface PhotoEvidenceMatrixSectionProps {
   onOpenCamera: (slotDef: PhotoSlotDefinition) => void;
   onRetryUpload: (slotDef: PhotoSlotDefinition) => void;
   onViewPhoto: (url: string, slotDef: PhotoSlotDefinition) => void;
+  onDeletePhoto?: (slotDef: PhotoSlotDefinition) => void;
+  deletingSlotKey?: PhotoSlotKey | null;
+  verifiedUploadedCount?: number;
 }
 
 function getEmptySlotIcon(slotKey: PhotoSlotKey) {
@@ -84,12 +88,16 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
   ontSerialNumber,
   onOpenCamera,
   onRetryUpload,
-  onViewPhoto
+  onViewPhoto,
+  onDeletePhoto,
+  deletingSlotKey = null,
+  verifiedUploadedCount
 }) => {
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   const totalSlots = PHOTO_SLOT_DEFINITIONS.length;
-  const remaining = Math.max(0, totalSlots - uploadedCount);
+  const verifiedCount = typeof verifiedUploadedCount === 'number' ? verifiedUploadedCount : uploadedCount;
+  const mandatoryReady = verifiedCount >= 3;
   const progressPct = Math.round((uploadedCount / totalSlots) * 1000) / 10;
 
   const resolveOverlayBadge = (slotDef: PhotoSlotDefinition, slotData: TechnicalPhotoSlot) => {
@@ -134,17 +142,22 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
       <div className="bg-[#F8FAFD] dark:bg-[#f8f1ff] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#e8ddff] space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-xs font-bold text-[#26364A] dark:text-[#1f1638]">
-            Kelengkapan Berkas Foto SOP
+            Bukti Foto Fisik Pekerjaan (Minimal 3 Foto Wajib Check-Out)
           </span>
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tabular-nums border ${
-              remaining === 0
-                ? 'bg-[#E4F5EC] dark:bg-emerald-50 text-[#218A63] dark:text-emerald-700 border-[#B7E4CC] dark:border-emerald-200'
-                : 'bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] border-[#DCE3F2] dark:border-[#d8ccf3]'
-            }`}
-          >
-            {uploadedCount} / {totalSlots} Foto ({progressPct.toFixed(0)}%)
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tabular-nums border ${
+                mandatoryReady
+                  ? 'bg-[#E4F5EC] dark:bg-emerald-50 text-[#218A63] dark:text-emerald-700 border-[#B7E4CC] dark:border-emerald-200'
+                  : 'bg-[#FCE9EB] dark:bg-rose-50 text-[#9B2C37] dark:text-[#ba1a1a] border-[#F3C5CA] dark:border-rose-200'
+              }`}
+            >
+              Wajib: {Math.min(3, verifiedCount)} / 3
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tabular-nums border bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] border-[#DCE3F2] dark:border-[#d8ccf3]">
+              Total: {uploadedCount} / {totalSlots} ({progressPct.toFixed(0)}%)
+            </span>
+          </div>
         </div>
 
         <div className="w-full h-2 rounded-full bg-[#EDF3F8] dark:bg-[#e8ddff] overflow-hidden">
@@ -155,7 +168,15 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
         </div>
 
         <p className="text-[11px] text-[#52647A] dark:text-[#4b4452] leading-snug">
-          Foto diambil langsung via kamera GPS terenkripsi.{' '}
+          {mandatoryReady ? (
+            <span className="font-semibold text-[#218A63] dark:text-emerald-700">
+              Syarat minimal 3 foto bukti fisik terpenuhi ({verifiedCount} terunggah ke server).
+            </span>
+          ) : (
+            <span className="font-semibold text-[#9B2C37] dark:text-[#ba1a1a]">
+              Unggah minimal {3 - Math.min(3, verifiedCount)} foto bukti fisik lagi sebelum Check-Out.
+            </span>
+          )}{' '}
           <span className="font-semibold text-[#5145A6] dark:text-[#58149c]">
             Foto #01 mengisi Lokasi Rumah &amp; Foto #03 mengisi Lokasi FAT.
           </span>
@@ -167,7 +188,8 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
         {PHOTO_SLOT_DEFINITIONS.map(slotDef => {
           const slotData = photoSlots[slotDef.slotKey];
           const uploadMeta = slotUploadState[slotDef.slotKey];
-          const isBusy = uploadMeta?.status === 'uploading';
+          const isDeleting = deletingSlotKey === slotDef.slotKey;
+          const isBusy = uploadMeta?.status === 'uploading' || isDeleting;
           const isFailed = uploadMeta?.status === 'failed' || slotData?.uploadStatus === 'failed';
           const hasValidCoords = Boolean(
             slotData && isValidCoordinatePair(slotData.latitude, slotData.longitude)
@@ -178,13 +200,15 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
 
           if (slotData?.url) {
             const overlayBadgeText = resolveOverlayBadge(slotDef, slotData);
-            const statusSummary = isBusy
+            const statusSummary = isDeleting
+              ? { cls: 'text-[#9B2C37] dark:text-[#ba1a1a]', text: 'Menghapus...', icon: 'busy' as const }
+              : uploadMeta?.status === 'uploading'
               ? { cls: 'text-[#5145A6] dark:text-[#58149c]', text: 'Mengunggah...', icon: 'busy' as const }
               : isFailed
-              ? { cls: 'text-[#9B2C37] dark:text-[#ba1a1a]', text: 'Upload Tertunda', icon: 'error' as const }
+              ? { cls: 'text-[#9B2C37] dark:text-[#ba1a1a]', text: 'Upload Gagal', icon: 'error' as const }
               : hasValidCoords && slotData.geotagStatus === 'weak'
-              ? { cls: 'text-[#9D661F] dark:text-amber-700', text: 'Weak GPS', icon: 'warn' as const }
-              : { cls: 'text-[#218A63] dark:text-emerald-700', text: slotDef.validLabel, icon: 'ok' as const };
+              ? { cls: 'text-[#9D661F] dark:text-amber-700', text: 'Berhasil Diunggah (Weak GPS)', icon: 'warn' as const }
+              : { cls: 'text-[#218A63] dark:text-emerald-700', text: 'Berhasil Diunggah', icon: 'ok' as const };
 
             return (
               <div
@@ -227,7 +251,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
 
                   {/* Slot Order Tag Top Left */}
                   <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-white/95 text-[#5145A6] dark:text-[#58149c] font-mono text-[9.5px] font-bold tracking-wide border border-[#DDE6F0] dark:border-[#e8ddff] shadow-2xs">
-                    {slotDef.slotNumber}. {slotDef.codeLabel}
+                    {slotDef.mandatoryLabel ? `Wajib #${slotDef.mandatoryOrder}` : `${slotDef.slotNumber}. ${slotDef.codeLabel}`}
                   </span>
 
                   {/* Telemetry Tag Bottom Left */}
@@ -245,7 +269,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                 <div className="p-2.5 flex flex-col justify-between flex-1 gap-2">
                   <div className="min-w-0 space-y-0.5">
                     <h4 className="text-[11.5px] text-[#26364A] dark:text-[#1f1638] font-bold truncate">
-                      {slotDef.title}
+                      {slotDef.mandatoryLabel ? `${slotDef.mandatoryLabel} · ${slotDef.title}` : slotDef.title}
                     </h4>
                     <div className="flex items-center justify-between gap-1">
                       <span
@@ -339,30 +363,44 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                     )}
 
                     {!ticketClosed && (
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => onOpenCamera(slotDef)}
-                        aria-label={
-                          slotDef.slotKey === 'barcode_sn'
-                            ? `Scan Ulang Barcode ${slotDef.title}`
-                            : `Foto Ulang ${slotDef.title}`
-                        }
-                        title={
-                          slotDef.slotKey === 'barcode_sn'
-                            ? `Scan Ulang Barcode ${slotDef.title}`
-                            : `Foto Ulang ${slotDef.title}`
-                        }
-                        className={`mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0 ${
-                          isBusy ? 'mj-btn-loading' : ''
-                        }`}
-                      >
-                        {slotDef.slotKey === 'barcode_sn' ? (
-                          <QrCode className={`w-3.5 h-3.5 ${isBusy ? 'animate-pulse' : ''}`} />
-                        ) : (
-                          <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                      <>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => onOpenCamera(slotDef)}
+                          aria-label={
+                            slotDef.slotKey === 'barcode_sn'
+                              ? `Scan Ulang Barcode ${slotDef.title}`
+                              : `Foto Ulang ${slotDef.title}`
+                          }
+                          title={
+                            slotDef.slotKey === 'barcode_sn'
+                              ? `Scan Ulang Barcode ${slotDef.title}`
+                              : `Foto Ulang / Ganti ${slotDef.title}`
+                          }
+                          className={`mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0 ${
+                            isBusy ? 'mj-btn-loading' : ''
+                          }`}
+                        >
+                          {slotDef.slotKey === 'barcode_sn' ? (
+                            <QrCode className={`w-3.5 h-3.5 ${isBusy ? 'animate-pulse' : ''}`} />
+                          ) : (
+                            <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                          )}
+                        </button>
+                        {onDeletePhoto && (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => onDeletePhoto(slotDef)}
+                            aria-label={`Hapus ${slotDef.title}`}
+                            title={`Hapus Foto ${slotDef.title}`}
+                            className="w-9 h-9 rounded-lg border border-[#F3C5CA] dark:border-rose-300 bg-[#FCE9EB] dark:bg-rose-50 text-[#9B2C37] dark:text-[#ba1a1a] hover:bg-rose-100 flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
-                      </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -378,10 +416,10 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
             >
               <div className="flex items-center justify-between gap-1">
                 <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] font-mono text-[9.5px] font-bold tracking-wide truncate">
-                  {slotDef.slotNumber}. {slotDef.codeLabel}
+                  {slotDef.mandatoryLabel ? `Wajib #${slotDef.mandatoryOrder}` : `${slotDef.slotNumber}. ${slotDef.codeLabel}`}
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-[#FCE9EB] dark:bg-rose-50 text-[#9B2C37] dark:text-[#ba1a1a] border border-[#F3C5CA] dark:border-rose-200 font-mono text-[9.5px] font-bold shrink-0">
-                  Belum Ada
+                  Belum Diunggah
                 </span>
               </div>
 
@@ -389,8 +427,8 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                 <div className="w-9 h-9 rounded-full bg-[#DDF4F4] dark:bg-[#eedbff] text-[#2E7D8B] dark:text-[#58149c] flex items-center justify-center mb-1.5">
                   {getEmptySlotIcon(slotDef.slotKey)}
                 </div>
-                <div className="text-[11px] font-bold text-[#26364A] dark:text-[#1f1638] leading-tight mb-0.5 line-clamp-1">
-                  {slotDef.title}
+                <div className="text-[11px] font-bold text-[#26364A] dark:text-[#1f1638] leading-tight mb-0.5 line-clamp-2">
+                  {slotDef.mandatoryLabel ? `${slotDef.mandatoryLabel} · ${slotDef.title}` : slotDef.title}
                 </div>
                 <p className="text-[10px] text-[#52647A] dark:text-[#4b4452] leading-tight line-clamp-2">
                   {isBusy ? 'Mengunggah foto...' : slotDef.emptyHint}

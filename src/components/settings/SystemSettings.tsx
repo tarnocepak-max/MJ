@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { RootCauseCategory, Contractor, CoverageArea, GpsTrackingConfig } from '../../types/index.ts';
+import { Contractor, CoverageArea, GpsTrackingConfig } from '../../types/index.ts';
 import {
   Settings,
   Plus,
@@ -9,7 +9,6 @@ import {
   Save,
   Building2,
   MapPin,
-  Wrench,
   FileSpreadsheet,
   Trash2,
   AlertCircle,
@@ -36,7 +35,7 @@ import { SoundSettingsView } from './SoundSettingsView';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 
 interface SystemSettingsProps {
-  defaultTab?: 'core_config' | 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
+  defaultTab?: 'core_config' | 'contractors' | 'coverage' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
   embeddedInSetupHub?: boolean;
 }
 
@@ -60,8 +59,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
     addContractor,
     coverageAreas,
     addCoverageArea,
-    rootCauseCategories,
-    updateRootCauseCategories,
     currentUser,
     operationalDate,
     setOperationalDate,
@@ -81,7 +78,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       : defaultTab;
 
   const [activeTab, setActiveTab] = useState<
-    'core_config' | 'contractors' | 'coverage' | 'root_causes' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings'
+    'core_config' | 'contractors' | 'coverage' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings'
   >(initialTab);
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [operationalDateInput, setOperationalDateInput] = useState(operationalDate);
@@ -128,10 +125,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   const [showAddArea, setShowAddArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [newAreaClusters, setNewAreaClusters] = useState('');
-
-  // Root Cause State
-  const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
-  const [newRootCauseItem, setNewRootCauseItem] = useState('');
 
   // Header Mapping Edit
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -275,69 +268,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
     }
   };
 
-  const handleAddRootCause = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isSuperAdmin) {
-      triggerError('Akses ditolak: hanya Super Admin yang dapat mengubah taksonomi root cause.');
-      return;
-    }
-    if (!newRootCauseItem.trim()) return;
-
-    const currentCat = rootCauseCategories[selectedCategoryIndex];
-    if (!currentCat) return;
-
-    if (currentCat.items.includes(newRootCauseItem.trim())) {
-      triggerError(`Item "${newRootCauseItem}" sudah ada dalam kategori.`);
-      return;
-    }
-
-    const updatedCategories = rootCauseCategories.map((cat, idx) => {
-      if (idx !== selectedCategoryIndex) return cat;
-      return {
-        ...cat,
-        items: [...cat.items, newRootCauseItem.trim()]
-      };
-    });
-
-    setIsSaving(true);
-    try {
-      const res = await updateRootCauseCategories(updatedCategories);
-      if (!res.success) {
-        triggerError(res.error || 'Gagal menyimpan root cause ke database.');
-        return;
-      }
-      setNewRootCauseItem('');
-      triggerNotice(`Root cause baru berhasil disimpan ke "${currentCat.name}".`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleRemoveRootCause = async (categoryIdx: number, itemToRemove: string) => {
-    if (!isSuperAdmin) {
-      triggerError('Akses ditolak: hanya Super Admin yang dapat menghapus root cause.');
-      return;
-    }
-    const updatedCategories = rootCauseCategories.map((cat, idx) => {
-      if (idx !== categoryIdx) return cat;
-      return {
-        ...cat,
-        items: cat.items.filter(it => it !== itemToRemove)
-      };
-    });
-    setIsSaving(true);
-    try {
-      const res = await updateRootCauseCategories(updatedCategories);
-      if (!res.success) {
-        triggerError(res.error || 'Gagal menghapus root cause di database.');
-        return;
-      }
-      triggerNotice(`Item "${itemToRemove}" berhasil dihapus dari database.`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleSaveAliases = async (field: string) => {
     if (!isSuperAdmin) {
       triggerError('Akses ditolak: hanya Super Admin yang dapat mengubah kamus alias header.');
@@ -406,7 +336,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 Parameter Sistem &amp; Master Data Operasional
               </h3>
               <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
-                Kelola master vendor kontraktor, cakupan coverage area, taksonomi kendala &amp; root cause Wi-Fi teknisi, kamus alias header impor, dan identitas operasional.
+                Kelola master vendor kontraktor, cakupan coverage area, kamus alias header impor, dan identitas operasional.
               </p>
             </div>
           </div>
@@ -503,19 +433,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         >
           <MapPin className="w-4 h-4" />
           <span>Coverage Area &amp; Cluster ({coverageAreas.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('root_causes')}
-          className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'root_causes'
-              ? 'btn-3d-primary text-white font-bold'
-              : 'text-[#52647A] hover:text-[#26364A] hover:bg-white/80 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-[#35105E]/50'
-          }`}
-        >
-          <Wrench className="w-4 h-4" />
-          <span>Root Cause Wi-Fi ({rootCauseCategories.length})</span>
         </button>
 
         <button
@@ -1284,100 +1201,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'root_causes' && (
-        <div className="card-3d-lavender rounded-2xl p-5 space-y-4 text-xs">
-          <div>
-            <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm">
-              Kamus Taksonomi Root Cause &amp; Kendala Teknisi Wi-Fi
-            </h4>
-            <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
-              Kategori ini menjadi pilihan standar teknisi saat mengisi laporan penutupan tiket atau eskalasi gangguan.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <span className="font-semibold text-[#52647A] dark:text-[#CEC0E8] block mb-1">Pilih Kategori Utama:</span>
-              {rootCauseCategories.map((cat, idx) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategoryIndex(idx)}
-                  className={`w-full text-left p-3 rounded-xl transition-all cursor-pointer ${
-                    selectedCategoryIndex === idx
-                      ? 'btn-3d-primary text-white font-bold'
-                      : 'bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] hover:bg-white dark:hover:bg-[#261942] text-[#26364A] dark:text-[#CEC0E8]'
-                  }`}
-                >
-                  <div className="text-xs">{cat.name}</div>
-                  <div className={`text-[10px] font-normal mt-0.5 ${selectedCategoryIndex === idx ? 'text-white/90 dark:text-[#EEDBFF]' : 'text-[#8492A5]'}`}>
-                    {cat.items.length} Penyebab Masalah
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="lg:col-span-2 space-y-4">
-              <div className="p-4 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] space-y-3">
-                <div className="flex items-center justify-between">
-                  <h5 className="font-display font-bold text-[#26364A] dark:text-white text-xs">
-                    Daftar Root Cause: {rootCauseCategories[selectedCategoryIndex]?.name}
-                  </h5>
-                  <span className="text-[11px] font-mono text-[#5145A6] dark:text-[#CEC0E8] tabular-nums font-bold">
-                    {rootCauseCategories[selectedCategoryIndex]?.items.length} item aktif
-                  </span>
-                </div>
-
-                {rootCauseCategories[selectedCategoryIndex]?.description && (
-                  <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] italic">
-                    {rootCauseCategories[selectedCategoryIndex].description}
-                  </p>
-                )}
-
-                <form onSubmit={handleAddRootCause} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    disabled={!isSuperAdmin || isSaving}
-                    placeholder="Tambah penyebab masalah baru..."
-                    value={newRootCauseItem}
-                    onChange={e => setNewRootCauseItem(e.target.value)}
-                    className="flex-1 px-3 py-2 tactile-debossed-input rounded-xl bg-white dark:bg-[#1E1238] text-xs disabled:opacity-60 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!isSuperAdmin || isSaving}
-                    className="mj-btn-superadmin-primary px-3.5 py-2 rounded-xl font-bold gap-1 shrink-0 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{isSaving ? 'Menyimpan...' : 'Tambah'}</span>
-                  </button>
-                </form>
-
-                <div className="space-y-1.5 pt-2">
-                  {rootCauseCategories[selectedCategoryIndex]?.items.map(item => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E]"
-                    >
-                      <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">{item}</span>
-                      <button
-                        type="button"
-                        disabled={!isSuperAdmin || isSaving}
-                        onClick={() => handleRemoveRootCause(selectedCategoryIndex, item)}
-                        className="text-[#8492A5] hover:text-[#DC4C5A] disabled:opacity-40 disabled:cursor-not-allowed p-1 cursor-pointer"
-                        title="Hapus root cause"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}

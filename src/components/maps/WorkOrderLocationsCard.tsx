@@ -199,23 +199,24 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
 
       {previewPhoto && (
         <div
-          className="fixed inset-0 z-[120] bg-slate-950/75 dark:bg-[#160D29]/90 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[120] bg-slate-950/75 dark:bg-[#160D29]/90 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
           onClick={() => setPreviewPhoto(null)}
         >
-          <div className="relative max-w-3xl max-h-[88vh]" onClick={e => e.stopPropagation()}>
+          <div className="relative max-w-3xl max-h-[92dvh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setPreviewPhoto(null)}
-              className="absolute -top-3 -right-3 p-2 rounded-full bg-white text-[#26364A] border border-[#DDE6F0] dark:bg-[#27104A] dark:text-white dark:border-[#D8B4FE]/35 hover:bg-rose-600 hover:text-white cursor-pointer"
+              aria-label="Tutup Pratinjau Foto"
+              className="absolute top-2 right-2 z-10 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white text-[#26364A] border border-[#DDE6F0] dark:bg-[#27104A] dark:text-white dark:border-[#D8B4FE]/35 hover:bg-rose-600 hover:text-white shadow-lg cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
             <img
               src={previewPhoto.url}
               alt={previewPhoto.title}
-              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 shadow-2xl"
+              className="max-w-full max-h-[75dvh] object-contain rounded-xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 shadow-2xl"
             />
-            <div className="mt-2 text-center text-xs font-bold text-white">{previewPhoto.title}</div>
+            <div className="mt-2 text-center text-xs font-bold text-white px-2">{previewPhoto.title}</div>
           </div>
         </div>
       )}

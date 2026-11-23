@@ -451,6 +451,7 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     assignedTo: ticket.assignedTo || null,
     assignedToUid: ticket.assignedToUid || null,
     progressReports: Array.isArray(ticket.progressReports) ? ticket.progressReports : [],
+    kendalaReports: Array.isArray(ticket.kendalaReports) ? ticket.kendalaReports : [],
     reportStatusId: ticket.reportStatusId || null,
     reportStatusLabel: ticket.reportStatusLabel || null,
     reasonReportId: ticket.reasonReportId || null,
@@ -736,6 +737,11 @@ export function postgresRowToTicket(row: any): any {
     assignedTo: payload.assignedTo || row.assigned_to || row.installer_name || undefined,
     assignedToUid: payload.assignedToUid || row.assigned_to_uid || undefined,
     progressReports: Array.isArray(payload.progressReports) ? payload.progressReports : [],
+    kendalaReports: Array.isArray(payload.kendalaReports)
+      ? payload.kendalaReports
+      : Array.isArray(row.kendala_reports)
+      ? row.kendala_reports
+      : [],
     reportStatusId: payload.reportStatusId || undefined,
     reportStatusLabel: payload.reportStatusLabel || undefined,
     reasonReportId: payload.reasonReportId || undefined,
@@ -2043,6 +2049,7 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
     const mergedPayload = { ...prevPayload };
 
     if (updates.progressReports !== undefined) mergedPayload.progressReports = updates.progressReports;
+    if (updates.kendalaReports !== undefined) mergedPayload.kendalaReports = updates.kendalaReports;
     if (updates.reportStatusId !== undefined) mergedPayload.reportStatusId = updates.reportStatusId;
     if (updates.reportStatusLabel !== undefined) mergedPayload.reportStatusLabel = updates.reportStatusLabel;
     if (updates.reasonReportId !== undefined) mergedPayload.reasonReportId = updates.reasonReportId;
@@ -2184,6 +2191,104 @@ export async function appendProgressReportHistoryToSupabase(entry: {
     return { persisted: true };
   } catch {
     return { persisted: false };
+  }
+}
+
+export async function insertKendalaReportToSupabase(entry: {
+  id: string;
+  ticketId: string;
+  woNumber: string;
+  installerId: string;
+  installerName: string;
+  reasonId?: string;
+  reasonLabel?: string;
+  description: string;
+  photoUrl: string;
+  storagePath?: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSizeBytes?: number;
+  status?: string;
+  createdAt: string;
+  payload?: Record<string, any>;
+}): Promise<{ persisted: boolean; skippedSchemaPending?: boolean }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false };
+  try {
+    const { error } = await client.from('wo_kendala_reports').insert([
+      {
+        id: entry.id,
+        ticket_id: entry.ticketId,
+        wo_number: entry.woNumber,
+        installer_id: entry.installerId,
+        installer_name: entry.installerName,
+        reason_id: entry.reasonId || null,
+        reason_label: entry.reasonLabel || null,
+        description: entry.description,
+        photo_url: entry.photoUrl,
+        storage_path: entry.storagePath || null,
+        file_name: entry.fileName || null,
+        mime_type: entry.mimeType || null,
+        file_size_bytes: typeof entry.fileSizeBytes === 'number' ? entry.fileSizeBytes : null,
+        status: entry.status || 'Pending Technical',
+        payload: entry.payload || {},
+        created_at: entry.createdAt
+      }
+    ]);
+    if (error) {
+      const code = String(error.code || '');
+      if (code === '42P01' || code === 'PGRST205' || String(error.message || '').includes('does not exist')) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      console.warn('[Supabase DAL] insertKendalaReport warning:', error.message);
+      return { persisted: false };
+    }
+    return { persisted: true };
+  } catch {
+    return { persisted: false };
+  }
+}
+
+export async function getKendalaReportsByTicketFromSupabase(ticketId: string): Promise<{
+  success: boolean;
+  data: any[];
+  skippedSchemaPending?: boolean;
+}> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { success: false, data: [] };
+  try {
+    const { data, error } = await client
+      .from('wo_kendala_reports')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      const code = String(error.code || '');
+      if (code === '42P01' || code === 'PGRST205' || String(error.message || '').includes('does not exist')) {
+        return { success: false, data: [], skippedSchemaPending: true };
+      }
+      return { success: false, data: [] };
+    }
+    const mapped = (data || []).map((row: any) => ({
+      id: row.id,
+      ticketId: row.ticket_id,
+      woNumber: row.wo_number,
+      installerId: row.installer_id,
+      installerName: row.installer_name,
+      reasonId: row.reason_id || undefined,
+      reasonLabel: row.reason_label || undefined,
+      description: row.description,
+      photoUrl: row.photo_url,
+      storagePath: row.storage_path || undefined,
+      fileName: row.file_name || undefined,
+      mimeType: row.mime_type || undefined,
+      fileSizeBytes: row.file_size_bytes ?? undefined,
+      status: row.status || 'Pending Technical',
+      createdAt: row.created_at
+    }));
+    return { success: true, data: mapped };
+  } catch {
+    return { success: false, data: [] };
   }
 }
 

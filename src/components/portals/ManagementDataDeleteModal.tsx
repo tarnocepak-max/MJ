@@ -14,6 +14,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface ManagementDataDeleteModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
   const [confirmPhrase, setConfirmPhrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const vv = useVisualViewportModal(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -104,16 +106,22 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/75 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-y-auto">
+    <div
+      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
+      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-slate-950/75 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in"
+    >
+      <div
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="bg-white dark:bg-slate-900 rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden"
+      >
         {/* Header with Security Badge */}
-        <div className="px-5 py-4 bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-900/60 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="px-4 sm:px-5 py-4 bg-rose-50 dark:bg-rose-950/60 border-b border-rose-200 dark:border-rose-900/60 flex items-start justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
               <Trash2 className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200">
                   Otoritas Khusus Superadmin
                 </span>
@@ -121,7 +129,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
                   Konfirmasi Penghapusan
                 </span>
               </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base mt-0.5">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base mt-0.5 truncate">
                 {isBulk
                   ? `Hapus ${targetCount} ${contextLabel} Terpilih`
                   : `Hapus ${contextLabel} ${ticket?.woNumber || ''}`}
@@ -130,15 +138,17 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Tutup"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body Content */}
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-4 sm:p-5 space-y-4 text-xs flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {!canDeleteWo ? (
             <div className="p-4 rounded-xl bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 space-y-2">
               <div className="font-bold flex items-center gap-1.5">
@@ -257,12 +267,12 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
         </div>
 
         {/* Modal Actions */}
-        <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2.5">
+        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 rounded-xl font-semibold text-xs text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            className="px-4 py-2 min-h-[44px] sm:min-h-0 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 rounded-xl font-semibold text-xs text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
             Batal
           </button>
@@ -271,7 +281,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
               type="button"
               onClick={handleExecuteDelete}
               disabled={isSubmitting || !reason.trim() || confirmPhrase.trim().toUpperCase() !== 'HAPUS'}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              className="px-4 py-2 min-h-[44px] sm:min-h-0 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Memproses...' : 'Konfirmasi Hapus WO'}</span>
