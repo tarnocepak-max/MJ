@@ -5,8 +5,6 @@ import {
   MapPin,
   RotateCcw,
   MessageSquare,
-  LayoutGrid,
-  Table as TableIcon,
   Sliders,
   Clock,
   Copy,
@@ -21,7 +19,6 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Ticket } from '../../types/index.ts';
-import { useUIConfig } from '../../context/UIConfigContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { PaginationBar } from '../common/PaginationBar';
 import { ColumnConfig } from './LeaderColumnSettingsModal';
@@ -50,8 +47,6 @@ interface LeaderAssignMatrixPanelProps {
   technicians: TechnicianCapacitySummary[];
 
   // Filters & view state
-  viewMode: 'cards' | 'table';
-  onViewModeChange: (mode: 'cards' | 'table') => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   slotFilter: string;
@@ -201,8 +196,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   clusterOptions,
   categoryOptions = [],
   technicians,
-  viewMode,
-  onViewModeChange,
   searchQuery,
   onSearchChange,
   slotFilter,
@@ -247,7 +240,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 }) => {
   const [pendingInlineChoice, setPendingInlineChoice] = useState<Record<string, string>>({});
   const { isCompactUI } = useResponsiveViewport();
-  const { canSwitchDisplayMode, setDisplayMode } = useUIConfig();
 
   const unassignedTicketsInView = filteredTickets.filter(t => !t.installerName);
   const allUnassignedChecked =
@@ -427,50 +419,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
               </option>
             ))}
           </select>
-
-          {/* View Mode Toggle */}
-          {canSwitchDisplayMode && (
-            <div
-              role="group"
-              aria-label="Kartu & Tabel Layout Switch"
-              className="inline-flex items-center rounded-xl border border-[#DDE6F0] dark:border-[#3E246F] bg-[#EDF3F8] dark:bg-[#160D29] p-0.5 ml-auto shrink-0 gap-0.5"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setDisplayMode('mobile');
-                  onViewModeChange('cards');
-                }}
-                aria-pressed={effectiveViewMode === 'cards'}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-                  effectiveViewMode === 'cards'
-                    ? 'mj-btn-leader-primary mj-btn-xs'
-                    : 'font-bold text-[#8492A5] dark:text-[#A79BC0] hover:text-[#26364A] dark:hover:text-white'
-                }`}
-                title="Tampilan Kartu (Terintegrasi dengan Mobile Mode)"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Kartu</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDisplayMode('desktop');
-                  onViewModeChange('table');
-                }}
-                aria-pressed={effectiveViewMode === 'table'}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-                  effectiveViewMode === 'table'
-                    ? 'mj-btn-leader-primary mj-btn-xs'
-                    : 'font-bold text-[#8492A5] dark:text-[#A79BC0] hover:text-[#26364A] dark:hover:text-white'
-                }`}
-                title="Tampilan Tabel (Terintegrasi dengan Desktop Mode)"
-              >
-                <TableIcon className="w-3.5 h-3.5" />
-                <span>Tabel</span>
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Active Installer Filter indicator + Table Extra Controls */}

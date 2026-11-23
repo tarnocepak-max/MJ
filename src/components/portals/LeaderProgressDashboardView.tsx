@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User } from '../../types';
 import {
@@ -36,8 +35,6 @@ import {
   Timer,
   X,
   RefreshCw,
-  LayoutGrid,
-  Table2,
   Radio,
   Image as ImageIcon,
   ZoomIn,
@@ -88,7 +85,6 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
     refreshDatabaseData
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
-  const { canSwitchDisplayMode, setDisplayMode } = useUIConfig();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StatCategoryFilter>('all');
@@ -535,43 +531,6 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">KPI Lifecycle</span>
           </button>
-
-          {canSwitchDisplayMode && (
-            <div
-              role="group"
-              aria-label="Kartu Live & Tabel Layout Switch"
-              className="inline-flex items-center p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#251545] border border-[#DDE6F0] dark:border-purple-900/60"
-            >
-              <button
-                type="button"
-                onClick={() => setDisplayMode('mobile')}
-                aria-pressed={effectiveViewMode === 'cards'}
-                title="Tampilan Kartu Live (Terintegrasi dengan Mobile Mode)"
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  effectiveViewMode === 'cards'
-                    ? 'bg-white dark:bg-[#1A0E2E] text-[#5145A6] dark:text-white shadow-xs'
-                    : 'text-[#52647A] dark:text-slate-300'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Kartu Live</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDisplayMode('desktop')}
-                aria-pressed={effectiveViewMode === 'table'}
-                title="Tampilan Tabel (Terintegrasi dengan Desktop Mode)"
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  effectiveViewMode === 'table'
-                    ? 'bg-white dark:bg-[#1A0E2E] text-[#5145A6] dark:text-white shadow-xs'
-                    : 'text-[#52647A] dark:text-slate-300'
-                }`}
-              >
-                <Table2 className="w-3.5 h-3.5" />
-                <span>Tabel</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

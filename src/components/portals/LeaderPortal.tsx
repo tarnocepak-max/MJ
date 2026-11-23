@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { useUIConfig } from '../../context/UIConfigContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User, TicketStatusWOInstaller } from '../../types/index.ts';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusBadge } from '../common/Badge';
@@ -173,7 +172,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     setActiveKpiDrilldown
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
-  const { canSwitchDisplayMode, setDisplayMode } = useUIConfig();
 
   // Navigation tab in portal: Dedicated tabs for Dashboard Leader, Assign WO, Reassign WO, Pendaftaran Akun Teknisi, Dashboard Progress WO, Quota, and Rekap Area
   const [internalTab, setInternalTab] = useState<LeaderPortalTab>(
@@ -381,7 +379,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
   const [slotFilter, setSlotFilter] = useState<string>('ALL');
   const [clusterFilter, setClusterFilter] = useState<string>('ALL');
-  const matrixViewMode: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
   const [bulkQuickInstaller, setBulkQuickInstaller] = useState<string>('');
 
   // Date Filter for Assign WO (Strict Asia/Jakarta Appointment Date === todayWIB, auto-resets at 00:00 WIB)
@@ -2454,15 +2451,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 clusterOptions={clusterOptions}
                 categoryOptions={assignCategoryOptions}
                 technicians={technicianSummaries}
-                viewMode={matrixViewMode}
-                onViewModeChange={mode => {
-                  if (canSwitchDisplayMode) {
-                    setDisplayMode(mode === 'table' ? 'desktop' : 'mobile');
-                  }
-                  if (mode === 'table' && rowsPerPage === 6) setRowsPerPage(25);
-                  if (mode === 'cards' && rowsPerPage === 25) setRowsPerPage(6);
-                  setCurrentPage(1);
-                }}
                 searchQuery={searchQuery}
                 onSearchChange={q => {
                   setSearchQuery(q);

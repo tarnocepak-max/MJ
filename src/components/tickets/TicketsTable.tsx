@@ -37,8 +37,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Smartphone,
-  Monitor,
   Trash2,
   ShieldAlert,
   Calendar,
@@ -239,7 +237,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     isProgressiveHydrating,
     auditLogs
   } = useApp();
-  const { config, setColumnVisibility, applyPreset, isMobileView, canSwitchDisplayMode, setDisplayMode } = useUIConfig();
+  const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
   const { isCompactUI } = useResponsiveViewport();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
@@ -259,12 +257,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
   // Synchronized strictly with global Display Mode (Desktop Mode = Table, Mobile Mode = Cards)
   const effectiveLayout: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
-
-  const handleSelectLayoutMode = (nextLayout: 'table' | 'cards') => {
-    if (canSwitchDisplayMode) {
-      setDisplayMode(nextLayout === 'table' ? 'desktop' : 'mobile');
-    }
-  };
 
   // Search & 6-Column Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -2177,46 +2169,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             )}
           </div>
 
-          {/* Right: Table/Cards Toggle, 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
+          {/* Right: 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
           <div className="flex items-center gap-2 flex-wrap ml-auto">
-            {/* Layout Toggle (Synchronized with Topbar Display Mode Switch) */}
-            {canSwitchDisplayMode && (
-              <div
-                role="group"
-                aria-label="Table & Cards Layout Switch"
-                className="inline-flex items-center p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(38,54,74,0.06)] shrink-0 gap-0.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => handleSelectLayoutMode('table')}
-                  aria-pressed={effectiveLayout === 'table'}
-                  title="Tampilan Table (Terintegrasi dengan Desktop Mode)"
-                  className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
-                    effectiveLayout === 'table'
-                      ? 'bg-white text-[#5145A6] shadow-[0_1px_3px_rgba(38,54,74,0.10),0_1px_2px_rgba(38,54,74,0.06)] ring-1 ring-[#DCE3F2] dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
-                      : 'text-[#52647A] hover:text-[#26364A] hover:bg-white/60 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
-                  }`}
-                >
-                  <Monitor className="w-3.5 h-3.5 shrink-0" />
-                  <span>Table</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectLayoutMode('cards')}
-                  aria-pressed={effectiveLayout === 'cards'}
-                  title="Tampilan Cards (Terintegrasi dengan Mobile Mode)"
-                  className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
-                    effectiveLayout === 'cards'
-                      ? 'bg-white text-[#5145A6] shadow-[0_1px_3px_rgba(38,54,74,0.10),0_1px_2px_rgba(38,54,74,0.06)] ring-1 ring-[#DCE3F2] dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
-                      : 'text-[#52647A] hover:text-[#26364A] hover:bg-white/60 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                  <span>Cards</span>
-                </button>
-              </div>
-            )}
-
             {/* Archive Filter Toggle */}
             <button
               type="button"
