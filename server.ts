@@ -199,6 +199,31 @@ import {
   type StorageFileMetadata,
   type StorageOperationLog
 } from './server/supabaseStorage.ts';
+import {
+  registerEmailNotificationPersistenceHooks,
+  startEmailNotificationScheduler,
+  getEmailNotificationConfig,
+  saveEmailNotificationConfig,
+  getEmailProviderHealth,
+  testResendProviderConnection,
+  getEmailTemplates,
+  saveEmailTemplate,
+  renderDemoPreviewForTemplate,
+  sendTestEmailNotification,
+  listEmailDeliveryLogs,
+  processEmailQueueBatch,
+  verifyResendWebhookSignature,
+  handleResendWebhookEvent,
+  triggerDailyResetNotifications,
+  triggerNewWoLeaderNotifications,
+  triggerWoAssignedInstallerNotification,
+  triggerWoReassignedNotifications,
+  triggerDailySummaryNotifications
+} from './server/emailNotificationService.ts';
+import {
+  AVAILABLE_EMAIL_PLACEHOLDERS,
+  type EmailTemplateKey
+} from './server/emailTemplateRenderer.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -514,6 +539,10 @@ interface DatabaseSchema {
   installerSessions?: any[];
   installerCurrentLocations?: any[];
   installerLocationHistory?: any[];
+  emailNotificationConfig?: any;
+  emailNotificationTemplates?: Record<string, any>;
+  emailNotificationQueue?: any[];
+  emailDeliveryLogs?: any[];
 }
 
 // Initial seed data so that a fresh deployment is immediately operational and non-empty
@@ -985,7 +1014,9 @@ export let db: DatabaseSchema = {
   globalConfigVersions: [],
   rolePermissions: undefined,
   userPreferences: {},
-  systemErrorLogs: []
+  systemErrorLogs: [],
+  emailNotificationQueue: [],
+  emailDeliveryLogs: []
 };
 
 // Load database from disk or create if not existing
@@ -2926,6 +2957,30 @@ export async function createExpressApp(options?: {
 
   const getNow = options?.nowProvider ?? (() => new Date());
 
+  registerEmailNotificationPersistenceHooks({
+    getUsers: async () => {
+      if (isSupabaseMode()) {
+        const res = await getUsersFromSupabase(false);
+        if (res.success && Array.isArray(res.data)) return res.data;
+      }
+      return db.users || [];
+    },
+    getTickets: async () => {
+      if (isSupabaseMode()) {
+        const res = await getWorkOrdersFromSupabase();
+        if (res.success && Array.isArray(res.data)) return res.data;
+      }
+      return db.tickets || [];
+    },
+    getOperationalDateWIB: () => getOperationalDate(getNow()).date,
+    isLocalJsonAllowed: () => isLocalJsonModeAllowed(),
+    getLocalStore: () => db,
+    saveLocalStore: () => saveDatabaseToDisk(),
+    writeAuditLog: async (action, entityId, details, actor) => {
+      await logServerAuditAsync(action, 'email_notification', entityId, details, actor);
+    }
+  });
+
   // Daily 00:00 WIB (Asia/Jakarta) Midnight Rollover Broadcast Scheduler
   const scheduleNextJakartaMidnightRollover = () => {
     const delayMs = Math.min(getMsUntilNextJakartaMidnightServer(getNow()), 2147483647);
@@ -2941,6 +2996,11 @@ export async function createExpressApp(options?: {
         },
         timestamp: getNow().toISOString()
       });
+      // Non-blocking Daily Reset Email Notification after rollover completes
+      void triggerDailyResetNotifications({
+        operationalDateWIB: rolloverDateWIB,
+        resetCompleted: true
+      }).catch(() => {});
       scheduleNextJakartaMidnightRollover();
     }, delayMs);
     if (typeof timer.unref === 'function') {
@@ -2949,6 +3009,7 @@ export async function createExpressApp(options?: {
   };
   if (!options?.skipVite) {
     scheduleNextJakartaMidnightRollover();
+    startEmailNotificationScheduler();
   }
 
   const app = express();
@@ -3049,7 +3110,14 @@ export async function createExpressApp(options?: {
   });
 
   app.use(cookieParser());
-  app.use(express.json({ limit: '50mb' }));
+  app.use(express.json({
+    limit: '50mb',
+    verify: (req: any, _res, buf) => {
+      if (req.originalUrl && req.originalUrl.startsWith('/api/webhooks/resend')) {
+        req.rawBody = buf.toString('utf8');
+      }
+    }
+  }));
   app.use(resolveUserFromHeader);
 
   // Enforce Mandatory Password Change Gate across operational API endpoints
@@ -4835,6 +4903,10 @@ export async function createExpressApp(options?: {
       db.sheetsConfig.recordsCount = db.tickets.length;
       saveDatabaseToDisk();
 
+      if (newItems.length > 0) {
+        void triggerNewWoLeaderNotifications({ tickets: newItems, users: authUsers }).catch(() => {});
+      }
+
       await logServerAuditAsync(
         'Bulk Import Completed',
         'import_batch',
@@ -4889,6 +4961,14 @@ export async function createExpressApp(options?: {
 
     if (data.imported > 0) {
       broadcastSupabaseChange('work_orders', 'INSERT', { batchId, count: data.imported });
+      const dupSet = new Set(rejectedDuplicates.map(w => String(w || '').trim().toUpperCase()));
+      const newlyImportedRows = enrichedRows.filter((r: any) => {
+        const wo = String(r.woNumber || r.workOrderNumber || '').trim().toUpperCase();
+        return wo && !dupSet.has(wo);
+      });
+      if (newlyImportedRows.length > 0) {
+        void triggerNewWoLeaderNotifications({ tickets: newlyImportedRows, users: authUsers }).catch(() => {});
+      }
     }
     if (undistributedCount > 0) {
       broadcastSupabaseChange('work_orders', 'UNMAPPED_DISTRIBUTION_ALERT', {
@@ -5229,6 +5309,12 @@ export async function createExpressApp(options?: {
           if (r?.workOrder) {
             const prevRecord = prevTicketsById.get(String(r.workOrder.id)) || prevTicketsById.get(String(r.workOrder.woNumber));
             broadcastSupabaseChange('work_orders', 'UPDATE', r.workOrder, prevRecord ? { previousRecord: prevRecord } : undefined);
+            void triggerWoAssignedInstallerNotification({
+              ticket: r.workOrder,
+              installerName: r.workOrder.installerName || installerName.trim(),
+              leaderName: req.user!.name,
+              assignmentEventId: String(r.history?.id || r.workOrder.assignedAt || now)
+            }).catch(() => {});
           }
         }
         const successWoNumbers = results.map(r => r.workOrder?.woNumber || r.workOrder?.id).join(',');
@@ -5344,6 +5430,13 @@ export async function createExpressApp(options?: {
         const updated = db.tickets.find(item => item.id === t.id);
         if (updated) {
           broadcastSupabaseChange('work_orders', 'UPDATE', updated, { previousRecord: t });
+          void triggerWoAssignedInstallerNotification({
+            ticket: updated,
+            installerUser: targetInstaller,
+            leaderName: req.user!.name,
+            assignmentEventId: String(updated.updatedAt || now),
+            users: db.users
+          }).catch(() => {});
         }
       });
 
@@ -5434,6 +5527,16 @@ export async function createExpressApp(options?: {
           broadcastSupabaseChange('work_orders', 'UPDATE', reassignRes.data.workOrder, {
             previousRecord: prevWorkOrderSnapshot
           });
+          void triggerWoReassignedNotifications({
+            ticket: reassignRes.data.workOrder,
+            previousInstallerId: prevWorkOrderSnapshot?.installerId || prevWorkOrderSnapshot?.installerUid || null,
+            previousInstallerName: prevWorkOrderSnapshot?.installerName || previousInstallerName || null,
+            newInstallerName: reassignRes.data.workOrder.installerName || newInstallerName.trim(),
+            leaderName: req.user!.name,
+            reason: reason.trim(),
+            changedAt: now,
+            reassignEventId: String(reassignRes.data.history?.id || now)
+          }).catch(() => {});
         }
         const assignedWoNumber = reassignRes.data?.workOrder?.woNumber || woNumber || ticketId;
         await logServerAuditAsync(
@@ -5523,6 +5626,18 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
 
       broadcastSupabaseChange('work_orders', 'UPDATE', targetTicket, { previousRecord: prevTicketSnapshot });
+
+      void triggerWoReassignedNotifications({
+        ticket: targetTicket,
+        previousInstallerId: prevTicketSnapshot.installerId || prevTicketSnapshot.installerUid || null,
+        previousInstallerName: prevTicketSnapshot.installerName || previousInstallerName || null,
+        newInstallerUser: targetInstaller,
+        leaderName: req.user!.name,
+        reason: reason.trim(),
+        changedAt: now,
+        reassignEventId: localHist.id,
+        users: db.users
+      }).catch(() => {});
 
       await logServerAuditAsync(
         'WO Reassigned by Leader',
@@ -11321,6 +11436,7 @@ export async function createExpressApp(options?: {
         }
         let imported = 0;
         let skippedDuplicates = 0;
+        const importedLocalItems: any[] = [];
         const existingSet = new Set(db.tickets.map(t => String(t.woNumber || '').trim().toUpperCase()));
         for (const t of enrichedTickets) {
           const norm = String(t.woNumber || '').trim().toUpperCase();
@@ -11329,11 +11445,16 @@ export async function createExpressApp(options?: {
             continue;
           }
           existingSet.add(norm);
-          db.tickets.unshift({ ...t, id: t.id || `wo_${norm}`, importBatchId: batchId, createdAt: t.createdAt || new Date().toISOString() });
+          const itemObj = { ...t, id: t.id || `wo_${norm}`, importBatchId: batchId, createdAt: t.createdAt || new Date().toISOString() };
+          db.tickets.unshift(itemObj);
+          importedLocalItems.push(itemObj);
           imported++;
         }
         saveDatabaseToDisk();
         broadcastSupabaseChange('work_orders', 'INSERT', { batchId, imported });
+        if (importedLocalItems.length > 0) {
+          void triggerNewWoLeaderNotifications({ tickets: importedLocalItems, users: authUsers }).catch(() => {});
+        }
         return res.json({ success: true, data: { totalSubmitted: safeTickets.length, imported, skippedDuplicates } });
       }
 
@@ -11341,6 +11462,19 @@ export async function createExpressApp(options?: {
 
       if (result.success && result.data) {
         broadcastSupabaseChange('work_orders', 'INSERT', { batchId, imported: result.data.imported });
+        if (result.data.imported > 0) {
+          const dupSet = new Set([
+            ...(result.data.duplicateExistingWoNumbers || []),
+            ...(result.data.duplicateInFileWoNumbers || [])
+          ].map(w => String(w || '').trim().toUpperCase()));
+          const newlyImported = enrichedTickets.filter((r: any) => {
+            const wo = String(r.woNumber || r.workOrderNumber || '').trim().toUpperCase();
+            return wo && !dupSet.has(wo);
+          });
+          if (newlyImported.length > 0) {
+            void triggerNewWoLeaderNotifications({ tickets: newlyImported, users: authUsers }).catch(() => {});
+          }
+        }
         await logServerAuditAsync('Bulk Import Work Orders (Supabase)', 'work_order', batchId || 'bulk', `Import ${result.data.imported} WO oleh ${user.name}. Duplikat diabaikan: ${result.data.skippedDuplicates}`, user);
       }
 
@@ -13681,6 +13815,12 @@ export async function createExpressApp(options?: {
         const woNumber = assignedWo?.woNumber || id;
         if (assignedWo) {
           broadcastSupabaseChange('work_orders', 'UPDATE', assignedWo, prevWoSnapshot ? { previousRecord: prevWoSnapshot } : undefined);
+          void triggerWoAssignedInstallerNotification({
+            ticket: assignedWo,
+            installerName: assignedWo.installerName || installerName.trim(),
+            leaderName: req.user!.name,
+            assignmentEventId: String(assignRes.data?.history?.id || assignedWo.assignedAt || now)
+          }).catch(() => {});
         }
         await logServerAuditAsync('Work Order Assigned', 'work_order', woNumber, `WO ${woNumber} ditugaskan ke teknisi ${installerName.trim()}`, req.user);
         if (!isLocalJsonModeAllowed()) {
@@ -13736,6 +13876,13 @@ export async function createExpressApp(options?: {
       });
       saveDatabaseToDisk();
       broadcastSupabaseChange('work_orders', 'UPDATE', target, { previousRecord: prevSnapshot });
+      void triggerWoAssignedInstallerNotification({
+        ticket: target,
+        installerUser: targetInstaller,
+        leaderName: req.user!.name,
+        assignmentEventId: now,
+        users: db.users
+      }).catch(() => {});
       await logServerAuditAsync('Work Order Assigned', 'work_order', target.woNumber, `WO ${target.woNumber} ditugaskan ke teknisi ${targetInstaller.name}`, req.user);
       return res.json({ success: true, message: `Work Order berhasil ditugaskan ke teknisi ${targetInstaller.name}`, workOrder: target });
     }
@@ -13794,6 +13941,16 @@ export async function createExpressApp(options?: {
         const woNumber = reassignedWo?.woNumber || id;
         if (reassignedWo) {
           broadcastSupabaseChange('work_orders', 'UPDATE', reassignedWo, prevWoSnapshot ? { previousRecord: prevWoSnapshot } : undefined);
+          void triggerWoReassignedNotifications({
+            ticket: reassignedWo,
+            previousInstallerId: prevWoSnapshot?.installerId || prevWoSnapshot?.installerUid || null,
+            previousInstallerName: prevWoSnapshot?.installerName || null,
+            newInstallerName: reassignedWo.installerName || newInstallerName.trim(),
+            leaderName: req.user!.name,
+            reason: reason.trim(),
+            changedAt: now,
+            reassignEventId: String(reassignRes.data?.history?.id || now)
+          }).catch(() => {});
         }
         await logServerAuditAsync('Work Order Reassigned', 'work_order', woNumber, `WO ${woNumber} dialihkan ke ${newInstallerName.trim()}. Alasan: ${reason.trim()}`, req.user);
         if (!isLocalJsonModeAllowed()) {
@@ -13848,6 +14005,17 @@ export async function createExpressApp(options?: {
       });
       saveDatabaseToDisk();
       broadcastSupabaseChange('work_orders', 'UPDATE', target, { previousRecord: prevSnapshot });
+      void triggerWoReassignedNotifications({
+        ticket: target,
+        previousInstallerId: prevSnapshot.installerId || prevSnapshot.installerUid || null,
+        previousInstallerName: prevSnapshot.installerName || null,
+        newInstallerUser: targetInstaller,
+        leaderName: req.user!.name,
+        reason: reason.trim(),
+        changedAt: now,
+        reassignEventId: now,
+        users: db.users
+      }).catch(() => {});
       await logServerAuditAsync('Work Order Reassigned', 'work_order', target.woNumber, `WO ${target.woNumber} dialihkan dari ${prevName} ke ${targetInstaller.name}. Alasan: ${reason}`, req.user);
       return res.json({ success: true, message: `Work Order berhasil dialihkan dari ${prevName} ke ${targetInstaller.name}`, workOrder: target });
     }
@@ -14869,6 +15037,16 @@ export async function createExpressApp(options?: {
         if (item.workOrder) {
           const prevSnap = prevSnapshotMap.get(String(item.workOrder.id));
           broadcastSupabaseChange('work_orders', 'UPDATE', item.workOrder, prevSnap ? { previousRecord: prevSnap } : undefined);
+          void triggerWoReassignedNotifications({
+            ticket: item.workOrder,
+            previousInstallerId: prevSnap?.installerId || prevSnap?.installerUid || null,
+            previousInstallerName: prevSnap?.installerName || item.historyEntry?.previousInstallerName || null,
+            newInstallerName: item.workOrder.installerName || cleanTargetName,
+            leaderName: user.name,
+            reason: cleanReason,
+            changedAt: now,
+            reassignEventId: String(item.historyEntry?.id || now)
+          }).catch(() => {});
         }
       }
     }
@@ -16121,6 +16299,173 @@ export async function createExpressApp(options?: {
       error: 'Pencatatan Audit Log melalui endpoint HTTP dinonaktifkan. Seluruh audit record hanya dicatat oleh operasi server internal tepercaya.',
       code: 'METHOD_NOT_ALLOWED'
     });
+  });
+
+  // ===========================================================================
+  // AUTOMATED EMAIL NOTIFICATION SYSTEM (Superadmin Only + Resend Webhook)
+  // ===========================================================================
+  app.get('/api/email-notifications/config', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const [config, providerHealth] = await Promise.all([
+        getEmailNotificationConfig(),
+        getEmailProviderHealth()
+      ]);
+      return res.json({ success: true, config, providerHealth });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal membaca konfigurasi email notification.' });
+    }
+  });
+
+  app.put('/api/email-notifications/config', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const saved = await saveEmailNotificationConfig(req.body || {}, req.user!);
+      const providerHealth = await getEmailProviderHealth();
+      return res.json({ success: true, config: saved, providerHealth });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Gagal menyimpan konfigurasi email notification.' });
+    }
+  });
+
+  app.post('/api/email-notifications/test-connection', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await testResendProviderConnection();
+      const providerHealth = await getEmailProviderHealth();
+      return res.status(result.success ? 200 : 400).json({ ...result, providerHealth });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err?.message || 'Gagal menguji koneksi provider email.' });
+    }
+  });
+
+  app.post('/api/email-notifications/test-send', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { recipientEmail, templateKey } = req.body || {};
+      const result = await sendTestEmailNotification({
+        recipientEmail: String(recipientEmail || ''),
+        templateKey: templateKey as EmailTemplateKey | undefined,
+        actor: req.user!
+      });
+      return res.status(result.success ? 200 : 400).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err?.message || 'Gagal mengirim test email.' });
+    }
+  });
+
+  app.get('/api/email-notifications/templates', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const templatesMap = await getEmailTemplates();
+      return res.json({
+        success: true,
+        templates: Object.values(templatesMap),
+        placeholders: AVAILABLE_EMAIL_PLACEHOLDERS
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat template email.' });
+    }
+  });
+
+  app.put('/api/email-notifications/templates/:templateKey', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const templateKey = req.params.templateKey as EmailTemplateKey;
+      const updated = await saveEmailTemplate(templateKey, req.body || {}, req.user!);
+      return res.json({ success: true, template: updated });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Gagal menyimpan template email.' });
+    }
+  });
+
+  app.post('/api/email-notifications/preview', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { templateKey, draft } = req.body || {};
+      const preview = await renderDemoPreviewForTemplate(
+        (templateKey || 'new_wo_leader') as EmailTemplateKey,
+        draft
+      );
+      return res.json({ success: true, ...preview });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Gagal membuat preview email.' });
+    }
+  });
+
+  app.get('/api/email-notifications/logs', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const data = await listEmailDeliveryLogs({
+        dateFrom: req.query.dateFrom ? String(req.query.dateFrom) : undefined,
+        dateTo: req.query.dateTo ? String(req.query.dateTo) : undefined,
+        role: req.query.role ? String(req.query.role) : undefined,
+        notificationType: req.query.notificationType ? String(req.query.notificationType) : undefined,
+        status: req.query.status ? String(req.query.status) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        limit: req.query.limit ? Number(req.query.limit) : 100
+      });
+      return res.json({ success: true, ...data });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat log pengiriman email.' });
+    }
+  });
+
+  app.post('/api/email-notifications/process-queue', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await processEmailQueueBatch(25);
+      return res.json({ success: true, result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memproses antrean email.' });
+    }
+  });
+
+  app.post('/api/email-notifications/trigger-daily-summary', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const opDate = getOperationalDate(getNow()).date;
+      const result = await triggerDailySummaryNotifications({
+        operationalDateWIB: opDate,
+        forceManualTag: `ops_${Date.now()}`
+      });
+      await logServerAuditAsync(
+        'Manual Daily Summary Email Triggered',
+        'email_notification',
+        opDate,
+        `Superadmin ${req.user!.name} memicu Daily Summary Email untuk ${opDate} (queued=${result.queued}, skipped=${result.skipped})`,
+        req.user
+      );
+      return res.json({ success: true, operationalDate: opDate, result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memicu Daily Summary Email.' });
+    }
+  });
+
+  app.post('/api/email-notifications/trigger-daily-reset', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const opDate = getOperationalDate(getNow()).date;
+      const result = await triggerDailyResetNotifications({
+        operationalDateWIB: opDate,
+        resetCompleted: true
+      });
+      return res.json({ success: true, operationalDate: opDate, result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memicu Daily Reset Email Notification.' });
+    }
+  });
+
+  app.post('/api/webhooks/resend', async (req: Request, res: Response) => {
+    try {
+      const secret = (process.env.RESEND_WEBHOOK_SECRET || '').trim();
+      if (secret) {
+        const rawBody = String((req as any).rawBody || '');
+        const isValidSig = verifyResendWebhookSignature({
+          rawBody,
+          svixId: String(req.headers['svix-id'] || ''),
+          svixTimestamp: String(req.headers['svix-timestamp'] || ''),
+          svixSignature: String(req.headers['svix-signature'] || ''),
+          secret
+        });
+        if (!isValidSig) {
+          return res.status(401).json({ error: 'Invalid or expired webhook signature' });
+        }
+      }
+      const handled = await handleResendWebhookEvent(req.body);
+      return res.json({ received: true, updated: handled });
+    } catch {
+      return res.status(400).json({ received: false });
+    }
   });
 
   // ---------------------------------------------------------------------------

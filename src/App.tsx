@@ -1148,6 +1148,8 @@ const MainLayout: React.FC = () => {
         return <SetupHubView initialTab="nav_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'sound_settings':
         return <SetupHubView initialTab="sound" onNavigateTab={tab => setActiveTab(tab)} />;
+      case 'email_notifications':
+        return <SetupHubView initialTab="email_notifications" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'droplist_management':
       case 'setting_droplist_status':
       case 'setting_droplist_reason':

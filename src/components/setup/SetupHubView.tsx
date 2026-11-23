@@ -24,7 +24,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
-  Cpu
+  Cpu,
+  Mail
 } from 'lucide-react';
 
 // Sub-components
@@ -43,6 +44,7 @@ import { SystemHealthView } from '../settings/SystemHealthView';
 import { AuditLogViewer } from '../audit/AuditLogViewer';
 import { LoginLogView } from '../audit/LoginLogView';
 import { NavigationConfigView } from './NavigationConfigView';
+import { EmailNotificationCenterView } from '../settings/EmailNotificationCenterView';
 
 export type SetupTabKey =
   | 'app_config'
@@ -54,6 +56,7 @@ export type SetupTabKey =
   | 'droplists'
   | 'whatsapp'
   | 'sound'
+  | 'email_notifications'
   | 'ui_builder'
   | 'database'
   | 'workflows'
@@ -94,8 +97,8 @@ const SETUP_CATEGORIES: SetupCategoryDef[] = [
   {
     id: 'cat_pref',
     code: '05 — PREFERENCES & MONITORING',
-    title: 'Audio & Kesehatan Sistem',
-    tabKeys: ['sound', 'health_logs']
+    title: 'Notifikasi, Audio & Kesehatan Sistem',
+    tabKeys: ['sound', 'email_notifications', 'health_logs']
   }
 ];
 
@@ -246,6 +249,16 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
       shortLabel: 'Audio',
       icon: Volume2
     });
+
+    // 5b. Automated Email Notification Center (Superadmin only)
+    if (isSuperadmin) {
+      tabs.push({
+        key: 'email_notifications',
+        label: 'Email Notification',
+        shortLabel: 'Email',
+        icon: Mail
+      });
+    }
 
     // 6. System Health & Logs (Superadmin only)
     if (isSuperadmin) {
@@ -757,7 +770,17 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
           {/* 6. Notifikasi & Audio */}
           {currentTab === 'sound' && (
             <div className="space-y-4">
-              <SoundSettingsView onNavigateTab={onNavigateTab} />
+              <SoundSettingsView
+                onNavigateTab={onNavigateTab}
+                onOpenEmailNotifications={isSuperadmin ? () => setActiveTab('email_notifications') : undefined}
+              />
+            </div>
+          )}
+
+          {/* 6b. Automated Email Notification Center (Superadmin only) */}
+          {currentTab === 'email_notifications' && isSuperadmin && (
+            <div className="space-y-4">
+              <EmailNotificationCenterView />
             </div>
           )}
 

@@ -35,14 +35,19 @@ import {
   PauseCircle,
   RotateCcw,
   MessageCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Mail
 } from 'lucide-react';
 
 interface SoundSettingsViewProps {
   onNavigateTab?: (tab: string) => void;
+  onOpenEmailNotifications?: () => void;
 }
 
-export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigateTab }) => {
+export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({
+  onNavigateTab,
+  onOpenEmailNotifications
+}) => {
   const {
     currentUser,
     scopedTickets,
@@ -311,6 +316,20 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                   <span className={`w-2 h-2 rounded-full ${databaseStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                   <span>Relay: {databaseStatus.toUpperCase()}</span>
                 </span>
+                {isSuperAdmin && (onOpenEmailNotifications || onNavigateTab) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenEmailNotifications) onOpenEmailNotifications();
+                      else onNavigateTab?.('email_notifications');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#EAE8FF] hover:bg-[#DFDBFF] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#2E1459] dark:hover:bg-[#3A1B6E] dark:text-[#E9D5FF] dark:border-[#5B35B1] transition-colors cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email Notification Center</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
