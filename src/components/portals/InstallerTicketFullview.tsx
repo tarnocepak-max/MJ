@@ -23,6 +23,7 @@ import {
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatAppointmentDateDisplay, getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
+import { acquireCurrentDeviceGps } from '../../services/geolocationService';
 import { GeoTagCameraModal, CapturedPhotoPayload } from '../camera/GeoTagCameraModal';
 import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import { BarcodeScannerModal, ParsedBarcodePayload } from '../camera/BarcodeScannerModal';
@@ -338,6 +339,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [showBarcodeScannerModal, setShowBarcodeScannerModal] = useState(false);
+  const [barcodeScannerSlot, setBarcodeScannerSlot] = useState<PhotoSlotDefinition | null>(null);
   const snInputRef = useRef<HTMLInputElement>(null);
 
   // Restore local draft when switching tickets
@@ -843,6 +845,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         currentUser.role === 'installer'
       ) {
         handleTriggerCheckIn();
+        return;
+      }
+      if (slotDef.slotKey === 'barcode_sn') {
+        setBarcodeScannerSlot(slotDef);
+        setShowBarcodeScannerModal(true);
         return;
       }
       setCameraModalSlot(slotDef);
@@ -1540,18 +1547,55 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     });
   };
 
-  const handleConfirmBarcodeSn = (scannedSn: string, meta?: ParsedBarcodePayload) => {
+  const handleConfirmBarcodeSn = async (scannedSn: string, meta?: ParsedBarcodePayload) => {
     const cleanSn = scannedSn.trim().toUpperCase();
     if (!cleanSn) return;
+    const triggeredFromPhotoSlot = barcodeScannerSlot;
     setOntSerialNumber(cleanSn);
     setShowBarcodeScannerModal(false);
-    if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
-    setTimeout(() => {
-      snInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      snInputRef.current?.focus();
-    }, 120);
+    setBarcodeScannerSlot(null);
+
+    const barcodeSlotDef =
+      triggeredFromPhotoSlot || PHOTO_SLOT_DEFINITIONS.find(d => d.slotKey === 'barcode_sn');
+    const shouldUploadPhoto =
+      Boolean(meta?.capturedImageDataUrl && barcodeSlotDef) &&
+      (Boolean(triggeredFromPhotoSlot) || !photoSlots.barcode_sn?.url);
+
+    if (shouldUploadPhoto && meta?.capturedImageDataUrl && barcodeSlotDef) {
+      const base64Body = meta.capturedImageDataUrl.split(',')[1] || '';
+      const approxBytes = Math.round((base64Body.length * 3) / 4);
+      const gpsRes = await acquireCurrentDeviceGps({ timeoutMs: 2000, maximumAgeMs: 60000 }).catch(
+        () => ({ snapshot: undefined })
+      );
+      const payload: CapturedPhotoPayload = {
+        slotKey: 'barcode_sn',
+        title: barcodeSlotDef.title,
+        fileData: meta.capturedImageDataUrl,
+        fileName: `${activeTicket.woNumber || activeTicket.id}_barcode_sn_${Date.now()}.jpg`,
+        fileSizeBytes: approxBytes,
+        mimeType: 'image/jpeg',
+        capturedAtIso: new Date().toISOString(),
+        captureMethod: meta.captureMethod || 'camera',
+        gps: gpsRes.snapshot || null,
+        clientCaptureId: `barcode_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+      };
+      await executeSlotUpload(barcodeSlotDef, payload);
+    }
+
+    if (!triggeredFromPhotoSlot) {
+      if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
+      setTimeout(() => {
+        snInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        snInputRef.current?.focus();
+      }, 120);
+    }
+
     const macNote = meta?.macAddress ? ` · MAC: ${meta.macAddress}` : '';
-    toast.success(`SN perangkat ${cleanSn}${macNote} berhasil dipindai & diisi otomatis.`, 'Scan Barcode SN');
+    const photoNote = shouldUploadPhoto ? ' & foto Slot 06 tersimpan' : '';
+    toast.success(
+      `SN perangkat ${cleanSn}${macNote} berhasil dipindai${photoNote}.`,
+      'Scan Barcode SN'
+    );
   };
 
   const woBadgeLabel = activeTicket.appointmentType || activeTicket.ticketCategory || 'Instalasi FTTH';
@@ -2324,7 +2368,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 fatPort={fatPort}
                 ontSerialNumber={ontSerialNumber}
                 onOpenCamera={openCameraForSlot}
-                onOpenCameraByKey={openCameraForSlotKey}
                 onRetryUpload={handleRetrySlotUpload}
                 onViewPhoto={(url, slotDef) => setLightboxState({ url, slotDef })}
               />
@@ -3566,9 +3609,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       {/* Barcode / QR Scanner Modal for ONT & Wi-Fi Device SN */}
       <BarcodeScannerModal
         isOpen={showBarcodeScannerModal}
-        onClose={() => setShowBarcodeScannerModal(false)}
-        title="Scan Barcode SN ONT / Perangkat Wi-Fi"
-        subtitle="Arahkan kamera ke stiker barcode atau QR Code Serial Number perangkat"
+        onClose={() => {
+          setShowBarcodeScannerModal(false);
+          setBarcodeScannerSlot(null);
+        }}
+        title={
+          barcodeScannerSlot
+            ? 'Scan Barcode SN & MAC ONT (Slot 06)'
+            : 'Scan Barcode SN ONT / Perangkat Wi-Fi'
+        }
+        subtitle={
+          barcodeScannerSlot
+            ? 'Arahkan kamera barcode ke stiker SN & MAC ONT — otomatis mengisi SN dan foto bukti'
+            : 'Arahkan kamera ke stiker barcode atau QR Code Serial Number perangkat'
+        }
         woNumber={activeTicket.woNumber}
         initialSerialNumber={ontSerialNumber}
         onConfirmSerialNumber={handleConfirmBarcodeSn}

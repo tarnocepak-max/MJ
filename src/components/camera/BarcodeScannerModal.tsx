@@ -20,6 +20,8 @@ export interface ParsedBarcodePayload {
   macAddress?: string;
   rawText: string;
   formatLabel?: string;
+  capturedImageDataUrl?: string;
+  captureMethod?: 'camera' | 'gallery';
 }
 
 interface BarcodeScannerModalProps {
@@ -29,6 +31,7 @@ interface BarcodeScannerModalProps {
   subtitle?: string;
   woNumber?: string;
   initialSerialNumber?: string;
+  allowManualPhotoFallback?: boolean;
   onConfirmSerialNumber: (serialNumber: string, meta?: ParsedBarcodePayload) => void;
 }
 
@@ -173,6 +176,50 @@ function playScanSuccessBeep(): void {
   }
 }
 
+function captureVideoFrameDataUrl(videoEl: HTMLVideoElement | null): string | undefined {
+  if (!videoEl || !videoEl.videoWidth || !videoEl.videoHeight) return undefined;
+  try {
+    const maxDim = 1280;
+    const scale = Math.min(1, maxDim / Math.max(videoEl.videoWidth, videoEl.videoHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(videoEl.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(videoEl.videoHeight * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } catch {
+    return undefined;
+  }
+}
+
+async function fileToResizedDataUrl(file: File): Promise<string | undefined> {
+  try {
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = objectUrl;
+      });
+      const maxDim = 1280;
+      const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round((img.width || 800) * scale));
+      canvas.height = Math.max(1, Math.round((img.height || 600) * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return undefined;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.85);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  } catch {
+    return undefined;
+  }
+}
+
 export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   isOpen,
   onClose,
@@ -180,6 +227,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   subtitle = 'Arahkan kamera ke stiker barcode SN ONT atau perangkat Wi-Fi',
   woNumber,
   initialSerialNumber,
+  allowManualPhotoFallback = true,
   onConfirmSerialNumber
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -239,18 +287,31 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     setTorchEnabled(false);
   }, []);
 
-  const handleDecodedRawText = useCallback((rawText: string, formatLabel?: string) => {
-    if (scanHandledRef.current) return;
-    const parsed = parseDeviceBarcodePayload(rawText, formatLabel);
-    if (!parsed.serialNumber) return;
+  const handleDecodedRawText = useCallback(
+    (
+      rawText: string,
+      formatLabel?: string,
+      preCapturedImageUrl?: string,
+      captureMethod: 'camera' | 'gallery' = 'camera'
+    ) => {
+      if (scanHandledRef.current) return;
+      const parsed = parseDeviceBarcodePayload(rawText, formatLabel);
+      if (!parsed.serialNumber) return;
 
-    scanHandledRef.current = true;
-    playScanSuccessBeep();
-    setDetectedPayload(parsed);
-    setEditableSn(parsed.serialNumber);
-    setCameraState('detected');
-    stopScannerResources();
-  }, [stopScannerResources]);
+      const capturedImageDataUrl = preCapturedImageUrl || captureVideoFrameDataUrl(videoRef.current);
+      scanHandledRef.current = true;
+      playScanSuccessBeep();
+      setDetectedPayload({
+        ...parsed,
+        capturedImageDataUrl,
+        captureMethod
+      });
+      setEditableSn(parsed.serialNumber);
+      setCameraState('detected');
+      stopScannerResources();
+    },
+    [stopScannerResources]
+  );
 
   const startLiveScanner = useCallback(
     async (targetFacing: 'environment' | 'user') => {
@@ -394,6 +455,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     setIsDecodingImage(true);
     setErrorMessage('');
     const objectUrl = URL.createObjectURL(file);
+    const resizedPhotoUrl = await fileToResizedDataUrl(file);
 
     try {
       const result = await reader.decodeFromImageUrl(objectUrl);
@@ -401,13 +463,31 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       const fmt = result.getBarcodeFormat?.();
       const fmtLabel = fmt !== undefined ? BarcodeFormat[fmt] : undefined;
       scanHandledRef.current = false;
-      handleDecodedRawText(rawText, fmtLabel);
+      handleDecodedRawText(rawText, fmtLabel, resizedPhotoUrl, 'gallery');
     } catch {
-      setErrorMessage(
-        'Barcode atau QR Code tidak terbaca jelas dari foto tersebut. Pastikan fokus tajam pada stiker SN dan pencahayaan cukup.'
-      );
-      if (cameraState !== 'scanning') {
-        setCameraState('error');
+      if (allowManualPhotoFallback && resizedPhotoUrl) {
+        scanHandledRef.current = true;
+        const fallbackSn = String(initialSerialNumber || '').trim().toUpperCase();
+        setDetectedPayload({
+          serialNumber: fallbackSn,
+          rawText: fallbackSn,
+          formatLabel: 'MANUAL',
+          capturedImageDataUrl: resizedPhotoUrl,
+          captureMethod: 'gallery'
+        });
+        setEditableSn(fallbackSn);
+        setCameraState('detected');
+        setErrorMessage(
+          'Barcode tidak terbaca otomatis dari foto, tetapi foto stiker tersimpan. Ketik Serial Number secara manual pada kolom di bawah.'
+        );
+        stopScannerResources();
+      } else {
+        setErrorMessage(
+          'Barcode atau QR Code tidak terbaca jelas dari foto tersebut. Pastikan fokus tajam pada stiker SN dan pencahayaan cukup.'
+        );
+        if (cameraState !== 'scanning') {
+          setCameraState('error');
+        }
       }
     } finally {
       URL.revokeObjectURL(objectUrl);
@@ -585,12 +665,32 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           {/* Detected SN Confirmation & Manual Correction Box */}
           {detectedPayload && (
             <div className="rounded-xl bg-[#22143E] border border-[#58149C]/70 p-3.5 space-y-2.5">
+              {detectedPayload.capturedImageDataUrl && (
+                <div className="flex items-center gap-2.5 p-2 rounded-lg bg-[#160D29] border border-[#4B386B]">
+                  <img
+                    src={detectedPayload.capturedImageDataUrl}
+                    alt="Foto Stiker Barcode SN"
+                    className="w-16 h-12 rounded object-cover border border-[#58149C]/50 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-emerald-300">
+                      Foto stiker barcode siap disimpan ke Slot 06
+                    </div>
+                    <div className="text-[10px] text-[#C4B5D6] truncate">
+                      {detectedPayload.formatLabel === 'MANUAL'
+                        ? 'Foto tersimpan · Lengkapi SN secara manual di bawah'
+                        : 'Otomatis mengisi SN ONT & foto bukti Slot 06'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-2">
                 <label
                   htmlFor="scanned-sn-preview"
                   className="text-xs font-bold text-[#EEDBFF]"
                 >
-                  Serial Number (SN) Terdeteksi
+                  Serial Number (SN) {detectedPayload.formatLabel === 'MANUAL' ? 'Manual' : 'Terdeteksi'}
                 </label>
                 {detectedPayload.macAddress && (
                   <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#160D29] border border-[#4B386B] text-[#DAB9FF]">

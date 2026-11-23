@@ -25,7 +25,6 @@ import {
   isValidCoordinatePair
 } from '../../../services/mapsService';
 import { GeoLocationMiniMap } from '../../maps/GeoLocationMiniMap';
-import { WorkOrderLocationsCard } from '../../maps/WorkOrderLocationsCard';
 import {
   PHOTO_SLOT_DEFINITIONS,
   PhotoSlotDefinition,
@@ -47,7 +46,6 @@ interface PhotoEvidenceMatrixSectionProps {
   fatPort: string;
   ontSerialNumber: string;
   onOpenCamera: (slotDef: PhotoSlotDefinition) => void;
-  onOpenCameraByKey: (slotKey: PhotoSlotKey) => void;
   onRetryUpload: (slotDef: PhotoSlotDefinition) => void;
   onViewPhoto: (url: string, slotDef: PhotoSlotDefinition) => void;
 }
@@ -85,7 +83,6 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
   fatPort,
   ontSerialNumber,
   onOpenCamera,
-  onOpenCameraByKey,
   onRetryUpload,
   onViewPhoto
 }) => {
@@ -215,8 +212,16 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                       disabled={ticketClosed || isBusy}
                       className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2 text-[#8492A5] dark:text-[#7d7484] hover:text-[#5145A6] dark:hover:text-[#58149c] cursor-pointer"
                     >
-                      <Camera className="w-6 h-6" />
-                      <span className="font-mono text-[10px]">Pratinjau tidak tersedia · Foto Ulang</span>
+                      {slotDef.slotKey === 'barcode_sn' ? (
+                        <QrCode className="w-6 h-6" />
+                      ) : (
+                        <Camera className="w-6 h-6" />
+                      )}
+                      <span className="font-mono text-[10px]">
+                        {slotDef.slotKey === 'barcode_sn'
+                          ? 'Pratinjau tidak tersedia · Scan Ulang'
+                          : 'Pratinjau tidak tersedia · Foto Ulang'}
+                      </span>
                     </button>
                   )}
 
@@ -338,13 +343,25 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                         type="button"
                         disabled={isBusy}
                         onClick={() => onOpenCamera(slotDef)}
-                        aria-label={`Foto Ulang ${slotDef.title}`}
-                        title={`Foto Ulang ${slotDef.title}`}
+                        aria-label={
+                          slotDef.slotKey === 'barcode_sn'
+                            ? `Scan Ulang Barcode ${slotDef.title}`
+                            : `Foto Ulang ${slotDef.title}`
+                        }
+                        title={
+                          slotDef.slotKey === 'barcode_sn'
+                            ? `Scan Ulang Barcode ${slotDef.title}`
+                            : `Foto Ulang ${slotDef.title}`
+                        }
                         className={`mj-btn-icon-3d-installer w-9 h-9 cursor-pointer shrink-0 ${
                           isBusy ? 'mj-btn-loading' : ''
                         }`}
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                        {slotDef.slotKey === 'barcode_sn' ? (
+                          <QrCode className={`w-3.5 h-3.5 ${isBusy ? 'animate-pulse' : ''}`} />
+                        ) : (
+                          <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                        )}
                       </button>
                     )}
                   </div>
@@ -388,23 +405,21 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                   isBusy ? 'mj-btn-loading' : ''
                 }`}
               >
-                <Camera className="w-3.5 h-3.5" />
-                <span>{ticketClosed ? 'Terkunci' : 'Ambil Foto'}</span>
+                {slotDef.slotKey === 'barcode_sn' ? (
+                  <>
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>{ticketClosed ? 'Terkunci' : 'Scan Barcode'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>{ticketClosed ? 'Terkunci' : 'Ambil Foto'}</span>
+                  </>
+                )}
               </button>
             </div>
           );
         })}
-      </div>
-
-      {/* House & FAT Geo-Location Telemetry Cards */}
-      <div className="pt-1">
-        <WorkOrderLocationsCard
-          ticket={activeTicket}
-          compact
-          canQuickCapture={!ticketClosed}
-          onQuickCaptureHouse={() => onOpenCameraByKey('customer_house')}
-          onQuickCaptureFat={() => onOpenCameraByKey('fat_attenuation')}
-        />
       </div>
     </div>
   );

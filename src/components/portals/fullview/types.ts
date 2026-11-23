@@ -89,7 +89,7 @@ export const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
     defaultTag: 'SN ONT',
     verifiedTag: 'GPS OK',
     validLabel: 'Terbaca Tajam',
-    emptyHint: 'Foto stiker barcode SN & MAC Address ONT dengan tajam'
+    emptyHint: 'Pindai stiker barcode SN & MAC Address ONT via kamera barcode'
   },
   {
     slotNumber: '07',
