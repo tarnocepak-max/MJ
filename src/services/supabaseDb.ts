@@ -1129,6 +1129,20 @@ export class SupabaseRepository {
       this.sseReconnectAttempt = 0;
       this.ensureMultiplexedSse(true);
     });
+
+    window.addEventListener('morajaws:auth-changed', () => {
+      const nextToken = getAuthHeaders().Authorization || '';
+      if (!nextToken) {
+        this.teardownMultiplexedSse(true);
+        return;
+      }
+      if (this.sseListeners.size > 0 && nextToken !== this.sseActiveToken) {
+        this.addRealtimeLog('info', 'AUTH_TOKEN_ROTATED', 'Token sesi diperbarui. Menyambungkan ulang stream SSE...');
+        this.sseReconnectAttempt = 0;
+        this.teardownMultiplexedSse(true);
+        this.ensureMultiplexedSse(true);
+      }
+    });
   }
 
   public reconnectRealtimeNow() {

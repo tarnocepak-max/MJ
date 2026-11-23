@@ -169,7 +169,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     syncStatus,
     refreshActiveTickets,
     activeKpiDrilldown,
-    setActiveKpiDrilldown
+    setActiveKpiDrilldown,
+    setIsChangePasswordModalOpen,
+    markTicketEditing
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
 
@@ -457,6 +459,18 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     ticket: null,
     isSubmitting: false
   });
+
+  useEffect(() => {
+    const protectedId =
+      (reassignModalState.isOpen && reassignModalState.ticket?.id) ||
+      (quotaWarningModal?.ticket?.id) ||
+      null;
+    if (!protectedId) return;
+    markTicketEditing(protectedId, true);
+    return () => {
+      markTicketEditing(protectedId, false);
+    };
+  }, [reassignModalState.isOpen, reassignModalState.ticket?.id, quotaWarningModal?.ticket?.id]);
 
   const handleOpenReassignModal = (ticket: Ticket) => {
     if (!isLeaderRole) {
@@ -2112,6 +2126,17 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               >
                 <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                 <span>Export</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsChangePasswordModalOpen(true)}
+                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                title="Ganti Password Akun Leader"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
+                <span className="hidden sm:inline">Ganti Password</span>
+                <span className="sm:hidden">Password</span>
               </button>
             </div>
           </div>

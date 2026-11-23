@@ -1,5 +1,12 @@
 import 'dotenv/config';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  getAppEnvironment,
+  getEnvironmentConfig,
+  validateEnvironmentStartup,
+  STAGING_SUPABASE_PROJECT_ID,
+  extractSupabaseProjectId
+} from './environmentConfig.ts';
 
 // ==============================================================================
 // MORAJAWS SUPABASE BACKEND CLIENT MODULE
@@ -27,6 +34,16 @@ function resolveRuntimeSupabaseEnv(): void {
         process.env.SUPABASE_URL = parsed.origin;
       }
     } catch {}
+  }
+
+  // 3. Validate cross-environment isolation on startup
+  const envValidation = validateEnvironmentStartup();
+  const activeEnv = getAppEnvironment();
+  const crossEnvErrors = envValidation.errors.filter(err =>
+    err.toLowerCase().includes('cross-environment') || err.toLowerCase().includes('staging')
+  );
+  if (crossEnvErrors.length > 0 && activeEnv !== 'development') {
+    console.error(`[Supabase Backend][${activeEnv}] Pelanggaran isolasi environment terdeteksi:`, crossEnvErrors.join(' | '));
   }
 }
 
@@ -192,11 +209,26 @@ export function getSupabaseBackendClient(): SupabaseClient | null {
     return supabaseInstance;
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const activeEnv = getAppEnvironment();
+  const envCfg = getEnvironmentConfig(activeEnv);
+  const supabaseUrl = (envCfg.supabaseUrl || process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (envCfg.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim();
 
   // Strict check: Secret key is mandatory. Never substitute with anon key.
   if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  // Fail closed on cross-environment violations (e.g., staging project in production or vice versa)
+  const extractedProjectId = extractSupabaseProjectId(supabaseUrl);
+  if (activeEnv === 'production' && extractedProjectId === STAGING_SUPABASE_PROJECT_ID) {
+    console.error('[Supabase Backend] Cross-environment violation: Production menolak koneksi ke project staging.');
+    return null;
+  }
+  const envValidation = validateEnvironmentStartup(activeEnv);
+  const crossErrors = envValidation.errors.filter(e => e.toLowerCase().includes('cross-environment'));
+  if (crossErrors.length > 0) {
+    console.error('[Supabase Backend] Cross-environment violation:', crossErrors.join(' | '));
     return null;
   }
 

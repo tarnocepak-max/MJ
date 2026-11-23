@@ -36,6 +36,7 @@ import { isValidCoordinatePair } from './services/mapsService';
 
 import { StaffLoginPortal } from './components/auth/StaffLoginPortal';
 import { ForcePasswordChangeModal } from './components/auth/ForcePasswordChangeModal';
+import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { SessionManagementModal } from './components/settings/SessionManagementModal';
 import { OfflineSyncModal } from './components/offline/OfflineSyncModal';
 import { OfflineBanner } from './components/offline/OfflineBanner';
@@ -105,6 +106,13 @@ const WO_NAVIGATION_ROUTES = new Set([
   'wo_assignment',
   'reassign_wo',
   'progress_dashboard',
+  'installer_progress',
+  'contractor_recap',
+  'rekap_laporan',
+  'sla_monitoring',
+  'schedule',
+  'management_data_portal',
+  'location_basecamp',
   'installer_portal',
   'installer_dashboard',
   'installer_tasks',
@@ -130,6 +138,9 @@ const MainLayout: React.FC = () => {
     clearGlobalConflict,
     setActiveKpiDrilldown,
     revalidateWoView,
+    isChangePasswordModalOpen,
+    setIsChangePasswordModalOpen,
+    applyRotatedPasswordSession,
     completeMandatoryPasswordChange,
     logout
   } = useApp();
@@ -1303,6 +1314,12 @@ const MainLayout: React.FC = () => {
 
       {/* Modals & Offline Alerts */}
       <SessionManagementModal />
+      <ChangePasswordModal
+        isOpen={Boolean(isChangePasswordModalOpen && isLoggedIn && currentUser?.id && !currentUser?.mustChangePassword)}
+        user={currentUser}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+        onPasswordChanged={applyRotatedPasswordSession}
+      />
       <OfflineSyncModal />
       <OfflineBanner />
       <ConfigConflictModal

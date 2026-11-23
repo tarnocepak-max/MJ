@@ -175,6 +175,8 @@ interface AppContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   isSessionModalOpen: boolean;
   setIsSessionModalOpen: (open: boolean) => void;
+  isChangePasswordModalOpen: boolean;
+  setIsChangePasswordModalOpen: (open: boolean) => void;
 
   // WO Lifecycle KPI Summary & Drill-Down
   kpiSummary: WOKpiSummary | null;
@@ -584,6 +586,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const lastDeltaWatermarkRef = useRef<string>(new Date().toISOString());
   const syncRetryCountRef = useRef<number>(0);
   const protectedEditNotifiedRef = useRef<Set<string>>(new Set());
+  const centralBootAbortRef = useRef<AbortController | null>(null);
+  const deltaSyncAbortRef = useRef<AbortController | null>(null);
+  const deltaSyncRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phase3IdleTimerRef = useRef<number | null>(null);
+
+  const cancelPendingDeltaRetry = () => {
+    if (deltaSyncRetryTimerRef.current) {
+      clearTimeout(deltaSyncRetryTimerRef.current);
+      deltaSyncRetryTimerRef.current = null;
+    }
+  };
 
   const getAuthHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {
@@ -1128,6 +1141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let isCancelled = false;
 
     const handleOnline = () => {
+      cancelPendingDeltaRetry();
       setSyncStatus('SYNCING');
       setDatabaseStatus('connecting');
       if (ticketsRef.current.length > 0) {
@@ -1137,16 +1151,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     const handleOffline = () => {
+      cancelPendingDeltaRetry();
+      if (deltaSyncAbortRef.current) {
+        deltaSyncAbortRef.current.abort();
+        deltaSyncAbortRef.current = null;
+      }
       setSyncStatus('OFFLINE');
       setDatabaseStatus('offline');
     };
     const handleWindowFocusOrVisible = () => {
+      if (document.visibilityState === 'hidden') {
+        cancelPendingDeltaRetry();
+        return;
+      }
       if (isCancelled || !navigator.onLine) return;
-      if (document.visibilityState === 'hidden') return;
       if (currentUserRef.current?.mustChangePassword) return;
       if (shouldThrottleViewRevalidation('window:focus', 10_000)) return;
       if (ticketsRef.current.length > 0) {
         runDeltaSync().catch(() => {});
+      } else {
+        loadCentralData().catch(() => {});
       }
     };
 
@@ -1614,6 +1638,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       isCancelled = true;
+      cancelPendingDeltaRetry();
+      if (deltaSyncAbortRef.current) {
+        deltaSyncAbortRef.current.abort();
+        deltaSyncAbortRef.current = null;
+      }
+      if (centralBootAbortRef.current) {
+        centralBootAbortRef.current.abort();
+        centralBootAbortRef.current = null;
+      }
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('focus', handleWindowFocusOrVisible);
@@ -1791,16 +1824,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!headers['Authorization']) return;
     if (currentUserRef.current?.mustChangePassword) return;
     if (!navigator.onLine) {
+      cancelPendingDeltaRetry();
       setSyncStatus('OFFLINE');
       setDatabaseStatus('offline');
       return;
     }
 
+    if (options?.force && deltaSyncAbortRef.current) {
+      deltaSyncAbortRef.current.abort();
+      deltaSyncAbortRef.current = null;
+    }
+
     return dedupedFetch('sync:delta', async () => {
+      const controller = new AbortController();
+      deltaSyncAbortRef.current = controller;
       try {
+        cancelPendingDeltaRetry();
         setSyncStatus('SYNCING');
         const sinceIso = lastDeltaWatermarkRef.current || new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        const res = await fetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, { headers });
+        const res = await fetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, {
+          headers,
+          signal: controller.signal
+        });
         if (!res.ok) {
           if (res.status === 403) {
             const errData = await res.json().catch(() => ({}));
@@ -1832,6 +1877,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
               });
             }
+            setWoCache('wo:full', merged.tickets, data.serverTime || lastDeltaWatermarkRef.current);
             return merged.tickets;
           });
           if (updatedTickets.length > 0 || deletedIds.length > 0) {
@@ -1890,9 +1936,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSyncError(null);
         syncRetryCountRef.current = 0;
       } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         syncRetryCountRef.current += 1;
         setSyncStatus('ERROR');
         setSyncError(err?.message || 'Gagal sinkronisasi delta');
+
+        if (
+          navigator.onLine &&
+          document.visibilityState === 'visible' &&
+          getAuthHeaders()['Authorization'] &&
+          !currentUserRef.current?.mustChangePassword &&
+          syncRetryCountRef.current <= 3
+        ) {
+          const retryDelayMs = 3000 * Math.pow(2, syncRetryCountRef.current - 1);
+          cancelPendingDeltaRetry();
+          deltaSyncRetryTimerRef.current = setTimeout(() => {
+            deltaSyncRetryTimerRef.current = null;
+            if (navigator.onLine && document.visibilityState === 'visible' && getAuthHeaders()['Authorization']) {
+              void runDeltaSync();
+            }
+          }, retryDelayMs);
+        }
+      } finally {
+        if (deltaSyncAbortRef.current === controller) {
+          deltaSyncAbortRef.current = null;
+        }
       }
     });
   };
@@ -1974,6 +2042,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loadCentralData = async () => {
     return dedupedFetch('central:bootstrap', async () => {
+      if (centralBootAbortRef.current) {
+        centralBootAbortRef.current.abort();
+      }
+      if (phase3IdleTimerRef.current !== null) {
+        clearTimeout(phase3IdleTimerRef.current);
+        phase3IdleTimerRef.current = null;
+      }
+      const bootController = new AbortController();
+      centralBootAbortRef.current = bootController;
+
       const cachedFull = getWoCache<Ticket[]>('wo:full') || getWoCache<Ticket[]>('wo:critical');
       if (cachedFull && Array.isArray(cachedFull.data) && ticketsRef.current.length === 0) {
         setTickets(cachedFull.data);
@@ -1995,7 +2073,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let passwordChangeRequired = false;
 
         // PHASE 1 — Critical Shell, RBAC, First-Paint Work Orders (light payload)
-        const critRes = await fetch('/api/bootstrap?mode=critical', { headers });
+        const critRes = await fetch('/api/bootstrap?mode=critical', {
+          headers,
+          signal: bootController.signal
+        });
+        if (bootController.signal.aborted) return;
         if (!critRes.ok) {
           if (critRes.status === 503) {
             const errData = await critRes.json().catch(() => ({}));
@@ -2009,6 +2091,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         const critData = await critRes.json();
+        if (bootController.signal.aborted) return;
         if (critData && critData.success) {
           const phase1Meta = applyBootstrapHydration(critData, { isPhase2Full: false, headers });
           resolvedRole = phase1Meta.resolvedRole;
@@ -2034,17 +2117,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return;
         }
 
-        // PHASE 2 — Secondary & Full Operational Hydration (non-blocking)
+        // Yield 1 animation frame so critical shell & Priority 1 rows paint smoothly before Phase 2 starts
+        await new Promise<void>(resolve => {
+          if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function' && document.visibilityState === 'visible') {
+            window.requestAnimationFrame(() => resolve());
+          } else {
+            window.setTimeout(resolve, 0);
+          }
+        });
+        if (bootController.signal.aborted) return;
+
+        // PHASE 2 — Secondary & Full Operational Hydration (non-blocking, parallel progressive WO + messages/templates + droplists)
         setSyncStage('phase2_secondary');
         setIsProgressiveHydrating(true);
 
-        const [fullBootRes, globalBoot] = await Promise.all([
-          fetch('/api/bootstrap', { headers }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+        const [progressiveFullRes, secondaryBootRes, globalBoot] = await Promise.all([
+          fetch('/api/work-orders/progressive?phase=full&limit=ALL', {
+            headers,
+            signal: bootController.signal
+          })
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch('/api/bootstrap?mode=secondary', {
+            headers,
+            signal: bootController.signal
+          })
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null),
           bootstrapGlobalConfigs().catch(() => null)
         ]);
 
-        if (fullBootRes && fullBootRes.success) {
-          const p2Meta = applyBootstrapHydration(fullBootRes, { isPhase2Full: true, headers });
+        if (bootController.signal.aborted) return;
+
+        if (progressiveFullRes && progressiveFullRes.success && Array.isArray(progressiveFullRes.tickets)) {
+          setTickets(prev => mergeProgressiveHydration(prev, progressiveFullRes.tickets));
+          setWoCache('wo:full', progressiveFullRes.tickets, progressiveFullRes.serverTime);
+          if (progressiveFullRes.serverTime) {
+            lastDeltaWatermarkRef.current = progressiveFullRes.serverTime;
+          }
+        }
+
+        if (secondaryBootRes && secondaryBootRes.success) {
+          const p2Meta = applyBootstrapHydration(secondaryBootRes, { isPhase2Full: true, headers });
           resolvedRole = p2Meta.resolvedRole;
           resolvedUserId = p2Meta.resolvedUserId;
           resolvedActive = p2Meta.resolvedActive;
@@ -2115,6 +2229,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             loadChatCategoriesFromSupabase().catch(() => null),
             loadReportDropdownCategoriesFromSupabase().catch(() => null)
           ]);
+          if (bootController.signal.aborted) return;
           if (Array.isArray(hierData) && hierData.length > 0) setHierarchicalStatuses(hierData);
           if (Array.isArray(chatCatsData) && chatCatsData.length > 0) setChatCategories(chatCatsData);
           if (Array.isArray(reportCatsData) && reportCatsData.length > 0) setReportDropdownCategories(reportCatsData);
@@ -2123,9 +2238,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsDropdownCategoriesLoading(false);
         setIsProgressiveHydrating(false);
 
-        // PHASE 3 — Deferred Background Collections (Users Directory, Audit Logs)
+        // PHASE 3 — Deferred Background Collections (Users Directory, Audit Logs) scheduled on browser idle
         setSyncStage('phase3_background');
-        window.setTimeout(() => {
+        const runPhase3Background = () => {
+          phase3IdleTimerRef.current = null;
+          if (bootController.signal.aborted || !getAuthHeaders()['Authorization']) return;
           void (async () => {
             try {
               const canViewAudit = Boolean(
@@ -2137,7 +2254,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 supabaseDb
                   .getUsers()
                   .then(usersRes => {
-                    if (usersRes.success && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
+                    if (!bootController.signal.aborted && usersRes.success && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
                       setUsers(usersRes.data);
                     }
                   })
@@ -2145,10 +2262,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ];
               if (canViewAudit) {
                 tasks.push(
-                  fetch('/api/supabase/audit-logs?limit=100', { headers: getAuthHeaders() })
+                  fetch('/api/supabase/audit-logs?limit=100', {
+                    headers: getAuthHeaders(),
+                    signal: bootController.signal
+                  })
                     .then(r => (r.ok ? r.json() : null))
                     .then(auditData => {
-                      if (auditData && auditData.success && Array.isArray(auditData.data)) {
+                      if (!bootController.signal.aborted && auditData && auditData.success && Array.isArray(auditData.data)) {
                         setAuditLogs(auditData.data);
                       }
                     })
@@ -2157,16 +2277,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
               await Promise.all(tasks);
             } finally {
-              setSyncStage('complete');
+              if (!bootController.signal.aborted) {
+                setSyncStage('complete');
+              }
             }
           })();
-        }, 250);
+        };
+
+        const winAny = window as any;
+        if (typeof winAny.requestIdleCallback === 'function') {
+          winAny.requestIdleCallback(runPhase3Background, { timeout: 600 });
+        } else {
+          phase3IdleTimerRef.current = window.setTimeout(runPhase3Background, 250);
+        }
       } catch (err: any) {
+        if (err?.name === 'AbortError' || bootController.signal.aborted) {
+          return;
+        }
         console.warn('[CentralData] Sync error:', err);
         setDataLoadError(err?.message || 'Gagal memuat status sesi');
         setDatabaseStatus('error');
         setSyncStatus('ERROR');
       } finally {
+        if (centralBootAbortRef.current === bootController) {
+          centralBootAbortRef.current = null;
+        }
         setIsDataLoading(false);
         setDatabaseLoading(false);
         setIsProgressiveHydrating(false);
@@ -2497,6 +2632,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
 
   // Live Asia/Jakarta (WIB) calendar date for automatic 00:00 WIB active WO reset
   const [todayWIB, setTodayWIB] = useState<string>(() => getJakartaDateString(0));
@@ -2619,18 +2755,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Authoritative backend sync for today's active WOs (GET /api/tickets)
+  // Authoritative backend sync for today's active WOs (uses lightweight delta sync when cache exists)
   const refreshActiveTickets = async () => {
     try {
       const headers = getAuthHeaders();
       if (!headers['Authorization']) return;
-      const res = await fetch('/api/tickets', { headers });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.operationalDateWIB) {
-          setTodayWIB(data.operationalDateWIB);
-          setOperationalDateState(data.operationalDateWIB);
-        }
+      if (ticketsRef.current.length > 0) {
+        await runDeltaSync({ force: true });
+        return;
       }
       await loadCentralData();
     } catch {}
@@ -2867,6 +2999,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     addAuditLog('User Logout', 'auth', currentUser.id, `Pengguna ${currentUser.name} (${currentUser.role}) logout dari sistem`);
     installerGpsTracker.stopTracking();
+    cancelPendingDeltaRetry();
+    if (centralBootAbortRef.current) {
+      centralBootAbortRef.current.abort();
+      centralBootAbortRef.current = null;
+    }
+    if (deltaSyncAbortRef.current) {
+      deltaSyncAbortRef.current.abort();
+      deltaSyncAbortRef.current = null;
+    }
+    if (phase3IdleTimerRef.current !== null) {
+      clearTimeout(phase3IdleTimerRef.current);
+      phase3IdleTimerRef.current = null;
+    }
+    setIsChangePasswordModalOpen(false);
     const authHeaders = getAuthHeaders();
     setIsLoggedIn(false);
     setCurrentUser(UNAUTHENTICATED_USER);
@@ -7698,6 +7844,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setOperationalDate,
         isSessionModalOpen,
         setIsSessionModalOpen,
+        isChangePasswordModalOpen,
+        setIsChangePasswordModalOpen,
         registerDispatchAccount,
         registerLeaderAccount,
         registerInstallerAccount,

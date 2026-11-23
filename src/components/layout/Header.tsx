@@ -29,7 +29,6 @@ import {
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
 import { NotificationBell } from '../notification/NotificationBell';
-import { ChangePasswordModal } from '../auth/ChangePasswordModal';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
@@ -98,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     syncError,
     lastSyncTime,
     refreshDatabaseData,
-    applyRotatedPasswordSession,
+    setIsChangePasswordModalOpen,
     tickets,
     scopedTickets,
     realtimeConnectionState,
@@ -113,7 +112,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const { playSyncSound } = useMoraJawsSound();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [connectionMonitorOpen, setConnectionMonitorOpen] = useState(false);
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [quickSearch, setQuickSearch] = useState('');
   const [quickResults, setQuickResults] = useState<Ticket[]>([]);
@@ -509,7 +507,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
         }
       : syncStatus === 'ERROR'
       ? {
-          label: 'SYNC ERROR',
+          label: 'SYNC FAILED',
           pillClass: 'bg-[#FCE9EB] text-[#D45B66] dark:bg-rose-500/15 dark:text-rose-300 border border-[#D45B66]/30 dark:border-rose-500/25',
           dotClass: 'bg-[#D45B66] dark:bg-rose-500'
         }
@@ -694,7 +692,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                         type="button"
                         onClick={() => {
                           setUserMenuOpen(false);
-                          setChangePasswordOpen(true);
+                          setIsChangePasswordModalOpen(true);
                         }}
                         className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-semibold text-[#26364A] dark:text-[#E9D5FF] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
                       >
@@ -723,12 +721,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
             </div>
           </div>
         </header>
-        <ChangePasswordModal
-          isOpen={changePasswordOpen}
-          user={currentUser}
-          onClose={() => setChangePasswordOpen(false)}
-          onPasswordChanged={applyRotatedPasswordSession}
-        />
       </div>
     );
   }
@@ -1054,7 +1046,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
               {!isOnline || syncStatus === 'OFFLINE'
                 ? `Offline${formattedLastSyncWIB ? ` · ${formattedLastSyncWIB}` : ''}`
                 : syncStatus === 'ERROR'
-                ? 'Sync Error'
+                ? 'Sync Failed'
                 : isRefreshing || syncStatus === 'SYNCING' || syncStatus === 'LOADING' || isProgressiveHydrating
                 ? `Syncing${isProgressiveHydrating && syncStage !== 'complete' ? '...' : ''}`
                 : `Synced${formattedLastSyncWIB ? ` · ${formattedLastSyncWIB}` : ''}`}
@@ -1170,7 +1162,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                       type="button"
                       onClick={() => {
                         setUserMenuOpen(false);
-                        setChangePasswordOpen(true);
+                        setIsChangePasswordModalOpen(true);
                       }}
                       className="w-full text-left py-2 px-3 rounded-lg text-xs font-semibold text-[#26364A] dark:text-[#E9D5FF] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] flex items-center justify-between cursor-pointer"
                     >
@@ -1237,12 +1229,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           </button>
         </div>
       </header>
-      <ChangePasswordModal
-        isOpen={changePasswordOpen}
-        user={currentUser}
-        onClose={() => setChangePasswordOpen(false)}
-        onPasswordChanged={applyRotatedPasswordSession}
-      />
     </div>
   );
 };

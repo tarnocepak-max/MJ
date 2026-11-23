@@ -55,7 +55,8 @@ import {
   Gauge,
   ChevronRight,
   Clock,
-  Sparkles
+  Sparkles,
+  KeyRound
 } from 'lucide-react';
 
 interface InstallerDashboardViewProps {
@@ -116,7 +117,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     refreshKpiSummary,
     setActiveKpiDrilldown,
     sendTicketMessage,
-    updateTicketStatus
+    updateTicketStatus,
+    setIsChangePasswordModalOpen
   } = useApp();
   const { isOnline, pendingCount, setIsOfflineModalOpen } = useOfflineSync();
   const { toast } = useToast();
@@ -520,18 +522,29 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsOfflineModalOpen(true)}
-              className={`mj-btn-xs px-2.5 py-1 text-[10.5px] font-bold gap-1.5 cursor-pointer ${
-                isOnline ? 'mj-btn-installer-success' : 'mj-btn-installer-warning'
-              }`}
-              title="Status Availability & Jaringan"
-            >
-              {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              <span>{isOnline ? 'SIAP KERJA · ONLINE' : 'MODE OFFLINE'}</span>
-            </button>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsChangePasswordModalOpen(true)}
+                className="mj-btn-xs px-2 py-1 text-[10.5px] font-bold gap-1 cursor-pointer bg-[#F0EDFF] text-[#5145A6] border border-[#6657C8]/25 hover:bg-[#E4DFFF] dark:bg-[#22123F] dark:text-[#DAB9FF] dark:border-[#7135B5]/40"
+                title="Ganti Password Akun"
+              >
+                <KeyRound className="w-3 h-3" />
+                <span>Password</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOfflineModalOpen(true)}
+                className={`mj-btn-xs px-2.5 py-1 text-[10.5px] font-bold gap-1.5 cursor-pointer ${
+                  isOnline ? 'mj-btn-installer-success' : 'mj-btn-installer-warning'
+                }`}
+                title="Status Availability & Jaringan"
+              >
+                {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                <span>{isOnline ? 'SIAP KERJA · ONLINE' : 'MODE OFFLINE'}</span>
+              </button>
+            </div>
             <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] font-mono font-semibold">
               {shortTodayLabel}
             </span>

@@ -4496,10 +4496,10 @@ export async function assignTicketInSupabase(
     };
   }
 
-  // 2. Validate Leader contractor & area scope
+  // 2. Validate Leader contractor & area scope (fail closed when WO contractor/area is empty)
   const woContr = String(targetWO.contactorName || targetWO.contractorName || '').trim();
   if (userRole === 'leader') {
-    if (!userContractor || (woContr && !isContractorMatch(woContr, userContractor))) {
+    if (!userContractor || !woContr || !isContractorMatch(woContr, userContractor)) {
       return {
         success: false,
         error: {
@@ -4508,52 +4508,96 @@ export async function assignTicketInSupabase(
         }
       };
     }
-    if (userArea && targetWO.area && !isAreaMatch(targetWO.area, userArea)) {
+    if (userArea && (!targetWO.area || !isAreaMatch(targetWO.area, userArea))) {
       return {
         success: false,
         error: {
           code: 'SCOPE_MISMATCH',
-          message: `Akses Ditolak: Work Order ${targetWO.woNumber} berada di area "${targetWO.area}", di luar cakupan wilayah Anda (${userArea}).`
+          message: `Akses Ditolak: Work Order ${targetWO.woNumber} berada di area "${targetWO.area || 'Kosong'}", di luar cakupan wilayah Anda (${userArea}).`
         }
       };
     }
   }
 
-  // 2b. Resolve and validate target Installer from Supabase users if available
+  // 2b. Resolve and strictly validate target Installer account from Supabase users
   let resolvedInstallerId = installerId?.trim() || undefined;
   let resolvedInstallerName = effInstallerName;
   const usersRes = await getUsersFromSupabase(false);
-  if (usersRes.success && usersRes.data) {
-    const matchedInstaller = usersRes.data.find(
-      u =>
-        u.role === 'installer' &&
-        ((resolvedInstallerId && u.id === resolvedInstallerId) ||
-          u.name.trim().toLowerCase() === effInstallerName.toLowerCase() ||
-          u.username.trim().toLowerCase() === effInstallerName.toLowerCase())
-    );
-    if (matchedInstaller) {
-      if (!matchedInstaller.active || matchedInstaller.isDeleted) {
+  if (!usersRes.success || !Array.isArray(usersRes.data)) {
+    return {
+      success: false,
+      error: {
+        code: 'DATABASE_UNAVAILABLE',
+        message: 'Gagal memverifikasi akun Installer dari database Supabase.',
+        isUnavailable: true
+      }
+    };
+  }
+
+  const allInstallers = usersRes.data.filter(u => u.role === 'installer');
+  let matchedInstaller: any = null;
+  if (resolvedInstallerId) {
+    matchedInstaller = allInstallers.find(u => u.id === resolvedInstallerId) || null;
+  } else {
+    const cleanNeedle = effInstallerName.toLowerCase();
+    const byUsername = allInstallers.filter(u => !u.isDeleted && u.username.trim().toLowerCase() === cleanNeedle);
+    if (byUsername.length === 1) {
+      matchedInstaller = byUsername[0];
+    } else {
+      const byName = allInstallers.filter(u => !u.isDeleted && u.name.trim().toLowerCase() === cleanNeedle);
+      if (byName.length > 1) {
         return {
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif di sistem.`
+            message: `Nama teknisi "${effInstallerName}" ambigu (${byName.length} akun ditemukan). Pilih teknisi menggunakan ID akun yang spesifik.`
           }
         };
       }
-      if (userContractor && matchedInstaller.contractor && !isContractorMatch(matchedInstaller.contractor, userContractor)) {
-        return {
-          success: false,
-          error: {
-            code: 'SCOPE_MISMATCH',
-            message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${userContractor}).`
-          }
-        };
-      }
-      resolvedInstallerId = matchedInstaller.id;
-      resolvedInstallerName = matchedInstaller.name;
+      matchedInstaller = byName[0] || allInstallers.find(u => u.name.trim().toLowerCase() === cleanNeedle || u.username.trim().toLowerCase() === cleanNeedle) || null;
     }
   }
+
+  if (!matchedInstaller) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_INPUT',
+        message: `Akun teknisi "${effInstallerName}" tidak ditemukan di direktori Installer.`
+      }
+    };
+  }
+  if (!matchedInstaller.active || matchedInstaller.isDeleted) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_INPUT',
+        message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif atau telah dihapus dari sistem.`
+      }
+    };
+  }
+  const instContr = String(matchedInstaller.contractorId || matchedInstaller.contractor || '').trim();
+  const instContrName = String(matchedInstaller.contractor || '').trim();
+  if (userContractor && (!instContr || (!isContractorMatch(instContr, userContractor) && (!instContrName || !isContractorMatch(instContrName, userContractor))))) {
+    return {
+      success: false,
+      error: {
+        code: 'SCOPE_MISMATCH',
+        message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${userContractor}).`
+      }
+    };
+  }
+  if (userArea && matchedInstaller.area && !isAreaMatch(matchedInstaller.area, userArea)) {
+    return {
+      success: false,
+      error: {
+        code: 'SCOPE_MISMATCH',
+        message: `Teknisi "${matchedInstaller.name}" (${matchedInstaller.area}) berada di luar cakupan Area Anda (${userArea}).`
+      }
+    };
+  }
+  resolvedInstallerId = matchedInstaller.id;
+  resolvedInstallerName = matchedInstaller.name;
 
   // 3. Snapshot original state for rollback compensation
   const originalState: Record<string, any> = {
@@ -4765,10 +4809,10 @@ export async function reassignTicketInSupabase(
     };
   }
 
-  // 2. Validate contractor & area scope for Leader
+  // 2. Validate contractor & area scope for Leader (fail closed when WO contractor/area is empty)
   const woContr = String(targetTicket.contactorName || targetTicket.contractorName || contractorName || '').trim();
   if (userRole === 'leader') {
-    if (!userContractor || (woContr && !isContractorMatch(woContr, userContractor))) {
+    if (!userContractor || !woContr || !isContractorMatch(woContr, userContractor)) {
       return {
         success: false,
         error: {
@@ -4777,52 +4821,96 @@ export async function reassignTicketInSupabase(
         }
       };
     }
-    if (userArea && targetTicket.area && !isAreaMatch(targetTicket.area, userArea)) {
+    if (userArea && (!targetTicket.area || !isAreaMatch(targetTicket.area, userArea))) {
       return {
         success: false,
         error: {
           code: 'SCOPE_MISMATCH',
-          message: `Akses Ditolak: Work Order ${targetTicket.woNumber} berada di area "${targetTicket.area}", di luar cakupan wilayah Anda (${userArea}).`
+          message: `Akses Ditolak: Work Order ${targetTicket.woNumber} berada di area "${targetTicket.area || 'Kosong'}", di luar cakupan wilayah Anda (${userArea}).`
         }
       };
     }
   }
 
-  // 2b. Validate target Installer active + scope
+  // 2b. Strictly validate target Installer account (active, non-deleted, unambiguous, within scope)
   let resolvedNewInstallerId = (newInstallerId || installerId || '').trim() || undefined;
   let resolvedNewInstallerName = effNewInstaller;
   const usersRes = await getUsersFromSupabase(false);
-  if (usersRes.success && usersRes.data) {
-    const matchedInstaller = usersRes.data.find(
-      u =>
-        u.role === 'installer' &&
-        ((resolvedNewInstallerId && u.id === resolvedNewInstallerId) ||
-          u.name.trim().toLowerCase() === effNewInstaller.toLowerCase() ||
-          u.username.trim().toLowerCase() === effNewInstaller.toLowerCase())
-    );
-    if (matchedInstaller) {
-      if (!matchedInstaller.active || matchedInstaller.isDeleted) {
+  if (!usersRes.success || !Array.isArray(usersRes.data)) {
+    return {
+      success: false,
+      error: {
+        code: 'DATABASE_UNAVAILABLE',
+        message: 'Gagal memverifikasi akun Installer tujuan dari database Supabase.',
+        isUnavailable: true
+      }
+    };
+  }
+
+  const allInstallers = usersRes.data.filter(u => u.role === 'installer');
+  let matchedInstaller: any = null;
+  if (resolvedNewInstallerId) {
+    matchedInstaller = allInstallers.find(u => u.id === resolvedNewInstallerId) || null;
+  } else {
+    const cleanNeedle = effNewInstaller.toLowerCase();
+    const byUsername = allInstallers.filter(u => !u.isDeleted && u.username.trim().toLowerCase() === cleanNeedle);
+    if (byUsername.length === 1) {
+      matchedInstaller = byUsername[0];
+    } else {
+      const byName = allInstallers.filter(u => !u.isDeleted && u.name.trim().toLowerCase() === cleanNeedle);
+      if (byName.length > 1) {
         return {
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif di sistem.`
+            message: `Nama teknisi "${effNewInstaller}" ambigu (${byName.length} akun ditemukan). Pilih teknisi menggunakan ID akun yang spesifik.`
           }
         };
       }
-      if (userContractor && matchedInstaller.contractor && !isContractorMatch(matchedInstaller.contractor, userContractor)) {
-        return {
-          success: false,
-          error: {
-            code: 'SCOPE_MISMATCH',
-            message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${userContractor}).`
-          }
-        };
-      }
-      resolvedNewInstallerId = matchedInstaller.id;
-      resolvedNewInstallerName = matchedInstaller.name;
+      matchedInstaller = byName[0] || allInstallers.find(u => u.name.trim().toLowerCase() === cleanNeedle || u.username.trim().toLowerCase() === cleanNeedle) || null;
     }
   }
+
+  if (!matchedInstaller) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_INPUT',
+        message: `Akun teknisi "${effNewInstaller}" tidak ditemukan di direktori Installer.`
+      }
+    };
+  }
+  if (!matchedInstaller.active || matchedInstaller.isDeleted) {
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_INPUT',
+        message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif atau telah dihapus dari sistem.`
+      }
+    };
+  }
+  const instContr = String(matchedInstaller.contractorId || matchedInstaller.contractor || '').trim();
+  const instContrName = String(matchedInstaller.contractor || '').trim();
+  if (userContractor && (!instContr || (!isContractorMatch(instContr, userContractor) && (!instContrName || !isContractorMatch(instContrName, userContractor))))) {
+    return {
+      success: false,
+      error: {
+        code: 'SCOPE_MISMATCH',
+        message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${userContractor}).`
+      }
+    };
+  }
+  if (userArea && matchedInstaller.area && !isAreaMatch(matchedInstaller.area, userArea)) {
+    return {
+      success: false,
+      error: {
+        code: 'SCOPE_MISMATCH',
+        message: `Teknisi "${matchedInstaller.name}" (${matchedInstaller.area}) berada di luar cakupan Area Anda (${userArea}).`
+      }
+    };
+  }
+  resolvedNewInstallerId = matchedInstaller.id;
+  resolvedNewInstallerName = matchedInstaller.name;
 
   // 3. Snapshot original state for rollback compensation
   const originalState: Record<string, any> = {

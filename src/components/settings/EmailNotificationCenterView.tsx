@@ -49,11 +49,18 @@ interface EmailNotificationConfig {
 }
 
 interface EmailProviderHealth {
-  provider: 'resend';
-  apiKeyConfigured: boolean;
+  provider: 'gmail_smtp';
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  starttlsEnabled: boolean;
+  smtpUserConfigured: boolean;
+  smtpPassConfigured: boolean;
+  smtpUserPreview: string;
   envFromConfigured: boolean;
   envReplyToConfigured: boolean;
   resolvedFromPreview: string;
+  resolvedReplyToPreview: string;
   ready: boolean;
   dedicatedTablesReady: boolean;
   statusMessage: string;
@@ -177,9 +184,11 @@ export const EmailNotificationCenterView: React.FC = () => {
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [testConnectionMsg, setTestConnectionMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [testEmailResultMsg, setTestEmailResultMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   const [config, setConfig] = useState<EmailNotificationConfig>({
     enabled: false,
-    senderName: 'MoraJaws Ops Dispatch',
+    senderName: 'MoraJaws',
     senderEmail: 'noreply@morajaws.local',
     replyToEmail: '',
     timezone: 'Asia/Jakarta',
@@ -384,12 +393,12 @@ export const EmailNotificationCenterView: React.FC = () => {
       if (json.providerHealth) setProviderHealth(json.providerHealth);
       setTestConnectionMsg({
         ok: Boolean(json.success),
-        text: json.message || 'Gagal menguji koneksi Resend.'
+        text: json.message || 'Gagal menguji koneksi Gmail SMTP.'
       });
       if (json.success) {
         toast.success(json.message);
       } else {
-        toast.warning(json.message || 'Provider email belum siap.');
+        toast.warning(json.message || 'Koneksi Gmail SMTP belum siap.');
       }
     } finally {
       setIsTestingConn(false);
@@ -403,6 +412,7 @@ export const EmailNotificationCenterView: React.FC = () => {
       return;
     }
     setIsSendingTest(true);
+    setTestEmailResultMsg(null);
     try {
       const res = await fetch('/api/email-notifications/test-send', {
         method: 'POST',
@@ -414,10 +424,14 @@ export const EmailNotificationCenterView: React.FC = () => {
         })
       });
       const json = await res.json().catch(() => ({}));
+      if (json.providerHealth) setProviderHealth(json.providerHealth);
       if (res.ok && json.success) {
+        setTestEmailResultMsg({ ok: true, text: json.message });
         toast.success(json.message);
       } else {
-        toast.error(json.message || 'Pengiriman test email gagal.');
+        const errMsg = json.message || 'Pengiriman test email melalui Gmail SMTP gagal.';
+        setTestEmailResultMsg({ ok: false, text: errMsg });
+        toast.error(errMsg);
       }
       if (subTab === 'logs') void loadLogs();
     } finally {
@@ -544,7 +558,7 @@ export const EmailNotificationCenterView: React.FC = () => {
                     }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${providerHealth.ready ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                    <span>{providerHealth.ready ? 'RESEND READY' : 'ENV KEY NEEDED'}</span>
+                    <span>{providerHealth.ready ? 'GMAIL SMTP READY' : 'SMTP SECRETS NEEDED'}</span>
                   </span>
                 )}
               </div>
@@ -736,7 +750,7 @@ export const EmailNotificationCenterView: React.FC = () => {
                 <div className="card-3d-lavender rounded-2xl p-5 space-y-3.5">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
-                      Provider Status (Resend API)
+                      Provider Status (Gmail SMTP · STARTTLS)
                     </h3>
                     <button
                       type="button"
@@ -752,15 +766,36 @@ export const EmailNotificationCenterView: React.FC = () => {
                   {providerHealth && (
                     <div className="space-y-2 text-xs">
                       <div className="mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2">
-                        <span className="font-bold text-[#52647A] dark:text-[#CEC0E8]">RESEND_API_KEY (Server Env)</span>
+                        <span className="font-bold text-[#52647A] dark:text-[#CEC0E8]">Endpoint &amp; Enkripsi</span>
+                        <span className="font-mono text-[10.5px] font-extrabold text-[#26364A] dark:text-white">
+                          {providerHealth.smtpHost}:{providerHealth.smtpPort} · {providerHealth.smtpSecure ? 'SSL/TLS' : 'STARTTLS'}
+                        </span>
+                      </div>
+
+                      <div className="mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#52647A] dark:text-[#CEC0E8]">SMTP_USER (Server Secret)</span>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold ${
-                            providerHealth.apiKeyConfigured
+                            providerHealth.smtpUserConfigured
                               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300'
                               : 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300'
                           }`}
                         >
-                          {providerHealth.apiKeyConfigured ? 'CONFIGURED' : 'MISSING'}
+                          {providerHealth.smtpUserConfigured ? providerHealth.smtpUserPreview : 'MISSING'}
+                        </span>
+                      </div>
+
+                      <div className="mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#52647A] dark:text-[#CEC0E8]">SMTP_PASS (App Password)</span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold ${
+                            providerHealth.smtpPassConfigured
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300'
+                              : 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300'
+                          }`}
+                        >
+                          <Lock className="w-3 h-3" />
+                          <span>{providerHealth.smtpPassConfigured ? 'CONFIGURED (SECRET)' : 'MISSING'}</span>
                         </span>
                       </div>
 
@@ -782,6 +817,10 @@ export const EmailNotificationCenterView: React.FC = () => {
                         <div>
                           <span className="font-bold">Header From:</span>{' '}
                           <span className="font-mono text-[#26364A] dark:text-white">{providerHealth.resolvedFromPreview}</span>
+                        </div>
+                        <div>
+                          <span className="font-bold">Reply-To:</span>{' '}
+                          <span className="font-mono text-[#26364A] dark:text-white">{providerHealth.resolvedReplyToPreview || '-'}</span>
                         </div>
                         <div>{providerHealth.statusMessage}</div>
                       </div>
@@ -809,7 +848,7 @@ export const EmailNotificationCenterView: React.FC = () => {
                       Send Test Email
                     </h3>
                     <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
-                      Uji pengiriman aktual ke alamat email penerima menggunakan template aktif.
+                      Uji pengiriman aktual via Gmail SMTP ke alamat email penerima menggunakan template aktif.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -817,7 +856,7 @@ export const EmailNotificationCenterView: React.FC = () => {
                       type="email"
                       value={testRecipientEmail}
                       onChange={e => setTestRecipientEmail(e.target.value)}
-                      placeholder="superadmin@domain.com"
+                      placeholder="superadmin@gmail.com"
                       className="flex-1 px-3 py-2 rounded-xl tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-xs font-bold text-[#26364A] dark:text-white focus:outline-none"
                     />
                     <button
@@ -830,6 +869,18 @@ export const EmailNotificationCenterView: React.FC = () => {
                       <span>Send Test Email</span>
                     </button>
                   </div>
+                  {testEmailResultMsg && (
+                    <div
+                      className={`p-3 rounded-xl text-[11px] font-bold border flex items-start gap-2 ${
+                        testEmailResultMsg.ok
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                          : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800'
+                      }`}
+                    >
+                      {testEmailResultMsg.ok ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <XCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+                      <span>{testEmailResultMsg.text}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

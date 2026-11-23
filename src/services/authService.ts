@@ -324,6 +324,7 @@ export async function changePasswordWithRotation(payload: {
   const res = await fetch('/api/auth/change-password', {
     method: 'POST',
     headers,
+    credentials: 'include',
     body: JSON.stringify(payload)
   });
   const data = await res.json().catch(() => ({}));

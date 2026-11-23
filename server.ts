@@ -205,7 +205,7 @@ import {
   getEmailNotificationConfig,
   saveEmailNotificationConfig,
   getEmailProviderHealth,
-  testResendProviderConnection,
+  testSmtpProviderConnection,
   getEmailTemplates,
   saveEmailTemplate,
   renderDemoPreviewForTemplate,
@@ -305,10 +305,25 @@ export function resolveUserContractorId(user?: any): string | null | undefined {
 
 export function isLeaderAllowedToManageInstaller(leader: any, installer: any): boolean {
   if (!leader || !installer) return false;
-  const lContr = (leader.contractorId || leader.contractor || '').trim().toLowerCase();
-  const iContr = (installer.contractorId || installer.contractor || '').trim().toLowerCase();
-  if (!lContr || !iContr) return false;
-  return lContr === iContr || lContr.includes(iContr) || iContr.includes(lContr);
+  const lContrId = String(leader.contractorId || '').trim().toLowerCase();
+  const iContrId = String(installer.contractorId || '').trim().toLowerCase();
+  const lContrName = String(leader.contractor || '').trim();
+  const iContrName = String(installer.contractor || '').trim();
+
+  if (lContrId) {
+    if (!iContrId || lContrId !== iContrId) return false;
+  } else if (lContrName && iContrName) {
+    if (!isContractorMatch(lContrName, iContrName)) return false;
+  } else {
+    return false;
+  }
+
+  const lArea = String(leader.area || '').trim();
+  const iArea = String(installer.area || '').trim();
+  if (lArea && iArea && !isAreaMatch(iArea, lArea)) {
+    return false;
+  }
+  return true;
 }
 
 export function isInstallerAuthorizedForTicket(ticket: any, installer: any): boolean {
@@ -425,6 +440,7 @@ export const PROTECTED_PRODUCTION_WO_IDS = new Set<string>([
 ]);
 
 export function isLocalJsonModeAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
   if (isSupabaseMode()) return false;
   if (process.env.ALLOW_LOCAL_JSON_MODE === 'false') return false;
   return true;
@@ -1019,8 +1035,9 @@ export let db: DatabaseSchema = {
   emailDeliveryLogs: []
 };
 
-// Load database from disk or create if not existing
+// Load database from disk or create if not existing (strictly skipped in production or Supabase mode)
 function loadDatabaseFromDisk() {
+  if (!isLocalJsonModeAllowed()) return;
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -1336,16 +1353,18 @@ async function resolveScopeTicketForRealtime(ticketId?: string, woNumber?: strin
     return cached.ticket;
   }
 
-  let found =
-    db.tickets.find(t => (keyId && t.id === keyId) || (keyWo && t.woNumber === keyWo)) || null;
-
-  if (!found && isSupabaseMode()) {
+  let found: any = null;
+  if (isSupabaseMode()) {
     try {
       const res = await getWorkOrderByIdOrWoNumberFromSupabase(keyId || keyWo);
       if (res.success && res.data) {
         found = res.data;
       }
     } catch {}
+  }
+
+  if (!found && isLocalJsonModeAllowed()) {
+    found = db.tickets.find(t => (keyId && t.id === keyId) || (keyWo && t.woNumber === keyWo)) || null;
   }
 
   if (found) {
@@ -1695,27 +1714,124 @@ interface AuthenticatedRequest extends Request {
   supabaseAuthUser?: any;
 }
 
-export function validateCsrfProtection(req: { method?: string; headers?: Record<string, string | string[] | undefined> }): { valid: boolean; reason?: string } {
+function isCookieOnlyAuthMode(): boolean {
+  return process.env.AUTH_COOKIE_ONLY_MODE === 'true';
+}
+
+function getAuthCookieOptions(req: Request, maxAgeMs: number, cookiePath: string) {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || '').split(',')[0].trim().toLowerCase();
+  const isHttps = req.secure || proto === 'https';
+  const isLocalHttpTest =
+    !isHttps &&
+    (req.hostname === 'localhost' || req.hostname === '127.0.0.1' || req.hostname === '::1');
+  const secureFlag = process.env.NODE_ENV === 'production' ? (isHttps || !isLocalHttpTest) : false;
+  return {
+    httpOnly: true,
+    secure: secureFlag,
+    sameSite: 'lax' as const,
+    maxAge: maxAgeMs,
+    path: cookiePath
+  };
+}
+
+function getAllowedCorsAndCsrfOrigins(): Set<string> {
+  const configured = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+  const origins = new Set<string>([
+    'https://morajawskow.ai.studio',
+    'https://morajaws.ai.studio',
+    ...configured
+  ]);
+  for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.APP_BASE_URL]) {
+    if (rawBase && rawBase.trim()) {
+      try {
+        origins.add(new URL(rawBase.trim()).origin);
+      } catch {}
+    }
+  }
+  return origins;
+}
+
+export function validateCsrfProtection(req: {
+  method?: string;
+  path?: string;
+  originalUrl?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  cookies?: Record<string, string | undefined>;
+}): { valid: boolean; reason?: string } {
   const method = (req.method || 'GET').toUpperCase();
   if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
     return { valid: true };
   }
-  const headers = req.headers || {};
-  const origin = headers['origin'];
-  const host = headers['host'];
 
-  if (origin && host) {
-    const originStr = Array.isArray(origin) ? origin[0] : origin;
-    const hostStr = Array.isArray(host) ? host[0] : host;
+  const reqPath = String(req.path || req.originalUrl || '').split('?')[0];
+  if (reqPath.startsWith('/api/webhooks/resend')) {
+    return { valid: true };
+  }
+
+  const headers = req.headers || {};
+  const originRaw = headers['origin'];
+  const refererRaw = headers['referer'];
+  const hostRaw = headers['x-forwarded-host'] || headers['host'];
+  const hostStr = (Array.isArray(hostRaw) ? hostRaw[0] : hostRaw || '').split(',')[0].trim().toLowerCase();
+  const allowedOrigins = getAllowedCorsAndCsrfOrigins();
+
+  const isAllowedOriginValue = (rawUrl: string): boolean => {
     try {
-      const originHost = new URL(originStr).host;
-      if (originHost !== hostStr) {
-        return { valid: false, reason: 'Origin mismatch' };
+      const parsed = new URL(rawUrl);
+      const originHost = parsed.host.toLowerCase();
+      const originHostname = parsed.hostname.toLowerCase();
+      if (hostStr && originHost === hostStr) return true;
+      if (allowedOrigins.has(parsed.origin)) return true;
+      if (originHostname === 'localhost' || originHostname === '127.0.0.1') return true;
+      if (
+        parsed.protocol === 'https:' &&
+        (originHostname.endsWith('.run.app') ||
+          originHostname.endsWith('.aistudio-preview.app') ||
+          originHostname.endsWith('.google.com') ||
+          originHostname.endsWith('.googleusercontent.com'))
+      ) {
+        return true;
       }
+      return false;
     } catch {
-      return { valid: false, reason: 'Malformed origin' };
+      return false;
+    }
+  };
+
+  if (originRaw) {
+    const originStr = Array.isArray(originRaw) ? originRaw[0] : originRaw;
+    if (!isAllowedOriginValue(originStr)) {
+      return { valid: false, reason: 'Origin mismatch' };
+    }
+    return { valid: true };
+  }
+
+  if (refererRaw) {
+    const refererStr = Array.isArray(refererRaw) ? refererRaw[0] : refererRaw;
+    if (!isAllowedOriginValue(refererStr)) {
+      return { valid: false, reason: 'Referer origin mismatch' };
+    }
+    return { valid: true };
+  }
+
+  // If browser sent HttpOnly auth cookies without Authorization header and without Origin/Referer,
+  // require explicit CSRF/non-simple header to prevent cross-site form submissions.
+  const hasAuthCookies = Boolean(req.cookies?.mora_access_token || req.cookies?.mora_refresh_token);
+  const hasBearer = Boolean(
+    headers['authorization'] &&
+      String(Array.isArray(headers['authorization']) ? headers['authorization'][0] : headers['authorization']).startsWith('Bearer ')
+  );
+  if (hasAuthCookies && !hasBearer && process.env.NODE_ENV === 'production') {
+    const hasCsrfHeader = Boolean(headers['x-csrf-token'] || headers['x-requested-with']);
+    const contentType = String(headers['content-type'] || '').toLowerCase();
+    if (!hasCsrfHeader && !contentType.includes('application/json')) {
+      return { valid: false, reason: 'Missing CSRF header for cookie-authenticated request' };
     }
   }
+
   return { valid: true };
 }
 
@@ -2610,18 +2726,24 @@ function requireBackupDownloadPermission(req: AuthenticatedRequest, res: Respons
   next();
 }
 
-function requireImportPermission(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+async function requireImportPermission(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi', code: 'UNAUTHENTICATED' });
   }
-  if (req.user.role !== 'super_admin') {
-    logServerAudit('Access Denied (Import Permission Required)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) ditolak melakukan import WO`, req.user);
-    return res.status(403).json({
-      error: 'Akses Ditolak: Otoritas import Master Work Order hanya diberikan kepada Super Admin.',
-      code: 'REQUIRE_IMPORT_PERMISSION'
-    });
+  if (req.user.role === 'super_admin') {
+    return next();
   }
-  next();
+  if (req.user.role === 'dispatch') {
+    const allowedByPermission = await hasDynamicPermission('dispatch', 'import_data');
+    if (allowedByPermission) {
+      return next();
+    }
+  }
+  logServerAudit('Access Denied (Import Permission Required)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) ditolak melakukan import WO`, req.user);
+  return res.status(403).json({
+    error: 'Akses Ditolak: Otoritas import Master Work Order hanya diberikan kepada Super Admin atau Dispatch yang memiliki izin import_data.',
+    code: 'REQUIRE_IMPORT_PERMISSION'
+  });
 }
 
 export function requireManagementData(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -2767,7 +2889,6 @@ export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
       ticket.installerUid ||
       ticket.assignedToUid ||
       ticket.assignedToId ||
-      ticket.assignedTo ||
       ''
     ).trim();
     if (!assignedId) return false;
@@ -2952,8 +3073,11 @@ export async function createExpressApp(options?: {
   deferVite?: boolean;
   httpServer?: http.Server;
   nowProvider?: () => Date;
+  onViteInstance?: (vite: { close: () => Promise<void> }) => void;
 }): Promise<express.Express> {
-  loadDatabaseFromDisk();
+  if (isLocalJsonModeAllowed()) {
+    loadDatabaseFromDisk();
+  }
 
   const getNow = options?.nowProvider ?? (() => new Date());
 
@@ -3013,26 +3137,11 @@ export async function createExpressApp(options?: {
   }
 
   const app = express();
+  app.set('trust proxy', 1);
   const PORT = resolveServerPort();
 
   // Production CORS & Security Headers
-  const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(o => o.trim())
-    .filter(Boolean);
-
-  const knownProductionOrigins = new Set<string>([
-    'https://morajawskow.ai.studio',
-    'https://morajaws.ai.studio',
-    ...configuredCorsOrigins
-  ]);
-  for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.APP_BASE_URL]) {
-    if (rawBase && rawBase.trim()) {
-      try {
-        knownProductionOrigins.add(new URL(rawBase.trim()).origin);
-      } catch {}
-    }
-  }
+  const knownProductionOrigins = getAllowedCorsAndCsrfOrigins();
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -3101,7 +3210,7 @@ export async function createExpressApp(options?: {
     }
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-username, x-user-role, x-google-access-token, Accept, X-Requested-With, Cache-Control');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-username, x-user-role, x-google-access-token, Accept, X-Requested-With, X-CSRF-Token, Cache-Control');
 
     if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
@@ -3110,6 +3219,17 @@ export async function createExpressApp(options?: {
   });
 
   app.use(cookieParser());
+  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+    const csrfCheck = validateCsrfProtection(req);
+    if (!csrfCheck.valid) {
+      return res.status(403).json({
+        success: false,
+        error: `Permintaan ditolak oleh proteksi CSRF (${csrfCheck.reason || 'Origin mismatch'}).`,
+        code: 'CSRF_VALIDATION_FAILED'
+      });
+    }
+    next();
+  });
   app.use(express.json({
     limit: '50mb',
     verify: (req: any, _res, buf) => {
@@ -3317,10 +3437,12 @@ export async function createExpressApp(options?: {
     });
   });
 
-  // --- Bootstrap Initial State for Client Startup (Supports ?mode=critical for Phase 1 Progressive Loading) ---
+  // --- Bootstrap Initial State for Client Startup (Supports ?mode=critical for Phase 1 and ?mode=secondary for Phase 2) ---
   app.get('/api/bootstrap', async (req: AuthenticatedRequest, res) => {
     const user = req.user;
-    const isCriticalMode = String(req.query.mode || '').toLowerCase() === 'critical';
+    const modeParam = String(req.query.mode || '').toLowerCase();
+    const isCriticalMode = modeParam === 'critical';
+    const isSecondaryMode = modeParam === 'secondary';
     const passwordChangeRequired = Boolean(user?.mustChangePassword);
 
     const buildSafeBootstrapUser = (u: ServerUser | undefined) => u ? ({
@@ -3350,8 +3472,6 @@ export async function createExpressApp(options?: {
       const scopedTickets = (user && !passwordChangeRequired)
         ? scopeTicketsForUser(db.tickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
         : [];
-      const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
-      const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
       const scopedTicketIds = new Set(scopedTickets.map((t: any) => String(t.id || '')));
       const scopedWoNumbers = new Set(scopedTickets.map((t: any) => String(t.woNumber || '').trim().toUpperCase()));
       const scopedMessages = (user && !passwordChangeRequired && !isCriticalMode)
@@ -3360,10 +3480,32 @@ export async function createExpressApp(options?: {
             scopedWoNumbers.has(String(m.woNumber || '').trim().toUpperCase())
           )
         : [];
-      const rolePermBundle = user ? await getEffectiveRolePermissions() : null;
       const unreadSummary = isCriticalMode
         ? { totalUnreadMessages: 0, unreadTicketsCount: 0, unreadByTicket: {} }
         : computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+
+      if (isSecondaryMode) {
+        return res.json({
+          success: true,
+          isAuthenticated: Boolean(user),
+          passwordChangeRequired,
+          isCriticalMode: false,
+          isSecondaryMode: true,
+          currentUser: buildSafeBootstrapUser(user),
+          ticketMessages: scopedMessages,
+          unreadSummary,
+          templates: db.templates,
+          sheetsConfig: user?.role === 'super_admin' ? (db.appSettings?.google_sheets_config || db.sheetsConfig) : undefined,
+          operationalDate: todayWIB,
+          operationalDateWIB: todayWIB,
+          timezone: 'Asia/Jakarta',
+          serverTime: getNow().toISOString()
+        });
+      }
+
+      const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
+      const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
+      const rolePermBundle = user ? await getEffectiveRolePermissions() : null;
 
       const finalTickets = isCriticalMode
         ? scopedTickets.map(stripHeavyFieldsForCriticalPhase)
@@ -3408,8 +3550,12 @@ export async function createExpressApp(options?: {
         (user && !passwordChangeRequired)
           ? getWorkOrdersFromSupabase()
           : Promise.resolve({ success: true, data: [] }),
-        getContractorsFromSupabase(),
-        getCoverageAreasFromSupabase(),
+        isSecondaryMode
+          ? Promise.resolve({ success: true, data: [] })
+          : getContractorsFromSupabase(),
+        isSecondaryMode
+          ? Promise.resolve({ success: true, data: [] })
+          : getCoverageAreasFromSupabase(),
         isCriticalMode
           ? Promise.resolve({ success: true, data: [] })
           : getWaTemplatesFromSupabase()
@@ -3428,30 +3574,32 @@ export async function createExpressApp(options?: {
         baseTickets = sbResult.data || [];
       }
 
-      if (!sbContr.success) {
-        if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({
-            success: false,
-            error: 'Master data kontraktor Supabase tidak tersedia.',
-            code: 'DATABASE_UNAVAILABLE'
-          });
+      if (!isSecondaryMode) {
+        if (!sbContr.success) {
+          if (!isLocalJsonModeAllowed()) {
+            return res.status(503).json({
+              success: false,
+              error: 'Master data kontraktor Supabase tidak tersedia.',
+              code: 'DATABASE_UNAVAILABLE'
+            });
+          }
+          contractorsList = db.contractors;
+        } else {
+          contractorsList = sbContr.data || [];
         }
-        contractorsList = db.contractors;
-      } else {
-        contractorsList = sbContr.data || [];
-      }
 
-      if (!sbAreas.success) {
-        if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({
-            success: false,
-            error: 'Master data coverage areas Supabase tidak tersedia.',
-            code: 'DATABASE_UNAVAILABLE'
-          });
+        if (!sbAreas.success) {
+          if (!isLocalJsonModeAllowed()) {
+            return res.status(503).json({
+              success: false,
+              error: 'Master data coverage areas Supabase tidak tersedia.',
+              code: 'DATABASE_UNAVAILABLE'
+            });
+          }
+          coverageAreasList = db.coverageAreas;
+        } else {
+          coverageAreasList = sbAreas.data || [];
         }
-        coverageAreasList = db.coverageAreas;
-      } else {
-        coverageAreasList = sbAreas.data || [];
       }
 
       templatesList = (sbTemplates.success && sbTemplates.data) ? sbTemplates.data : (isLocalJsonModeAllowed() && !isCriticalMode ? db.templates : []);
@@ -3464,8 +3612,8 @@ export async function createExpressApp(options?: {
         });
       }
       baseTickets = db.tickets;
-      contractorsList = db.contractors;
-      coverageAreasList = db.coverageAreas;
+      contractorsList = isSecondaryMode ? [] : db.contractors;
+      coverageAreasList = isSecondaryMode ? [] : db.coverageAreas;
       templatesList = isCriticalMode ? [] : db.templates;
     }
 
@@ -3473,8 +3621,6 @@ export async function createExpressApp(options?: {
     const scopedTickets = (user && !passwordChangeRequired)
       ? scopeTicketsForUser(baseTickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
       : [];
-    const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
-    const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
 
     let scopedMessages: any[] = [];
     if (user && !passwordChangeRequired && !isCriticalMode && scopedTickets.length > 0) {
@@ -3486,6 +3632,35 @@ export async function createExpressApp(options?: {
         scopedMessages = (db.ticketMessages || []).filter((m: any) => idSet.has(String(m.ticketId || '')));
       }
     }
+
+    const unreadSummary = isCriticalMode
+      ? { totalUnreadMessages: 0, unreadTicketsCount: 0, unreadByTicket: {} }
+      : computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
+
+    if (isSecondaryMode) {
+      const scSupaRes = user?.role === 'super_admin'
+        ? await getVersionedAppSettingFromSupabase('google_sheets_config').catch(() => null)
+        : null;
+      return res.json({
+        success: true,
+        isAuthenticated: Boolean(user),
+        passwordChangeRequired,
+        isCriticalMode: false,
+        isSecondaryMode: true,
+        currentUser: buildSafeBootstrapUser(user),
+        ticketMessages: scopedMessages,
+        unreadSummary,
+        templates: templatesList,
+        sheetsConfig: user?.role === 'super_admin' ? ((scSupaRes?.success && scSupaRes.data?.value) ? scSupaRes.data.value : db.sheetsConfig) : undefined,
+        operationalDate: todayWIB,
+        operationalDateWIB: todayWIB,
+        timezone: 'Asia/Jakarta',
+        serverTime: getNow().toISOString()
+      });
+    }
+
+    const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
+    const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
 
     const safeContractors = (contractorsList || []).map((c: any) => {
       const rawAreas = c?.coverageAreas ?? c?.coverage_areas ?? [];
@@ -3505,10 +3680,6 @@ export async function createExpressApp(options?: {
       (!isCriticalMode && user?.role === 'super_admin') ? getVersionedAppSettingFromSupabase('google_sheets_config').catch(() => null) : Promise.resolve(null),
       user ? getEffectiveRolePermissions().catch(() => null) : Promise.resolve(null)
     ]);
-
-    const unreadSummary = isCriticalMode
-      ? { totalUnreadMessages: 0, unreadTicketsCount: 0, unreadByTicket: {} }
-      : computeLiveChatUnreadSummary(scopedTickets, scopedMessages, user?.id);
 
     const finalTickets = isCriticalMode
       ? scopedTickets.map(stripHeavyFieldsForCriticalPhase)
@@ -3737,27 +3908,15 @@ export async function createExpressApp(options?: {
     }
 
     // Secure HttpOnly SameSite Cookies
-    res.cookie('mora_access_token', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 8 * 3600 * 1000,
-      path: '/'
-    });
+    res.cookie('mora_access_token', tokens.accessToken, getAuthCookieOptions(req, 8 * 3600 * 1000, '/'));
+    res.cookie('mora_refresh_token', tokens.refreshToken, getAuthCookieOptions(req, 7 * 24 * 3600 * 1000, '/api/auth'));
 
-    res.cookie('mora_refresh_token', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 3600 * 1000,
-      path: '/api/auth'
-    });
-
+    const cookieOnly = isCookieOnlyAuthMode();
     return res.json({
       success: true,
       authSystem: 'Custom Authentication',
-      tokens,
-      token: tokens.accessToken,
+      cookieAuth: true,
+      ...(cookieOnly ? {} : { tokens, token: tokens.accessToken }),
       sessionId,
       trackingSession,
       user,
@@ -3795,26 +3954,14 @@ export async function createExpressApp(options?: {
 
     const { tokens, user } = refreshRes.data;
 
-    res.cookie('mora_access_token', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 8 * 3600 * 1000,
-      path: '/'
-    });
+    res.cookie('mora_access_token', tokens.accessToken, getAuthCookieOptions(req, 8 * 3600 * 1000, '/'));
+    res.cookie('mora_refresh_token', tokens.refreshToken, getAuthCookieOptions(req, 7 * 24 * 3600 * 1000, '/api/auth'));
 
-    res.cookie('mora_refresh_token', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 3600 * 1000,
-      path: '/api/auth'
-    });
-
+    const cookieOnly = isCookieOnlyAuthMode();
     return res.json({
       success: true,
-      tokens,
-      token: tokens.accessToken,
+      cookieAuth: true,
+      ...(cookieOnly ? {} : { tokens, token: tokens.accessToken }),
       user
     });
   };
@@ -3851,8 +3998,12 @@ export async function createExpressApp(options?: {
       );
     }
 
-    res.clearCookie('mora_access_token', { path: '/' });
-    res.clearCookie('mora_refresh_token', { path: '/api/auth' });
+    const accessClearOpts = getAuthCookieOptions(req, 0, '/');
+    const refreshClearOpts = getAuthCookieOptions(req, 0, '/api/auth');
+    delete (accessClearOpts as any).maxAge;
+    delete (refreshClearOpts as any).maxAge;
+    res.clearCookie('mora_access_token', accessClearOpts);
+    res.clearCookie('mora_refresh_token', refreshClearOpts);
 
     return res.json({
       success: true,
@@ -4029,21 +4180,8 @@ export async function createExpressApp(options?: {
       });
     }
 
-    res.cookie('mora_access_token', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 8 * 3600 * 1000,
-      path: '/'
-    });
-
-    res.cookie('mora_refresh_token', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 3600 * 1000,
-      path: '/api/auth'
-    });
+    res.cookie('mora_access_token', tokens.accessToken, getAuthCookieOptions(req, 8 * 3600 * 1000, '/'));
+    res.cookie('mora_refresh_token', tokens.refreshToken, getAuthCookieOptions(req, 7 * 24 * 3600 * 1000, '/api/auth'));
 
     await logServerAuditAsync(
       'USER_PASSWORD_CHANGED',
@@ -4055,12 +4193,13 @@ export async function createExpressApp(options?: {
     );
 
     const { passwordHash: _, resetTokenHash: _rt, passwordHistoryHashes: _ph, ...safeUser } = user as any;
+    const cookieOnly = isCookieOnlyAuthMode();
     return res.json({
       success: true,
+      cookieAuth: true,
       message: 'Kata sandi Anda berhasil diperbarui.',
       user: safeUser,
-      tokens,
-      token: tokens.accessToken,
+      ...(cookieOnly ? {} : { tokens, token: tokens.accessToken }),
       sessionId,
       sessionVersion: newVersion
     });
@@ -5214,9 +5353,10 @@ export async function createExpressApp(options?: {
 
   // Assign Ticket Personnel (Strictly Leader Role ONLY)
   app.post('/api/tickets/assign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
-    const { ticketId, ticketIds, woNumber, installerName, slotTime, remarks, reason } = req.body;
-    if (!installerName || !installerName.trim()) {
-      return res.status(400).json({ success: false, error: 'Nama teknisi tujuan wajib diisi.', code: 'INVALID_INPUT' });
+    const { ticketId, ticketIds, woNumber, installerId, installerName, slotTime, remarks, reason } = req.body;
+    const effInstallerInput = (installerName || installerId || '').trim();
+    if (!effInstallerInput) {
+      return res.status(400).json({ success: false, error: 'ID atau nama teknisi tujuan wajib diisi.', code: 'INVALID_INPUT' });
     }
 
     if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
@@ -5247,7 +5387,8 @@ export async function createExpressApp(options?: {
         }
         const assignRes = await assignTicketInSupabase({
           workOrderIdOrWoNumber: id,
-          installerName: installerName.trim(),
+          installerId: installerId ? String(installerId).trim() : undefined,
+          installerName: installerName ? String(installerName).trim() : undefined,
           slotTime,
           remarks,
           reason,
@@ -5356,12 +5497,18 @@ export async function createExpressApp(options?: {
 
     if (isLocalJsonModeAllowed()) {
       const targetInstaller = db.users.find(
-        u => u.role === 'installer' && !u.isDeleted && u.active !== false && u.name.trim().toLowerCase() === installerName.trim().toLowerCase()
+        u =>
+          u.role === 'installer' &&
+          !u.isDeleted &&
+          u.active !== false &&
+          ((installerId && u.id === String(installerId).trim()) ||
+            (installerName && u.name.trim().toLowerCase() === String(installerName).trim().toLowerCase()) ||
+            (installerName && u.username.trim().toLowerCase() === String(installerName).trim().toLowerCase()))
       );
       if (!targetInstaller) {
         return res.status(400).json({
           success: false,
-          error: `Teknisi "${installerName.trim()}" tidak ditemukan atau akun tidak aktif.`,
+          error: `Teknisi "${effInstallerInput}" tidak ditemukan atau akun tidak aktif.`,
           code: 'INVALID_INPUT'
         });
       }
@@ -5466,12 +5613,14 @@ export async function createExpressApp(options?: {
 
   // Reassign WO (Strictly Leader Role ONLY within Contractor + Area scope)
   app.post('/api/tickets/reassign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
-    const { ticketId, woNumber, previousInstallerName, newInstallerName, reason, contractorName } = req.body;
+    const { ticketId, woNumber, previousInstallerName, newInstallerId, installerId, newInstallerName, reason, contractorName } = req.body;
+    const effNewInstId = (newInstallerId || installerId || '').trim() || undefined;
+    const effNewInstName = (newInstallerName || '').trim() || undefined;
 
     if (!woNumber && !ticketId) {
       return res.status(400).json({ success: false, error: 'WO Number atau ID Tiket wajib disertakan.', code: 'INVALID_ID' });
     }
-    if (!newInstallerName || !newInstallerName.trim()) {
+    if (!effNewInstId && !effNewInstName) {
       return res.status(400).json({ success: false, error: 'Teknisi baru tujuan wajib dipilih.', code: 'INVALID_INPUT' });
     }
     if (!reason || reason.trim().length < 5) {
@@ -5495,7 +5644,8 @@ export async function createExpressApp(options?: {
       const reassignRes = await reassignTicketInSupabase({
         workOrderIdOrWoNumber: ticketId || woNumber,
         previousInstallerName,
-        newInstallerName: newInstallerName.trim(),
+        newInstallerId: effNewInstId,
+        newInstallerName: effNewInstName,
         reason: reason.trim(),
         contractorName,
         performedBy: req.user!.name,
@@ -5575,12 +5725,18 @@ export async function createExpressApp(options?: {
       }
 
       const targetInstaller = db.users.find(
-        u => u.role === 'installer' && !u.isDeleted && u.active !== false && u.name.trim().toLowerCase() === newInstallerName.trim().toLowerCase()
+        u =>
+          u.role === 'installer' &&
+          !u.isDeleted &&
+          u.active !== false &&
+          ((effNewInstId && u.id === effNewInstId) ||
+            (effNewInstName && u.name.trim().toLowerCase() === effNewInstName.toLowerCase()) ||
+            (effNewInstName && u.username.trim().toLowerCase() === effNewInstName.toLowerCase()))
       );
       if (!targetInstaller) {
         return res.status(400).json({
           success: false,
-          error: `Teknisi baru "${newInstallerName.trim()}" tidak ditemukan atau akun tidak aktif.`,
+          error: `Teknisi baru "${effNewInstName || effNewInstId}" tidak ditemukan atau akun tidak aktif.`,
           code: 'INVALID_INPUT'
         });
       }
@@ -10076,12 +10232,12 @@ export async function createExpressApp(options?: {
       const match = storagePath.match(/(?:work-orders|wo_document|technical-reports|image_report|live-chat|chat_attachment)\/([a-zA-Z0-9_-]+)/);
       if (match) targetWo = match[1];
     }
-    let contextTickets = db.tickets;
+    let contextTickets: any[] = isLocalJsonModeAllowed() ? [...db.tickets] : [];
     if (isSupabaseMode() && targetWo) {
       try {
         const sbWo = await getWorkOrderByIdOrWoNumberFromSupabase(targetWo);
         if (sbWo.success && sbWo.data) {
-          contextTickets = [sbWo.data, ...db.tickets];
+          contextTickets = isLocalJsonModeAllowed() ? [sbWo.data, ...db.tickets] : [sbWo.data];
         }
       } catch {}
     }
@@ -10143,12 +10299,12 @@ export async function createExpressApp(options?: {
       const match = storagePath.match(/(?:work-orders|wo_document|technical-reports|image_report|live-chat|chat_attachment)\/([a-zA-Z0-9_-]+)/);
       if (match) targetWo = match[1];
     }
-    let contextTickets = db.tickets;
+    let contextTickets: any[] = isLocalJsonModeAllowed() ? [...db.tickets] : [];
     if (isSupabaseMode() && targetWo) {
       try {
         const sbWo = await getWorkOrderByIdOrWoNumberFromSupabase(targetWo);
         if (sbWo.success && sbWo.data) {
-          contextTickets = [sbWo.data, ...db.tickets];
+          contextTickets = isLocalJsonModeAllowed() ? [sbWo.data, ...db.tickets] : [sbWo.data];
         }
       } catch {}
     }
@@ -10185,17 +10341,29 @@ export async function createExpressApp(options?: {
 
     res.setHeader('Content-Type', downloadResult.mimeType || 'application/octet-stream');
     res.setHeader('Content-Length', downloadResult.sizeBytes || downloadResult.data.length);
-    const fileName = path.basename(storagePath);
-    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    const safeFileName = path.basename(storagePath).replace(/["\r\n\\;]/g, '_') || 'file';
+    res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"`);
     res.send(downloadResult.data);
   });
 
   // Document Ownership and Permission Verification Endpoint
-  app.post('/api/storage/verify-access', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/storage/verify-access', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const { targetUserId, category, woNumber, storagePath } = req.body;
-    const userToEvaluate = targetUserId
-      ? db.users.find(u => u.id === targetUserId || u.username === targetUserId) || req.user!
-      : req.user!;
+    let userToEvaluate: ServerUser = req.user!;
+    let contextTickets: any[] = isLocalJsonModeAllowed() ? [...db.tickets] : [];
+
+    if (isSupabaseMode()) {
+      if (targetUserId && req.user!.role === 'super_admin') {
+        const sbUser = await getUserByIdFromSupabase(String(targetUserId)).catch(() => null);
+        if (sbUser?.success && sbUser.data) userToEvaluate = sbUser.data as ServerUser;
+      }
+      if (woNumber) {
+        const sbWo = await getWorkOrderByIdOrWoNumberFromSupabase(String(woNumber)).catch(() => null);
+        if (sbWo?.success && sbWo.data) contextTickets = [sbWo.data];
+      }
+    } else if (isLocalJsonModeAllowed() && targetUserId) {
+      userToEvaluate = db.users.find(u => u.id === targetUserId || u.username === targetUserId) || req.user!;
+    }
 
     const evaluation = evaluateFileAccessPermission(
       userToEvaluate,
@@ -10205,7 +10373,7 @@ export async function createExpressApp(options?: {
         woNumber,
         storagePath
       },
-      db.tickets
+      contextTickets
     );
 
     res.json({
@@ -10674,7 +10842,7 @@ export async function createExpressApp(options?: {
       if (m) woNumber = m[1];
     }
 
-    let ticketsForAccess = db.tickets || [];
+    let ticketsForAccess: any[] = isLocalJsonModeAllowed() ? [...(db.tickets || [])] : [];
     if (woNumber && isSupabaseMode()) {
       const supaWo = await getWorkOrderByWoNumberFromSupabase(woNumber);
       if (supaWo.success && supaWo.data) {
@@ -10714,8 +10882,8 @@ export async function createExpressApp(options?: {
 
     res.setHeader('Content-Type', result.mimeType || 'application/octet-stream');
     res.setHeader('Content-Length', result.sizeBytes || result.data.length);
-    const fileName = path.basename(storagePath);
-    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    const safeFileName = path.basename(storagePath).replace(/["\r\n\\;]/g, '_') || 'file';
+    res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"`);
     res.send(result.data);
   });
 
@@ -10725,7 +10893,7 @@ export async function createExpressApp(options?: {
       return res.status(400).json({ error: 'Parameter storagePath wajib disertakan.' });
     }
 
-    let ticketsForAccess = db.tickets || [];
+    let ticketsForAccess: any[] = isLocalJsonModeAllowed() ? [...(db.tickets || [])] : [];
     if (woNumber && isSupabaseMode()) {
       const hasLocal = ticketsForAccess.some(t => t.woNumber === woNumber || t.id === woNumber);
       if (!hasLocal) {
@@ -10762,7 +10930,7 @@ export async function createExpressApp(options?: {
       return res.status(400).json({ error: 'Parameter storagePath wajib disertakan.' });
     }
 
-    let ticketsForAccess = db.tickets || [];
+    let ticketsForAccess: any[] = isLocalJsonModeAllowed() ? [...(db.tickets || [])] : [];
     if (woNumber && isSupabaseMode()) {
       const hasLocal = ticketsForAccess.some(t => t.woNumber === woNumber || t.id === woNumber);
       if (!hasLocal) {
@@ -13710,7 +13878,7 @@ export async function createExpressApp(options?: {
         return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
       }
     }
-    if (!ticket) {
+    if (!ticket && isLocalJsonModeAllowed()) {
       ticket = db.tickets.find(t => t.id === id || t.woNumber === id);
     }
     if (!ticket) return res.status(404).json({ error: 'Work Order tidak ditemukan.' });
@@ -13731,7 +13899,7 @@ export async function createExpressApp(options?: {
           messages = msgRes.data;
         }
       }
-      if (!messages) {
+      if (!messages && isLocalJsonModeAllowed()) {
         messages = (db.ticketMessages || []).filter(
           (m: any) => m.ticketId === enrichedTicket.id || (enrichedTicket.woNumber && m.woNumber === enrichedTicket.woNumber)
         );
@@ -13748,7 +13916,7 @@ export async function createExpressApp(options?: {
           }
         } catch {}
       }
-      if (!activities) {
+      if (!activities && isLocalJsonModeAllowed()) {
         activities = (db.assignmentHistory || []).filter(
           (h: any) => h.ticketId === enrichedTicket.id || (enrichedTicket.woNumber && h.woNumber === enrichedTicket.woNumber)
         );
@@ -13767,9 +13935,10 @@ export async function createExpressApp(options?: {
 
   app.post('/api/work-orders/:id/assign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
     const id = req.params.id;
-    const { installerName, slotTime, remarks, reason } = req.body;
-    if (!installerName || !installerName.trim()) {
-      return res.status(400).json({ error: 'Nama teknisi tujuan wajib diisi.' });
+    const { installerId, installerName, slotTime, remarks, reason } = req.body;
+    const effInstallerInput = (installerName || installerId || '').trim();
+    if (!effInstallerInput) {
+      return res.status(400).json({ error: 'ID atau nama teknisi tujuan wajib diisi.' });
     }
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
@@ -13784,7 +13953,8 @@ export async function createExpressApp(options?: {
 
       const assignRes = await assignTicketInSupabase({
         workOrderIdOrWoNumber: id,
-        installerName: installerName.trim(),
+        installerId: installerId ? String(installerId).trim() : undefined,
+        installerName: installerName ? String(installerName).trim() : undefined,
         slotTime,
         remarks,
         reason,
@@ -13841,10 +14011,16 @@ export async function createExpressApp(options?: {
         return res.status(403).json({ error: 'Akses Ditolak: WO berada di luar cakupan Contractor/Area Anda.', code: 'SCOPE_MISMATCH' });
       }
       const targetInstaller = db.users.find(
-        u => u.role === 'installer' && !u.isDeleted && u.active !== false && u.name.trim().toLowerCase() === installerName.trim().toLowerCase()
+        u =>
+          u.role === 'installer' &&
+          !u.isDeleted &&
+          u.active !== false &&
+          ((installerId && u.id === String(installerId).trim()) ||
+            (installerName && u.name.trim().toLowerCase() === String(installerName).trim().toLowerCase()) ||
+            (installerName && u.username.trim().toLowerCase() === String(installerName).trim().toLowerCase()))
       );
       if (!targetInstaller || !isLeaderAllowedToManageInstaller(req.user!, targetInstaller)) {
-        return res.status(403).json({ error: `Akses Ditolak: Teknisi "${installerName.trim()}" tidak aktif atau berada di luar cakupan Anda.`, code: 'SCOPE_MISMATCH' });
+        return res.status(403).json({ error: `Akses Ditolak: Teknisi "${effInstallerInput}" tidak aktif atau berada di luar cakupan Anda.`, code: 'SCOPE_MISMATCH' });
       }
 
       const prevSnapshot = { ...target };
@@ -13892,8 +14068,10 @@ export async function createExpressApp(options?: {
 
   app.post('/api/work-orders/:id/reassign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
     const id = req.params.id;
-    const { newInstallerName, reason } = req.body;
-    if (!newInstallerName || !newInstallerName.trim()) {
+    const { newInstallerId, installerId, newInstallerName, reason } = req.body;
+    const effNewInstId = (newInstallerId || installerId || '').trim() || undefined;
+    const effNewInstName = (newInstallerName || '').trim() || undefined;
+    if (!effNewInstId && !effNewInstName) {
       return res.status(400).json({ error: 'Teknisi baru tujuan wajib dipilih.' });
     }
     if (!reason || reason.trim().length < 5) {
@@ -13912,7 +14090,8 @@ export async function createExpressApp(options?: {
 
       const reassignRes = await reassignTicketInSupabase({
         workOrderIdOrWoNumber: id,
-        newInstallerName: newInstallerName.trim(),
+        newInstallerId: effNewInstId,
+        newInstallerName: effNewInstName,
         reason: reason.trim(),
         performedBy: req.user!.name,
         performedByRole: req.user!.role,
@@ -13971,10 +14150,16 @@ export async function createExpressApp(options?: {
         return res.status(403).json({ error: 'Akses Ditolak: WO berada di luar cakupan Contractor/Area Anda.', code: 'SCOPE_MISMATCH' });
       }
       const targetInstaller = db.users.find(
-        u => u.role === 'installer' && !u.isDeleted && u.active !== false && u.name.trim().toLowerCase() === newInstallerName.trim().toLowerCase()
+        u =>
+          u.role === 'installer' &&
+          !u.isDeleted &&
+          u.active !== false &&
+          ((effNewInstId && u.id === effNewInstId) ||
+            (effNewInstName && u.name.trim().toLowerCase() === effNewInstName.toLowerCase()) ||
+            (effNewInstName && u.username.trim().toLowerCase() === effNewInstName.toLowerCase()))
       );
       if (!targetInstaller || !isLeaderAllowedToManageInstaller(req.user!, targetInstaller)) {
-        return res.status(403).json({ error: `Akses Ditolak: Teknisi "${newInstallerName.trim()}" tidak aktif atau berada di luar cakupan Anda.`, code: 'SCOPE_MISMATCH' });
+        return res.status(403).json({ error: `Akses Ditolak: Teknisi "${effNewInstName || effNewInstId}" tidak aktif atau berada di luar cakupan Anda.`, code: 'SCOPE_MISMATCH' });
       }
 
       const prevSnapshot = { ...target };
@@ -16328,11 +16513,11 @@ export async function createExpressApp(options?: {
 
   app.post('/api/email-notifications/test-connection', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
     try {
-      const result = await testResendProviderConnection();
+      const result = await testSmtpProviderConnection();
       const providerHealth = await getEmailProviderHealth();
       return res.status(result.success ? 200 : 400).json({ ...result, providerHealth });
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err?.message || 'Gagal menguji koneksi provider email.' });
+      return res.status(500).json({ success: false, message: err?.message || 'Gagal menguji koneksi Gmail SMTP.' });
     }
   });
 
@@ -16344,7 +16529,8 @@ export async function createExpressApp(options?: {
         templateKey: templateKey as EmailTemplateKey | undefined,
         actor: req.user!
       });
-      return res.status(result.success ? 200 : 400).json(result);
+      const providerHealth = await getEmailProviderHealth();
+      return res.status(result.success ? 200 : 400).json({ ...result, providerHealth });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err?.message || 'Gagal mengirim test email.' });
     }
@@ -16478,53 +16664,80 @@ export async function createExpressApp(options?: {
     return res.status(404).json({ error: 'File tidak ditemukan', code: 'NOT_FOUND' });
   });
 
-  // Mount Vite middleware in development or serve static in production
+  // Mount Vite middleware in development or serve static / API-only in production
   if (process.env.NODE_ENV === 'production') {
-    const distDir = path.join(__dirname, 'dist');
-    const distAssetsDir = path.join(distDir, 'assets');
-    const indexHtmlPath = path.join(distDir, 'index.html');
+    if (process.env.API_ONLY_MODE === 'true') {
+      app.get('/', (_req, res) => {
+        res.json({
+          status: 'ok',
+          service: 'MoraJaws Express Backend API',
+          apiOnlyMode: true,
+          timestamp: new Date().toISOString()
+        });
+      });
+      app.use((req, res) => {
+        if (req.path.startsWith('/api/')) {
+          return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+        }
+        return res.status(404).json({
+          error: 'Endpoint frontend tidak di-host pada backend API-only. Gunakan domain Cloudflare Pages.',
+          code: 'API_ONLY_MODE'
+        });
+      });
+    } else {
+      const distDir = path.join(__dirname, 'dist');
+      const distAssetsDir = path.join(distDir, 'assets');
+      const indexHtmlPath = path.join(distDir, 'index.html');
 
-    app.use('/assets', express.static(distAssetsDir, {
-      immutable: true,
-      maxAge: '1y'
-    }), (_req, res) => {
-      res.status(404).type('text/plain').send('Asset not found');
-    });
+      app.use('/assets', express.static(distAssetsDir, {
+        immutable: true,
+        maxAge: '1y'
+      }), (_req, res) => {
+        res.status(404).type('text/plain').send('Asset not found');
+      });
 
-    app.use(express.static(distDir, {
-      index: false
-    }));
+      app.use(express.static(distDir, {
+        index: false
+      }));
 
-    app.get('*', (req, res) => {
-      if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
-        return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-      }
-      if (!fs.existsSync(indexHtmlPath)) {
-        console.error('[Production Static] Missing dist/index.html at:', indexHtmlPath);
-        return res.status(503).type('html').send(
-          '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
-        );
-      }
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      res.sendFile(indexHtmlPath);
-    });
+      app.get('*', (req, res) => {
+        if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
+          return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+        }
+        if (!fs.existsSync(indexHtmlPath)) {
+          console.error('[Production Static] Missing dist/index.html at:', indexHtmlPath);
+          return res.status(503).type('html').send(
+            '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
+          );
+        }
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.sendFile(indexHtmlPath);
+      });
+    }
   } else if (!options?.skipVite) {
     let viteMiddleware: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
     let viteError: Error | null = null;
-    const hmrDisabled = process.env.DISABLE_HMR === 'true';
+    const hmrDisabled = process.env.DISABLE_HMR === 'true' || Boolean(process.env.CONTROL_PLANE_PORT);
+    if (hmrDisabled) {
+      process.env.DISABLE_HMR = 'true';
+    }
 
     const viteReadyPromise = createViteServer({
       server: {
         middlewareMode: true,
         hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
+        ws: hmrDisabled ? false : undefined,
         watch: hmrDisabled ? null : undefined
       },
       appType: 'spa'
     })
       .then((vite) => {
         viteMiddleware = vite.middlewares;
+        if (options?.onViteInstance) {
+          options.onViteInstance(vite);
+        }
         console.log('[Vite] Dev middleware initialized.');
       })
       .catch((err) => {
@@ -16563,125 +16776,43 @@ export async function createExpressApp(options?: {
   return app;
 }
 
+/**
+ * Non-destructive startup RBAC consistency audit.
+ * Inspects whether any deprecated role codes still remain in Supabase without
+ * automatically mutating production rows or revoking active sessions on boot.
+ */
 async function consolidateLegacyRolesOnStartup() {
   try {
-    // 1. Consolidate in-memory / local JSON database
-    let localChanged = false;
-    db.users.forEach(u => {
-      if ((u.role as string) === 'management_data' || (u.role as string) === 'it_support') {
-        u.role = 'super_admin';
-        u.sessionVersion = (u.sessionVersion || 1) + 1;
-        localChanged = true;
-      }
-    });
-    if (db.rolePermissions) {
-      db.rolePermissions = normalizeRolePermissionsMatrix(db.rolePermissions);
-    }
-    if (db.appSettings?.role_permissions) {
-      db.appSettings.role_permissions = normalizeRolePermissionsMatrix(db.appSettings.role_permissions);
-    }
-    if (localChanged && isLocalJsonModeAllowed()) {
-      saveDatabaseToDisk();
-    }
-
     if (!isSupabaseMode()) return;
     const client = getSupabaseBackendClient();
     if (!client) return;
 
     const legacyCodes = ['management_data', 'it_support'];
-    const rolesRes = await getRolesFromSupabase();
-    let superAdminRoleId = 'role-super-admin';
-    let mergedPermissions = new Set<string>(DEFAULT_ROLE_PERMISSIONS.super_admin);
-
-    if (rolesRes.success && Array.isArray(rolesRes.data)) {
-      const superRow = rolesRes.data.find(r => r.code === 'super_admin');
-      if (superRow) {
-        superAdminRoleId = superRow.id;
-        superRow.permissions.forEach(p => mergedPermissions.add(String(p)));
-      }
-      for (const r of rolesRes.data) {
-        if (legacyCodes.includes(r.code)) {
-          r.permissions.forEach(p => mergedPermissions.add(String(p)));
-        }
-      }
-    }
-    CORE_SUPER_ADMIN_PERMISSIONS.forEach(p => mergedPermissions.add(p));
-    const mergedPermArray = Array.from(mergedPermissions);
-
-    // Ensure super_admin role has consolidated permissions
-    await updateRolePermissionsInSupabase('super_admin', mergedPermArray, 'System Startup Consolidation').catch(() => {});
-
-    // Migrate any users in public.users with legacy role or role_id in-place to super_admin
     const { data: legacyUsers, error: fetchUsersErr } = await client
       .from('users')
-      .select('id, role, role_id, permissions, session_version, payload')
+      .select('id, role')
       .in('role', legacyCodes);
 
     if (!fetchUsersErr && Array.isArray(legacyUsers) && legacyUsers.length > 0) {
-      for (const row of legacyUsers) {
-        const nextSessionVersion = (typeof row.session_version === 'number' ? row.session_version : 1) + 1;
-        const userPerms = Array.from(
-          new Set([...(Array.isArray(row.permissions) ? row.permissions.map(String) : []), ...mergedPermArray])
-        );
-        const existingPayload = row.payload && typeof row.payload === 'object' ? row.payload : {};
-        await client
-          .from('users')
-          .update({
-            role: 'super_admin',
-            role_id: superAdminRoleId,
-            permissions: userPerms,
-            session_version: nextSessionVersion,
-            payload: { ...existingPayload, sessionVersion: nextSessionVersion },
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', row.id);
-        await revokeAllUserSessions(row.id, 'system-role-consolidation').catch(() => {});
-      }
-      console.log(`[RBAC Consolidation] Migrated ${legacyUsers.length} legacy account(s) to super_admin in Supabase.`);
+      console.warn(
+        `[RBAC Audit] Ditemukan ${legacyUsers.length} akun dengan role lama (management_data/it_support). Jalankan migrasi 017_consolidate_roles_to_super_admin.sql secara terkontrol.`
+      );
     }
 
-    // Also normalize any user rows whose role is super_admin but still points to old role_id
-    await client
-      .from('users')
-      .update({ role_id: superAdminRoleId, updated_at: new Date().toISOString() })
-      .eq('role', 'super_admin')
-      .in('role_id', ['role-management-data', 'role-it-support']);
-
-    // Clean app_settings role_permissions & navigation configs if they still contain legacy roles
-    const { data: settingsRows } = await client
-      .from('app_settings')
-      .select('key, value')
-      .in('key', ['role_permissions', 'navigation_doc', 'navigation_config']);
-
-    if (Array.isArray(settingsRows)) {
-      for (const row of settingsRows) {
-        if (!row?.value || typeof row.value !== 'object') continue;
-        const rawStr = JSON.stringify(row.value);
-        if (rawStr.includes('management_data') || rawStr.includes('it_support')) {
-          const cleaned =
-            row.key === 'role_permissions'
-              ? normalizeRolePermissionsMatrix(row.value)
-              : sanitizeNavigationConfigRolesPayload(row.value);
-          await client
-            .from('app_settings')
-            .update({ value: cleaned, updated_at: new Date().toISOString() })
-            .eq('key', row.key);
-        }
-      }
-    }
-
-    // Delete legacy role rows from public.roles
-    const { error: delRolesErr } = await client
+    const { data: legacyRoles, error: fetchRolesErr } = await client
       .from('roles')
-      .delete()
+      .select('code')
       .in('code', legacyCodes);
 
-    if (!delRolesErr) {
-      invalidateGlobalConfigCache('role_permissions');
-      console.log('[RBAC Consolidation] Verified public.roles contains strictly 4 consolidated roles.');
+    if (!fetchRolesErr && Array.isArray(legacyRoles) && legacyRoles.length > 0) {
+      console.warn(
+        `[RBAC Audit] Ditemukan ${legacyRoles.length} baris role lama pada public.roles (${legacyRoles.map(r => r.code).join(', ')}).`
+      );
+    } else {
+      console.log('[RBAC Audit] Verified public.roles contains strictly 4 consolidated roles.');
     }
   } catch (err: any) {
-    console.warn('[RBAC Consolidation] Startup consolidation warning:', err?.message || err);
+    console.warn('[RBAC Audit] Startup role audit warning:', err?.message || err);
   }
 }
 
@@ -16689,7 +16820,51 @@ export async function startServer() {
   const PORT = resolveServerPort();
   const HOST = resolveServerHost();
   const httpServer = http.createServer();
-  const app = await createExpressApp({ httpServer, deferVite: true });
+  let viteServer: { close: () => Promise<void> } | null = null;
+  let isShuttingDown = false;
+
+  const app = await createExpressApp({
+    httpServer,
+    deferVite: true,
+    onViteInstance: (vite) => {
+      if (isShuttingDown) {
+        void vite.close().catch(() => {});
+        return;
+      }
+      viteServer = vite;
+    }
+  });
+
+  const handleShutdownSignal = (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`[Server] Received ${signal}, shutting down gracefully...`);
+    const forceExitTimer = setTimeout(() => {
+      process.exit(0);
+    }, 1500);
+    if (typeof forceExitTimer.unref === 'function') {
+      forceExitTimer.unref();
+    }
+
+    try {
+      if (typeof (httpServer as any).closeAllConnections === 'function') {
+        (httpServer as any).closeAllConnections();
+      }
+      httpServer.close(() => {
+        Promise.resolve(viteServer ? viteServer.close() : undefined)
+          .catch(() => {})
+          .finally(() => {
+            clearTimeout(forceExitTimer);
+            process.exit(0);
+          });
+      });
+    } catch {
+      process.exit(0);
+    }
+  };
+
+  process.once('SIGTERM', () => handleShutdownSignal('SIGTERM'));
+  process.once('SIGINT', () => handleShutdownSignal('SIGINT'));
 
   httpServer.on('request', app);
   httpServer.on('error', (err: NodeJS.ErrnoException) => {

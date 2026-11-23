@@ -865,11 +865,40 @@ export async function rotateRefreshToken(
     };
   }
 
-  // Check revocation
+  // Check revocation — replay of a revoked refresh token revokes the entire session token family
   if (matchedRt.revokedAt) {
+    const revokeTs = new Date(now).toISOString();
+    console.warn(`[CustomAuth][Security] Refresh token replay detected for session ${matchedRt.sessionId}. Revoking entire session family.`);
+    if (client && matchedRt.sessionId) {
+      try {
+        await client
+          .from('refresh_tokens')
+          .update({ revoked_at: revokeTs })
+          .eq('session_id', matchedRt.sessionId)
+          .is('revoked_at', null);
+        await client
+          .from('auth_sessions')
+          .update({ revoked_at: revokeTs })
+          .eq('id', matchedRt.sessionId)
+          .is('revoked_at', null);
+      } catch {}
+    }
+    LOCAL_REFRESH_TOKENS.forEach(r => {
+      if (r.sessionId === matchedRt!.sessionId && !r.revokedAt) {
+        r.revokedAt = revokeTs;
+      }
+    });
+    LOCAL_AUTH_SESSIONS.forEach(s => {
+      if (s.id === matchedRt!.sessionId && !s.revokedAt) {
+        s.revokedAt = revokeTs;
+      }
+    });
     return {
       success: false,
-      error: { code: 'REFRESH_TOKEN_REVOKED', message: 'Refresh token telah dicabut. Silakan login kembali.' }
+      error: {
+        code: 'REFRESH_TOKEN_REVOKED',
+        message: 'Refresh token telah dicabut (reuse terdeteksi, seluruh sesi dihentikan). Silakan login kembali.'
+      }
     };
   }
 
@@ -1121,28 +1150,59 @@ export async function createSessionForUserAfterPasswordChange(params: {
  * Revokes a single session by access token or session ID.
  */
 export async function revokeSingleSession(tokenOrSessionId: string): Promise<boolean> {
-  if (!tokenOrSessionId) return false;
-  const tokenHash = hashToken(tokenOrSessionId);
+  if (!tokenOrSessionId || typeof tokenOrSessionId !== 'string') return false;
+  const cleanInput = tokenOrSessionId.trim();
+  if (!cleanInput) return false;
+
+  const tokenHash = hashToken(cleanInput);
   const nowIso = new Date().toISOString();
   const client = getSupabaseBackendClient();
+  const isSafeSessionId = /^[a-zA-Z0-9_-]{4,128}$/.test(cleanInput);
 
   if (client) {
     try {
       await client
         .from('auth_sessions')
         .update({ revoked_at: nowIso })
-        .or(`id.eq.${tokenOrSessionId},session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`);
+        .eq('session_id_hash', tokenHash)
+        .is('revoked_at', null);
+
+      await client
+        .from('auth_sessions')
+        .update({ revoked_at: nowIso })
+        .eq('token_hash', tokenHash)
+        .is('revoked_at', null);
 
       await client
         .from('refresh_tokens')
         .update({ revoked_at: nowIso })
-        .or(`session_id.eq.${tokenOrSessionId},token_hash.eq.${tokenHash}`);
+        .eq('token_hash', tokenHash)
+        .is('revoked_at', null);
+
+      if (isSafeSessionId) {
+        await client
+          .from('auth_sessions')
+          .update({ revoked_at: nowIso })
+          .eq('id', cleanInput)
+          .is('revoked_at', null);
+
+        await client
+          .from('refresh_tokens')
+          .update({ revoked_at: nowIso })
+          .eq('session_id', cleanInput)
+          .is('revoked_at', null);
+      }
     } catch {}
   }
 
   LOCAL_AUTH_SESSIONS.forEach(s => {
-    if (s.id === tokenOrSessionId || s.sessionIdHash === tokenHash || s.tokenHash === tokenHash) {
+    if (s.id === cleanInput || s.sessionIdHash === tokenHash || s.tokenHash === tokenHash) {
       s.revokedAt = nowIso;
+    }
+  });
+  LOCAL_REFRESH_TOKENS.forEach(r => {
+    if (r.sessionId === cleanInput || r.tokenHash === tokenHash) {
+      r.revokedAt = nowIso;
     }
   });
 
@@ -1222,7 +1282,12 @@ export async function loginWithCustomAuth(params: {
         !u.isDeleted &&
         (u.username.toLowerCase() === cleanIdent ||
           u.email.toLowerCase() === cleanIdent ||
-          (u.altEmail && u.altEmail.toLowerCase().includes(cleanIdent)))
+          (u.altEmail &&
+            String(u.altEmail)
+              .split(',')
+              .map((e: string) => e.trim().toLowerCase())
+              .filter(Boolean)
+              .includes(cleanIdent)))
     ) || null;
   }
 

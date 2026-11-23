@@ -110,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sidebarState,
   onChangeState
 }) => {
-  const { currentUser, tickets, scopedTickets, overdueSummary, todayWIB, logout, setIsSessionModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus, totalLiveChatUnreadCount } = useApp();
+  const { currentUser, tickets, scopedTickets, overdueSummary, todayWIB, logout, setIsSessionModalOpen, setIsChangePasswordModalOpen, hasPermission, rolePermissions, databaseStatus, syncStatus, totalLiveChatUnreadCount } = useApp();
   const {
     isMobileView,
     config,
@@ -1108,6 +1108,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <button
                 type="button"
+                onClick={() => setIsChangePasswordModalOpen(true)}
+                className="w-11 h-9 rounded-lg text-[#5145A6] dark:text-[#D8B4FE] hover:bg-[#EAE8FF] dark:hover:bg-[#35105E] flex items-center justify-center transition-colors cursor-pointer"
+                title="Ganti Password Akun"
+                aria-label="Ganti Password"
+              >
+                <KeyRound className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
                 onClick={logout}
                 className="w-11 h-9 rounded-lg text-[#D45B66] dark:text-rose-300 hover:text-white hover:bg-[#D45B66] dark:hover:bg-[#DC4C5A] flex items-center justify-center transition-colors cursor-pointer"
                 title="Keluar / Logout"
@@ -1156,14 +1165,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordModalOpen(true)}
+                  className="btn-3d-lilac flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                  title="Ganti Password Akun"
+                >
+                  <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                  <span>Password</span>
+                </button>
+
                 {userRole === 'super_admin' && (
                   <button
                     type="button"
                     onClick={() => setIsSessionModalOpen(true)}
-                    className="btn-3d-lilac flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
+                    className="btn-3d-lilac flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
                     title="Kelola Sesi Staf Aktif"
                   >
-                    <KeyRound className="w-3.5 h-3.5 shrink-0" />
                     <span>Sesi</span>
                   </button>
                 )}

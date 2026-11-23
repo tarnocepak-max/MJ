@@ -166,7 +166,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     hierarchicalStatuses,
     chatCategories,
     setTicketChatCategory,
-    ticketActivities
+    ticketActivities,
+    markTicketEditing
   } = useApp();
   const { isOnline, isSyncing, pendingCount, setIsOfflineModalOpen } = useOfflineSync();
   const { toast } = useToast();
@@ -508,6 +509,43 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     customerSignatureUrl,
     customerConsentConfirmed,
     persistDraftToDevice
+  ]);
+
+  // Active-edit protection so background delta/SSE sync never overwrites unsaved field inputs
+  useEffect(() => {
+    if (ticketClosed || !activeTicket?.id) return;
+    const hasUnsavedInputs =
+      Boolean(
+        reportStatus ||
+          reasonReport ||
+          remarksReport.trim() ||
+          opmDbm ||
+          ontSerialNumber ||
+          dropcoreLength ||
+          fatPort ||
+          customerSignatureUrl ||
+          showQcConfirmSheet ||
+          showKendalaModal
+      ) || Object.values(photoSlots).some(Boolean);
+
+    markTicketEditing(activeTicket.id, hasUnsavedInputs);
+    return () => {
+      markTicketEditing(activeTicket.id, false);
+    };
+  }, [
+    ticketClosed,
+    activeTicket.id,
+    reportStatus,
+    reasonReport,
+    remarksReport,
+    opmDbm,
+    ontSerialNumber,
+    dropcoreLength,
+    fatPort,
+    customerSignatureUrl,
+    showQcConfirmSheet,
+    showKendalaModal,
+    photoSlots
   ]);
 
   // Draw persisted signature onto canvas when mounted or restored

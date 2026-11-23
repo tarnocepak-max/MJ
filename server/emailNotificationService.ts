@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import nodemailer, { type Transporter } from 'nodemailer';
 import { getSupabaseBackendClient, isSupabaseConfigured } from './supabaseClient.ts';
 import { isContractorMatch, isAreaMatch } from './appFlowHelpers.ts';
 import {
@@ -11,10 +12,10 @@ import {
   normalizeCanonicalReportStatus
 } from './woLifecycleService.ts';
 import {
-  EmailNotificationEventType,
-  EmailTemplateConfig,
-  EmailTemplateKey,
-  EmailTemplateRenderContext,
+  type EmailNotificationEventType,
+  type EmailTemplateConfig,
+  type EmailTemplateKey,
+  type EmailTemplateRenderContext,
   getDefaultEmailTemplates,
   getDemoContextForTemplate,
   renderEmailTemplate,
@@ -95,11 +96,18 @@ export interface EmailDeliveryLogItem {
 }
 
 export interface EmailProviderHealth {
-  provider: 'resend';
-  apiKeyConfigured: boolean;
+  provider: 'gmail_smtp';
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  starttlsEnabled: boolean;
+  smtpUserConfigured: boolean;
+  smtpPassConfigured: boolean;
+  smtpUserPreview: string;
   envFromConfigured: boolean;
   envReplyToConfigured: boolean;
   resolvedFromPreview: string;
+  resolvedReplyToPreview: string;
   ready: boolean;
   dedicatedTablesReady: boolean;
   statusMessage: string;
@@ -123,7 +131,7 @@ export interface EmailServicePersistenceHooks {
 
 const DEFAULT_CONFIG: EmailNotificationConfig = {
   enabled: false,
-  senderName: 'MoraJaws Ops Dispatch',
+  senderName: 'MoraJaws',
   senderEmail: 'noreply@morajaws.local',
   replyToEmail: '',
   timezone: 'Asia/Jakarta',
@@ -148,6 +156,10 @@ let dedicatedTablesMissing = false;
 let isWorkerProcessing = false;
 let lastDailySummaryRunDateWIB: string | null = null;
 let lastDailyResetTriggerDateWIB: string | null = null;
+let cachedSmtpTransporter: Transporter | null = null;
+let cachedSmtpTransporterKey: string | null = null;
+const inProgressQueueIds = new Set<string>();
+const sentEventKeysGuard = new Set<string>();
 
 export function registerEmailNotificationPersistenceHooks(hooks: EmailServicePersistenceHooks): void {
   persistenceHooks = hooks;
@@ -177,9 +189,18 @@ export function normalizeEmailConfig(raw?: Partial<EmailNotificationConfig> | nu
   const envFromEmail = envFromRaw.includes('<')
     ? (envFromRaw.match(/<([^>]+)>/)?.[1] || '').trim()
     : envFromRaw;
+  const smtpUser = (process.env.SMTP_USER || '').trim();
 
-  const senderEmailCandidate = String(r.senderEmail || envFromEmail || DEFAULT_CONFIG.senderEmail).trim();
-  const replyToCandidate = String(r.replyToEmail ?? process.env.EMAIL_REPLY_TO ?? '').trim();
+  const rawSenderEmail = String(r.senderEmail || '').trim();
+  const senderEmailCandidate =
+    (rawSenderEmail && !rawSenderEmail.endsWith('.local') ? rawSenderEmail : '') ||
+    envFromEmail ||
+    (isValidEmailAddress(smtpUser) ? smtpUser : '') ||
+    rawSenderEmail ||
+    DEFAULT_CONFIG.senderEmail;
+  const replyToCandidate = String(
+    r.replyToEmail || process.env.EMAIL_REPLY_TO || (isValidEmailAddress(smtpUser) ? smtpUser : '')
+  ).trim();
 
   return {
     enabled: Boolean(r.enabled),
@@ -217,25 +238,70 @@ function isTableMissingError(err: any): boolean {
   return code === 'PGRST205' || code === '42P01' || msg.includes('does not exist') || msg.includes('schema cache');
 }
 
-function formatFromHeader(cfg: EmailNotificationConfig): string {
+function resolveSmtpRuntimeConfig(): {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS: boolean;
+  user: string;
+  pass: string;
+  envFrom: string;
+  envReplyTo: string;
+} {
+  const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim() || 'smtp.gmail.com';
+  const parsedPort = Number(process.env.SMTP_PORT || 587);
+  const port = Number.isFinite(parsedPort) && parsedPort > 0 && parsedPort <= 65535 ? parsedPort : 587;
+  const secure = String(process.env.SMTP_SECURE || 'false').trim().toLowerCase() === 'true';
+  const requireTLS = !secure;
+  const user = (process.env.SMTP_USER || '').trim();
+  const pass = (process.env.SMTP_PASS || '').trim();
   const envFrom = (process.env.EMAIL_FROM || '').trim();
-  if (envFrom) {
-    if (envFrom.includes('<') && envFrom.includes('>')) return envFrom;
-    if (isValidEmailAddress(envFrom)) return `${cfg.senderName} <${envFrom}>`;
+  const envReplyTo = (process.env.EMAIL_REPLY_TO || '').trim();
+  return { host, port, secure, requireTLS, user, pass, envFrom, envReplyTo };
+}
+
+function redactSmtpSecret(raw: string, pass: string): string {
+  let out = String(raw || '');
+  if (pass && pass.length >= 3) {
+    out = out.split(pass).join('***');
+  }
+  return out;
+}
+
+function formatFromHeader(cfg: EmailNotificationConfig): string {
+  const smtp = resolveSmtpRuntimeConfig();
+  const displayName = sanitizeTemplateText(cfg.senderName || 'MoraJaws') || 'MoraJaws';
+  if (smtp.envFrom) {
+    if (smtp.envFrom.includes('<') && smtp.envFrom.includes('>')) return smtp.envFrom;
+    if (isValidEmailAddress(smtp.envFrom)) return `${displayName} <${smtp.envFrom}>`;
+  }
+  if (isValidEmailAddress(cfg.senderEmail) && !cfg.senderEmail.endsWith('.local')) {
+    return `${displayName} <${cfg.senderEmail}>`;
+  }
+  if (isValidEmailAddress(smtp.user)) {
+    return `${displayName} <${smtp.user}>`;
   }
   const email = isValidEmailAddress(cfg.senderEmail) ? cfg.senderEmail : 'noreply@morajaws.local';
-  return `${cfg.senderName} <${email}>`;
+  return `${displayName} <${email}>`;
+}
+
+function resolveReplyToAddress(cfg: EmailNotificationConfig): string | undefined {
+  const smtp = resolveSmtpRuntimeConfig();
+  if (isValidEmailAddress(smtp.envReplyTo)) return smtp.envReplyTo;
+  if (isValidEmailAddress(cfg.replyToEmail)) return cfg.replyToEmail;
+  if (isValidEmailAddress(smtp.user)) return smtp.user;
+  return undefined;
 }
 
 export async function getEmailProviderHealth(): Promise<EmailProviderHealth> {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  const envFrom = (process.env.EMAIL_FROM || '').trim();
-  const envReplyTo = (process.env.EMAIL_REPLY_TO || '').trim();
+  const smtp = resolveSmtpRuntimeConfig();
   const cfg = await getEmailNotificationConfig();
 
-  const apiKeyConfigured = apiKey.length >= 10;
-  const envFromConfigured = Boolean(envFrom);
-  const envReplyToConfigured = Boolean(envReplyTo || cfg.replyToEmail);
+  const smtpUserConfigured = isValidEmailAddress(smtp.user) || smtp.user.length > 0;
+  const smtpPassConfigured = smtp.pass.length >= 4;
+  const envFromConfigured = Boolean(smtp.envFrom);
+  const replyToResolved = resolveReplyToAddress(cfg) || '';
+  const envReplyToConfigured = Boolean(smtp.envReplyTo || cfg.replyToEmail || replyToResolved);
   const resolvedFrom = formatFromHeader(cfg);
 
   let dedicatedTablesReady = false;
@@ -248,20 +314,27 @@ export async function getEmailProviderHealth(): Promise<EmailProviderHealth> {
     }
   }
 
-  let statusMessage = 'Siap mengirim email melalui Resend API.';
-  if (!apiKeyConfigured) {
-    statusMessage = 'RESEND_API_KEY belum dikonfigurasi pada environment server. Preview HTML & queue tersedia, namun pengiriman aktual menunggu API key.';
-  } else if (!envFromConfigured && cfg.senderEmail.endsWith('.local')) {
-    statusMessage = 'RESEND_API_KEY terdeteksi, namun EMAIL_FROM / Sender Email domain terverifikasi belum diatur (saat ini masih .local).';
+  let statusMessage = `Siap mengirim email melalui Gmail SMTP (${smtp.host}:${smtp.port}, ${smtp.secure ? 'SSL/TLS' : 'STARTTLS'}).`;
+  if (!smtpUserConfigured || !smtpPassConfigured) {
+    statusMessage = 'SMTP_USER / SMTP_PASS belum dikonfigurasi pada secrets environment server. Queue tetap aktif, namun pengiriman SMTP menunggu kredensial server.';
+  } else if (!envFromConfigured && cfg.senderEmail.endsWith('.local') && !isValidEmailAddress(smtp.user)) {
+    statusMessage = 'SMTP credentials terdeteksi, namun EMAIL_FROM / alamat Gmail pengirim belum valid.';
   }
 
   return {
-    provider: 'resend',
-    apiKeyConfigured,
+    provider: 'gmail_smtp',
+    smtpHost: smtp.host,
+    smtpPort: smtp.port,
+    smtpSecure: smtp.secure,
+    starttlsEnabled: smtp.requireTLS,
+    smtpUserConfigured,
+    smtpPassConfigured,
+    smtpUserPreview: smtpUserConfigured ? smtp.user : 'Belum dikonfigurasi',
     envFromConfigured,
     envReplyToConfigured,
     resolvedFromPreview: resolvedFrom,
-    ready: apiKeyConfigured && (envFromConfigured || !cfg.senderEmail.endsWith('.local')),
+    resolvedReplyToPreview: replyToResolved || '-',
+    ready: smtpUserConfigured && smtpPassConfigured,
     dedicatedTablesReady,
     statusMessage
   };
@@ -594,10 +667,90 @@ export async function renderDemoPreviewForTemplate(
 }
 
 // ============================================================================
-// RESEND HTTPS API CLIENT
+// GMAIL SMTP CLIENT (NODEMAILER + STARTTLS)
 // ============================================================================
 
-async function sendViaResendApi(params: {
+function getOrCreateSmtpTransporter(): Transporter {
+  const smtp = resolveSmtpRuntimeConfig();
+  const passDigest = crypto.createHash('sha256').update(smtp.pass).digest('hex').slice(0, 16);
+  const key = `${smtp.host}:${smtp.port}:${smtp.secure}:${smtp.user}:${passDigest}:${process.env.SMTP_TEST_ALLOW_SELF_SIGNED || '0'}`;
+
+  if (cachedSmtpTransporter && cachedSmtpTransporterKey === key) {
+    return cachedSmtpTransporter;
+  }
+
+  if (cachedSmtpTransporter && typeof cachedSmtpTransporter.close === 'function') {
+    try {
+      cachedSmtpTransporter.close();
+    } catch {
+      // ignore close errors
+    }
+  }
+
+  const isLocalTestServer =
+    (smtp.host === '127.0.0.1' || smtp.host === 'localhost') &&
+    process.env.SMTP_TEST_ALLOW_SELF_SIGNED === '1';
+
+  cachedSmtpTransporter = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    requireTLS: smtp.requireTLS,
+    auth: {
+      user: smtp.user,
+      pass: smtp.pass
+    },
+    connectionTimeout: 12000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    tls: {
+      minVersion: 'TLSv1.2',
+      servername: smtp.host,
+      rejectUnauthorized: !isLocalTestServer
+    }
+  });
+  cachedSmtpTransporterKey = key;
+  return cachedSmtpTransporter;
+}
+
+function classifySmtpError(err: any, pass: string): {
+  retryable: boolean;
+  errorCode: string;
+  errorMessage: string;
+} {
+  const rawMsg = redactSmtpSecret(String(err?.message || 'Koneksi Gmail SMTP gagal.'), pass);
+  const code = String(err?.code || '').toUpperCase();
+  const responseCode = Number(err?.responseCode || 0);
+
+  // Permanent authentication / policy / invalid envelope errors — never retry
+  if (
+    code === 'EAUTH' ||
+    code === 'EENVELOPE' ||
+    responseCode === 530 ||
+    responseCode === 534 ||
+    responseCode === 535 ||
+    responseCode === 550 ||
+    responseCode === 551 ||
+    responseCode === 552 ||
+    responseCode === 553 ||
+    responseCode === 554
+  ) {
+    return {
+      retryable: false,
+      errorCode: code || `SMTP_${responseCode || 'AUTH_FAILED'}`,
+      errorMessage: rawMsg
+    };
+  }
+
+  // Transient TCP / TLS / rate-limit errors
+  return {
+    retryable: true,
+    errorCode: code || (responseCode ? `SMTP_${responseCode}` : 'SMTP_TRANSIENT_ERROR'),
+    errorMessage: rawMsg
+  };
+}
+
+async function sendViaGmailSmtp(params: {
   from: string;
   to: string;
   replyTo?: string;
@@ -613,127 +766,83 @@ async function sendViaResendApi(params: {
   errorCode?: string;
   errorMessage?: string;
 }> {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  if (!apiKey) {
+  const smtp = resolveSmtpRuntimeConfig();
+  if (!smtp.user || !smtp.pass) {
     return {
       ok: false,
       httpStatus: 0,
-      retryable: true,
-      errorCode: 'RESEND_API_KEY_MISSING',
-      errorMessage: 'RESEND_API_KEY belum dikonfigurasi pada environment server.'
+      retryable: false,
+      errorCode: 'SMTP_CREDENTIALS_MISSING',
+      errorMessage: 'SMTP_USER atau SMTP_PASS belum dikonfigurasi pada secrets environment server.'
     };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const bodyPayload: Record<string, any> = {
+    const transporter = getOrCreateSmtpTransporter();
+    const info = await transporter.sendMail({
       from: params.from,
-      to: [params.to],
+      to: params.to,
+      replyTo: params.replyTo && isValidEmailAddress(params.replyTo) ? params.replyTo : undefined,
       subject: params.subject,
       html: params.html,
-      text: params.text
-    };
-    if (params.replyTo && isValidEmailAddress(params.replyTo)) {
-      bodyPayload.reply_to = params.replyTo;
-    }
-
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    };
-    if (params.idempotencyKey) {
-      headers['Idempotency-Key'] = params.idempotencyKey.slice(0, 250);
-    }
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(bodyPayload),
-      signal: controller.signal
+      text: params.text,
+      headers: params.idempotencyKey
+        ? { 'X-MoraJaws-Event-Key': params.idempotencyKey.slice(0, 200) }
+        : undefined
     });
 
-    const json = await res.json().catch(() => ({} as any));
-    if (res.ok && json?.id) {
-      return {
-        ok: true,
-        messageId: String(json.id),
-        httpStatus: res.status,
-        retryable: false
-      };
-    }
-
-    const msg = json?.message || json?.error || `HTTP ${res.status} dari Resend API`;
-    const retryable = res.status === 429 || res.status >= 500;
+    const msgId = String(info?.messageId || '').trim() || `smtp_${Date.now()}`;
     return {
-      ok: false,
-      httpStatus: res.status,
-      retryable,
-      errorCode: json?.name || `RESEND_HTTP_${res.status}`,
-      errorMessage: String(msg)
+      ok: true,
+      messageId: msgId,
+      httpStatus: 250,
+      retryable: false
     };
   } catch (err: any) {
-    const isAbort = err?.name === 'AbortError';
+    const classified = classifySmtpError(err, smtp.pass);
     return {
       ok: false,
-      httpStatus: 0,
-      retryable: true,
-      errorCode: isAbort ? 'RESEND_TIMEOUT' : 'RESEND_NETWORK_ERROR',
-      errorMessage: isAbort ? 'Request ke Resend API melebihi batas waktu (10s).' : (err?.message || 'Koneksi ke Resend gagal.')
+      httpStatus: Number(err?.responseCode || 0),
+      retryable: classified.retryable,
+      errorCode: classified.errorCode,
+      errorMessage: classified.errorMessage
     };
-  } finally {
-    clearTimeout(timer);
   }
 }
 
-export async function testResendProviderConnection(): Promise<{
+export async function testSmtpProviderConnection(): Promise<{
   success: boolean;
   statusCode: number;
   message: string;
-  domainsCount?: number;
 }> {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  if (!apiKey) {
+  const smtp = resolveSmtpRuntimeConfig();
+  if (!smtp.user || !smtp.pass) {
     return {
       success: false,
       statusCode: 0,
-      message: 'RESEND_API_KEY belum terpasang di environment variables server.'
+      message: 'SMTP_USER dan SMTP_PASS belum terpasang di secrets environment server.'
     };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch('https://api.resend.com/domains', {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: controller.signal
-    });
-    const json = await res.json().catch(() => ({} as any));
-    if (res.ok) {
-      const count = Array.isArray(json?.data) ? json.data.length : 0;
-      return {
-        success: true,
-        statusCode: res.status,
-        domainsCount: count,
-        message: `Koneksi Resend API terverifikasi (${count} domain terdaftar).`
-      };
-    }
+    const transporter = getOrCreateSmtpTransporter();
+    await transporter.verify();
     return {
-      success: false,
-      statusCode: res.status,
-      message: `Resend API menolak kredensial atau permintaan: ${json?.message || `HTTP ${res.status}`}`
+      success: true,
+      statusCode: 250,
+      message: `Koneksi Gmail SMTP (${smtp.host}:${smtp.port}, ${smtp.secure ? 'SSL/TLS' : 'STARTTLS'}) terverifikasi untuk ${smtp.user}.`
     };
   } catch (err: any) {
+    const classified = classifySmtpError(err, smtp.pass);
     return {
       success: false,
-      statusCode: 0,
-      message: `Gagal menghubungi Resend API: ${err?.message || 'Network error'}`
+      statusCode: Number(err?.responseCode || 0),
+      message: `Gagal verifikasi Gmail SMTP (${smtp.host}:${smtp.port}): ${classified.errorMessage}`
     };
-  } finally {
-    clearTimeout(timer);
   }
 }
+
+export const testResendProviderConnection = testSmtpProviderConnection;
 
 // ============================================================================
 // QUEUE STORAGE & DELIVERY LOGS
@@ -1040,10 +1149,47 @@ export async function processEmailQueueBatch(limit: number = 15): Promise<{
     }
 
     const fromHeader = formatFromHeader(cfg);
+    const replyToHeader = resolveReplyToAddress(cfg);
 
     for (const item of dueItems) {
-      summary.processed++;
+      if (inProgressQueueIds.has(item.id)) {
+        continue;
+      }
+
+      // Idempotency guard: if already sent or already has providerMessageId, never resend
+      if (
+        item.providerMessageId ||
+        sentEventKeysGuard.has(item.eventKey)
+      ) {
+        if (item.status !== 'sent' && item.status !== 'delivered') {
+          item.status = 'sent';
+          item.errorMessage = null;
+          item.sentAt = item.sentAt || new Date().toISOString();
+          await updateQueueRow(item);
+        }
+        continue;
+      }
+
+      // Check existing delivery logs for same eventKey already sent/delivered
+      const localStore = persistenceHooks?.getLocalStore();
+      const alreadySentLocally = Boolean(
+        localStore?.emailDeliveryLogs?.some(
+          l =>
+            l.eventKey === item.eventKey &&
+            (l.deliveryStatus === 'sent' || l.deliveryStatus === 'delivered')
+        )
+      );
+      if (alreadySentLocally) {
+        sentEventKeysGuard.add(item.eventKey);
+        item.status = 'sent';
+        item.errorMessage = null;
+        item.sentAt = item.sentAt || new Date().toISOString();
+        await updateQueueRow(item);
+        continue;
+      }
+
       if (!isValidEmailAddress(item.recipientEmail)) {
+        summary.processed++;
         item.status = 'skipped';
         item.errorMessage = 'Email penerima kosong atau tidak valid.';
         item.processedAt = new Date().toISOString();
@@ -1065,70 +1211,104 @@ export async function processEmailQueueBatch(limit: number = 15): Promise<{
         continue;
       }
 
-      item.status = 'processing';
-      item.processedAt = new Date().toISOString();
-      await updateQueueRow(item);
-
-      const sendRes = await sendViaResendApi({
-        from: fromHeader,
-        to: item.recipientEmail!,
-        replyTo: cfg.replyToEmail || undefined,
-        subject: item.subject,
-        html: item.htmlBody,
-        text: item.textBody,
-        idempotencyKey: item.eventKey
-      });
-
-      if (sendRes.ok) {
-        item.status = 'sent';
-        item.providerMessageId = sendRes.messageId || null;
-        item.errorMessage = null;
-        item.sentAt = new Date().toISOString();
-        await updateQueueRow(item);
-        await appendDeliveryLog({
-          queueId: item.id,
-          eventKey: item.eventKey,
-          notificationType: item.eventType,
-          recipientUserId: item.recipientUserId,
-          recipientEmail: item.recipientEmail,
-          recipientName: item.recipientName,
-          recipientRole: item.recipientRole,
-          subject: item.subject,
-          relatedWoNumber: item.relatedWoNumber,
-          deliveryStatus: 'sent',
-          providerMessageId: item.providerMessageId || undefined
-        });
-        summary.sent++;
-      } else {
-        const nextRetry = item.retryCount + 1;
-        item.retryCount = nextRetry;
-        item.errorMessage = sendRes.errorMessage || 'Pengiriman email gagal.';
-
-        if (sendRes.retryable && nextRetry <= item.maxRetries) {
-          const delaySec = RETRY_BACKOFF_SECONDS[Math.min(nextRetry - 1, RETRY_BACKOFF_SECONDS.length - 1)];
-          item.status = 'retry_pending';
-          item.nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
-          summary.retryScheduled++;
-        } else {
-          item.status = 'failed';
-          item.nextRetryAt = null;
-          summary.failed++;
+      // Atomic conditional claim in Supabase to avoid duplicate sends across overlapping batches
+      if (isSupabaseConfigured() && !dedicatedTablesMissing) {
+        const client = getSupabaseBackendClient();
+        if (client) {
+          const { data: claimed, error: claimErr } = await client
+            .from('email_notification_queue')
+            .update({
+              status: 'processing',
+              processed_at: new Date().toISOString()
+            })
+            .eq('id', item.id)
+            .in('status', ['queued', 'retry_pending'])
+            .is('provider_message_id', null)
+            .select('id')
+            .maybeSingle();
+          if (claimErr) {
+            if (isTableMissingError(claimErr)) dedicatedTablesMissing = true;
+          } else if (!claimed) {
+            continue;
+          }
         }
+      }
 
+      inProgressQueueIds.add(item.id);
+      try {
+        summary.processed++;
+        item.status = 'processing';
+        item.processedAt = new Date().toISOString();
         await updateQueueRow(item);
-        await appendDeliveryLog({
-          queueId: item.id,
-          eventKey: item.eventKey,
-          notificationType: item.eventType,
-          recipientUserId: item.recipientUserId,
-          recipientEmail: item.recipientEmail,
-          recipientName: item.recipientName,
-          recipientRole: item.recipientRole,
+
+        const sendRes = await sendViaGmailSmtp({
+          from: fromHeader,
+          to: item.recipientEmail!,
+          replyTo: replyToHeader,
           subject: item.subject,
-          relatedWoNumber: item.relatedWoNumber,
-          deliveryStatus: item.status,
-          errorMessage: item.errorMessage || undefined
+          html: item.htmlBody,
+          text: item.textBody,
+          idempotencyKey: item.eventKey
         });
+
+        if (sendRes.ok) {
+          sentEventKeysGuard.add(item.eventKey);
+          if (sentEventKeysGuard.size > 5000) {
+            const firstKey = sentEventKeysGuard.values().next().value;
+            if (firstKey) sentEventKeysGuard.delete(firstKey);
+          }
+          item.status = 'sent';
+          item.providerMessageId = sendRes.messageId || null;
+          item.errorMessage = null;
+          item.sentAt = new Date().toISOString();
+          await updateQueueRow(item);
+          await appendDeliveryLog({
+            queueId: item.id,
+            eventKey: item.eventKey,
+            notificationType: item.eventType,
+            recipientUserId: item.recipientUserId,
+            recipientEmail: item.recipientEmail,
+            recipientName: item.recipientName,
+            recipientRole: item.recipientRole,
+            subject: item.subject,
+            relatedWoNumber: item.relatedWoNumber,
+            deliveryStatus: 'sent',
+            providerMessageId: item.providerMessageId || undefined
+          });
+          summary.sent++;
+        } else {
+          const nextRetry = item.retryCount + 1;
+          item.retryCount = nextRetry;
+          item.errorMessage = sendRes.errorMessage || 'Pengiriman email melalui Gmail SMTP gagal.';
+
+          if (sendRes.retryable && nextRetry <= item.maxRetries) {
+            const delaySec = RETRY_BACKOFF_SECONDS[Math.min(nextRetry - 1, RETRY_BACKOFF_SECONDS.length - 1)];
+            item.status = 'retry_pending';
+            item.nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
+            summary.retryScheduled++;
+          } else {
+            item.status = 'failed';
+            item.nextRetryAt = null;
+            summary.failed++;
+          }
+
+          await updateQueueRow(item);
+          await appendDeliveryLog({
+            queueId: item.id,
+            eventKey: item.eventKey,
+            notificationType: item.eventType,
+            recipientUserId: item.recipientUserId,
+            recipientEmail: item.recipientEmail,
+            recipientName: item.recipientName,
+            recipientRole: item.recipientRole,
+            subject: item.subject,
+            relatedWoNumber: item.relatedWoNumber,
+            deliveryStatus: item.status,
+            errorMessage: item.errorMessage || undefined
+          });
+        }
+      } finally {
+        inProgressQueueIds.delete(item.id);
       }
     }
   } finally {
@@ -1168,10 +1348,10 @@ export async function sendTestEmailNotification(params: {
   ctx.isDemoPreview = true;
 
   const rendered = renderEmailTemplate(tpl, ctx);
-  const sendRes = await sendViaResendApi({
+  const sendRes = await sendViaGmailSmtp({
     from: formatFromHeader(cfg),
     to: cleanEmail,
-    replyTo: cfg.replyToEmail || undefined,
+    replyTo: resolveReplyToAddress(cfg),
     subject: `[TEST] ${rendered.subject}`,
     html: rendered.htmlBody,
     text: rendered.textBody
@@ -2065,4 +2245,15 @@ export function resetEmailServiceCachesForTesting(): void {
   dedicatedTablesMissing = false;
   lastDailySummaryRunDateWIB = null;
   lastDailyResetTriggerDateWIB = null;
+  inProgressQueueIds.clear();
+  sentEventKeysGuard.clear();
+  if (cachedSmtpTransporter && typeof cachedSmtpTransporter.close === 'function') {
+    try {
+      cachedSmtpTransporter.close();
+    } catch {
+      // ignore
+    }
+  }
+  cachedSmtpTransporter = null;
+  cachedSmtpTransporterKey = null;
 }
