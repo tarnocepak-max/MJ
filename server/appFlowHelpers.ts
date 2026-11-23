@@ -290,6 +290,7 @@ export function mapSupabaseMessageToModel(row: any): any {
 
   return {
     id: String(row.id || ''),
+    ...(payload.clientMessageId ? { clientMessageId: String(payload.clientMessageId) } : {}),
     ticketId: String(row.ticket_id || row.ticketId || ''),
     woNumber: String(row.wo_number || row.woNumber || ''),
     senderId: String(row.sender_id || row.senderId || ''),
@@ -299,6 +300,7 @@ export function mapSupabaseMessageToModel(row: any): any {
     category: normalizedCategory,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
     timestamp: row.created_at || row.timestamp || new Date().toISOString(),
+    updatedAt: payload.updatedAt || row.created_at || row.timestamp || new Date().toISOString(),
     deliveredTo,
     deliveredAt: payload.deliveredAt && typeof payload.deliveredAt === 'object' ? payload.deliveredAt : undefined,
     readBy,

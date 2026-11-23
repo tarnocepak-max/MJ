@@ -129,7 +129,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
   onNavigate,
   viewContext = 'sla_monitoring'
 }) => {
-  const { currentUser, scopedTickets, refreshDatabaseData, databaseStatus } = useApp();
+  const { currentUser, scopedTickets, refreshDatabaseData, databaseStatus, realtimeConnectionState } = useApp();
   const { toast } = useToast();
 
   const isLeader = currentUser.role === 'leader';
@@ -192,40 +192,48 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
     return () => window.clearInterval(timer);
   }, []);
 
-  // Periodic background poll when autoSync is enabled (every 30s) + SSE realtime change listener
+  // Event-driven SSE realtime listener + conditional 30s fallback poll ONLY when SSE is not connected
   useEffect(() => {
     if (!autoSync) {
       setSseConnected(false);
       return;
     }
 
-    setSseConnected(true);
+    const isSseLive = realtimeConnectionState === 'connected';
+    setSseConnected(isSseLive);
+
     let debounceTimer: number | null = null;
     const scheduleReload = () => {
       if (debounceTimer) window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(() => {
         loadTelemetry(true);
-      }, 600);
+      }, 450);
     };
 
     const unsubWo = supabaseDb.subscribeToChanges({ table: 'work_orders', event: '*', onPayload: scheduleReload });
+    const unsubPr = supabaseDb.subscribeToChanges({ table: 'progress_reports', event: '*', onPayload: scheduleReload });
     const unsubMsg = supabaseDb.subscribeToChanges({ table: 'ticket_messages', event: '*', onPayload: scheduleReload });
     const unsubCfg = supabaseDb.subscribeToChanges({ table: 'app_settings', event: '*', onPayload: scheduleReload });
     const unsubContr = supabaseDb.subscribeToChanges({ table: 'contractors', event: '*', onPayload: scheduleReload });
 
-    const pollInterval = window.setInterval(() => {
-      loadTelemetry(true);
-    }, 30000);
+    let pollInterval: number | null = null;
+    if (!isSseLive) {
+      pollInterval = window.setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+        loadTelemetry(true);
+      }, 30000);
+    }
 
     return () => {
       if (debounceTimer) window.clearTimeout(debounceTimer);
       unsubWo();
+      unsubPr();
       unsubMsg();
       unsubCfg();
       unsubContr();
-      window.clearInterval(pollInterval);
+      if (pollInterval) window.clearInterval(pollInterval);
     };
-  }, [autoSync, loadTelemetry]);
+  }, [autoSync, realtimeConnectionState, loadTelemetry]);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -485,13 +493,29 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <div
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase ${
-                  autoSync
+                  !autoSync
+                    ? 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
+                    : sseConnected
                     ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/50 dark:text-emerald-300'
                     : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${autoSync ? 'bg-[#218A63] dark:bg-[#16A36A] animate-pulse' : 'bg-[#C88735]'}`} />
-                <span>{autoSync ? 'CALCULATION ACTIVE (REAL-TIME)' : 'AUTO-SYNC PAUSED'}</span>
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    !autoSync
+                      ? 'bg-[#C88735]'
+                      : sseConnected
+                      ? 'bg-[#218A63] dark:bg-[#16A36A] animate-pulse'
+                      : 'bg-[#C88735] animate-pulse'
+                  }`}
+                />
+                <span>
+                  {!autoSync
+                    ? 'AUTO-SYNC PAUSED'
+                    : sseConnected
+                    ? 'LIVE SSE REAL-TIME'
+                    : 'FALLBACK POLLING (SSE RECONNECT)'}
+                </span>
               </div>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">

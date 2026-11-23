@@ -46,6 +46,7 @@ import { Ticket } from './types';
 import { Menu, Database } from 'lucide-react';
 import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary';
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
+import { ThemeBrandBackground } from './components/common/MoraRepublicBrandVisuals';
 
 const SetupHubView = lazy(() =>
   import('./components/setup/SetupHubView').then(m => ({ default: m.SetupHubView }))
@@ -1168,8 +1169,10 @@ const MainLayout: React.FC = () => {
     <div
       className="h-dvh flex flex-col overflow-hidden mj-aurora-bg text-[#26364A] dark:text-[#f3effc] transition-colors relative"
     >
+      <ThemeBrandBackground variant="workspace" />
+
       {/* Main Workspace Frame */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative z-10">
         {/* Navigation Sidebar: STRICTLY NOT RENDERED FOR INSTALLER */}
         {!isInstaller && (
           <Sidebar

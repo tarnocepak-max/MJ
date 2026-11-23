@@ -314,7 +314,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     setActiveKpiDrilldown,
     refreshKpiSummary,
     getTicketUnreadCount,
-    setTicketChatCategory
+    setTicketChatCategory,
+    realtimeConnectionState
   } = useApp();
   const { toast } = useToast();
   const { isOnline, pendingCount, syncNow, isSyncing, setIsOfflineModalOpen } = useOfflineSync();
@@ -726,8 +727,19 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-gradient-to-r dark:from-[#160D29] dark:to-[#35105E] text-[#2E7D8B] dark:text-[#EEDBFF] font-mono text-[10px] font-bold border border-[#BDE4E8] dark:border-[#58149C]/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#218A63] dark:bg-emerald-400 animate-pulse" />
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-gradient-to-r dark:from-[#160D29] dark:to-[#35105E] text-[#2E7D8B] dark:text-[#EEDBFF] font-mono text-[10px] font-bold border border-[#BDE4E8] dark:border-[#58149C]/40"
+                title={`Status SSE: ${realtimeConnectionState}`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    realtimeConnectionState === 'connected'
+                      ? 'bg-[#218A63] dark:bg-emerald-400 animate-pulse'
+                      : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-rose-500'
+                  }`}
+                />
                 <span>{currentUser.area || 'TIM LAPANGAN'} · {currentUser.contractor || effectiveInstallerName}</span>
               </span>
             </div>

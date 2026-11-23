@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, CheckCheck } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Loader2, RotateCcw } from 'lucide-react';
 import { TicketMessage } from '../../types';
 
 interface MessageStatusReceiptProps {
@@ -9,6 +9,7 @@ interface MessageStatusReceiptProps {
   variant?: 'onDark' | 'onLight';
   showLabel?: boolean;
   className?: string;
+  onRetry?: (messageId: string) => void;
 }
 
 export const MessageStatusReceipt: React.FC<MessageStatusReceiptProps> = ({
@@ -16,8 +17,60 @@ export const MessageStatusReceipt: React.FC<MessageStatusReceiptProps> = ({
   senderId,
   variant = 'onLight',
   showLabel = true,
-  className = ''
+  className = '',
+  onRetry
 }) => {
+  if (message.deliveryStatus === 'sending') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 select-none ${
+          variant === 'onDark' ? 'text-white/80' : 'text-slate-500'
+        } ${className}`}
+        title="Mengirim pesan ke server..."
+        data-receipt-state="sending"
+      >
+        <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+        {showLabel && (
+          <span className="text-[10px] font-semibold tracking-tight leading-none">Mengirim...</span>
+        )}
+      </span>
+    );
+  }
+
+  if (message.deliveryStatus === 'failed') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 select-none ${
+          variant === 'onDark' ? 'text-rose-200' : 'text-rose-600'
+        } ${className}`}
+        title={message.localError || 'Gagal mengirim pesan'}
+        data-receipt-state="failed"
+      >
+        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+        {showLabel && (
+          <span className="text-[10px] font-semibold tracking-tight leading-none">Gagal</span>
+        )}
+        {onRetry && (
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              onRetry(message.id);
+            }}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold underline underline-offset-2 cursor-pointer ${
+              variant === 'onDark'
+                ? 'bg-rose-950/50 text-white hover:bg-rose-900/70'
+                : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+            }`}
+          >
+            <RotateCcw className="w-2.5 h-2.5" />
+            <span>Kirim Ulang</span>
+          </button>
+        )}
+      </span>
+    );
+  }
+
   const effectiveSenderId = String(senderId || message.senderId || '').trim();
   const readers = Array.isArray(message.readBy)
     ? message.readBy.map(id => String(id || '').trim()).filter(id => id && id !== effectiveSenderId)

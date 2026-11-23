@@ -100,7 +100,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     refreshDatabaseData,
     applyRotatedPasswordSession,
     tickets,
-    scopedTickets
+    scopedTickets,
+    realtimeConnectionState,
+    realtimeStatusInfo,
+    reconnectRealtimeNow,
+    lastKpiUpdatedAt
   } = useApp();
   const { config, setSidebarState, displayMode, canSwitchDisplayMode, setDisplayMode, isMobileView } = useUIConfig();
   const { isOnline, isSyncing, pendingCount, setIsOfflineModalOpen, isSimulatedOffline } = useOfflineSync();
@@ -108,6 +112,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const { toast } = useToast();
   const { playSyncSound } = useMoraJawsSound();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [connectionMonitorOpen, setConnectionMonitorOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [quickSearch, setQuickSearch] = useState('');
@@ -116,6 +121,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const quickSearchRef = useRef<HTMLDivElement>(null);
   const quickSearchInputRef = useRef<HTMLInputElement>(null);
+  const connectionMonitorRef = useRef<HTMLDivElement>(null);
 
   const canCrossDateSearch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
@@ -181,10 +187,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
       if (quickSearchRef.current && !quickSearchRef.current.contains(e.target as Node)) {
         setQuickSearchOpen(false);
       }
+      if (connectionMonitorRef.current && !connectionMonitorRef.current.contains(e.target as Node)) {
+        setConnectionMonitorOpen(false);
+      }
     };
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setQuickSearchOpen(false);
+        setConnectionMonitorOpen(false);
       }
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const target = e.target as HTMLElement | null;
@@ -303,6 +313,187 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     );
   }, [lastSyncTime]);
 
+  const formatWibTimestamp = (iso?: string | null) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '-';
+    return (
+      d.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Jakarta'
+      }) + ' WIB'
+    );
+  };
+
+  const sseVisualState = useMemo(() => {
+    if (!isOnline || syncStatus === 'OFFLINE') {
+      return {
+        label: isSimulatedOffline ? 'SIMULASI OFFLINE' : 'OFFLINE',
+        shortLabel: 'Offline',
+        dotClass: 'bg-[#D45B66] dark:bg-rose-500',
+        textClass: 'text-[#9B2C37] dark:text-rose-300',
+        pillClass:
+          'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300 border border-[#D45B66]/30 dark:border-rose-500/25'
+      };
+    }
+    if (realtimeConnectionState === 'connected') {
+      return {
+        label: 'SSE: Live Sync',
+        shortLabel: 'LIVE',
+        dotClass: 'bg-[#218A63] dark:bg-emerald-400 animate-pulse',
+        textClass: 'text-[#218A63] dark:text-emerald-300',
+        pillClass:
+          'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-500/12 dark:text-emerald-300 border border-[#218A63]/25 dark:border-emerald-500/20'
+      };
+    }
+    if (realtimeConnectionState === 'reconnecting') {
+      const attempt = realtimeStatusInfo.reconnectAttempt || 1;
+      return {
+        label: `Reconnect (${attempt})`,
+        shortLabel: `RECONNECT ${attempt}`,
+        dotClass: 'bg-[#C88735] dark:bg-amber-400 animate-pulse',
+        textClass: 'text-[#9D661F] dark:text-amber-300',
+        pillClass:
+          'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-500/15 dark:text-amber-300 border border-[#C88735]/30 dark:border-amber-500/25'
+      };
+    }
+    if (realtimeConnectionState === 'connecting') {
+      return {
+        label: 'Connecting...',
+        shortLabel: 'CONNECTING',
+        dotClass: 'bg-[#3E81C6] dark:bg-sky-400 animate-pulse',
+        textClass: 'text-[#3E81C6] dark:text-sky-300',
+        pillClass:
+          'bg-[#E7F1FB] text-[#3E81C6] dark:bg-sky-500/15 dark:text-sky-300 border border-[#3E81C6]/30 dark:border-sky-500/25'
+      };
+    }
+    return {
+      label: 'SSE Terputus',
+      shortLabel: 'TERPUTUS',
+      dotClass: 'bg-[#D45B66] dark:bg-rose-500',
+      textClass: 'text-[#9B2C37] dark:text-rose-300',
+      pillClass:
+        'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300 border border-[#D45B66]/30 dark:border-rose-500/25'
+    };
+  }, [isOnline, syncStatus, isSimulatedOffline, realtimeConnectionState, realtimeStatusInfo.reconnectAttempt]);
+
+  const renderConnectionMonitorPopover = () => (
+    <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-[#DDE6F0] dark:border-white/15 p-3.5 z-50 text-xs space-y-3 pointer-events-auto">
+      <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-white/10">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${sseVisualState.dotClass}`} />
+          <div className="min-w-0">
+            <div className="font-bold text-[#26364A] dark:text-white truncate">Realtime Connection Monitor</div>
+            <div className="text-[10.5px] font-mono text-[#52647A] dark:text-[#CEC0E8] truncate">
+              State: {realtimeConnectionState} · Bridge: {realtimeStatusInfo.bridgeStatus || 'standby'}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setConnectionMonitorOpen(false)}
+          className="p-1 rounded-lg text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
+          aria-label="Tutup Connection Monitor"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-[11px] bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-white/10">
+        <div>
+          <div className="text-[#8492A5] dark:text-[#A493C2] text-[10px] uppercase font-bold">Last Connected</div>
+          <div className="font-mono font-semibold text-[#26364A] dark:text-white tabular-nums">
+            {formatWibTimestamp(realtimeStatusInfo.lastConnectedAt)}
+          </div>
+        </div>
+        <div>
+          <div className="text-[#8492A5] dark:text-[#A493C2] text-[10px] uppercase font-bold">Last Event</div>
+          <div className="font-mono font-semibold text-[#26364A] dark:text-white tabular-nums">
+            {formatWibTimestamp(realtimeStatusInfo.lastEventAt)}
+          </div>
+        </div>
+        <div>
+          <div className="text-[#8492A5] dark:text-[#A493C2] text-[10px] uppercase font-bold">Last KPI Sync</div>
+          <div className="font-mono font-semibold text-[#26364A] dark:text-white tabular-nums">
+            {formatWibTimestamp(lastKpiUpdatedAt)}
+          </div>
+        </div>
+        <div>
+          <div className="text-[#8492A5] dark:text-[#A493C2] text-[10px] uppercase font-bold">Event Cursor / Retry</div>
+          <div className="font-mono font-semibold text-[#26364A] dark:text-white tabular-nums truncate">
+            #{realtimeStatusInfo.lastEventId || '0'} · Retry {realtimeStatusInfo.reconnectAttempt}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            reconnectRealtimeNow();
+            toast.info('Menghubungkan ulang stream SSE real-time...');
+          }}
+          className="flex-1 py-2 px-3 rounded-xl bg-[#EAE8FF] dark:bg-[#35105E] hover:brightness-95 text-[#5145A6] dark:text-[#E9D5FF] font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+        >
+          <Radio className="w-3.5 h-3.5" />
+          <span>Reconnect Now</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setConnectionMonitorOpen(false);
+            handleGlobalRefresh();
+          }}
+          disabled={isRefreshing}
+          className="flex-1 py-2 px-3 rounded-xl bg-[#E4F5EC] dark:bg-emerald-500/20 hover:brightness-95 text-[#218A63] dark:text-emerald-300 font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span>Sync Sekarang</span>
+        </button>
+      </div>
+
+      <div className="space-y-1">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
+          Log Diagnostik Terbaru ({Math.min(realtimeStatusInfo.logs.length, 12)})
+        </div>
+        <div className="max-h-36 overflow-y-auto space-y-1 pr-1 font-mono text-[10px]">
+          {realtimeStatusInfo.logs.length === 0 ? (
+            <div className="text-[#8492A5] dark:text-[#A493C2] py-2 text-center">Belum ada aktivitas stream.</div>
+          ) : (
+            realtimeStatusInfo.logs.slice(0, 12).map(log => (
+              <div
+                key={log.id}
+                className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#140827] border border-[#DDE6F0] dark:border-white/10 flex items-start gap-1.5"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full mt-1 shrink-0 ${
+                    log.level === 'error'
+                      ? 'bg-[#D45B66]'
+                      : log.level === 'warn'
+                      ? 'bg-[#C88735]'
+                      : 'bg-[#218A63]'
+                  }`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1 text-[#5145A6] dark:text-[#D8B4FE] font-bold">
+                    <span className="truncate">{log.event}</span>
+                    <span className="text-[9.5px] text-[#8492A5] shrink-0 tabular-nums">
+                      {formatWibTimestamp(log.timestamp).replace(' WIB', '')}
+                    </span>
+                  </div>
+                  <div className="text-[#52647A] dark:text-[#CEC0E8] break-words">{log.detail}</div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   if (currentUser.role === 'installer') {
     const liveBadge = !isOnline || syncStatus === 'OFFLINE'
       ? {
@@ -322,10 +513,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           pillClass: 'bg-[#FCE9EB] text-[#D45B66] dark:bg-rose-500/15 dark:text-rose-300 border border-[#D45B66]/30 dark:border-rose-500/25',
           dotClass: 'bg-[#D45B66] dark:bg-rose-500'
         }
-      : {
-          label: formattedLastSyncWIB ? `SYNCED · ${formattedLastSyncWIB}` : 'SYNCED',
+      : realtimeConnectionState === 'connected'
+      ? {
+          label: formattedLastSyncWIB ? `LIVE · ${formattedLastSyncWIB}` : 'LIVE SSE',
           pillClass: 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-500/12 dark:text-emerald-300 border border-[#218A63]/25 dark:border-emerald-500/20',
           dotClass: 'bg-[#218A63] dark:bg-emerald-500 animate-pulse'
+        }
+      : {
+          label: sseVisualState.shortLabel,
+          pillClass: sseVisualState.pillClass,
+          dotClass: sseVisualState.dotClass
         };
 
     const subtitleText = [
@@ -361,12 +558,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 >
                   {activeTab === 'installer_dashboard' ? 'Field Dispatch' : activePageTitle}
                 </button>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold tracking-wider uppercase leading-none shrink-0 ${liveBadge.pillClass}`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${liveBadge.dotClass} mj-glow-dot`} />
-                  <span>{liveBadge.label}</span>
-                </span>
+                <div className="relative" ref={connectionMonitorRef}>
+                  <button
+                    type="button"
+                    onClick={() => setConnectionMonitorOpen(prev => !prev)}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold tracking-wider uppercase leading-none shrink-0 cursor-pointer ${liveBadge.pillClass}`}
+                    title="Lihat status koneksi real-time SSE"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${liveBadge.dotClass} mj-glow-dot`} />
+                    <span>{liveBadge.label}</span>
+                  </button>
+                  {connectionMonitorOpen && renderConnectionMonitorPopover()}
+                </div>
               </div>
               <span className="text-[10px] font-semibold text-[#52647A] dark:text-[#CEC0E8] flex items-center gap-1 mt-0.5 truncate uppercase tracking-wide">
                 <BadgeCheck className="w-3 h-3 text-[#6657C8] dark:text-[#C77BE9] shrink-0" />
@@ -556,10 +759,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           {/* Compact identity in Mobile Mode; full Breadcrumb trail + Engine Status in Desktop Mode */}
           {isMobileView ? (
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#65B8C4] via-[#6657C8] to-[#5145A6] dark:from-[#a855f7] dark:via-[#6d28d9] dark:to-[#171c58] p-0.5 shadow-sm shrink-0">
-                <div className="w-full h-full rounded-[10px] bg-[#5145A6] dark:bg-[#160d33] flex items-center justify-center border border-white/40 dark:border-white/25">
-                  <MoraJawsLogo size="sm" animated={false} withGlow={false} />
-                </div>
+              <div className="w-8 h-8 rounded-xl bg-white/95 dark:bg-[#140D33]/90 border border-[#D8CCF3] dark:border-purple-400/35 flex items-center justify-center shadow-sm shrink-0">
+                <MoraJawsLogo variant="symbol" size={24} animated={false} withGlow={false} />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -619,44 +820,36 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                 {activePageTitle}
               </span>
 
-              {/* Floating Cluster & SSE Live Sync Pill */}
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-[#EDF3F8]/95 dark:bg-white/[0.06] border border-[#DDE6F0] dark:border-white/[0.14] rounded-full text-[#26364A] dark:text-[#E9D5FF] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:shadow-none shrink-0">
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 mj-glow-dot ${
-                    isOnline && databaseStatus === 'connected'
-                      ? 'bg-[#218A63] dark:bg-emerald-400 shadow-[0_0_8px_rgba(33,138,99,0.45)] dark:shadow-[0_0_8px_rgba(16,185,129,0.5)]'
-                      : 'bg-[#C88735] dark:bg-amber-500'
-                  }`}
-                />
-                <span className="text-[11px] font-bold tracking-wide uppercase whitespace-nowrap">
-                  {currentUser.role === 'dispatch'
-                    ? 'Dispatch Ops'
-                    : currentUser.role === 'super_admin'
-                    ? 'Superadmin'
-                    : currentUser.role === 'leader'
-                    ? 'Leader Console'
-                    : 'Ops Console'}
-                </span>
-                <span className="text-[#CFDCE8] dark:text-white/25">•</span>
-                <span
-                  className={`inline-flex items-center gap-1 text-[10.5px] font-bold whitespace-nowrap ${
-                    isOnline && databaseStatus === 'connected'
-                      ? 'text-[#218A63] dark:text-emerald-300'
-                      : 'text-[#C88735] dark:text-amber-300'
-                  }`}
+              {/* Floating Cluster & SSE Live Sync Pill with Connection Monitor Popover */}
+              <div className="relative hidden lg:block shrink-0" ref={connectionMonitorRef}>
+                <button
+                  type="button"
+                  onClick={() => setConnectionMonitorOpen(prev => !prev)}
+                  className="flex items-center gap-2 px-3 py-1 bg-[#EDF3F8]/95 hover:bg-white dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-[#DDE6F0] dark:border-white/[0.14] rounded-full text-[#26364A] dark:text-[#E9D5FF] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:shadow-none shrink-0 cursor-pointer transition-colors"
+                  title="Klik untuk membuka Realtime Connection Monitor & Log Diagnostik"
                 >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isOnline && databaseStatus === 'connected' ? 'bg-[#218A63] dark:bg-emerald-500 animate-pulse' : 'bg-[#C88735] dark:bg-amber-500'
-                    }`}
-                  />
-                  <span>{isOnline && databaseStatus === 'connected' ? 'SSE: Live Sync' : 'Local Sync'}</span>
-                </span>
-                <span className="hidden xl:inline text-[#CFDCE8] dark:text-white/25">•</span>
-                <Calendar className="hidden xl:inline w-3.5 h-3.5 text-[#6657C8] dark:text-[#A7A1F0] shrink-0" />
-                <span className="hidden xl:inline text-[11px] font-bold text-[#5145A6] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
-                  {activeArea ? `${activeArea} · ${formattedToday}` : formattedToday}
-                </span>
+                  <span className={`w-2 h-2 rounded-full shrink-0 mj-glow-dot ${sseVisualState.dotClass}`} />
+                  <span className="text-[11px] font-bold tracking-wide uppercase whitespace-nowrap">
+                    {currentUser.role === 'dispatch'
+                      ? 'Dispatch Ops'
+                      : currentUser.role === 'super_admin'
+                      ? 'Superadmin'
+                      : currentUser.role === 'leader'
+                      ? 'Leader Console'
+                      : 'Ops Console'}
+                  </span>
+                  <span className="text-[#CFDCE8] dark:text-white/25">•</span>
+                  <span className={`inline-flex items-center gap-1 text-[10.5px] font-bold whitespace-nowrap ${sseVisualState.textClass}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${sseVisualState.dotClass}`} />
+                    <span>{sseVisualState.label}</span>
+                  </span>
+                  <span className="hidden xl:inline text-[#CFDCE8] dark:text-white/25">•</span>
+                  <Calendar className="hidden xl:inline w-3.5 h-3.5 text-[#6657C8] dark:text-[#A7A1F0] shrink-0" />
+                  <span className="hidden xl:inline text-[11px] font-bold text-[#5145A6] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
+                    {activeArea ? `${activeArea} · ${formattedToday}` : formattedToday}
+                  </span>
+                </button>
+                {connectionMonitorOpen && renderConnectionMonitorPopover()}
               </div>
 
               {/* Live Telemetry Counters on 2xl */}

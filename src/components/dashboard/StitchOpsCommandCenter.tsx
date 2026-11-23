@@ -54,6 +54,7 @@ import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
 import { buildGoogleMapsSearchUrl, isValidCoordinatePair } from '../../services/mapsService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
+import { NeonFiberOpticTrails } from '../common/MoraRepublicBrandVisuals';
 
 interface StitchOpsCommandCenterProps {
   onNavigate: (tab: string) => void;
@@ -173,8 +174,23 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     areasList,
     databaseStatus,
     syncStatus,
+    realtimeConnectionState,
+    lastKpiUpdatedAt,
     toast
   } = useApp();
+
+  const lastKpiWib = useMemo(() => {
+    if (!lastKpiUpdatedAt) return '';
+    const d = new Date(lastKpiUpdatedAt);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta'
+    });
+  }, [lastKpiUpdatedAt]);
   const { pendingCount } = useOfflineSync();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -605,6 +621,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       {currentUser.role === 'super_admin' ? (
         <div className="space-y-3">
           <div className="banner-maroon-superadmin rounded-2xl p-5 sm:p-6 text-[#26364A] dark:text-white relative overflow-hidden">
+            <NeonFiberOpticTrails variant="subtle" className="hidden lg:block absolute right-0 bottom-0 w-96 h-24 opacity-45" />
             <div className="absolute -right-14 -top-14 w-72 h-72 rounded-full bg-[#65B8C4]/12 dark:bg-white/5 blur-3xl pointer-events-none" />
             <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
               <div className="flex items-start gap-4 min-w-0">
@@ -650,17 +667,29 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   type="button"
                   onClick={handleForceResync}
                   disabled={isSyncing || isKpiLoading}
-                  title="Klik untuk sinkronisasi manual Supabase & KPI hari ini"
+                  title={`Klik untuk sinkronisasi manual Supabase & KPI hari ini${lastKpiWib ? ` (Update: ${lastKpiWib} WIB)` : ''}`}
                   className="px-3.5 py-2 rounded-xl bg-white/85 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20 border border-[#DDE6F0] dark:border-white/20 text-[#26364A] dark:text-white text-[11px] font-bold inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 whitespace-nowrap"
                 >
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      databaseStatus === 'connected' ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse' : 'bg-amber-500 dark:bg-amber-400'
+                      realtimeConnectionState === 'connected'
+                        ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse'
+                        : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                        ? 'bg-amber-500 dark:bg-amber-400 animate-pulse'
+                        : 'bg-rose-500 dark:bg-rose-400'
                     }`}
                   />
                   <span>
-                    Auto-Rollover:{' '}
-                    {isSyncing ? 'SYNCING' : databaseStatus === 'connected' ? 'ONLINE' : syncStatus.toUpperCase()}
+                    SSE Stream:{' '}
+                    {isSyncing
+                      ? 'SYNCING'
+                      : realtimeConnectionState === 'connected'
+                      ? 'LIVE'
+                      : realtimeConnectionState === 'reconnecting'
+                      ? 'RECONNECTING'
+                      : realtimeConnectionState === 'connecting'
+                      ? 'CONNECTING'
+                      : 'TERPUTUS'}
                   </span>
                 </button>
               </div>
@@ -781,6 +810,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         </div>
       ) : (
         <div className="card-3d-lavender relative rounded-xl p-5 sm:p-6 overflow-hidden">
+          <NeonFiberOpticTrails variant="subtle" className="hidden lg:block absolute right-0 bottom-0 w-96 h-24 opacity-40" />
           <div className="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-gradient-to-br from-[#65B8C4]/12 via-[#6657C8]/5 to-transparent blur-3xl pointer-events-none" />
 
           <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
@@ -789,14 +819,28 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] border border-[#BDE4E8] dark:border-transparent text-[11px] font-bold tracking-wider uppercase">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      databaseStatus === 'connected' ? 'bg-[#2E7D8B] dark:bg-[#dab9ff] animate-pulse' : 'bg-amber-500'
+                      realtimeConnectionState === 'connected'
+                        ? 'bg-[#2E7D8B] dark:bg-emerald-400 animate-pulse'
+                        : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                        ? 'bg-amber-500 animate-pulse'
+                        : 'bg-rose-500'
                     }`}
                   />
-                  <span>FTTH Core Live · {c.totalToday} WO Hari Ini</span>
+                  <span>
+                    {realtimeConnectionState === 'connected'
+                      ? 'FTTH Core Live'
+                      : realtimeConnectionState === 'reconnecting'
+                      ? 'Reconnecting SSE'
+                      : realtimeConnectionState === 'connecting'
+                      ? 'Connecting SSE'
+                      : 'SSE Terputus'}{' '}
+                    · {c.totalToday} WO Hari Ini
+                  </span>
                 </div>
                 <span className="text-[#8492A5] text-xs hidden sm:inline">•</span>
                 <span className="text-[#52647A] dark:text-[#cabde8] text-[11px] font-semibold font-mono tabular-nums">
                   WIB: {todayWIB} · Sync: {syncStatus}
+                  {lastKpiWib ? ` · Update ${lastKpiWib} WIB` : ''}
                 </span>
               </div>
 

@@ -30,7 +30,11 @@ import {
   WOKpiSummary,
   WOKpiFilterKey,
   OverdueSummaryMetrics,
-  WoClassificationSummary
+  WoClassificationSummary,
+  RealtimeConnectionState,
+  RealtimeStatusInfo,
+  UserPresenceInfo,
+  TypingIndicatorInfo
 } from '../types/index.ts';
 import {
   classifyWorkOrder,
@@ -180,7 +184,8 @@ interface AppContextType {
   kpiAreaFilter: string;
   setKpiContractorFilter: (v: string) => void;
   setKpiAreaFilter: (v: string) => void;
-  refreshKpiSummary: (opts?: { date?: string; contractor?: string; area?: string }) => Promise<void>;
+  lastKpiUpdatedAt: string | null;
+  refreshKpiSummary: (opts?: { date?: string; contractor?: string; area?: string; silent?: boolean }) => Promise<void>;
   activeKpiDrilldown: { filterKey: WOKpiFilterKey; dateWIB?: string; contractor?: string; area?: string } | null;
   setActiveKpiDrilldown: (val: { filterKey: WOKpiFilterKey; dateWIB?: string; contractor?: string; area?: string } | null) => void;
 
@@ -188,6 +193,9 @@ interface AppContextType {
   databaseStatus: 'connected' | 'connecting' | 'offline' | 'error';
   databaseLoading: boolean;
   isDatabaseReady: boolean;
+  realtimeConnectionState: RealtimeConnectionState;
+  realtimeStatusInfo: RealtimeStatusInfo;
+  reconnectRealtimeNow: () => void;
 
   // Requirement F: Real-time Cloud Sync Status Management
   syncStatus: DataSyncStatus;
@@ -341,7 +349,13 @@ interface AppContextType {
   ticketMessages: TicketMessage[];
   totalLiveChatUnreadCount: number;
   liveChatUnreadTicketsCount: number;
-  sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string) => Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }>;
+  presenceByUserId: Record<string, UserPresenceInfo>;
+  typingByTicketId: Record<string, TypingIndicatorInfo[]>;
+  sendTicketMessage: (ticketId: string, text: string, attachments?: ChatAttachment[], category?: string, options?: { clientMessageId?: string }) => Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }>;
+  retryTicketMessage: (localMessageId: string) => Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }>;
+  sendTypingIndicator: (ticketId: string, isTyping: boolean) => Promise<void>;
+  loadOlderTicketMessages: (ticketId: string, beforeCursor?: string, limit?: number) => Promise<{ messages: TicketMessage[]; hasMore: boolean; nextCursor: string | null }>;
+  uploadChatAttachment: (ticketId: string, file: File) => Promise<{ success: boolean; attachment?: ChatAttachment; error?: string }>;
   getMessagesForTicket: (ticketId: string) => TicketMessage[];
   refreshMessagesForTicket: (ticketId: string) => Promise<{ messages: TicketMessage[]; hasProgressTrigger: boolean }>;
   markTicketMessagesAsRead: (ticketId: string) => void;
@@ -868,6 +882,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const notifiedChatSoundIdsRef = React.useRef<Set<string>>(new Set());
   const notifiedWoEventKeysRef = React.useRef<Set<string>>(new Set());
   const prevAuthSessionKeyRef = React.useRef<string>('');
+  const failedMessagePayloadsRef = React.useRef<
+    Map<string, { ticketId: string; text: string; attachments: ChatAttachment[]; category?: string; clientMessageId: string }>
+  >(new Map());
+  const typingExpiryTimersRef = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const [realtimeStatusInfo, setRealtimeStatusInfo] = useState<RealtimeStatusInfo>(() => supabaseDb.getRealtimeStatus());
+  const [presenceByUserId, setPresenceByUserId] = useState<Record<string, UserPresenceInfo>>({});
+  const [typingByTicketId, setTypingByTicketId] = useState<Record<string, TypingIndicatorInfo[]>>({});
+
+  useEffect(() => {
+    const unsubStatus = supabaseDb.subscribeRealtimeStatus(info => {
+      setRealtimeStatusInfo(info);
+    });
+    const unsubReconnect = supabaseDb.subscribeReconnect(() => {
+      if (!isLoggedInRef.current || currentUserRef.current?.mustChangePassword) return;
+      runDeltaSync({ force: true }).catch(() => {});
+      scheduleKpiRefreshRef.current?.();
+      fetch('/api/livechat/presence', { headers: getAuthHeaders() })
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.success && Array.isArray(data.users)) {
+            const nextMap: Record<string, UserPresenceInfo> = {};
+            data.users.forEach((u: UserPresenceInfo) => {
+              if (u?.userId) nextMap[u.userId] = u;
+            });
+            setPresenceByUserId(prev => ({ ...prev, ...nextMap }));
+          }
+        })
+        .catch(() => {});
+    });
+    return () => {
+      unsubStatus();
+      unsubReconnect();
+    };
+  }, []);
+
+  const reconnectRealtimeNow = React.useCallback(() => {
+    supabaseDb.reconnectRealtimeNow();
+  }, []);
 
   React.useEffect(() => {
     const nextKey = isLoggedIn ? String(currentUser?.id || '') : '';
@@ -999,6 +1052,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ticketIdsToAck = new Set<string>();
     for (const m of msgs) {
       if (!m || !m.id || !m.ticketId) continue;
+      if (String(m.id).startsWith('optimistic_')) continue;
       if (String(m.senderId || '').trim() === cleanUid) continue;
       const deliveredTo = Array.isArray(m.deliveredTo) ? m.deliveredTo : [];
       if (deliveredTo.includes(cleanUid)) continue;
@@ -1037,6 +1091,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     let unsubWorkOrders: (() => void) | null = null;
     let unsubMessages: (() => void) | null = null;
+    let unsubPresence: (() => void) | null = null;
+    let unsubTyping: (() => void) | null = null;
     let unsubUsers: (() => void) | null = null;
     let unsubGlobalConfigs: (() => void) | null = null;
     let unsubRoles: (() => void) | null = null;
@@ -1278,15 +1334,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return;
             }
             if (rec && rec.id) {
-              const incomingMsg: TicketMessage = rec;
+              const incomingMsg: TicketMessage = { ...rec, deliveryStatus: rec.deliveryStatus || 'sent' };
+              if (incomingMsg.id) {
+                knownChatMessageIdsRef.current.add(incomingMsg.id);
+              }
               setTicketMessages(prev => {
-                if (prev.some(m => m.id === incomingMsg.id)) {
-                  return prev.map(m => (m.id === incomingMsg.id ? { ...m, ...incomingMsg } : m));
+                const matchIdx = prev.findIndex(
+                  m =>
+                    m.id === incomingMsg.id ||
+                    (incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId)
+                );
+                if (matchIdx >= 0) {
+                  const copy = [...prev];
+                  copy[matchIdx] = { ...copy[matchIdx], ...incomingMsg, deliveryStatus: incomingMsg.deliveryStatus || 'sent', localError: undefined };
+                  return copy;
                 }
                 return [...prev, incomingMsg].sort(
                   (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
                 );
               });
+              // Clear active typing indicator for sender of incoming message
+              if (incomingMsg.ticketId && incomingMsg.senderId) {
+                setTypingByTicketId(prev => {
+                  const list = prev[incomingMsg.ticketId];
+                  if (!list || list.length === 0) return prev;
+                  const nextList = list.filter(t => t.userId !== incomingMsg.senderId);
+                  return { ...prev, [incomingMsg.ticketId]: nextList };
+                });
+              }
               // Trigger Delivered receipt & LiveChat notification sound immediately (NEVER marks readBy)
               triggerDeliveryReceiptsForMessages([incomingMsg]);
               notifyIncomingChatMessages([incomingMsg], { fromSse: true });
@@ -1294,6 +1369,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           },
           onError: () => {}
         });
+
+        unsubPresence = supabaseDb.subscribeToChanges({
+          table: 'presence',
+          onPayload: (payload) => {
+            if (isCancelled || !payload) return;
+            const rec: UserPresenceInfo | undefined = payload.record || payload.new;
+            if (!rec?.userId) return;
+            setPresenceByUserId(prev => ({ ...prev, [rec.userId]: rec }));
+          }
+        });
+
+        unsubTyping = supabaseDb.subscribeToChanges({
+          table: 'livechat_ephemeral',
+          onPayload: (payload) => {
+            if (isCancelled || !payload) return;
+            const rec: TypingIndicatorInfo | undefined = payload.record || payload.new;
+            if (!rec?.ticketId || !rec?.userId) return;
+            if (rec.userId === currentUserRef.current?.id) return;
+            const timerKey = `${rec.ticketId}:${rec.userId}`;
+            const oldTimer = typingExpiryTimersRef.current.get(timerKey);
+            if (oldTimer) {
+              clearTimeout(oldTimer);
+              typingExpiryTimersRef.current.delete(timerKey);
+            }
+
+            if (!rec.isTyping) {
+              setTypingByTicketId(prev => {
+                const list = prev[rec.ticketId] || [];
+                const nextList = list.filter(t => t.userId !== rec.userId);
+                if (nextList.length === list.length) return prev;
+                return { ...prev, [rec.ticketId]: nextList };
+              });
+              return;
+            }
+
+            setTypingByTicketId(prev => {
+              const list = (prev[rec.ticketId] || []).filter(t => t.userId !== rec.userId);
+              return { ...prev, [rec.ticketId]: [...list, rec] };
+            });
+
+            const msLeft = Math.max(1000, Math.min(6000, Date.parse(rec.expiresAt) - Date.now() || 5000));
+            const expTimer = setTimeout(() => {
+              typingExpiryTimersRef.current.delete(timerKey);
+              setTypingByTicketId(prev => {
+                const list = prev[rec.ticketId] || [];
+                const nextList = list.filter(t => t.userId !== rec.userId);
+                if (nextList.length === list.length) return prev;
+                return { ...prev, [rec.ticketId]: nextList };
+              });
+            }, msLeft);
+            typingExpiryTimersRef.current.set(timerKey, expTimer);
+          }
+        });
+
+        fetch('/api/livechat/presence', { headers })
+          .then(r => (r.ok ? r.json() : null))
+          .then(data => {
+            if (!isCancelled && data?.success && Array.isArray(data.users)) {
+              const nextMap: Record<string, UserPresenceInfo> = {};
+              data.users.forEach((u: UserPresenceInfo) => {
+                if (u?.userId) nextMap[u.userId] = u;
+              });
+              setPresenceByUserId(prev => ({ ...prev, ...nextMap }));
+            }
+          })
+          .catch(() => {});
 
         unsubUsers = supabaseDb.subscribeToChanges({
           table: 'users',
@@ -1429,13 +1570,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Lightweight Delta Sync fallback every 45s when tab is active (never full reload)
+    // Safety Delta Sync fallback ONLY when SSE stream is not healthy/connected (avoids redundant polling when push SSE is active)
     const pollInterval = setInterval(() => {
       if (
         !isCancelled &&
         navigator.onLine &&
         document.visibilityState === 'visible' &&
-        !currentUserRef.current?.mustChangePassword
+        !currentUserRef.current?.mustChangePassword &&
+        supabaseDb.getRealtimeStatus().state !== 'connected'
       ) {
         if (ticketsRef.current.length > 0) {
           runDeltaSync().catch(() => {});
@@ -1443,7 +1585,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           loadCentralData().catch(() => {});
         }
       }
-    }, 45000);
+    }, 30000);
 
     return () => {
       isCancelled = true;
@@ -1452,8 +1594,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('focus', handleWindowFocusOrVisible);
       document.removeEventListener('visibilitychange', handleWindowFocusOrVisible);
       clearInterval(pollInterval);
+      for (const tm of typingExpiryTimersRef.current.values()) {
+        clearTimeout(tm);
+      }
+      typingExpiryTimersRef.current.clear();
       unsubWorkOrders?.();
       unsubMessages?.();
+      unsubPresence?.();
+      unsubTyping?.();
       unsubUsers?.();
       unsubGlobalConfigs?.();
       unsubRoles?.();
@@ -1643,6 +1791,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const updatedTickets: Ticket[] = Array.isArray(data.tickets) ? data.tickets : [];
         const deletedIds: string[] = Array.isArray(data.deletedIds) ? data.deletedIds : [];
+        const deltaMessages: TicketMessage[] = Array.isArray(data.ticketMessages) ? data.ticketMessages : [];
 
         if (updatedTickets.length > 0 || deletedIds.length > 0 || options?.force) {
           setTickets(prev => {
@@ -1660,6 +1809,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return merged.tickets;
           });
+          if (updatedTickets.length > 0 || deletedIds.length > 0) {
+            scheduleKpiRefreshRef.current?.();
+          }
+        }
+
+        if (deltaMessages.length > 0) {
+          deltaMessages.forEach(m => {
+            if (m?.id) knownChatMessageIdsRef.current.add(m.id);
+          });
+          setTicketMessages(prev => {
+            const next = [...prev];
+            deltaMessages.forEach(incoming => {
+              if (!incoming?.id) return;
+              const matchIdx = next.findIndex(
+                m =>
+                  m.id === incoming.id ||
+                  (incoming.clientMessageId && m.clientMessageId === incoming.clientMessageId)
+              );
+              const normalized: TicketMessage = {
+                ...incoming,
+                deliveryStatus: incoming.deliveryStatus || 'sent',
+                localError: undefined
+              };
+              if (matchIdx >= 0) {
+                next[matchIdx] = { ...next[matchIdx], ...normalized };
+              } else {
+                next.push(normalized);
+              }
+            });
+            return next.sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          });
+          triggerDeliveryReceiptsForMessages(deltaMessages);
         }
 
         if (data.rolePermissions && typeof data.rolePermissions === 'object') {
@@ -2299,6 +2482,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // WO Lifecycle Dashboard KPI Summary & Drill-Down State
   const [kpiSummary, setKpiSummary] = useState<WOKpiSummary | null>(null);
   const [isKpiLoading, setIsKpiLoading] = useState<boolean>(false);
+  const [lastKpiUpdatedAt, setLastKpiUpdatedAt] = useState<string | null>(null);
   const [kpiError, setKpiError] = useState<string | null>(null);
   const [kpiContractorFilter, setKpiContractorFilter] = useState<string>('ALL');
   const [kpiAreaFilter, setKpiAreaFilter] = useState<string>('ALL');
@@ -2312,10 +2496,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const kpiRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshKpiSummary = React.useCallback(
-    async (opts?: { date?: string; contractor?: string; area?: string }) => {
+    async (opts?: { date?: string; contractor?: string; area?: string; silent?: boolean }) => {
       const headers = getAuthHeaders();
       if (!headers['Authorization']) return;
-      setIsKpiLoading(true);
+      if (!opts?.silent) {
+        setIsKpiLoading(true);
+      }
       setKpiError(null);
       try {
         const res = await supabaseDb.fetchDashboardKpiSummary({
@@ -2325,13 +2511,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         if (res.success && res.data) {
           setKpiSummary(res.data);
+          setLastKpiUpdatedAt(new Date().toISOString());
         } else if (res.error) {
           setKpiError(res.error.message || 'Gagal memuat ringkasan KPI');
         }
       } catch (err: any) {
         setKpiError(err?.message || 'Gagal memuat ringkasan KPI');
       } finally {
-        setIsKpiLoading(false);
+        if (!opts?.silent) {
+          setIsKpiLoading(false);
+        }
       }
     },
     [todayWIB, kpiContractorFilter, kpiAreaFilter]
@@ -2341,7 +2530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   scheduleKpiRefreshRef.current = () => {
     if (kpiRefreshTimerRef.current) clearTimeout(kpiRefreshTimerRef.current);
     kpiRefreshTimerRef.current = setTimeout(() => {
-      refreshKpiSummary().catch(() => {});
+      refreshKpiSummary({ silent: true }).catch(() => {});
     }, 350);
   };
 
@@ -4933,7 +5122,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ticketId: string,
     text: string,
     attachments: ChatAttachment[] = [],
-    category?: string
+    category?: string,
+    options?: { clientMessageId?: string }
   ): Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }> => {
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
@@ -4990,6 +5180,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isStrictProgressCategory = Boolean(effectiveCategory && isProgressCategory(effectiveCategory));
     const hadCheckInBefore = Boolean(ticket.checkInAt);
 
+    // Prepare idempotent optimistic message
+    const clientMsgId =
+      options?.clientMessageId ||
+      `cmsg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticId = `optimistic_${clientMsgId}`;
+    const optimisticNow = new Date().toISOString();
+
+    failedMessagePayloadsRef.current.set(optimisticId, {
+      ticketId,
+      text: text.trim(),
+      attachments,
+      category: effectiveCategory || undefined,
+      clientMessageId: clientMsgId
+    });
+
+    const optimisticMsg: TicketMessage = {
+      id: optimisticId,
+      clientMessageId: clientMsgId,
+      ticketId,
+      woNumber: ticket.woNumber || '',
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderRole: currentUser.role,
+      text: text.trim(),
+      ...(effectiveCategory ? { category: effectiveCategory } : {}),
+      attachments,
+      timestamp: optimisticNow,
+      deliveredTo: [currentUser.id],
+      readBy: [currentUser.id],
+      deliveryStatus: 'sending'
+    };
+
+    setTicketMessages(prev => {
+      const idx = prev.findIndex(m => m.id === optimisticId || m.clientMessageId === clientMsgId);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...optimisticMsg, deliveryStatus: 'sending', localError: undefined };
+        return copy;
+      }
+      return [...prev, optimisticMsg];
+    });
+
     try {
       const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages`, {
         method: 'POST',
@@ -4997,20 +5229,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({
           text: text.trim(),
           attachments,
+          clientMessageId: clientMsgId,
           ...(effectiveCategory ? { category: effectiveCategory } : {})
         })
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success || !json.message) {
         const errMsg = json?.error || `Gagal mengirim pesan LiveChat (${res.status})`;
+        setTicketMessages(prev =>
+          prev.map(m =>
+            m.id === optimisticId || m.clientMessageId === clientMsgId
+              ? { ...m, deliveryStatus: 'failed', localError: errMsg }
+              : m
+          )
+        );
         toast.error(errMsg, 'Pesan Gagal Terkirim');
         return { success: false, error: errMsg };
       }
 
+      failedMessagePayloadsRef.current.delete(optimisticId);
+
       const savedMessage: TicketMessage = {
         ...json.message,
+        clientMessageId: json.message.clientMessageId || clientMsgId,
         deliveredTo: Array.isArray(json.message.deliveredTo) ? json.message.deliveredTo : [currentUser.id],
-        readBy: Array.isArray(json.message.readBy) ? json.message.readBy : [currentUser.id]
+        readBy: Array.isArray(json.message.readBy) ? json.message.readBy : [currentUser.id],
+        deliveryStatus: 'sent'
       };
 
       if (savedMessage.id) {
@@ -5019,15 +5263,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setTicketMessages(prev => {
-        if (prev.some(m => m.id === savedMessage.id)) {
-          return prev.map(m => (m.id === savedMessage.id ? savedMessage : m));
-        }
-        return [...prev, savedMessage];
+        const withoutOptimistic = prev.filter(
+          m =>
+            m.id !== optimisticId &&
+            m.id !== savedMessage.id &&
+            (!savedMessage.clientMessageId || m.clientMessageId !== savedMessage.clientMessageId)
+        );
+        return [...withoutOptimistic, savedMessage].sort(
+          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
       });
 
       if (json.ticket) {
         setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
-      } else {
+      } else if (!json.deduplicated) {
         const now = savedMessage.timestamp || new Date().toISOString();
         setTickets(prev =>
           prev.map(t =>
@@ -5046,7 +5295,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Only notify Check-in AFTER confirmed save of strict PROGRESS category message
-      if (currentUser.role === 'installer' && isStrictProgressCategory && (json.checkInTriggered || json.checkedIn || !hadCheckInBefore)) {
+      if (!json.deduplicated && currentUser.role === 'installer' && isStrictProgressCategory && (json.checkInTriggered || json.checkedIn || !hadCheckInBefore)) {
         const checkInTs = json.ticket?.checkInAt || savedMessage.timestamp || new Date().toISOString();
         addAuditLog(
           'Installer Check-in Recorded',
@@ -5064,17 +5313,160 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         scheduleKpiRefreshRef.current?.();
       }
 
-      if (attachments.length > 0) {
+      if (attachments.length > 0 && !json.deduplicated) {
         addAuditLog('Chat Attachment Uploaded', 'ticket', ticketId, `${currentUser.name} uploaded ${attachments.length} photo(s) in ticket chat`);
       }
 
       return { success: true, message: savedMessage, hasProgressTrigger: Boolean(json.hasProgressTrigger) };
     } catch (err: any) {
-      const errMsg = err?.message || 'Koneksi gagal saat mengirim pesan LiveChat. Check-in tidak dicatat.';
+      const errMsg = err?.message || 'Koneksi gagal saat mengirim pesan LiveChat.';
+      setTicketMessages(prev =>
+        prev.map(m =>
+          m.id === optimisticId || m.clientMessageId === clientMsgId
+            ? { ...m, deliveryStatus: 'failed', localError: errMsg }
+            : m
+        )
+      );
       toast.error(errMsg, 'Gagal Mengirim Pesan');
       return { success: false, error: errMsg };
     }
   };
+
+  const retryTicketMessage = async (
+    localMessageId: string
+  ): Promise<{ success: boolean; error?: string; message?: TicketMessage; hasProgressTrigger?: boolean }> => {
+    const saved = failedMessagePayloadsRef.current.get(localMessageId);
+    if (!saved) {
+      const msg = ticketMessages.find(m => m.id === localMessageId);
+      if (!msg) return { success: false, error: 'Pesan untuk dikirim ulang tidak ditemukan.' };
+      return sendTicketMessage(msg.ticketId, msg.text, msg.attachments || [], msg.category, {
+        clientMessageId: msg.clientMessageId || localMessageId.replace(/^optimistic_/, '')
+      });
+    }
+    return sendTicketMessage(saved.ticketId, saved.text, saved.attachments, saved.category, {
+      clientMessageId: saved.clientMessageId
+    });
+  };
+
+  const sendTypingIndicator = React.useCallback(async (ticketId: string, isTyping: boolean) => {
+    if (!ticketId || currentUserRef.current?.role === 'leader') return;
+    const headers = getAuthHeaders();
+    if (!headers['Authorization']) return;
+    const ticket = ticketsRef.current.find(t => t.id === ticketId || t.woNumber === ticketId);
+    try {
+      await fetch('/api/livechat/typing', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ticketId: ticket?.id || ticketId,
+          woNumber: ticket?.woNumber,
+          isTyping
+        })
+      });
+    } catch {}
+  }, []);
+
+  const loadOlderTicketMessages = React.useCallback(
+    async (
+      ticketId: string,
+      beforeCursor?: string,
+      limit: number = 50
+    ): Promise<{ messages: TicketMessage[]; hasMore: boolean; nextCursor: string | null }> => {
+      const cleanId = String(ticketId || '').trim();
+      if (!cleanId) return { messages: [], hasMore: false, nextCursor: null };
+      const res = await supabaseDb.getTicketMessagesPaginated(cleanId, { limit, before: beforeCursor });
+      if (!res.success) {
+        return { messages: [], hasMore: false, nextCursor: null };
+      }
+      const olderMsgs = res.messages || [];
+      if (olderMsgs.length > 0) {
+        olderMsgs.forEach(m => {
+          if (m?.id) knownChatMessageIdsRef.current.add(m.id);
+        });
+        setTicketMessages(prev => {
+          const map = new Map<string, TicketMessage>();
+          prev.forEach(m => {
+            if (m?.id) map.set(m.id, m);
+          });
+          olderMsgs.forEach(m => {
+            if (m?.id) map.set(m.id, { ...m, deliveryStatus: 'sent' });
+          });
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+        });
+      }
+      return {
+        messages: olderMsgs,
+        hasMore: res.hasMore,
+        nextCursor: res.nextCursor
+      };
+    },
+    []
+  );
+
+  const uploadChatAttachment = React.useCallback(
+    async (ticketId: string, file: File): Promise<{ success: boolean; attachment?: ChatAttachment; error?: string }> => {
+      const headers = getAuthHeaders();
+      if (!headers['Authorization']) {
+        return { success: false, error: 'Sesi login tidak valid.' };
+      }
+      if (!file) {
+        return { success: false, error: 'File tidak ditemukan.' };
+      }
+      if (!file.type.startsWith('image/')) {
+        return { success: false, error: 'Hanya file gambar (JPG/PNG/WEBP) yang didukung.' };
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        return { success: false, error: 'Ukuran gambar maksimal 5 MB.' };
+      }
+
+      const ticket = ticketsRef.current.find(t => t.id === ticketId || t.woNumber === ticketId);
+      const relatedWoNumber = ticket?.woNumber || ticketId;
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/storage/adapter/upload', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          fileName: file.name,
+          fileData: dataUrl,
+          mimeType: file.type || 'image/jpeg',
+          fileCategory: 'chat_attachment',
+          relatedWoNumber
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success || !json.metadata) {
+        return { success: false, error: json?.error || `Upload gambar gagal (${res.status})` };
+      }
+
+      const storagePath = json.metadata.filePath;
+      const downloadUrl =
+        json.downloadUrl ||
+        `/api/storage/adapter/download?storagePath=${encodeURIComponent(storagePath)}&category=live-chat&woNumber=${encodeURIComponent(relatedWoNumber)}`;
+
+      const attachment: ChatAttachment = {
+        id: json.metadata.fileId || `att_${Date.now()}`,
+        type: 'image',
+        url: downloadUrl,
+        downloadUrl,
+        storagePath,
+        fileName: json.metadata.originalFileName || file.name,
+        fileSize: json.metadata.fileSize || file.size,
+        mimeType: json.metadata.mimeType || file.type,
+        uploadStatus: 'uploaded'
+      };
+      return { success: true, attachment };
+    },
+    []
+  );
 
   const getMessagesForTicket = (ticketId: string) => {
     const ticket = tickets.find(t => t.id === ticketId || t.woNumber === ticketId);
@@ -7239,7 +7631,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ticketMessages,
         totalLiveChatUnreadCount,
         liveChatUnreadTicketsCount,
+        presenceByUserId,
+        typingByTicketId,
         sendTicketMessage,
+        retryTicketMessage,
+        sendTypingIndicator,
+        loadOlderTicketMessages,
+        uploadChatAttachment,
         getMessagesForTicket,
         refreshMessagesForTicket,
         markTicketMessagesAsRead,
@@ -7287,6 +7685,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         databaseStatus,
         databaseLoading,
         isDatabaseReady,
+        realtimeConnectionState: realtimeStatusInfo.state,
+        realtimeStatusInfo,
+        reconnectRealtimeNow,
         syncStatus,
         lastSyncTime,
         syncError,
@@ -7320,6 +7721,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reconcileDroplistsNow,
         kpiSummary,
         isKpiLoading,
+        lastKpiUpdatedAt,
         kpiError,
         kpiContractorFilter,
         kpiAreaFilter,

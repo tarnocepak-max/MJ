@@ -68,8 +68,23 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     setKpiAreaFilter,
     refreshKpiSummary,
     contractorsList,
-    areasList
+    areasList,
+    realtimeConnectionState,
+    lastKpiUpdatedAt
   } = useApp();
+
+  const lastKpiWibLabel = useMemo(() => {
+    if (!lastKpiUpdatedAt) return '';
+    const d = new Date(lastKpiUpdatedAt);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta'
+    });
+  }, [lastKpiUpdatedAt]);
 
   const [perspective, setPerspective] = useState<'overview' | 'vendor' | 'area' | 'leader' | 'installer'>(
     defaultPerspective
@@ -311,12 +326,35 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               <span className="px-2 py-0.5 rounded bg-[#E4F5EC] dark:bg-emerald-500/20 text-[#218A63] dark:text-emerald-300 border border-[#B7E4CC] dark:border-transparent font-mono text-[10.5px] font-bold tabular-nums">
                 Approval: {c.approvalRatePct}% · Done: {c.completionRatePct}%
               </span>
-              {isKpiLoading && (
-                <span className="text-[11px] text-[#5145A6] dark:text-[#E9D5FF] inline-flex items-center gap-1">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Menyinkronkan...
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold tabular-nums ${
+                  realtimeConnectionState === 'connected'
+                    ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-500/15 dark:text-emerald-300'
+                    : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                    ? 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-500/15 dark:text-amber-300'
+                    : 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    realtimeConnectionState === 'connected'
+                      ? 'bg-[#218A63] dark:bg-emerald-400 animate-pulse'
+                      : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                      ? 'bg-[#C88735] animate-pulse'
+                      : 'bg-[#D45B66]'
+                  }`}
+                />
+                <span>
+                  {realtimeConnectionState === 'connected'
+                    ? 'Live SSE'
+                    : realtimeConnectionState === 'reconnecting'
+                    ? 'Reconnecting'
+                    : realtimeConnectionState === 'connecting'
+                    ? 'Connecting'
+                    : 'Terputus'}
+                  {lastKpiWibLabel ? ` · Update ${lastKpiWibLabel} WIB` : ''}
                 </span>
-              )}
+              </span>
             </div>
             <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white">
               Monitoring Status Operasional &amp; Approval Work Order
@@ -393,7 +431,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               disabled={isKpiLoading}
               className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isKpiLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isKpiLoading && !kpiSummary ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>

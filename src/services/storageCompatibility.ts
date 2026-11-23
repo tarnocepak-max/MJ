@@ -81,6 +81,8 @@ export function classifyFileSource(urlOrData?: string | null): StorageClassifica
     clean.startsWith('test-sandbox/') ||
     clean.startsWith('technical-reports/') ||
     clean.startsWith('work-orders/') ||
+    clean.startsWith('live-chat/') ||
+    clean.startsWith('chat_attachment/') ||
     clean.startsWith('/api/storage/')
   ) {
     return {
@@ -145,6 +147,9 @@ export function getSafePreviewUrl(urlOrData?: string | null): string {
   }
   if (normalized.startsWith('technical-reports/') || normalized.startsWith('work-orders/')) {
     return `/api/storage/adapter/download?storagePath=${encodeURIComponent(normalized)}&category=technical-reports`;
+  }
+  if (normalized.startsWith('live-chat/') || normalized.startsWith('chat_attachment/')) {
+    return `/api/storage/adapter/download?storagePath=${encodeURIComponent(normalized)}&category=live-chat`;
   }
   return clean;
 }

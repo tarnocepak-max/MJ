@@ -25,6 +25,8 @@ import {
   Bot,
   ShieldCheck,
   ArrowLeft,
+  ArrowDown,
+  ChevronUp,
   FileText,
   Radio,
   WifiOff,
@@ -163,7 +165,14 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     setTicketChatCategory,
     databaseStatus,
     syncStatus,
-    refreshDatabaseData
+    refreshDatabaseData,
+    realtimeConnectionState,
+    presenceByUserId,
+    typingByTicketId,
+    retryTicketMessage,
+    sendTypingIndicator,
+    loadOlderTicketMessages,
+    uploadChatAttachment
   } = useApp();
   const { isOnline } = useOfflineSync();
   const { toast } = useToast();
@@ -255,6 +264,16 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatStreamRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const prevMsgCountRef = useRef(0);
+  const draftsByTicketRef = useRef<Map<string, { text: string; attachments: ChatAttachment[] }>>(new Map());
+  const prevActiveTicketIdRef = useRef<string>('');
+  const typingThrottleRef = useRef<number>(0);
+  const typingIdleTimerRef = useRef<number | null>(null);
+  const [showNewMessageJump, setShowNewMessageJump] = useState(false);
+  const [hasOlderByTicket, setHasOlderByTicket] = useState<Record<string, boolean>>({});
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 
   const userRole = currentUser?.role || 'installer';
   const isLeader = userRole === 'leader';
@@ -480,6 +499,28 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     });
   }, [chatCategories]);
 
+  // Preserve & restore per-ticket unsent draft + reset scroll state when switching tickets
+  useEffect(() => {
+    const nextId = activeTicket?.id || '';
+    const prevId = prevActiveTicketIdRef.current;
+    if (prevId && prevId !== nextId) {
+      draftsByTicketRef.current.set(prevId, { text: inputText, attachments: pendingAttachments });
+      const restored = nextId ? draftsByTicketRef.current.get(nextId) : undefined;
+      setInputText(restored?.text || '');
+      setPendingAttachments(restored?.attachments || []);
+      setShowNewMessageJump(false);
+      isNearBottomRef.current = true;
+      prevMsgCountRef.current = 0;
+    }
+    prevActiveTicketIdRef.current = nextId;
+  }, [activeTicket?.id]);
+
+  useEffect(() => {
+    if (activeTicket?.id) {
+      draftsByTicketRef.current.set(activeTicket.id, { text: inputText, attachments: pendingAttachments });
+    }
+  }, [activeTicket?.id, inputText, pendingAttachments]);
+
   // Auto mark read ONLY when conversation is genuinely visible to user
   // (desktop pane or mobile chat pane open, AND browser tab visible)
   useEffect(() => {
@@ -502,10 +543,54 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [activeTicket?.id, activeMessages.length, isCompactUI, mobilePane, getTicketUnreadCount, markTicketMessagesAsRead]);
 
-  // Auto scroll to latest message
+  const handleChatStreamScroll = () => {
+    const el = chatStreamRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+    isNearBottomRef.current = nearBottom;
+    if (nearBottom) setShowNewMessageJump(false);
+  };
+
+  // Smart auto scroll to latest message only when near bottom or sending own message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeMessages.length, activeTicket?.id]);
+    const prevCount = prevMsgCountRef.current;
+    prevMsgCountRef.current = activeMessages.length;
+    const lastMsg = activeMessages[activeMessages.length - 1];
+    const lastIsMine = Boolean(lastMsg && currentUser?.id && lastMsg.senderId === currentUser.id);
+    if (isNearBottomRef.current || lastIsMine || prevCount === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: prevCount === 0 ? 'auto' : 'smooth' });
+      setShowNewMessageJump(false);
+    } else if (activeMessages.length > prevCount) {
+      setShowNewMessageJump(true);
+    }
+  }, [activeMessages.length, activeTicket?.id, currentUser?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+      if (activeTicket?.id) sendTypingIndicator(activeTicket.id, false).catch(() => {});
+    };
+  }, [activeTicket?.id, sendTypingIndicator]);
+
+  const handleLoadOlderMessages = async () => {
+    if (!activeTicket || isLoadingOlder) return;
+    if (hasOlderByTicket[activeTicket.id] === false) return;
+    const el = chatStreamRef.current;
+    const prevHeight = el?.scrollHeight || 0;
+    const prevTop = el?.scrollTop || 0;
+    setIsLoadingOlder(true);
+    try {
+      const res = await loadOlderTicketMessages(activeTicket.id, activeMessages[0]?.timestamp, 50);
+      setHasOlderByTicket(prev => ({ ...prev, [activeTicket.id]: res.hasMore }));
+      if (el && res.messages.length > 0) {
+        window.requestAnimationFrame(() => {
+          el.scrollTop = prevTop + (el.scrollHeight - prevHeight);
+        });
+      }
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
 
   // Keyboard shortcut Shift + D to toggle Ticket Detail Drawer (safely ignored inside text inputs)
   useEffect(() => {
@@ -540,7 +625,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || !activeTicket) return;
 
     Array.from(files).forEach(file => {
       const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -552,30 +637,74 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         toast.error(`Ukuran file "${file.name}" melebihi batas 5MB.`, 'Ukuran File Terlalu Besar');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const attachment: ChatAttachment = {
-          id: 'att-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-          url: dataUrl,
+
+      const tempId = 'att-up-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+      const localPreviewUrl = URL.createObjectURL(file);
+      setPendingAttachments(prev => [
+        ...prev,
+        {
+          id: tempId,
+          type: 'image',
+          url: localPreviewUrl,
           fileName: file.name,
           fileSize: file.size,
-          mimeType: file.type
-        };
-        setPendingAttachments(prev => [...prev, attachment]);
-        toast.info(`Foto "${file.name}" siap dilampirkan.`, 'Foto Dipilih');
-      };
-      reader.readAsDataURL(file);
+          mimeType: file.type,
+          uploadStatus: 'uploading'
+        }
+      ]);
+
+      uploadChatAttachment(activeTicket.id, file)
+        .then(res => {
+          if (res.success && res.attachment) {
+            setPendingAttachments(prev =>
+              prev.map(att => (att.id === tempId ? { ...res.attachment!, uploadStatus: 'uploaded' } : att))
+            );
+            toast.info(`Foto "${file.name}" terunggah & siap dikirim.`, 'Foto Siap');
+          } else {
+            setPendingAttachments(prev =>
+              prev.map(att => (att.id === tempId ? { ...att, uploadStatus: 'failed', error: res.error } : att))
+            );
+            toast.error(res.error || `Gagal mengunggah "${file.name}".`, 'Upload Gagal');
+          }
+        })
+        .catch(() => {
+          setPendingAttachments(prev =>
+            prev.map(att => (att.id === tempId ? { ...att, uploadStatus: 'failed', error: 'Koneksi gagal' } : att))
+          );
+          toast.error(`Gagal mengunggah "${file.name}".`, 'Upload Gagal');
+        });
     });
 
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
+  const hasUploadingAttachment = pendingAttachments.some(att => att.uploadStatus === 'uploading');
+  const readyAttachments = pendingAttachments.filter(att => att.uploadStatus !== 'failed');
+
+  const handleComposerChange = (val: string) => {
+    setInputText(val);
+    if (!activeTicket || isLeader) return;
+    const now = Date.now();
+    if (val.trim()) {
+      if (now - typingThrottleRef.current > 2000) {
+        typingThrottleRef.current = now;
+        sendTypingIndicator(activeTicket.id, true).catch(() => {});
+      }
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+      typingIdleTimerRef.current = window.setTimeout(() => {
+        sendTypingIndicator(activeTicket.id, false).catch(() => {});
+      }, 3200);
+    } else {
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+      sendTypingIndicator(activeTicket.id, false).catch(() => {});
+    }
+  };
+
   const handleSendMessage = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
-      if (!activeTicket || isSubmitting) return;
+      if (!activeTicket || isSubmitting || hasUploadingAttachment) return;
 
       if (isLeader) {
         toast.error(
@@ -592,20 +721,21 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         return;
       }
 
-      if (!inputText.trim() && pendingAttachments.length === 0) return;
+      if (!inputText.trim() && readyAttachments.length === 0) return;
+
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+      sendTypingIndicator(activeTicket.id, false).catch(() => {});
 
       setIsSubmitting(true);
       try {
-        // Role rule:
-        // - Installer: wajib menyertakan kategori terpilih dari master DB
-        // - Dispatch & Superadmin: kategori opsional / bebas, tidak menyuntikkan fallback kategori
         const chosenCategory = isInstaller ? installerCategory : undefined;
 
-        const res = await sendTicketMessage(activeTicket.id, inputText.trim(), pendingAttachments, chosenCategory);
+        const res = await sendTicketMessage(activeTicket.id, inputText.trim(), readyAttachments, chosenCategory);
 
         if (res.success) {
           setInputText('');
           setPendingAttachments([]);
+          draftsByTicketRef.current.delete(activeTicket.id);
           setErrorMessage(null);
           setShowTemplateMenu(false);
         } else {
@@ -616,7 +746,19 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
         setIsSubmitting(false);
       }
     },
-    [activeTicket, isSubmitting, isLeader, isInstaller, installerCategory, inputText, pendingAttachments, sendTicketMessage, toast]
+    [
+      activeTicket,
+      isSubmitting,
+      hasUploadingAttachment,
+      isLeader,
+      isInstaller,
+      installerCategory,
+      inputText,
+      readyAttachments,
+      sendTicketMessage,
+      sendTypingIndicator,
+      toast
+    ]
   );
 
   const handleCategoryChangeForActiveTicket = (categoryName: string) => {
@@ -832,14 +974,33 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
     }
   };
 
-  const isStreamLive = databaseStatus === 'connected' && isOnline;
+  const isStreamLive = isOnline && realtimeConnectionState === 'connected';
   const formattedTodayLabel = formatIndonesianWODate(todayWIB);
+
+  const activeTicketTypers = activeTicket
+    ? (typingByTicketId[activeTicket.id] || []).filter(
+        tp => tp.isTyping && tp.userId !== currentUser?.id && Date.parse(tp.expiresAt) > Date.now()
+      )
+    : [];
+  const activeCounterpartId = activeTicket
+    ? isInstaller
+      ? activeMessages.find(m => m.senderId && m.senderId !== currentUser?.id)?.senderId
+      : activeTicket.installerUid || activeTicket.installerId || activeTicket.assignedToUid
+    : undefined;
+  const activeCounterpartPresence = activeCounterpartId ? presenceByUserId[activeCounterpartId] : undefined;
 
   const renderQueueCard = (t: Ticket) => {
     const isSelected = t.id === activeTicket?.id;
     const unread = getTicketUnreadCount(t.id);
     const msgs = getMessagesForTicket(t.id);
     const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    const queueTypers = (typingByTicketId[t.id] || []).filter(
+      tp => tp.isTyping && tp.userId !== currentUser?.id && Date.parse(tp.expiresAt) > Date.now()
+    );
+    const queuePeerId = isInstaller
+      ? msgs.find(m => m.senderId && m.senderId !== currentUser?.id)?.senderId
+      : t.installerUid || t.installerId || t.assignedToUid;
+    const queuePeerOnline = queuePeerId ? presenceByUserId[queuePeerId]?.status === 'online' : false;
     const catConfig = (chatCategories || []).find(
       c =>
         c.name.toUpperCase() === (t.chatCategory || '').toUpperCase() ||
@@ -923,7 +1084,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
           </div>
 
           <p className="text-xs text-[#52647A] dark:text-[#C5B3DF] truncate">
-            {lastMsg ? (
+            {queueTypers.length > 0 ? (
+              <span className="italic font-semibold text-[#5145A6] dark:text-[#D8B4FE]">
+                {queueTypers[0].userName} sedang mengetik...
+              </span>
+            ) : lastMsg ? (
               <>
                 <span className={`font-semibold ${isSelected ? 'text-[#5145A6] dark:text-[#D8B4FE]' : 'text-[#26364A] dark:text-white'}`}>
                   {lastMsg.senderName?.split(' ')[0]}:
@@ -932,7 +1097,8 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               </>
             ) : (
               <>
-                <span className="font-semibold text-[#16A36A] dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1 font-semibold text-[#16A36A] dark:text-emerald-400">
+                  {queuePeerOnline && <span className="w-1.5 h-1.5 rounded-full bg-[#16A36A]" />}
                   {t.installerName || 'Teknisi'}:
                 </span>{' '}
                 {t.lastMessageSnippet || 'Channel siap koordinasi lapangan'}
@@ -1280,7 +1446,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       </div>
                       <span
                         className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#160D29] ${
-                          isStreamLive ? 'bg-[#16A36A]' : 'bg-amber-500'
+                          activeCounterpartPresence?.status === 'online'
+                            ? 'bg-[#16A36A]'
+                            : isStreamLive
+                            ? 'bg-slate-400'
+                            : 'bg-amber-500'
                         }`}
                       />
                     </div>
@@ -1295,11 +1465,26 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                       <div className="flex items-center gap-1.5 text-[11px] text-[#8492A5] dark:text-[#C5B3DF] truncate">
                         <span
                           className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            isStreamLive ? 'bg-[#6657C8] dark:bg-[#D8B4FE]' : 'bg-amber-500'
+                            isStreamLive
+                              ? 'bg-[#16A36A] animate-pulse'
+                              : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                              ? 'bg-amber-500 animate-pulse'
+                              : 'bg-rose-500'
                           }`}
                         />
                         <span className="truncate font-medium">
-                          {isStreamLive ? 'Radio & Dispatch Active' : 'Mode Sinkronisasi Lokal'} ·{' '}
+                          {activeTicketTypers.length > 0
+                            ? `${activeTicketTypers[0].userName} sedang mengetik...`
+                            : activeCounterpartPresence?.status === 'online'
+                            ? 'Online'
+                            : activeCounterpartPresence?.lastSeen
+                            ? `Terakhir dilihat ${formatWibTime(activeCounterpartPresence.lastSeen)}`
+                            : isStreamLive
+                            ? 'SSE Live'
+                            : realtimeConnectionState === 'reconnecting'
+                            ? 'Menghubungkan Ulang SSE...'
+                            : 'SSE Terputus'}{' '}
+                          ·{' '}
                           <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
                             {activeTicket.woNumber}
                           </span>
@@ -1483,7 +1668,25 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
               </header>
 
               {/* EXPANDED CHAT STREAM */}
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 sm:px-5 lg:px-8 py-4 space-y-4">
+              <div
+                ref={chatStreamRef}
+                onScroll={handleChatStreamScroll}
+                className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 sm:px-5 lg:px-8 py-4 space-y-4 relative"
+              >
+                {activeMessages.length >= 25 && hasOlderByTicket[activeTicket.id] !== false && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={handleLoadOlderMessages}
+                      disabled={isLoadingOlder}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3B1D78] text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] hover:bg-[#F4F7FB] cursor-pointer disabled:opacity-50 shadow-2xs"
+                    >
+                      {isLoadingOlder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                      <span>{isLoadingOlder ? 'Memuat pesan...' : 'Muat pesan sebelumnya'}</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Timeline Date & Checkpoint Pill */}
                 <div className="flex items-center justify-center my-1">
                   <div className="px-4 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3B1D78] text-[#52647A] dark:text-[#E8DDFF] text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs max-w-full">
@@ -1563,7 +1766,11 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   </div>
                 ) : (
                   activeMessages.map(msg => {
-                    const isMe = msg.senderId === currentUser?.id || msg.senderRole === currentUser?.role;
+                    const isMe = Boolean(
+                      currentUser?.id && msg.senderId
+                        ? msg.senderId === currentUser.id
+                        : msg.senderRole === currentUser?.role
+                    );
                     const isTechBubble = msg.senderRole === 'installer';
 
                     return (
@@ -1727,6 +1934,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                                   senderId={currentUser?.id}
                                   variant="onDark"
                                   showLabel={true}
+                                  onRetry={retryTicketMessage}
                                 />
                               </div>
                             )}
@@ -1769,8 +1977,36 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   </div>
                 )}
 
+                {activeTicketTypers.length > 0 && (
+                  <div className="max-w-3xl mx-auto flex items-center gap-2 text-xs text-[#5145A6] dark:text-[#D8B4FE] italic px-2">
+                    <span className="flex gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#6657C8] animate-bounce" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#6657C8] animate-bounce" style={{ animationDelay: '120ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#6657C8] animate-bounce" style={{ animationDelay: '240ms' }} />
+                    </span>
+                    <span>{activeTicketTypers.map(tp => tp.userName).join(', ')} sedang mengetik...</span>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
+
+              {showNewMessageJump && (
+                <div className="absolute bottom-28 right-6 z-20">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                      setShowNewMessageJump(false);
+                      isNearBottomRef.current = true;
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#6657C8] hover:bg-[#5145A6] text-white text-xs font-bold shadow-lg cursor-pointer"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                    <span>Pesan baru</span>
+                  </button>
+                </div>
+              )}
 
               {/* Error Banner */}
               {errorMessage && (
@@ -1795,9 +2031,25 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                   {pendingAttachments.map(att => (
                     <div
                       key={att.id}
-                      className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-[#6657C8] dark:border-[#7135B5] shrink-0"
+                      className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 ${
+                        att.uploadStatus === 'failed'
+                          ? 'border-rose-500'
+                          : att.uploadStatus === 'uploading'
+                          ? 'border-amber-400'
+                          : 'border-[#6657C8] dark:border-[#7135B5]'
+                      }`}
                     >
-                      <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
+                      <img src={getSafePreviewUrl(att.url)} alt={att.fileName} className="w-full h-full object-cover" />
+                      {att.uploadStatus === 'uploading' && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                      )}
+                      {att.uploadStatus === 'failed' && (
+                        <div className="absolute inset-0 bg-rose-900/75 flex items-center justify-center text-white text-[9px] font-bold">
+                          Gagal
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => setPendingAttachments(prev => prev.filter(a => a.id !== att.id))}
@@ -1809,7 +2061,9 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                     </div>
                   ))}
                   <span className="text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF]">
-                    {pendingAttachments.length} foto siap dikirim
+                    {hasUploadingAttachment
+                      ? 'Mengunggah foto ke storage...'
+                      : `${readyAttachments.length} foto siap dikirim`}
                   </span>
                 </div>
               )}
@@ -2015,7 +2269,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
                         ref={composerRef}
                         rows={1}
                         value={inputText}
-                        onChange={e => setInputText(e.target.value)}
+                        onChange={e => handleComposerChange(e.target.value)}
                         onKeyDown={e => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -2028,7 +2282,7 @@ export const ContactCentreView: React.FC<ContactCentreViewProps> = ({
 
                       <button
                         type="submit"
-                        disabled={isSubmitting || (!inputText.trim() && pendingAttachments.length === 0)}
+                        disabled={isSubmitting || hasUploadingAttachment || (!inputText.trim() && readyAttachments.length === 0)}
                         className="btn-3d-primary h-11 px-4 rounded-xl flex items-center justify-center gap-1.5 font-display text-xs sm:text-sm font-bold disabled:opacity-45 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer whitespace-nowrap"
                       >
                         {isSubmitting ? (

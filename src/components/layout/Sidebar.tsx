@@ -617,20 +617,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#7364D4] to-[#6657C8] dark:bg-[#7135b5] dark:bg-none text-white flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.45),0_3px_0_#5145A6,0_6px_14px_rgba(102,87,200,0.22)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)] active:translate-y-0.5 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-white/95 dark:bg-[#140D33]/90 border border-[#D8CCF3] dark:border-purple-400/35 flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_3px_0_#D8CCF3,0_6px_14px_rgba(102,87,200,0.16)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.22),0_2px_8px_rgba(16,8,36,0.45)] active:translate-y-0.5 cursor-pointer"
               title="Perluas Sidebar (Work Order Management)"
               aria-label="Perluas Sidebar"
             >
-              <MoraJawsLogo size="sm" animated={false} withGlow={false} />
+              <MoraJawsLogo variant="symbol" size="sm" animated={false} withGlow={false} />
             </button>
           ) : (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:bg-[#7135b5] dark:bg-none flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.45),0_2px_6px_rgba(102,87,200,0.22)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(33,24,58,0.22)] shrink-0">
-                <MoraJawsLogo size="sm" animated={false} withGlow={false} />
+              <div className="w-9 h-9 rounded-xl bg-white/95 dark:bg-[#140D33]/90 border border-[#D8CCF3] dark:border-purple-400/35 flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_2px_8px_rgba(102,87,200,0.16)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.22),0_2px_8px_rgba(16,8,36,0.45)] shrink-0">
+                <MoraJawsLogo variant="symbol" size="sm" animated={false} withGlow={false} />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-display font-extrabold text-[17px] leading-none text-[#26364A] dark:text-white tracking-tight truncate">
-                  {config.global.appName || 'MoraJaws'}
+                <span className="font-display font-extrabold text-[17px] leading-none text-[#1E1B3A] dark:text-white tracking-tight truncate">
+                  {config.global.appName && config.global.appName !== 'MoraJaws' ? (
+                    config.global.appName
+                  ) : (
+                    <>
+                      Mora<span className="text-[#6D28D9] dark:text-[#C084FC]">Jaws</span>
+                    </>
+                  )}
                 </span>
                 <span className="text-[9.5px] font-bold text-[#6657C8] dark:text-[#A78BFA] uppercase tracking-[0.14em] mt-1 truncate">
                   {userRole === 'dispatch' ? 'FTTH DISPATCH OPS' : 'FTTH COMMAND'}

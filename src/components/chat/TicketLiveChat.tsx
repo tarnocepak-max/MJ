@@ -24,6 +24,8 @@ import {
   Crosshair,
   Gauge,
   ArrowLeft,
+  ArrowDown,
+  ChevronUp,
   Router,
   Loader2
 } from 'lucide-react';
@@ -110,11 +112,17 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
     currentUser,
     getMessagesForTicket,
     sendTicketMessage,
+    retryTicketMessage,
+    sendTypingIndicator,
+    loadOlderTicketMessages,
+    uploadChatAttachment,
     markTicketMessagesAsRead,
     toast,
     chatCategories,
     setTicketChatCategory,
-    databaseStatus
+    realtimeConnectionState,
+    presenceByUserId,
+    typingByTicketId
   } = useApp();
 
   const [inputText, setInputText] = useState('');
@@ -124,6 +132,17 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
   const [isLocating, setIsLocating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showContextSummary, setShowContextSummary] = useState(true);
+  const [hasOlderMessages, setHasOlderMessages] = useState(true);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [showNewMessageJump, setShowNewMessageJump] = useState(false);
+
+  const draftsByTicketRef = useRef<Map<string, { text: string; attachments: ChatAttachment[] }>>(new Map());
+  const prevTicketIdRef = useRef<string>(ticket.id);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const prevMsgCountRef = useRef(0);
+  const typingThrottleRef = useRef<number>(0);
+  const typingIdleTimerRef = useRef<number | null>(null);
 
   const currentCategoryObj = (chatCategories || []).find(
     c => c.name === ticket.chatCategory || c.id === ticket.chatCategory
@@ -146,6 +165,26 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
   const messages = getMessagesForTicket(ticket.id);
 
+  // Preserve & restore per-ticket unsent draft + reset pagination state
+  useEffect(() => {
+    const prevId = prevTicketIdRef.current;
+    if (prevId && prevId !== ticket.id) {
+      draftsByTicketRef.current.set(prevId, { text: inputText, attachments: pendingAttachments });
+      const restored = draftsByTicketRef.current.get(ticket.id);
+      setInputText(restored?.text || '');
+      setPendingAttachments(restored?.attachments || []);
+      setHasOlderMessages(true);
+      setShowNewMessageJump(false);
+      isNearBottomRef.current = true;
+    }
+    prevTicketIdRef.current = ticket.id;
+  }, [ticket.id]);
+
+  // Keep current draft synced in ref
+  useEffect(() => {
+    draftsByTicketRef.current.set(ticket.id, { text: inputText, attachments: pendingAttachments });
+  }, [ticket.id, inputText, pendingAttachments]);
+
   // Auto mark messages as read ONLY when chat pane is visible
   useEffect(() => {
     const tryMark = () => {
@@ -160,10 +199,61 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [ticket.id, messages.length, markTicketMessagesAsRead]);
 
-  // Auto scroll to latest message
+  // Track user scroll position
+  const handleStreamScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom < 90;
+    isNearBottomRef.current = nearBottom;
+    if (nearBottom) {
+      setShowNewMessageJump(false);
+    }
+  };
+
+  // Smart auto scroll: only scroll to bottom if user is near bottom or sent a new message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    const prevCount = prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
+    const lastMsg = messages[messages.length - 1];
+    const lastIsMine = Boolean(lastMsg && currentUser?.id && lastMsg.senderId === currentUser.id);
+    if (isNearBottomRef.current || lastIsMine || prevCount === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: prevCount === 0 ? 'auto' : 'smooth' });
+      setShowNewMessageJump(false);
+    } else if (messages.length > prevCount) {
+      setShowNewMessageJump(true);
+    }
+  }, [messages.length, ticket.id, currentUser?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimerRef.current) {
+        window.clearTimeout(typingIdleTimerRef.current);
+      }
+      sendTypingIndicator(ticket.id, false).catch(() => {});
+    };
+  }, [ticket.id, sendTypingIndicator]);
+
+  const handleLoadOlderMessages = async () => {
+    if (isLoadingOlder || !hasOlderMessages) return;
+    const el = scrollContainerRef.current;
+    const prevScrollHeight = el?.scrollHeight || 0;
+    const prevScrollTop = el?.scrollTop || 0;
+    const oldest = messages[0]?.timestamp;
+    setIsLoadingOlder(true);
+    try {
+      const res = await loadOlderTicketMessages(ticket.id, oldest, 50);
+      setHasOlderMessages(res.hasMore);
+      if (el && res.messages.length > 0) {
+        window.requestAnimationFrame(() => {
+          const newScrollHeight = el.scrollHeight;
+          el.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+        });
+      }
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -187,20 +277,45 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const attachment: ChatAttachment = {
-          id: 'att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-          url: dataUrl,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type
-        };
-        setPendingAttachments(prev => [...prev, attachment]);
-        toast.info(`Foto ${file.name} siap dikirim.`, 'Lampiran Ditambahkan');
+      const tempId = 'att-up-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+      const localPreviewUrl = URL.createObjectURL(file);
+      const uploadingPlaceholder: ChatAttachment = {
+        id: tempId,
+        type: 'image',
+        url: localPreviewUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        uploadStatus: 'uploading'
       };
-      reader.readAsDataURL(file);
+      setPendingAttachments(prev => [...prev, uploadingPlaceholder]);
+
+      uploadChatAttachment(ticket.id, file)
+        .then(res => {
+          if (res.success && res.attachment) {
+            setPendingAttachments(prev =>
+              prev.map(att => (att.id === tempId ? { ...res.attachment!, uploadStatus: 'uploaded' } : att))
+            );
+            toast.info(`Foto ${file.name} siap dikirim.`, 'Lampiran Terunggah');
+          } else {
+            setPendingAttachments(prev =>
+              prev.map(att =>
+                att.id === tempId
+                  ? { ...att, uploadStatus: 'failed', error: res.error || 'Gagal upload' }
+                  : att
+              )
+            );
+            toast.error(res.error || `Gagal mengunggah ${file.name}.`, 'Upload Gagal');
+          }
+        })
+        .catch(() => {
+          setPendingAttachments(prev =>
+            prev.map(att =>
+              att.id === tempId ? { ...att, uploadStatus: 'failed', error: 'Koneksi upload gagal' } : att
+            )
+          );
+          toast.error(`Gagal mengunggah ${file.name}.`, 'Upload Gagal');
+        });
     });
 
     if (fileInputRef.current) {
@@ -291,9 +406,31 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
     inputRef.current?.focus();
   };
 
+  const hasUploadingAttachment = pendingAttachments.some(att => att.uploadStatus === 'uploading');
+  const readyAttachments = pendingAttachments.filter(att => att.uploadStatus !== 'failed');
+
+  const handleInputTextChange = (val: string) => {
+    setInputText(val);
+    if (isLeader) return;
+    const now = Date.now();
+    if (val.trim()) {
+      if (now - typingThrottleRef.current > 2000) {
+        typingThrottleRef.current = now;
+        sendTypingIndicator(ticket.id, true).catch(() => {});
+      }
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+      typingIdleTimerRef.current = window.setTimeout(() => {
+        sendTypingIndicator(ticket.id, false).catch(() => {});
+      }, 3200);
+    } else {
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+      sendTypingIndicator(ticket.id, false).catch(() => {});
+    }
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend !== undefined ? textToSend : inputText;
-    if (isSubmitting || isLeader) return;
+    if (isSubmitting || isLeader || hasUploadingAttachment) return;
 
     if (isInstaller && !hasValidCategory) {
       const msg = 'Pilih kategori chat terlebih dahulu (mis. PROGRESS) sebelum memulai percakapan.';
@@ -302,20 +439,24 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
       return;
     }
 
-    if (!text.trim() && pendingAttachments.length === 0) return;
+    if (!text.trim() && readyAttachments.length === 0) return;
+
+    if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current);
+    sendTypingIndicator(ticket.id, false).catch(() => {});
 
     setIsSubmitting(true);
     try {
       const result = await sendTicketMessage(
         ticket.id,
         text.trim(),
-        pendingAttachments,
+        readyAttachments,
         isInstaller ? selectedCategory : selectedCategory || undefined
       );
 
       if (result.success) {
         setInputText('');
         setPendingAttachments([]);
+        draftsByTicketRef.current.delete(ticket.id);
         setErrorMessage(null);
       } else {
         const err = result.error || 'Gagal mengirim pesan.';
@@ -376,8 +517,16 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
       ticket.dropcoreLength
   );
 
+  const counterpartId = isInstaller
+    ? messages.find(m => m.senderId && m.senderId !== currentUser?.id)?.senderId
+    : ticket.installerUid || ticket.installerId || ticket.assignedToUid;
+  const counterpartPresence = counterpartId ? presenceByUserId[counterpartId] : undefined;
+  const activeTypers = (typingByTicketId[ticket.id] || []).filter(
+    t => t.isTyping && t.userId !== currentUser?.id && Date.parse(t.expiresAt) > Date.now()
+  );
+
   return (
-    <div className={`flex flex-col ${heightClass} bg-[#F8FAFC] dark:bg-[#0B1220] overflow-hidden`}>
+    <div className={`flex flex-col ${heightClass} bg-[#F8FAFC] dark:bg-[#0B1220] overflow-hidden relative`}>
       {/* TOP WAR ROOM CONTEXT HEADER */}
       <div className="bg-white dark:bg-[#0F172A] px-3.5 py-2.5 border-b border-slate-200 dark:border-slate-800 shrink-0 space-y-2 shadow-2xs">
         <div className="flex items-center justify-between gap-2">
@@ -399,7 +548,11 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               </div>
               <span
                 className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#0F172A] ${
-                  databaseStatus === 'connected' ? 'bg-[#16A36A]' : 'bg-amber-500'
+                  counterpartPresence?.status === 'online'
+                    ? 'bg-[#16A36A]'
+                    : realtimeConnectionState === 'connected'
+                    ? 'bg-slate-400'
+                    : 'bg-amber-500'
                 }`}
               />
             </div>
@@ -414,12 +567,26 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    databaseStatus === 'connected' ? 'bg-[#2563EB] dark:bg-[#38BDF8]' : 'bg-amber-500'
+                    realtimeConnectionState === 'connected'
+                      ? 'bg-[#16A36A] animate-pulse'
+                      : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-rose-500'
                   }`}
                 />
                 <span className="truncate">
-                  {databaseStatus === 'connected' ? 'Radio & Dispatch Active' : 'Sinkronisasi Lokal'} ·{' '}
-                  <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{ticket.woNumber}</span>
+                  {activeTypers.length > 0
+                    ? `${activeTypers[0].userName} sedang mengetik...`
+                    : counterpartPresence?.status === 'online'
+                    ? 'Online'
+                    : counterpartPresence?.lastSeen
+                    ? `Terakhir dilihat ${formatJakartaTimeOnly(counterpartPresence.lastSeen)} WIB`
+                    : realtimeConnectionState === 'connected'
+                    ? 'SSE Live'
+                    : realtimeConnectionState === 'reconnecting'
+                    ? 'Menghubungkan Ulang...'
+                    : 'SSE Terputus'}{' '}
+                  · <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{ticket.woNumber}</span>
                 </span>
               </div>
             </div>
@@ -502,7 +669,25 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
       </div>
 
       {/* MESSAGES TIMELINE STREAM */}
-      <div className="flex-1 px-3.5 py-4 overflow-y-auto space-y-3.5 bg-[#F8FAFC] dark:bg-[#0B1220]">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleStreamScroll}
+        className="flex-1 px-3.5 py-4 overflow-y-auto space-y-3.5 bg-[#F8FAFC] dark:bg-[#0B1220] relative"
+      >
+        {messages.length >= 25 && hasOlderMessages && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={handleLoadOlderMessages}
+              disabled={isLoadingOlder}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-[#2563EB] dark:text-[#38BDF8] hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+            >
+              {isLoadingOlder ? <Loader2 className="w-3 h-3 animate-spin" /> : <ChevronUp className="w-3 h-3" />}
+              <span>{isLoadingOlder ? 'Memuat pesan...' : 'Muat pesan sebelumnya'}</span>
+            </button>
+          </div>
+        )}
+
         {/* Real System Checkpoint Pill (derived strictly from real WO timestamps) */}
         {(ticket.checkInAt || ticket.workStartedAt || ticket.assignedAt) && (
           <div className="flex justify-center">
@@ -535,7 +720,9 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
           </div>
         ) : (
           messages.map(msg => {
-            const isMe = msg.senderId === currentUser.id || msg.senderRole === currentUser.role;
+            const isMe = Boolean(
+              currentUser?.id && msg.senderId ? msg.senderId === currentUser.id : msg.senderRole === currentUser?.role
+            );
             const timeLabel = new Date(msg.timestamp).toLocaleTimeString('id-ID', {
               hour: '2-digit',
               minute: '2-digit',
@@ -653,6 +840,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                           senderId={currentUser.id}
                           variant="onDark"
                           showLabel={true}
+                          onRetry={retryTicketMessage}
                         />
                       </div>
                     )}
@@ -701,8 +889,36 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
           </div>
         )}
 
+        {activeTypers.length > 0 && (
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 px-1 italic">
+            <span className="flex gap-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-bounce" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-bounce" style={{ animationDelay: '120ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-bounce" style={{ animationDelay: '240ms' }} />
+            </span>
+            <span>{activeTypers.map(t => t.userName).join(', ')} sedang mengetik...</span>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
+
+      {showNewMessageJump && (
+        <div className="absolute bottom-24 right-5 z-20">
+          <button
+            type="button"
+            onClick={() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              setShowNewMessageJump(false);
+              isNearBottomRef.current = true;
+            }}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2563EB] text-white text-xs font-bold shadow-lg cursor-pointer hover:bg-[#1D4ED8]"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+            <span>Pesan baru</span>
+          </button>
+        </div>
+      )}
 
       {/* Error Alert */}
       {errorMessage && (
@@ -788,8 +1004,27 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
           {pendingAttachments.length > 0 && (
             <div className="px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border-t border-slate-200 dark:border-slate-700 flex items-center gap-2.5 overflow-x-auto">
               {pendingAttachments.map(att => (
-                <div key={att.id} className="relative group shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 border-[#2563EB] shadow-sm">
-                  <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
+                <div
+                  key={att.id}
+                  className={`relative group shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 shadow-sm ${
+                    att.uploadStatus === 'failed'
+                      ? 'border-rose-500'
+                      : att.uploadStatus === 'uploading'
+                      ? 'border-amber-400'
+                      : 'border-[#2563EB]'
+                  }`}
+                >
+                  <img src={getSafePreviewUrl(att.url)} alt={att.fileName} className="w-full h-full object-cover" />
+                  {att.uploadStatus === 'uploading' && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  )}
+                  {att.uploadStatus === 'failed' && (
+                    <div className="absolute inset-0 bg-rose-900/70 flex items-center justify-center text-white text-[9px] font-bold">
+                      Gagal
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleRemovePendingAttachment(att.id)}
@@ -801,7 +1036,9 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                 </div>
               ))}
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                {pendingAttachments.length} foto siap dikirim
+                {hasUploadingAttachment
+                  ? 'Mengunggah foto...'
+                  : `${readyAttachments.length} foto siap dikirim`}
               </span>
             </div>
           )}
@@ -845,7 +1082,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
                 ref={inputRef}
                 type="text"
                 value={inputText}
-                onChange={e => setInputText(e.target.value)}
+                onChange={e => handleInputTextChange(e.target.value)}
                 placeholder={
                   isInstaller && !hasValidCategory
                     ? 'Pilih tag #PROGRESS atau kategori di atas...'
@@ -856,7 +1093,12 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
 
               <button
                 type="submit"
-                disabled={isSubmitting || (isInstaller && !hasValidCategory) || (!inputText.trim() && pendingAttachments.length === 0)}
+                disabled={
+                  isSubmitting ||
+                  hasUploadingAttachment ||
+                  (isInstaller && !hasValidCategory) ||
+                  (!inputText.trim() && readyAttachments.length === 0)
+                }
                 className="w-11 h-11 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm transition-colors"
                 title="Kirim Pesan"
                 aria-label="Kirim Pesan"

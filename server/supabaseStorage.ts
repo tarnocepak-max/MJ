@@ -723,7 +723,7 @@ export function evaluateFileAccessPermission(
         };
       }
 
-      // Installer verification: strict assignment check (by ID/UID first, then name/phone)
+      // Installer verification: strict assignment check by stable account ID / UID only
       if (role === 'installer') {
         const myId = String(user.id || '').trim();
         const assignedIds = [
@@ -736,25 +736,7 @@ export function evaluateFileAccessPermission(
           .map((v: any) => String(v).trim());
         const idMatch = Boolean(myId && assignedIds.includes(myId));
 
-        const myName = (user.name || '').toLowerCase().trim();
-        const cleanMyName = myName.replace(/\(.*?\)/g, '').trim();
-        const ticketInst = (ticket.installerName || '').toLowerCase().trim();
-
-        const nameMatch = Boolean(
-          ticketInst &&
-          cleanMyName &&
-          (ticketInst === myName ||
-            ticketInst === cleanMyName ||
-            ticketInst.includes(cleanMyName) ||
-            cleanMyName.includes(ticketInst))
-        );
-        const phoneMatch = Boolean(
-          user.phone &&
-          ticket.installerContact &&
-          ticket.installerContact.replace(/\D/g, '') === user.phone.replace(/\D/g, '')
-        );
-
-        if (idMatch || nameMatch || phoneMatch) {
+        if (idMatch) {
           return {
             allowed: true,
             statusCode: 200,
@@ -767,7 +749,7 @@ export function evaluateFileAccessPermission(
           allowed: false,
           statusCode: 403,
           role,
-          reason: `Ditolak: Teknisi (${user.name}) bukan personil yang ditugaskan untuk Work Order ${woNum} (Ditugaskan kepada: "${ticket.installerName || 'Belum Ditugaskan'}").`
+          reason: `Ditolak: Teknisi (${user.name}) bukan personil yang ditugaskan untuk Work Order ${woNum}.`
         };
       }
     }
@@ -1015,6 +997,8 @@ export async function uploadFile(params: {
   success: boolean;
   metadata?: StorageFileMetadata;
   signedUrl?: string;
+  downloadUrl?: string;
+  storageProvider?: 'supabase' | 'local_disk';
   expiresIn?: number;
   error?: string;
 }> {
@@ -1037,18 +1021,29 @@ export async function uploadFile(params: {
     return { success: false, error: validation.error };
   }
 
-  // 2. Build collision-resistant sandbox path
+  // 2. Build collision-resistant scoped path
+  const cleanWo = relatedWoNumber ? sanitizePathSegment(relatedWoNumber) : '';
+  const pathFolder =
+    fileCategory === 'chat_attachment' && cleanWo
+      ? `${STORAGE_FOLDERS.LIVE_CHAT}/${cleanWo}`
+      : `test-sandbox/${sanitizePathSegment(userId)}/${fileCategory}`;
+  const pathPrefix = fileCategory === 'chat_attachment' && cleanWo ? 'chat' : 'data';
+  const fileTag = fileCategory === 'chat_attachment' ? 'cht' : 'adp';
+
   const { fullPath, uniqueFileId } = buildStorageObjectPath(
-    `test-sandbox/${sanitizePathSegment(userId)}/${fileCategory}`,
-    'data',
+    pathFolder,
+    pathPrefix,
     fileName,
-    'adp'
+    fileTag
   );
 
   // 3. Compute SHA-256 for audit & deduplication
   const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  const downloadCategory = fileCategory === 'chat_attachment' && cleanWo ? 'live-chat' : 'test-sandbox';
+  const downloadUrl = `/api/storage/adapter/download?storagePath=${encodeURIComponent(fullPath)}&category=${encodeURIComponent(downloadCategory)}${cleanWo ? `&woNumber=${encodeURIComponent(relatedWoNumber!)}` : ''}`;
 
-  // 4. Upload to Supabase Storage
+  // 4. Upload to Supabase Storage (with local persistent disk fallback for operational chat attachments)
+  let storageProvider: 'supabase' | 'local_disk' = 'supabase';
   const uploadResult = await uploadBufferToSupabaseStorage({
     bucket,
     storagePath: fullPath,
@@ -1057,19 +1052,46 @@ export async function uploadFile(params: {
   });
 
   if (!uploadResult.success) {
-    logStorageOperation({
-      operation: 'upload',
-      status: 'failed',
-      provider: 'supabase',
-      fileId: uniqueFileId,
-      filePath: fullPath,
-      userId,
-      userRole: params.userRole,
-      timestamp: new Date().toISOString(),
-      errorCode: 'STORAGE_UPLOAD_ERROR',
-      errorMessage: uploadResult.error
-    });
-    return { success: false, error: uploadResult.error };
+    if (fileCategory === 'chat_attachment' && cleanWo) {
+      try {
+        const localBase = path.resolve(process.cwd(), 'data', 'uploads');
+        const targetFile = path.resolve(localBase, fullPath);
+        if (!targetFile.startsWith(localBase + path.sep)) {
+          return { success: false, error: 'Path penyimpanan lampiran chat tidak valid.' };
+        }
+        fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+        fs.writeFileSync(targetFile, fileBuffer);
+        storageProvider = 'local_disk';
+      } catch (diskErr: any) {
+        logStorageOperation({
+          operation: 'upload',
+          status: 'failed',
+          provider: 'supabase',
+          fileId: uniqueFileId,
+          filePath: fullPath,
+          userId,
+          userRole: params.userRole,
+          timestamp: new Date().toISOString(),
+          errorCode: 'LOCAL_DISK_WRITE_ERROR',
+          errorMessage: diskErr?.message || uploadResult.error
+        });
+        return { success: false, error: diskErr?.message || uploadResult.error };
+      }
+    } else {
+      logStorageOperation({
+        operation: 'upload',
+        status: 'failed',
+        provider: 'supabase',
+        fileId: uniqueFileId,
+        filePath: fullPath,
+        userId,
+        userRole: params.userRole,
+        timestamp: new Date().toISOString(),
+        errorCode: 'STORAGE_UPLOAD_ERROR',
+        errorMessage: uploadResult.error
+      });
+      return { success: false, error: uploadResult.error };
+    }
   }
 
   // 5. Build compatible metadata
@@ -1104,6 +1126,8 @@ export async function uploadFile(params: {
     success: true,
     metadata,
     signedUrl: uploadResult.signedUrl,
+    downloadUrl,
+    storageProvider,
     expiresIn: uploadResult.expiresIn || 3600
   };
 }

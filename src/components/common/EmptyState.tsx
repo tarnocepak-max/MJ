@@ -1,8 +1,10 @@
 import React from 'react';
 import { Inbox } from 'lucide-react';
+import { MoraRepublicRocket } from './MoraRepublicBrandVisuals';
 
 export interface EmptyStateProps {
   icon?: React.ReactNode;
+  illustration?: 'inbox' | 'rocket';
   title: string;
   description?: string;
   actionLabel?: string;
@@ -14,6 +16,7 @@ export interface EmptyStateProps {
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   icon,
+  illustration = 'inbox',
   title,
   description,
   actionLabel,
@@ -28,9 +31,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         compact ? 'px-4 py-8' : 'px-6 py-12'
       } ${className}`}
     >
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#DDF4F4] to-[#EAE8FF] dark:from-[#261942] dark:to-[#261942] border border-[#CFDCE8] dark:border-[#4B386B] text-[#6657C8] dark:text-[#DAB9FF] flex items-center justify-center mb-3 shadow-xs">
-        {icon || <Inbox className="w-6 h-6" />}
-      </div>
+      {illustration === 'rocket' && !icon ? (
+        <div className="mb-3 flex items-center justify-center p-2 rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#E4F0F8] to-[#EAE8FF] dark:from-[#1B1242] dark:to-[#271554] border border-[#CFDCE8] dark:border-purple-400/25 shadow-xs">
+          <MoraRepublicRocket size="sm" withTrail={true} />
+        </div>
+      ) : (
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#DDF4F4] to-[#EAE8FF] dark:from-[#261942] dark:to-[#261942] border border-[#CFDCE8] dark:border-[#4B386B] text-[#6657C8] dark:text-[#DAB9FF] flex items-center justify-center mb-3 shadow-xs">
+          {icon || <Inbox className="w-6 h-6" />}
+        </div>
+      )}
       <h3 className="text-sm font-bold text-[#26364A] dark:text-white">{title}</h3>
       {description && (
         <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] max-w-md mt-1 leading-relaxed">

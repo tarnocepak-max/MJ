@@ -271,6 +271,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     databaseStatus,
     syncStatus,
     lastSyncTime,
+    realtimeConnectionState,
     refreshActiveTickets,
     refreshDatabaseData,
     assignTicketPersonnel,
@@ -319,14 +320,15 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     };
   }, [leaderContractor, displayContractor]);
 
-  // Optional 15-second Live Feed auto-refresh
+  // Fallback 15-second Live Feed polling ONLY when SSE is not connected and tab is visible
   useEffect(() => {
-    if (!autoRefresh15s) return;
+    if (!autoRefresh15s || realtimeConnectionState === 'connected') return;
     const id = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       refreshActiveTickets().catch(() => {});
     }, 15000);
     return () => window.clearInterval(id);
-  }, [autoRefresh15s, refreshActiveTickets]);
+  }, [autoRefresh15s, realtimeConnectionState, refreshActiveTickets]);
 
   // Scoped active tickets (today WIB)
   const sectorTicketsAll = useMemo(() => {
@@ -1083,10 +1085,20 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 <span className="text-xs text-[#52647A] dark:text-[#CEC0E8] flex items-center gap-1.5 font-medium">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      databaseStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                      realtimeConnectionState === 'connected'
+                        ? 'bg-emerald-500 animate-pulse'
+                        : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                        ? 'bg-amber-500 animate-pulse'
+                        : 'bg-rose-500'
                     }`}
                   />
-                  {databaseStatus === 'connected' ? 'Live Geofence Telemetry' : 'Offline Sync Mode'}
+                  {realtimeConnectionState === 'connected'
+                    ? 'Live Geofence & SSE Telemetry'
+                    : realtimeConnectionState === 'reconnecting'
+                    ? 'Menghubungkan Ulang SSE...'
+                    : realtimeConnectionState === 'connecting'
+                    ? 'Menyambung SSE...'
+                    : 'SSE Terputus'}
                 </span>
                 <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#A78BFA] hidden sm:inline">
                   · {formatAppointmentDateDisplay(todayWIB)}

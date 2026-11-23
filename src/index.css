@@ -2928,3 +2928,71 @@ html:not(.dark) .mj-zebra-table tbody > tr:hover {
   background-color: rgba(240, 237, 255, 0.65);
 }
 
+/* ============================================================================
+ * MORAJAWS × MORAREPUBLIC — NEON FIBER OPTIC MOTION SYSTEM
+ * Lightweight GPU-friendly opacity & stroke animations with reduced-motion guard
+ * ============================================================================ */
+@keyframes morajaws-fiber-pulse {
+  0%, 100% {
+    opacity: 0.72;
+    filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.25));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.42));
+  }
+}
+
+@keyframes morajaws-fiber-flow {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes morajaws-fiber-node {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.22);
+  }
+}
+
+.mj-fiber-pulse {
+  animation: morajaws-fiber-pulse 3.4s ease-in-out infinite;
+}
+
+.mj-fiber-stream {
+  animation: morajaws-fiber-pulse 4.8s ease-in-out infinite;
+}
+
+.mj-fiber-stream-slow {
+  animation: morajaws-fiber-pulse 6.2s ease-in-out infinite 1.2s;
+}
+
+.mj-fiber-flow {
+  animation: morajaws-fiber-flow 5.5s linear infinite;
+}
+
+.mj-fiber-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: morajaws-fiber-node 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mj-fiber-pulse,
+  .mj-fiber-stream,
+  .mj-fiber-stream-slow,
+  .mj-fiber-flow,
+  .mj-fiber-node {
+    animation: none !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}

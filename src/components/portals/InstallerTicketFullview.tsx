@@ -158,6 +158,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     getMessagesForTicket,
     refreshMessagesForTicket,
     sendTicketMessage,
+    sendTypingIndicator,
+    uploadChatAttachment,
     markTicketMessagesAsRead,
     getTicketUnreadCount,
     hierarchicalStatuses,
@@ -1189,9 +1191,34 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [isChatActive, activeTicket.id, messages.length, markTicketMessagesAsRead]);
 
+  const fullviewTypingThrottleRef = useRef<number>(0);
+  const fullviewTypingIdleTimerRef = useRef<number | null>(null);
+
+  const handleChatInputChange = (val: string) => {
+    setChatInputText(val);
+    if (currentUser.role === 'leader') return;
+    const now = Date.now();
+    if (val.trim()) {
+      if (now - fullviewTypingThrottleRef.current > 2000) {
+        fullviewTypingThrottleRef.current = now;
+        sendTypingIndicator(activeTicket.id, true).catch(() => {});
+      }
+      if (fullviewTypingIdleTimerRef.current) window.clearTimeout(fullviewTypingIdleTimerRef.current);
+      fullviewTypingIdleTimerRef.current = window.setTimeout(() => {
+        sendTypingIndicator(activeTicket.id, false).catch(() => {});
+      }, 3200);
+    } else {
+      if (fullviewTypingIdleTimerRef.current) window.clearTimeout(fullviewTypingIdleTimerRef.current);
+      sendTypingIndicator(activeTicket.id, false).catch(() => {});
+    }
+  };
+
   useEffect(() => {
-    chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    return () => {
+      if (fullviewTypingIdleTimerRef.current) window.clearTimeout(fullviewTypingIdleTimerRef.current);
+      sendTypingIndicator(activeTicket.id, false).catch(() => {});
+    };
+  }, [activeTicket.id, sendTypingIndicator]);
 
   const handleChatFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1215,20 +1242,41 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const attachment: ChatAttachment = {
-          id: 'att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-          url: dataUrl,
+      const tempId = 'att-up-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+      const localPreviewUrl = URL.createObjectURL(file);
+      setChatAttachments(prev => [
+        ...prev,
+        {
+          id: tempId,
+          type: 'image',
+          url: localPreviewUrl,
           fileName: file.name,
           fileSize: file.size,
-          mimeType: file.type
-        };
-        setChatAttachments(prev => [...prev, attachment]);
-        toast.info(`Foto "${file.name}" siap dikirim.`, 'Lampiran Ditambahkan');
-      };
-      reader.readAsDataURL(file);
+          mimeType: file.type,
+          uploadStatus: 'uploading'
+        }
+      ]);
+
+      uploadChatAttachment(activeTicket.id, file)
+        .then(res => {
+          if (res.success && res.attachment) {
+            setChatAttachments(prev =>
+              prev.map(a => (a.id === tempId ? { ...res.attachment!, uploadStatus: 'uploaded' } : a))
+            );
+            toast.info(`Foto "${file.name}" terunggah & siap dikirim.`, 'Lampiran Ditambahkan');
+          } else {
+            setChatAttachments(prev =>
+              prev.map(a => (a.id === tempId ? { ...a, uploadStatus: 'failed', error: res.error } : a))
+            );
+            toast.error(res.error || `Gagal mengunggah "${file.name}".`, 'Upload Gagal');
+          }
+        })
+        .catch(() => {
+          setChatAttachments(prev =>
+            prev.map(a => (a.id === tempId ? { ...a, uploadStatus: 'failed', error: 'Upload gagal' } : a))
+          );
+          toast.error(`Gagal mengunggah "${file.name}".`, 'Upload Gagal');
+        });
     });
 
     if (chatFileInputRef.current) {
@@ -1242,7 +1290,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const handleSendChatMessage = async (e?: React.FormEvent, directText?: string) => {
     if (e) e.preventDefault();
-    if (isSendingChat) return;
+    if (isSendingChat || chatAttachments.some(a => a.uploadStatus === 'uploading')) return;
 
     const cleanCat = String(chatCategory || '').trim();
     if (!cleanCat || cleanCat.toUpperCase() === 'UNCLASSIFIED') {
@@ -1252,17 +1300,21 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return;
     }
 
+    const readyAttachments = chatAttachments.filter(a => a.uploadStatus !== 'failed');
     const text = directText !== undefined ? directText : chatInputText;
-    if (!text.trim() && chatAttachments.length === 0) {
+    if (!text.trim() && readyAttachments.length === 0) {
       return;
     }
+
+    if (fullviewTypingIdleTimerRef.current) window.clearTimeout(fullviewTypingIdleTimerRef.current);
+    sendTypingIndicator(activeTicket.id, false).catch(() => {});
 
     setIsChatActive(true);
     setIsSendingChat(true);
     setChatError(null);
 
     try {
-      const res = await sendTicketMessage(activeTicket.id, text.trim(), chatAttachments, cleanCat);
+      const res = await sendTicketMessage(activeTicket.id, text.trim(), readyAttachments, cleanCat);
       if (res.success) {
         setChatInputText('');
         setChatAttachments([]);
@@ -2896,7 +2948,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     activeChatCategories={activeChatCategories}
                     currentChatCategoryObj={currentChatCategoryObj}
                     chatInputText={chatInputText}
-                    onChatInputChange={setChatInputText}
+                    onChatInputChange={handleChatInputChange}
                     chatAttachments={chatAttachments}
                     isSendingChat={isSendingChat}
                     chatError={chatError}

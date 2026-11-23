@@ -2875,6 +2875,48 @@ export async function getTicketMessagesFromSupabase(ticketIdOrWo: string): Promi
   }
 }
 
+export async function getTicketMessagesPaginatedFromSupabase(
+  ticketIdOrWo: string,
+  options?: { limit?: number; before?: string }
+): Promise<SupabaseOpResult<{ messages: any[]; hasMore: boolean; nextCursor: string | null }>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  try {
+    const limit = Math.min(Math.max(Number(options?.limit) || 50, 1), 200);
+    const before = options?.before ? String(options.before).trim() : '';
+    let query = client
+      .from('ticket_messages')
+      .select('*')
+      .or(`ticket_id.eq.${ticketIdOrWo},wo_number.eq.${ticketIdOrWo}`)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+    if (before) {
+      query = query.lt('created_at', before);
+    }
+    const { data, error } = await query;
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    const rows = Array.isArray(data) ? data : [];
+    const hasMore = rows.length > limit;
+    const sliced = hasMore ? rows.slice(0, limit) : rows;
+    const chronological = sliced.reverse().map(mapSupabaseMessageToModel);
+    const nextCursor = hasMore && chronological.length > 0 ? chronological[0].timestamp : null;
+    return {
+      success: true,
+      data: {
+        messages: chronological,
+        hasMore,
+        nextCursor
+      }
+    };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
 export async function getTicketMessagesForTicketsFromSupabase(ticketIds: string[]): Promise<SupabaseOpResult<any[]>> {
   const client = getSupabaseBackendClient();
   if (!client) {
@@ -2905,8 +2947,51 @@ export async function getTicketMessagesForTicketsFromSupabase(ticketIds: string[
   }
 }
 
+export async function getTicketMessagesDeltaForTicketsFromSupabase(
+  ticketIds: string[],
+  sinceIso: string
+): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  const cleanIds = Array.from(new Set((ticketIds || []).map(x => String(x || '').trim()).filter(Boolean)));
+  if (cleanIds.length === 0) {
+    return { success: true, data: [] };
+  }
+  try {
+    // Include messages created >= sinceIso AND recent messages in the last 24h on scoped tickets so receipt updates are also synchronized
+    const receiptLookbackMs = Date.now() - 24 * 60 * 60 * 1000;
+    const sinceMs = new Date(sinceIso).getTime();
+    const effectiveSince = Number.isNaN(sinceMs)
+      ? new Date(receiptLookbackMs).toISOString()
+      : new Date(Math.min(sinceMs, receiptLookbackMs)).toISOString();
+
+    const allRows: any[] = [];
+    const chunkSize = 150;
+    for (let i = 0; i < cleanIds.length; i += chunkSize) {
+      const slice = cleanIds.slice(i, i + chunkSize);
+      const { data, error } = await client
+        .from('ticket_messages')
+        .select('*')
+        .in('ticket_id', slice)
+        .gte('created_at', effectiveSince)
+        .order('created_at', { ascending: true })
+        .limit(400);
+      if (error) {
+        return { success: false, error: classifySupabaseError(error) };
+      }
+      if (Array.isArray(data)) allRows.push(...data);
+    }
+    return { success: true, data: allRows.map(mapSupabaseMessageToModel) };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
 export async function insertTicketMessageToSupabase(message: {
   id?: string;
+  clientMessageId?: string;
   ticketId?: string;
   woNumber?: string;
   senderId?: string;
@@ -2917,12 +3002,32 @@ export async function insertTicketMessageToSupabase(message: {
   isCheckIn?: boolean;
   attachments?: any[];
   payload?: any;
-}): Promise<SupabaseOpResult<any>> {
+}): Promise<SupabaseOpResult<any> & { deduplicated?: boolean }> {
   const client = getSupabaseBackendClient();
   if (!client) {
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   try {
+    const cleanClientMsgId = String(message.clientMessageId || message.payload?.clientMessageId || '').trim();
+    if (cleanClientMsgId && message.ticketId) {
+      const { data: existingRows, error: dupErr } = await client
+        .from('ticket_messages')
+        .select('*')
+        .eq('ticket_id', message.ticketId)
+        .contains('payload', { clientMessageId: cleanClientMsgId })
+        .limit(1);
+      if (!dupErr && Array.isArray(existingRows) && existingRows.length > 0) {
+        const matched = existingRows.find((r: any) => !message.senderId || String(r.sender_id || '') === String(message.senderId || ''));
+        if (matched) {
+          return {
+            success: true,
+            deduplicated: true,
+            data: mapSupabaseMessageToModel(matched)
+          };
+        }
+      }
+    }
+
     const nowIso = new Date().toISOString();
     const senderRead = message.senderId ? [String(message.senderId).trim()] : [];
     const basePayload = message.payload && typeof message.payload === 'object' ? message.payload : {};
@@ -2941,10 +3046,12 @@ export async function insertTicketMessageToSupabase(message: {
 
     const mergedPayload: Record<string, any> = {
       ...basePayload,
+      ...(cleanClientMsgId ? { clientMessageId: cleanClientMsgId } : {}),
       readBy: mergedReadBy,
       deliveredTo: mergedDeliveredTo,
       deliveredAt: existingDeliveredAt,
       readAt: existingReadAt,
+      updatedAt: nowIso,
       ...(message.isCheckIn ? { isCheckIn: true } : {})
     };
     if (rawCat) {

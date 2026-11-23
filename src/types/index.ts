@@ -243,13 +243,21 @@ export interface ProgressReportEntry {
 export interface ChatAttachment {
   id: string;
   url: string;
+  storagePath?: string;
+  downloadUrl?: string;
+  type?: 'image' | 'file';
   fileName: string;
   fileSize: number;
   mimeType: string;
+  uploadStatus?: 'uploading' | 'uploaded' | 'failed';
+  error?: string;
 }
+
+export type ChatMessageDeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface TicketMessage {
   id: string;
+  clientMessageId?: string;
   ticketId: string;
   woNumber: string;
   senderId: string;
@@ -259,11 +267,14 @@ export interface TicketMessage {
   category?: string;
   attachments: ChatAttachment[];
   timestamp: string;
+  updatedAt?: string;
   deliveredTo?: string[];
   deliveredAt?: Record<string, string>;
   readBy?: string[];
   readAt?: Record<string, string>;
   isCheckIn?: boolean;
+  deliveryStatus?: ChatMessageDeliveryStatus;
+  localError?: string;
 }
 
 export type WhatsAppConfirmationStatus =
@@ -1478,5 +1489,46 @@ export interface InstallerLiveLocationView {
   isActiveLocation: boolean;
   secondsSinceHeartbeat: number | null;
   secondsSinceLocation: number | null;
+}
+
+export type RealtimeConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
+export interface RealtimeDiagnosticLog {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  event: string;
+  detail: string;
+}
+
+export interface RealtimeStatusInfo {
+  state: RealtimeConnectionState;
+  reconnectAttempt: number;
+  lastEventId: string | null;
+  lastConnectedAt: string | null;
+  lastEventAt: string | null;
+  lastHeartbeatAt: string | null;
+  bridgeStatus: string | null;
+  logs: RealtimeDiagnosticLog[];
+}
+
+export interface UserPresenceInfo {
+  userId: string;
+  userName: string;
+  role: UserRole | string;
+  contractor?: string;
+  area?: string;
+  status: 'online' | 'offline';
+  lastSeen: string;
+}
+
+export interface TypingIndicatorInfo {
+  ticketId: string;
+  woNumber: string;
+  userId: string;
+  userName: string;
+  role: UserRole | string;
+  isTyping: boolean;
+  expiresAt: string;
 }
 

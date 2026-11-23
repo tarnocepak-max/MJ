@@ -1,5 +1,6 @@
 import React from 'react';
 import { MoraJawsLogo } from './MoraJawsLogo';
+import { MoraRepublicRocket, NeonFiberOpticTrails } from './MoraRepublicBrandVisuals';
 
 export interface GlobalLoadingAnimationProps {
   fullScreen?: boolean;
@@ -20,51 +21,39 @@ export const GlobalLoadingAnimation: React.FC<GlobalLoadingAnimationProps> = ({
     <div
       role="status"
       aria-live="polite"
-      className={`relative z-10 flex flex-col items-center justify-center text-center p-6 sm:p-8 rounded-2xl mj-gloss-card border border-purple-400/40 shadow-2xl max-w-sm sm:max-w-md w-full mx-4 overflow-hidden select-none animate-in fade-in zoom-in-95 duration-200 ${className}`}
+      className={`relative z-10 flex flex-col items-center justify-center text-center p-6 sm:p-8 rounded-2xl bg-white/92 dark:bg-[#120C2F]/90 backdrop-blur-2xl border border-[#D8CCF3] dark:border-purple-400/35 shadow-[0_24px_60px_-14px_rgba(79,70,229,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.55)] max-w-sm sm:max-w-md w-full mx-4 overflow-hidden select-none animate-in fade-in zoom-in-95 duration-200 ${className}`}
     >
-      {/* Background Soft Glow & Delicate Micro-particles */}
-      <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-600/25 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-indigo-600/25 rounded-full blur-2xl pointer-events-none" />
+      {/* Top Neon Fiber Accent Border */}
+      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-[#22D3EE] via-[#8B5CF6] to-[#EC4899]" />
 
-      {/* Micro-Particles */}
-      <div
-        className="absolute top-6 left-8 w-1.5 h-1.5 rounded-full bg-purple-300 pointer-events-none"
-        style={{ animation: 'morajaws-float 3s ease-in-out infinite' }}
-      />
-      <div
-        className="absolute bottom-8 right-10 w-2 h-2 rounded-full bg-purple-400/60 pointer-events-none"
-        style={{ animation: 'morajaws-float 2.5s ease-in-out infinite 0.8s' }}
-      />
-      <div
-        className="absolute top-1/2 right-6 w-1 h-1 rounded-full bg-white pointer-events-none"
-        style={{ animation: 'morajaws-float 3.5s ease-in-out infinite 1.4s' }}
-      />
+      {/* Ambient Neon Fiber Trails & Glows */}
+      <NeonFiberOpticTrails variant="subtle" className="absolute inset-x-0 bottom-0 h-28" />
+      <div className="absolute -top-12 -right-12 w-40 h-40 bg-cyan-400/15 dark:bg-purple-600/25 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-purple-500/15 dark:bg-indigo-600/25 rounded-full blur-2xl pointer-events-none" />
 
-      {/* Central Rotating 3D Glossy MoraJaws Logo with Orbital Progress Ring */}
+      {/* Central Rotating Futuristic MoraJaws Symbol + Orbital Ring */}
       <div className="relative flex items-center justify-center my-3">
-        {/* Pulsating Lilac Glow Halo */}
         <div
-          className="absolute inset-0 rounded-full blur-md opacity-80 pointer-events-none"
+          className="absolute inset-0 rounded-full blur-md opacity-70 pointer-events-none"
           style={{
-            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.5) 0%, rgba(216, 180, 254, 0.25) 50%, transparent 70%)',
-            transform: 'scale(1.35)',
-            animation: 'morajaws-pulse-lilac 2.8s infinite ease-in-out'
+            background:
+              'radial-gradient(circle, rgba(139, 92, 246, 0.35) 0%, rgba(34, 211, 238, 0.20) 52%, transparent 72%)',
+            transform: 'scale(1.35)'
           }}
         />
 
-        {/* Circular SVG Progress Ring */}
         <svg
           className="absolute w-24 h-24 -inset-2 pointer-events-none"
           viewBox="0 0 100 100"
-          style={{ animation: 'morajaws-spin-clockwise 3.6s linear infinite' }}
+          style={{ animation: 'morajaws-spin-clockwise 3.4s linear infinite' }}
         >
           <circle
             cx="50"
             cy="50"
             r="44"
             fill="none"
-            stroke="rgba(216, 180, 254, 0.15)"
-            strokeWidth="3"
+            stroke="rgba(139, 92, 246, 0.18)"
+            strokeWidth="2.5"
           />
           <circle
             cx="50"
@@ -72,54 +61,64 @@ export const GlobalLoadingAnimation: React.FC<GlobalLoadingAnimationProps> = ({
             r="44"
             fill="none"
             stroke="url(#loadingRingGrad)"
-            strokeWidth="3.5"
+            strokeWidth="3.2"
             strokeLinecap="round"
-            strokeDasharray="75 200"
+            strokeDasharray="78 200"
           />
           <defs>
             <linearGradient id="loadingRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#FFFFFF" />
-              <stop offset="40%" stopColor="#D8B4FE" />
-              <stop offset="100%" stopColor="#7135B5" />
+              <stop offset="0%" stopColor="#22D3EE" />
+              <stop offset="50%" stopColor="#8B5CF6" />
+              <stop offset="100%" stopColor="#EC4899" />
             </linearGradient>
           </defs>
         </svg>
 
-        {/* Glossy Logo Symbol */}
-        <MoraJawsLogo size="lg" isRotating={true} withGlow={false} />
+        <MoraJawsLogo variant="symbol" size="lg" isRotating={true} withGlow={false} />
       </div>
 
-      {/* Brand Header */}
-      <div className="mt-4 space-y-1">
-        <span className="font-black text-sm tracking-[0.3em] uppercase bg-gradient-to-r from-white via-purple-100 to-purple-300 bg-clip-text text-transparent block">
-          MORAJAWS
-        </span>
-        <h4 className="text-xs sm:text-sm font-bold tracking-wider text-purple-200 uppercase">
+      {/* Brand Wordmark + Title */}
+      <div className="relative z-10 mt-4 space-y-1 flex flex-col items-center">
+        <div className="font-display font-extrabold text-base tracking-tight">
+          <span className="text-[#1E1B3A] dark:text-white">Mora</span>
+          <span className="bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] dark:from-[#C084FC] dark:to-[#8B5CF6] bg-clip-text text-transparent">
+            Jaws
+          </span>
+        </div>
+        <h4 className="text-xs sm:text-sm font-bold tracking-wider text-[#5145A6] dark:text-purple-200 uppercase">
           {title}
         </h4>
-        <p className="text-[11px] text-purple-300/80 font-medium tracking-wide">
+        <p className="text-[11px] text-[#52647A] dark:text-purple-200/80 font-medium tracking-wide">
           {subtitle}
         </p>
       </div>
 
-      {/* Progress Bar (Indeterminate Shimmer or Determinate Percentage) */}
-      <div className="w-full mt-5">
-        <div className="h-1.5 w-full bg-black/50 rounded-full overflow-hidden border border-purple-500/25 relative">
+      {/* Neon Fiber Optic Progress Bar */}
+      <div className="relative z-10 w-full mt-5">
+        <div className="h-1.5 w-full bg-[#EDF3F8] dark:bg-black/50 rounded-full overflow-hidden border border-[#DDE6F0] dark:border-purple-500/30 relative">
           {progressPercent !== undefined ? (
             <div
-              className="h-full bg-gradient-to-r from-purple-500 via-purple-300 to-white transition-all duration-300 rounded-full"
+              className="h-full bg-gradient-to-r from-[#22D3EE] via-[#8B5CF6] to-[#EC4899] transition-all duration-300 rounded-full"
               style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
             />
           ) : (
-            <div className="absolute inset-0 w-full h-full mj-shimmer bg-gradient-to-r from-purple-700 via-purple-400 to-indigo-600 rounded-full" />
+            <div className="absolute inset-0 w-full h-full mj-shimmer bg-gradient-to-r from-[#22D3EE] via-[#8B5CF6] to-[#EC4899] rounded-full" />
           )}
         </div>
 
         {progressPercent !== undefined && (
-          <span className="text-[10px] font-mono text-purple-300/80 mt-1 block font-semibold">
+          <span className="text-[10px] font-mono text-[#5145A6] dark:text-purple-300/90 mt-1 block font-semibold">
             {Math.round(progressPercent)}%
           </span>
         )}
+      </div>
+
+      {/* Subtle MoraRepublic Ecosystem Footer */}
+      <div className="relative z-10 mt-4 pt-3 border-t border-[#DDE6F0]/80 dark:border-white/10 w-full flex items-center justify-center gap-2">
+        <MoraRepublicRocket size="xs" withTrail={false} />
+        <span className="text-[9.5px] font-bold tracking-wider uppercase text-[#6657C8] dark:text-purple-300/80">
+          Powered by MoraRepublic Technology
+        </span>
       </div>
     </div>
   );
@@ -127,7 +126,7 @@ export const GlobalLoadingAnimation: React.FC<GlobalLoadingAnimationProps> = ({
   if (fullScreen) {
     return (
       <div
-        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+        className="fixed inset-0 z-[9998] flex items-center justify-center bg-[#F4F7FB]/80 dark:bg-[#070B24]/85 backdrop-blur-md animate-in fade-in duration-200"
         aria-busy="true"
       >
         {content}

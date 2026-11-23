@@ -1,4 +1,4 @@
-import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem, OverdueSummaryMetrics, WoClassificationSummary } from '../types';
+import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem, OverdueSummaryMetrics, WoClassificationSummary, RealtimeConnectionState, RealtimeDiagnosticLog, RealtimeStatusInfo } from '../types';
 import { getAuthHeaders } from './authService';
 
 // ==============================================================================
@@ -108,8 +108,8 @@ export interface WorkOrderFilterOptions {
 }
 
 export interface RealtimeSubscriptionOptions {
-  table?: 'work_orders' | 'ticket_messages' | 'progress_reports' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date' | 'installer_tracking';
-  event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
+  table?: 'work_orders' | 'ticket_messages' | 'progress_reports' | 'audit_logs' | 'users' | 'app_settings' | 'roles' | 'contractors' | 'coverage_areas' | 'wa_templates' | 'system_operational_date' | 'installer_tracking' | 'presence' | 'livechat_ephemeral';
+  event?: 'INSERT' | 'UPDATE' | 'DELETE' | 'TYPING' | 'PRESENCE_UPDATE' | 'DELIVERY_RECEIPT' | 'READ_RECEIPT' | 'ACCESS_REVOKED' | '*';
   filter?: string;
   onPayload: (payload: any) => void;
   onError?: (error: any) => void;
@@ -1021,39 +1021,186 @@ export class SupabaseRepository {
 
   // ---------------------------------------------------------------------------
   // SECURE REALTIME SUBSCRIPTION VIA BACKEND SERVER-SENT EVENTS (SSE)
+  // True state machine, exponential backoff + jitter, 45s heartbeat watchdog,
+  // Last-Event-ID resume, sanitized ring-buffer logs, & reconnect hooks.
   // ---------------------------------------------------------------------------
   private sseListeners = new Set<RealtimeSubscriptionOptions>();
   private sseAbortController: AbortController | null = null;
   private sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private sseWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
   private sseActiveToken: string | null = null;
   private sseConnecting = false;
+  private sseReconnectAttempt = 0;
+  private sseConnectionState: RealtimeConnectionState = 'disconnected';
+  private sseLastEventId: string | null = null;
+  private sseLastConnectedAt: string | null = null;
+  private sseLastEventAt: string | null = null;
+  private sseLastHeartbeatAt: string | null = null;
+  private sseBridgeStatus: string | null = null;
+  private sseHasConnectedBefore = false;
+  private sseWasDisconnected = false;
+  private sseDiagnosticLogs: RealtimeDiagnosticLog[] = [];
+  private sseStatusSubscribers = new Set<(status: RealtimeStatusInfo) => void>();
+  private sseReconnectSubscribers = new Set<() => void>();
+  private sseBrowserListenersAttached = false;
 
-  private ensureMultiplexedSse() {
+  private sanitizeDiagnosticText(input: string): string {
+    return String(input || '')
+      .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+      .replace(/(token|password|secret|key)=([^&\s]+)/gi, '$1=[REDACTED]')
+      .slice(0, 220);
+  }
+
+  public addRealtimeLog(level: 'info' | 'warn' | 'error', event: string, detail: string) {
+    const entry: RealtimeDiagnosticLog = {
+      id: `rlog_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      level,
+      event,
+      detail: this.sanitizeDiagnosticText(detail)
+    };
+    this.sseDiagnosticLogs = [entry, ...this.sseDiagnosticLogs].slice(0, 80);
+    this.emitRealtimeStatus();
+  }
+
+  public getRealtimeStatus(): RealtimeStatusInfo {
+    return {
+      state: this.sseConnectionState,
+      reconnectAttempt: this.sseReconnectAttempt,
+      lastEventId: this.sseLastEventId,
+      lastConnectedAt: this.sseLastConnectedAt,
+      lastEventAt: this.sseLastEventAt,
+      lastHeartbeatAt: this.sseLastHeartbeatAt,
+      bridgeStatus: this.sseBridgeStatus,
+      logs: this.sseDiagnosticLogs
+    };
+  }
+
+  private emitRealtimeStatus() {
+    const snapshot = this.getRealtimeStatus();
+    for (const cb of Array.from(this.sseStatusSubscribers)) {
+      try {
+        cb(snapshot);
+      } catch {}
+    }
+  }
+
+  private setRealtimeConnectionState(next: RealtimeConnectionState) {
+    if (this.sseConnectionState === next) return;
+    this.sseConnectionState = next;
+    if (next === 'reconnecting' || next === 'disconnected') {
+      if (this.sseHasConnectedBefore) {
+        this.sseWasDisconnected = true;
+      }
+    }
+    this.emitRealtimeStatus();
+  }
+
+  public subscribeRealtimeStatus(cb: (status: RealtimeStatusInfo) => void): () => void {
+    this.sseStatusSubscribers.add(cb);
+    try {
+      cb(this.getRealtimeStatus());
+    } catch {}
+    return () => {
+      this.sseStatusSubscribers.delete(cb);
+    };
+  }
+
+  public subscribeReconnect(cb: () => void): () => void {
+    this.sseReconnectSubscribers.add(cb);
+    return () => {
+      this.sseReconnectSubscribers.delete(cb);
+    };
+  }
+
+  private attachBrowserOnlineListeners() {
+    if (this.sseBrowserListenersAttached || typeof window === 'undefined') return;
+    this.sseBrowserListenersAttached = true;
+
+    window.addEventListener('offline', () => {
+      this.addRealtimeLog('warn', 'BROWSER_OFFLINE', 'Koneksi jaringan perangkat terputus.');
+      this.teardownMultiplexedSse(false);
+      this.setRealtimeConnectionState('disconnected');
+    });
+
+    window.addEventListener('online', () => {
+      if (this.sseListeners.size === 0) return;
+      this.addRealtimeLog('info', 'BROWSER_ONLINE', 'Jaringan perangkat kembali aktif. Menyambungkan ulang SSE...');
+      this.sseReconnectAttempt = 0;
+      this.ensureMultiplexedSse(true);
+    });
+  }
+
+  public reconnectRealtimeNow() {
     if (this.sseListeners.size === 0) return;
+    this.addRealtimeLog('info', 'MANUAL_RECONNECT', 'Permintaan sambung ulang manual dari pengguna.');
+    this.sseReconnectAttempt = 0;
+    this.teardownMultiplexedSse(false);
+    this.ensureMultiplexedSse(true);
+  }
+
+  private resetHeartbeatWatchdog(abortController: AbortController) {
+    if (this.sseWatchdogTimer) {
+      clearTimeout(this.sseWatchdogTimer);
+    }
+    this.sseWatchdogTimer = setTimeout(() => {
+      if (this.sseAbortController === abortController && !abortController.signal.aborted) {
+        this.addRealtimeLog('warn', 'HEARTBEAT_TIMEOUT', 'Tidak menerima heartbeat SSE dalam 45 detik. Memicu reconnect...');
+        abortController.abort();
+      }
+    }, 45000);
+  }
+
+  private ensureMultiplexedSse(isImmediateReconnect: boolean = false) {
+    this.attachBrowserOnlineListeners();
+    if (this.sseListeners.size === 0) return;
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      this.setRealtimeConnectionState('disconnected');
+      return;
+    }
 
     const authHeaders = getAuthHeaders();
     const currentToken = authHeaders.Authorization || '';
-    if (!currentToken) return;
+    if (!currentToken) {
+      this.setRealtimeConnectionState('disconnected');
+      return;
+    }
 
     // If token changed, tear down old stream so new user gets clean scoped stream
     if (this.sseActiveToken && this.sseActiveToken !== currentToken) {
-      this.teardownMultiplexedSse();
+      this.teardownMultiplexedSse(true);
     }
 
     if (this.sseConnecting || this.sseAbortController) return;
 
+    if (this.sseReconnectTimer) {
+      clearTimeout(this.sseReconnectTimer);
+      this.sseReconnectTimer = null;
+    }
+
     this.sseConnecting = true;
     this.sseActiveToken = currentToken;
+    this.setRealtimeConnectionState(
+      isImmediateReconnect || this.sseHasConnectedBefore ? 'reconnecting' : 'connecting'
+    );
+
     const abortController = new AbortController();
     this.sseAbortController = abortController;
 
     const runStream = async () => {
+      let abortedByWatchdogOrError = false;
       try {
+        const headers: Record<string, string> = {
+          ...authHeaders,
+          Accept: 'text/event-stream'
+        };
+        if (this.sseLastEventId) {
+          headers['Last-Event-ID'] = this.sseLastEventId;
+        }
+
         const response = await fetch('/api/supabase/realtime/stream', {
-          headers: {
-            ...authHeaders,
-            Accept: 'text/event-stream'
-          },
+          headers,
           signal: abortController.signal
         });
 
@@ -1061,6 +1208,7 @@ export class SupabaseRepository {
           throw new Error(`Koneksi SSE ditolak oleh server (Status: ${response.status})`);
         }
 
+        this.resetHeartbeatWatchdog(abortController);
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -1069,19 +1217,61 @@ export class SupabaseRepository {
           const { done, value } = await reader.read();
           if (done) break;
 
+          // Every received frame or keepalive comment resets the 45s heartbeat watchdog
+          this.resetHeartbeatWatchdog(abortController);
+          const nowChunkIso = new Date().toISOString();
+          this.sseLastHeartbeatAt = nowChunkIso;
+
           buffer += decoder.decode(value, { stream: true });
           const blocks = buffer.split('\n\n');
           buffer = blocks.pop() || '';
 
           for (const block of blocks) {
-            const dataLines = block
-              .split('\n')
+            const lines = block.split('\n');
+            const idLine = lines.find(l => l.startsWith('id:'));
+            if (idLine) {
+              const evtId = idLine.slice(3).trim();
+              if (evtId) this.sseLastEventId = evtId;
+            }
+            const dataLines = lines
               .filter(line => line.startsWith('data:'))
               .map(line => line.slice(5).trim());
-            if (dataLines.length === 0) continue;
+            if (dataLines.length === 0) {
+              this.emitRealtimeStatus();
+              continue;
+            }
             const rawJson = dataLines.join('\n');
             try {
               const eventPayload = JSON.parse(rawJson);
+              this.sseLastEventAt = eventPayload?.timestamp || nowChunkIso;
+
+              if (eventPayload?.type === 'CONNECTED') {
+                const wasReconnect = this.sseWasDisconnected || this.sseReconnectAttempt > 0;
+                this.sseHasConnectedBefore = true;
+                this.sseWasDisconnected = false;
+                this.sseReconnectAttempt = 0;
+                this.sseLastConnectedAt = nowChunkIso;
+                if (eventPayload.bridgeStatus) {
+                  this.sseBridgeStatus = String(eventPayload.bridgeStatus);
+                }
+                this.setRealtimeConnectionState('connected');
+                this.addRealtimeLog(
+                  'info',
+                  wasReconnect ? 'SSE_RECONNECTED' : 'SSE_CONNECTED',
+                  wasReconnect
+                    ? 'Stream SSE tersambung kembali. Menjalankan delta catch-up...'
+                    : 'Stream SSE aktif & terverifikasi.'
+                );
+                if (wasReconnect) {
+                  for (const cb of Array.from(this.sseReconnectSubscribers)) {
+                    try {
+                      cb();
+                    } catch {}
+                  }
+                }
+                continue;
+              }
+
               for (const sub of Array.from(this.sseListeners)) {
                 if (
                   (!sub.table || eventPayload.table === sub.table || eventPayload.entity === sub.table) &&
@@ -1092,26 +1282,50 @@ export class SupabaseRepository {
                   } catch {}
                 }
               }
+              this.emitRealtimeStatus();
             } catch {}
           }
         }
       } catch (err: any) {
-        if (!abortController.signal.aborted && this.sseListeners.size > 0) {
+        abortedByWatchdogOrError = true;
+        if (this.sseListeners.size > 0) {
+          const msg = err?.name === 'AbortError' ? 'Stream timeout / dibatalkan untuk reconnect.' : (err?.message || String(err));
+          this.addRealtimeLog('warn', 'SSE_DISCONNECTED', msg);
           for (const sub of Array.from(this.sseListeners)) {
-            sub.onError?.(err instanceof Error ? err : new Error(String(err)));
+            sub.onError?.(err instanceof Error ? err : new Error(msg));
           }
         }
       } finally {
+        if (this.sseWatchdogTimer) {
+          clearTimeout(this.sseWatchdogTimer);
+          this.sseWatchdogTimer = null;
+        }
         this.sseConnecting = false;
         if (this.sseAbortController === abortController) {
           this.sseAbortController = null;
         }
-        if (!abortController.signal.aborted && this.sseListeners.size > 0) {
+
+        const shouldRetry =
+          this.sseListeners.size > 0 &&
+          (typeof navigator === 'undefined' || navigator.onLine !== false) &&
+          (!abortController.signal.aborted || abortedByWatchdogOrError) &&
+          Boolean(getAuthHeaders().Authorization);
+
+        if (shouldRetry) {
+          this.setRealtimeConnectionState('reconnecting');
+          const attempt = this.sseReconnectAttempt;
+          this.sseReconnectAttempt = attempt + 1;
+          const baseDelay = Math.min(30000, 1000 * Math.pow(2, attempt));
+          const jitter = Math.floor(Math.random() * 500);
+          const delayMs = baseDelay + jitter;
           if (this.sseReconnectTimer) clearTimeout(this.sseReconnectTimer);
+          this.addRealtimeLog('info', 'SSE_RETRY_SCHEDULED', `Percobaan ulang #${attempt + 1} dalam ${(delayMs / 1000).toFixed(1)}s`);
           this.sseReconnectTimer = setTimeout(() => {
             this.sseReconnectTimer = null;
-            this.ensureMultiplexedSse();
-          }, 3000);
+            this.ensureMultiplexedSse(true);
+          }, delayMs);
+        } else if (this.sseListeners.size === 0 || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+          this.setRealtimeConnectionState('disconnected');
         }
       }
     };
@@ -1119,10 +1333,14 @@ export class SupabaseRepository {
     void runStream();
   }
 
-  private teardownMultiplexedSse() {
+  private teardownMultiplexedSse(resetState: boolean = true) {
     if (this.sseReconnectTimer) {
       clearTimeout(this.sseReconnectTimer);
       this.sseReconnectTimer = null;
+    }
+    if (this.sseWatchdogTimer) {
+      clearTimeout(this.sseWatchdogTimer);
+      this.sseWatchdogTimer = null;
     }
     if (this.sseAbortController) {
       this.sseAbortController.abort();
@@ -1130,6 +1348,52 @@ export class SupabaseRepository {
     }
     this.sseConnecting = false;
     this.sseActiveToken = null;
+    if (resetState) {
+      this.sseReconnectAttempt = 0;
+      this.sseHasConnectedBefore = false;
+      this.sseWasDisconnected = false;
+      this.setRealtimeConnectionState('disconnected');
+    }
+  }
+
+  async getTicketMessagesPaginated(
+    ticketIdOrWo: string,
+    options?: { limit?: number; before?: string }
+  ): Promise<{ success: boolean; messages: TicketMessage[]; hasMore: boolean; nextCursor: string | null; hasProgressTrigger?: boolean; error?: string }> {
+    try {
+      const qs = new URLSearchParams();
+      if (options?.limit) qs.set('limit', String(options.limit));
+      if (options?.before) qs.set('before', String(options.before));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketIdOrWo)}/messages${suffix}`, {
+        headers: { ...getAuthHeaders() }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          success: false,
+          messages: [],
+          hasMore: false,
+          nextCursor: null,
+          error: json?.error || `Gagal mengambil pesan (${res.status})`
+        };
+      }
+      return {
+        success: true,
+        messages: Array.isArray(json.messages) ? json.messages : [],
+        hasMore: Boolean(json.hasMore),
+        nextCursor: json.nextCursor || null,
+        hasProgressTrigger: Boolean(json.hasProgressTrigger)
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        messages: [],
+        hasMore: false,
+        nextCursor: null,
+        error: err?.message || 'Gagal menghubungi server pesan.'
+      };
+    }
   }
 
   /**
@@ -1144,7 +1408,7 @@ export class SupabaseRepository {
     return () => {
       this.sseListeners.delete(options);
       if (this.sseListeners.size === 0) {
-        this.teardownMultiplexedSse();
+        this.teardownMultiplexedSse(true);
       }
     };
   }

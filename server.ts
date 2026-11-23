@@ -82,7 +82,9 @@ import {
   getAuditLogsFromSupabase,
   insertAuditLogToSupabase,
   getTicketMessagesFromSupabase,
+  getTicketMessagesPaginatedFromSupabase,
   getTicketMessagesForTicketsFromSupabase,
+  getTicketMessagesDeltaForTicketsFromSupabase,
   insertTicketMessageToSupabase,
   markTicketMessagesDeliveredInSupabase,
   markTicketMessagesReadInSupabase,
@@ -108,14 +110,16 @@ import {
   getRolesFromSupabase,
   updateRolePermissionsInSupabase,
   appendProgressReportHistoryToSupabase,
-  appendDistributionLogToSupabase
+  appendDistributionLogToSupabase,
+  postgresRowToTicket
 } from './server/supabaseAdapter.ts';
 import {
   resolveLeaderForWorkOrder,
   isProgressCategoryOnly,
   hasUserSentProgressMessage,
   isContractorMatch,
-  isAreaMatch
+  isAreaMatch,
+  mapSupabaseMessageToModel
 } from './server/appFlowHelpers.ts';
 import {
   computeKpiSummary,
@@ -1222,15 +1226,256 @@ export function logServerAudit(
 
 // --- Realtime SSE Event Bus (Server-Side Managed) ---
 export const backendRealtimeBus = new EventEmitter();
-backendRealtimeBus.setMaxListeners(250);
+backendRealtimeBus.setMaxListeners(500);
+
+let sseSequenceCounter = 0;
+function nextSseEventId(): string {
+  sseSequenceCounter += 1;
+  return `evt_${sseSequenceCounter}_${Date.now()}`;
+}
+
+// 4-second deduplication map so Postgres Realtime Bridge doesn't re-emit mutations already broadcast by Express
+const recentBroadcastDedupeMap = new Map<string, number>();
+function markDirectBroadcast(table: string, eventType: string, record: any) {
+  const recId = String(record?.id || record?.woNumber || '').trim();
+  if (!recId) return;
+  const key = `${table}:${eventType.toUpperCase()}:${recId}`;
+  const now = Date.now();
+  recentBroadcastDedupeMap.set(key, now);
+  if (recentBroadcastDedupeMap.size > 800) {
+    for (const [k, ts] of recentBroadcastDedupeMap.entries()) {
+      if (now - ts > 6000) recentBroadcastDedupeMap.delete(k);
+    }
+  }
+}
+function wasRecentlyDirectBroadcast(table: string, eventType: string, record: any): boolean {
+  const recId = String(record?.id || record?.woNumber || '').trim();
+  if (!recId) return false;
+  const key = `${table}:${eventType.toUpperCase()}:${recId}`;
+  const ts = recentBroadcastDedupeMap.get(key);
+  if (!ts) return false;
+  if (Date.now() - ts <= 4000) return true;
+  recentBroadcastDedupeMap.delete(key);
+  return false;
+}
+
+export interface UserPresenceRecord {
+  userId: string;
+  userName: string;
+  role: string;
+  contractor?: string;
+  contractorId?: string;
+  area?: string;
+  status: 'online' | 'offline';
+  lastSeen: string;
+  connectedAt?: string;
+  connectionCount: number;
+}
+
+const PRESENCE_REGISTRY = new Map<string, UserPresenceRecord>();
+const ACTIVE_SSE_CONNECTION_IDS = new Set<string>();
+
+interface TypingStateEntry {
+  ticketId: string;
+  woNumber: string;
+  userId: string;
+  userName: string;
+  role: string;
+  isTyping: boolean;
+  updatedAt: string;
+  expiresAt: string;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+const TYPING_REGISTRY = new Map<string, Map<string, TypingStateEntry>>();
+
+const REALTIME_TICKET_SCOPE_CACHE = new Map<string, { ticket: any; expiresAt: number }>();
+async function resolveScopeTicketForRealtime(ticketId?: string, woNumber?: string): Promise<any | null> {
+  const keyId = String(ticketId || '').trim();
+  const keyWo = String(woNumber || '').trim();
+  const cacheKey = keyId || keyWo;
+  if (!cacheKey) return null;
+
+  const cached = REALTIME_TICKET_SCOPE_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.ticket;
+  }
+
+  let found =
+    db.tickets.find(t => (keyId && t.id === keyId) || (keyWo && t.woNumber === keyWo)) || null;
+
+  if (!found && isSupabaseMode()) {
+    try {
+      const res = await getWorkOrderByIdOrWoNumberFromSupabase(keyId || keyWo);
+      if (res.success && res.data) {
+        found = res.data;
+      }
+    } catch {}
+  }
+
+  if (found) {
+    const expiresAt = Date.now() + 10000;
+    if (found.id) REALTIME_TICKET_SCOPE_CACHE.set(String(found.id), { ticket: found, expiresAt });
+    if (found.woNumber) REALTIME_TICKET_SCOPE_CACHE.set(String(found.woNumber), { ticket: found, expiresAt });
+  }
+  return found;
+}
+
+function canUserObservePresence(viewer: ServerUser, target: UserPresenceRecord): boolean {
+  if (!viewer || !target) return false;
+  if (viewer.id === target.userId) return true;
+  if (viewer.role === 'super_admin' || viewer.role === 'dispatch') return true;
+  // Operational staff can always see Dispatch & Superadmin availability
+  if (target.role === 'dispatch' || target.role === 'super_admin') return true;
+  const vContr = String(viewer.contractorId || viewer.contractor || '').trim().toLowerCase();
+  const tContr = String(target.contractorId || target.contractor || '').trim().toLowerCase();
+  if (!vContr || !tContr) return false;
+  return isContractorMatch(vContr, tContr);
+}
+
+function clearTypingEntryForUser(ticketId: string, userId: string, broadcastStop: boolean = true) {
+  const room = TYPING_REGISTRY.get(ticketId);
+  if (!room) return;
+  const entry = room.get(userId);
+  if (!entry) return;
+  if (entry.timer) clearTimeout(entry.timer);
+  room.delete(userId);
+  if (room.size === 0) TYPING_REGISTRY.delete(ticketId);
+  if (broadcastStop) {
+    broadcastSupabaseChange('livechat_ephemeral', 'TYPING', {
+      ticketId: entry.ticketId,
+      woNumber: entry.woNumber,
+      userId: entry.userId,
+      userName: entry.userName,
+      role: entry.role,
+      isTyping: false,
+      expiresAt: new Date().toISOString()
+    });
+  }
+}
+
+export const supabaseRealtimeBridgeState: {
+  status: 'disabled' | 'connecting' | 'subscribed' | 'error';
+  channelName: string;
+  lastEventAt: string | null;
+  lastError: string | null;
+  startedAt: string | null;
+  eventsRelayed: number;
+} = {
+  status: 'disabled',
+  channelName: 'morajaws-server-db-sync',
+  lastEventAt: null,
+  lastError: null,
+  startedAt: null,
+  eventsRelayed: 0
+};
+
+let activeSupabaseBridgeChannel: any = null;
+function startSupabasePostgresRealtimeBridge() {
+  if (!isSupabaseMode()) {
+    supabaseRealtimeBridgeState.status = 'disabled';
+    return;
+  }
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    supabaseRealtimeBridgeState.status = 'disabled';
+    return;
+  }
+  if (activeSupabaseBridgeChannel) {
+    return;
+  }
+
+  supabaseRealtimeBridgeState.status = 'connecting';
+  supabaseRealtimeBridgeState.startedAt = new Date().toISOString();
+
+  const handleDbPayload = (table: string, pgPayload: any) => {
+    try {
+      const eventType = String(pgPayload?.eventType || 'UPDATE').toUpperCase();
+      const rawNew = pgPayload?.new && Object.keys(pgPayload.new).length > 0 ? pgPayload.new : null;
+      const rawOld = pgPayload?.old && Object.keys(pgPayload.old).length > 0 ? pgPayload.old : null;
+      let normalizedNew: any = rawNew;
+      let normalizedOld: any = rawOld;
+
+      if (table === 'work_orders') {
+        normalizedNew = rawNew ? postgresRowToTicket(rawNew) : (rawOld ? { id: rawOld.id, woNumber: rawOld.wo_number } : null);
+        normalizedOld = rawOld ? postgresRowToTicket(rawOld) : undefined;
+        if (normalizedNew?.id) {
+          REALTIME_TICKET_SCOPE_CACHE.delete(String(normalizedNew.id));
+        }
+        if (normalizedNew?.woNumber) {
+          REALTIME_TICKET_SCOPE_CACHE.delete(String(normalizedNew.woNumber));
+        }
+      } else if (table === 'ticket_messages') {
+        normalizedNew = rawNew ? mapSupabaseMessageToModel(rawNew) : rawOld;
+      }
+
+      if (!normalizedNew) return;
+      if (wasRecentlyDirectBroadcast(table, eventType, normalizedNew)) {
+        return;
+      }
+
+      supabaseRealtimeBridgeState.lastEventAt = new Date().toISOString();
+      supabaseRealtimeBridgeState.eventsRelayed += 1;
+
+      broadcastSupabaseChange(
+        table,
+        eventType,
+        normalizedNew,
+        {
+          ...(normalizedOld ? { previousRecord: normalizedOld } : {}),
+          fromDbBridge: true
+        }
+      );
+    } catch (err: any) {
+      supabaseRealtimeBridgeState.lastError = err?.message || 'DB bridge parse error';
+    }
+  };
+
+  try {
+    const channel = client
+      .channel(supabaseRealtimeBridgeState.channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_orders' }, (p: any) => handleDbPayload('work_orders', p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_messages' }, (p: any) => handleDbPayload('ticket_messages', p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contractors' }, (p: any) => handleDbPayload('contractors', p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coverage_areas' }, (p: any) => handleDbPayload('coverage_areas', p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, (p: any) => handleDbPayload('app_settings', p));
+
+    channel.subscribe((status: string, err?: any) => {
+      if (status === 'SUBSCRIBED') {
+        supabaseRealtimeBridgeState.status = 'subscribed';
+        supabaseRealtimeBridgeState.lastError = null;
+        console.log('[Supabase Realtime Bridge] Subscribed to postgres_changes on public tables.');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        supabaseRealtimeBridgeState.status = 'error';
+        supabaseRealtimeBridgeState.lastError = err?.message || status;
+        console.warn(`[Supabase Realtime Bridge] Channel status: ${status}`, err?.message || '');
+      } else if (status === 'CLOSED') {
+        supabaseRealtimeBridgeState.status = 'disabled';
+        activeSupabaseBridgeChannel = null;
+      }
+    });
+    activeSupabaseBridgeChannel = channel;
+  } catch (err: any) {
+    supabaseRealtimeBridgeState.status = 'error';
+    supabaseRealtimeBridgeState.lastError = err?.message || 'Failed to subscribe postgres_changes';
+  }
+}
 
 export function broadcastSupabaseChange(
   table: string,
   eventType: string,
   record: any,
-  options?: { scopeTicket?: any; previousRecord?: any }
+  options?: { scopeTicket?: any; previousRecord?: any; fromDbBridge?: boolean }
 ) {
+  if (!options?.fromDbBridge) {
+    markDirectBroadcast(table, eventType, record);
+  }
+  if (table === 'work_orders' && record) {
+    if (record.id) REALTIME_TICKET_SCOPE_CACHE.delete(String(record.id));
+    if (record.woNumber) REALTIME_TICKET_SCOPE_CACHE.delete(String(record.woNumber));
+  }
   backendRealtimeBus.emit('change', {
+    eventId: nextSseEventId(),
     table,
     eventType,
     record,
@@ -2711,6 +2956,19 @@ export async function createExpressApp(options?: {
     .map(o => o.trim())
     .filter(Boolean);
 
+  const knownProductionOrigins = new Set<string>([
+    'https://morajawskow.ai.studio',
+    'https://morajaws.ai.studio',
+    ...configuredCorsOrigins
+  ]);
+  for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.APP_BASE_URL]) {
+    if (rawBase && rawBase.trim()) {
+      try {
+        knownProductionOrigins.add(new URL(rawBase.trim()).origin);
+      } catch {}
+    }
+  }
+
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     const isDev = process.env.NODE_ENV !== 'production';
@@ -2719,21 +2977,44 @@ export async function createExpressApp(options?: {
     let allowedOriginToSet: string | null = null;
 
     if (!origin) {
-      // Same-origin, direct server-to-server or non-browser request
+      // Direct server-to-server, navigation, or non-CORS request
       isAllowed = true;
     } else {
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-      const isAiStudioPreview = /(?:\.run\.app|\.aistudio-preview\.app|\.google\.com|\.googleusercontent\.com)(:\d+)?$/.test(origin);
+      let parsedOrigin: URL | null = null;
+      try {
+        parsedOrigin = new URL(origin);
+      } catch {
+        parsedOrigin = null;
+      }
 
-      if (isDev || isLocalhost || isAiStudioPreview) {
+      const originHostname = parsedOrigin?.hostname.toLowerCase() || '';
+      const originHost = parsedOrigin?.host.toLowerCase() || '';
+      const isHttpProtocol = parsedOrigin?.protocol === 'http:' || parsedOrigin?.protocol === 'https:';
+
+      const isLocalhost = isHttpProtocol && (originHostname === 'localhost' || originHostname === '127.0.0.1');
+      const isAiStudioPreview =
+        parsedOrigin?.protocol === 'https:' &&
+        (originHostname.endsWith('.run.app') ||
+          originHostname.endsWith('.aistudio-preview.app') ||
+          originHostname.endsWith('.google.com') ||
+          originHostname.endsWith('.googleusercontent.com'));
+
+      // Browser always sends Origin on <script type="module" crossorigin>, <link crossorigin>, and mutating fetch calls even when same-origin
+      const forwardedHostRaw = req.headers['x-forwarded-host'];
+      const forwardedHost = (Array.isArray(forwardedHostRaw) ? forwardedHostRaw[0] : forwardedHostRaw || '')
+        .split(',')[0]
+        .trim()
+        .toLowerCase();
+      const reqHost = (req.headers.host || '').trim().toLowerCase();
+      const isSameOrigin = Boolean(
+        isHttpProtocol &&
+          originHost &&
+          ((forwardedHost && originHost === forwardedHost) || (reqHost && originHost === reqHost))
+      );
+
+      if (isDev || isLocalhost || isSameOrigin || isAiStudioPreview || knownProductionOrigins.has(origin)) {
         isAllowed = true;
         allowedOriginToSet = origin;
-      } else if (configuredCorsOrigins.length > 0) {
-        // Strict exact match only - NO wildcards permitted
-        if (configuredCorsOrigins.includes(origin)) {
-          isAllowed = true;
-          allowedOriginToSet = origin;
-        }
       } else {
         // Strictly reject unknown external origins in production
         isAllowed = false;
@@ -2910,6 +3191,12 @@ export async function createExpressApp(options?: {
         status: isSupabaseActive ? 'ready' : (isSupaConfigured ? 'disconnected' : 'not_configured'),
         connectedFunctions: 33,
         mode: 'authoritative_primary_production'
+      },
+      realtime: {
+        sseActiveConnections: ACTIVE_SSE_CONNECTION_IDS.size,
+        onlineUsersCount: Array.from(PRESENCE_REGISTRY.values()).filter(p => p.status === 'online').length,
+        lastEventSequence: sseSequenceCounter,
+        supabaseDbBridge: supabaseRealtimeBridgeState
       },
       integrations: {
         googleSheets: {
@@ -4373,6 +4660,7 @@ export async function createExpressApp(options?: {
       });
     }
 
+    let savedTicket = newTicket;
     if (isSupabaseMode()) {
       const insRes = await insertWorkOrderToSupabase(newTicket);
       if (!insRes.success && !isLocalJsonModeAllowed()) {
@@ -4382,19 +4670,22 @@ export async function createExpressApp(options?: {
           code: 'DATABASE_UNAVAILABLE'
         });
       }
+      if (insRes.success && insRes.data) savedTicket = insRes.data;
     }
 
     if (isLocalJsonModeAllowed()) {
-      db.tickets.unshift(newTicket);
+      db.tickets.unshift(savedTicket);
       saveDatabaseToDisk();
     }
 
-    await logServerAuditAsync('Create Sameday WO', 'ticket', newTicket.id, `Dispatcher ${req.user!.name} mendaftarkan tiket sameday ${newTicket.woNumber} untuk ${newTicket.customerName}`, req.user, { level: 'critical' });
+    broadcastSupabaseChange('work_orders', 'INSERT', savedTicket);
+
+    await logServerAuditAsync('Create Sameday WO', 'ticket', savedTicket.id, `Dispatcher ${req.user!.name} mendaftarkan tiket sameday ${savedTicket.woNumber} untuk ${savedTicket.customerName}`, req.user, { level: 'critical' });
 
     res.json({
       success: true,
-      ticket: newTicket,
-      message: `Tiket Sameday ${newTicket.woNumber} berhasil diterbitkan.`
+      ticket: savedTicket,
+      message: `Tiket Sameday ${savedTicket.woNumber} berhasil diterbitkan.`
     });
   });
 
@@ -4862,8 +5153,14 @@ export async function createExpressApp(options?: {
     if (isSupabaseMode()) {
       const results: any[] = [];
       const errors: Array<{ id: string; error: string; code?: string; isUnavailable?: boolean; details?: any }> = [];
+      const prevTicketsById = new Map<string, any>();
 
       for (const id of assignedIds) {
+        const preFetch = await getWorkOrderByIdOrWoNumberFromSupabase(id).catch(() => null);
+        if (preFetch?.success && preFetch.data) {
+          prevTicketsById.set(String(preFetch.data.id), preFetch.data);
+          if (preFetch.data.woNumber) prevTicketsById.set(String(preFetch.data.woNumber), preFetch.data);
+        }
         const assignRes = await assignTicketInSupabase({
           workOrderIdOrWoNumber: id,
           installerName: installerName.trim(),
@@ -4926,7 +5223,8 @@ export async function createExpressApp(options?: {
       if (results.length > 0) {
         for (const r of results) {
           if (r?.workOrder) {
-            broadcastSupabaseChange('work_orders', 'UPDATE', r.workOrder);
+            const prevRecord = prevTicketsById.get(String(r.workOrder.id)) || prevTicketsById.get(String(r.workOrder.woNumber));
+            broadcastSupabaseChange('work_orders', 'UPDATE', r.workOrder, prevRecord ? { previousRecord: prevRecord } : undefined);
           }
         }
         const successWoNumbers = results.map(r => r.workOrder?.woNumber || r.workOrder?.id).join(',');
@@ -9657,8 +9955,37 @@ export async function createExpressApp(options?: {
 
   app.post('/api/storage/adapter/upload', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const { fileName, fileData, mimeType, fileCategory, relatedWoNumber } = req.body;
+    const user = req.user!;
     if (!fileName || !fileData) {
       return res.status(400).json({ error: 'Parameter fileName dan fileData wajib disertakan.' });
+    }
+
+    const effectiveCategory = (fileCategory || 'image_report') as 'image_report' | 'wo_document' | 'chat_attachment' | 'user_profile';
+    if (effectiveCategory === 'chat_attachment') {
+      if (user.role === 'leader') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Role Leader hanya berfungsi sebagai pemantauan percakapan (Read-Only).',
+          code: 'LEADER_READ_ONLY_CHAT'
+        });
+      }
+      if (relatedWoNumber) {
+        let ticketObj: any = null;
+        if (isSupabaseMode()) {
+          const woRes = await getWorkOrderByIdOrWoNumberFromSupabase(String(relatedWoNumber).trim());
+          if (woRes.success && woRes.data) ticketObj = woRes.data;
+        }
+        if (!ticketObj && isLocalJsonModeAllowed()) {
+          ticketObj = db.tickets.find(t => t.woNumber === relatedWoNumber || t.id === relatedWoNumber) || null;
+        }
+        if (ticketObj && !checkTicketAccess(ticketObj, user)) {
+          return res.status(403).json({
+            success: false,
+            error: 'Akses Ditolak: Anda tidak memiliki wewenang mengunggah lampiran chat ke Work Order ini.',
+            code: 'FORBIDDEN_SCOPE'
+          });
+        }
+      }
     }
 
     let buffer: Buffer;
@@ -9673,10 +10000,10 @@ export async function createExpressApp(options?: {
     }
 
     const uploadRes = await uploadFile({
-      userId: req.user!.id,
-      userRole: req.user!.role,
-      userName: req.user!.name,
-      fileCategory: fileCategory || 'image_report',
+      userId: user.id,
+      userRole: user.role,
+      userName: user.name,
+      fileCategory: effectiveCategory,
       fileName,
       fileBuffer: buffer,
       mimeType: mimeType || 'image/jpeg',
@@ -9697,6 +10024,8 @@ export async function createExpressApp(options?: {
       success: true,
       metadata: uploadRes.metadata,
       signedUrl: uploadRes.signedUrl,
+      downloadUrl: uploadRes.downloadUrl,
+      storageProvider: uploadRes.storageProvider,
       expiresIn: uploadRes.expiresIn,
       isPermanentReference: false
     });
@@ -9718,17 +10047,24 @@ export async function createExpressApp(options?: {
 
     let ticketsForAccess = db.tickets || [];
     if (woNumber && isSupabaseMode()) {
-      const hasLocal = ticketsForAccess.some(t => t.woNumber === woNumber || t.id === woNumber);
-      if (!hasLocal) {
-        const supaWo = await getWorkOrderByWoNumberFromSupabase(woNumber);
-        if (supaWo.success && supaWo.data) {
-          ticketsForAccess = [supaWo.data];
-        } else {
-          const supaById = await getWorkOrderByIdFromSupabase(woNumber);
-          if (supaById.success && supaById.data) {
-            ticketsForAccess = [supaById.data];
-          }
+      const supaWo = await getWorkOrderByWoNumberFromSupabase(woNumber);
+      if (supaWo.success && supaWo.data) {
+        ticketsForAccess = [supaWo.data];
+      } else {
+        const supaById = await getWorkOrderByIdFromSupabase(woNumber);
+        if (supaById.success && supaById.data) {
+          ticketsForAccess = [supaById.data];
         }
+      }
+    }
+
+    if (woNumber && ticketsForAccess.length > 0) {
+      const matchedTicket = ticketsForAccess.find(t => (t.woNumber && t.woNumber === woNumber) || (t.id && t.id === woNumber));
+      if (matchedTicket && !checkTicketAccess(matchedTicket, req.user!)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Ditolak: Anda tidak memiliki hak akses ke file Work Order ini.'
+        });
       }
     }
 
@@ -10226,7 +10562,7 @@ export async function createExpressApp(options?: {
         const idx = db.tickets.findIndex(t => t.id === existing.id || t.woNumber === existing.woNumber);
         if (idx >= 0) db.tickets[idx] = updatedTicket;
         saveDatabaseToDisk();
-        broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket);
+        broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: existing });
         await logServerAuditAsync('Work Order Updated (Local Dev)', 'work_order', cleanId, `WO ${updatedTicket.woNumber || cleanId} diperbarui oleh ${user.name}`, user);
         return res.json({ success: true, data: updatedTicket });
       }
@@ -10245,7 +10581,7 @@ export async function createExpressApp(options?: {
       }
       saveDatabaseToDisk();
 
-      broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket);
+      broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: existing });
       await logServerAuditAsync('Work Order Updated (Supabase)', 'work_order', cleanId, `WO ${updatedTicket.woNumber || cleanId} diperbarui oleh ${user.name}`, user);
 
       return res.json({ success: true, data: updatedTicket });
@@ -11912,9 +12248,12 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // 23. GET /api/supabase/realtime/stream (SSE Stream for live Supabase changes)
+  // 23. GET /api/supabase/realtime/stream (SSE Stream for live Supabase changes + Presence + Ephemeral Typing)
   app.get('/api/supabase/realtime/stream', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
+    const connectionId = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const connectedAtIso = new Date().toISOString();
+    let isClosed = false;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -11922,17 +12261,77 @@ export async function createExpressApp(options?: {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    // Send initial connection greeting with CONNECTED status
-    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', status: 'CONNECTED', userId: user.id, role: user.role, timestamp: new Date().toISOString() })}\n\n`);
+    ACTIVE_SSE_CONNECTION_IDS.add(connectionId);
 
-    const handleEvent = (event: { table: string; eventType: string; record: any; scopeTicket?: any; previousRecord?: any; timestamp: string }) => {
+    // Update live presence registry & notify authorized listeners when transitioning offline -> online
+    const existingPresence = PRESENCE_REGISTRY.get(user.id);
+    const nextCount = (existingPresence?.connectionCount || 0) + 1;
+    const presenceEntry: UserPresenceRecord = {
+      userId: user.id,
+      userName: user.name,
+      role: user.role,
+      contractor: user.contractor,
+      contractorId: user.contractorId,
+      area: user.area,
+      status: 'online',
+      lastSeen: connectedAtIso,
+      connectedAt: existingPresence?.connectedAt || connectedAtIso,
+      connectionCount: nextCount
+    };
+    PRESENCE_REGISTRY.set(user.id, presenceEntry);
+    if (!existingPresence || existingPresence.status !== 'online') {
+      broadcastSupabaseChange('presence', 'PRESENCE_UPDATE', {
+        userId: presenceEntry.userId,
+        userName: presenceEntry.userName,
+        role: presenceEntry.role,
+        contractor: presenceEntry.contractor,
+        contractorId: presenceEntry.contractorId,
+        area: presenceEntry.area,
+        status: 'online',
+        lastSeen: connectedAtIso
+      });
+    }
+
+    // Send initial connection greeting with CONNECTED status & SSE frame id
+    const greetingId = nextSseEventId();
+    res.write(
+      `id: ${greetingId}\ndata: ${JSON.stringify({
+        type: 'CONNECTED',
+        status: 'CONNECTED',
+        userId: user.id,
+        role: user.role,
+        lastEventId: req.headers['last-event-id'] || null,
+        bridgeStatus: supabaseRealtimeBridgeState.status,
+        timestamp: connectedAtIso
+      })}\n\n`
+    );
+
+    const writeSseEvent = (eventId: string, safePayload: Record<string, any>) => {
+      if (isClosed) return;
       try {
-        // Enforce RBAC filtering on broadcasted records
-        if (event.table === 'work_orders' && event.record) {
-          if (!checkTicketAccess(event.record, user)) {
-            if (event.previousRecord && checkTicketAccess(event.previousRecord, user)) {
-              res.write(
-                `data: ${JSON.stringify({
+        res.write(`id: ${eventId}\ndata: ${JSON.stringify(safePayload)}\n\n`);
+      } catch {}
+    };
+
+    const handleEvent = (event: {
+      eventId?: string;
+      table: string;
+      eventType: string;
+      record: any;
+      scopeTicket?: any;
+      previousRecord?: any;
+      timestamp: string;
+    }) => {
+      if (isClosed) return;
+      const evtId = event.eventId || nextSseEventId();
+
+      // Synchronous fast-path & async Supabase scope resolution for ticket_messages / livechat_ephemeral
+      const processAsync = async () => {
+        try {
+          if (event.table === 'work_orders' && event.record) {
+            if (!checkTicketAccess(event.record, user)) {
+              if (event.previousRecord && checkTicketAccess(event.previousRecord, user)) {
+                writeSseEvent(evtId, {
                   table: 'work_orders',
                   eventType: 'ACCESS_REVOKED',
                   record: {
@@ -11940,55 +12339,230 @@ export async function createExpressApp(options?: {
                     woNumber: event.record.woNumber
                   },
                   timestamp: event.timestamp
-                })}\n\n`
-              );
-            }
-            return; // Filtered out by strict server-side RBAC
-          }
-        }
-        if (event.table === 'ticket_messages' && event.record) {
-          const rec = event.record;
-          const relatedTicket =
-            event.scopeTicket ||
-            db.tickets.find(t => t.id === rec.ticketId || (rec.woNumber && t.woNumber === rec.woNumber));
-          if (relatedTicket) {
-            if (!checkTicketAccess(relatedTicket, user)) {
+                });
+              }
               return;
             }
-          } else if (user.role === 'installer' || user.role === 'leader') {
-            return;
           }
-        }
-        if (event.table === 'installer_tracking' && event.record) {
-          if (!checkInstallerTrackingReadAccess(event.record, user)) {
-            return;
+
+          if ((event.table === 'ticket_messages' || event.table === 'livechat_ephemeral') && event.record) {
+            const rec = event.record;
+            // Suppress typing echoes back to sender
+            if (event.table === 'livechat_ephemeral' && String(rec.userId || '') === String(user.id)) {
+              return;
+            }
+            const relatedTicket =
+              event.scopeTicket ||
+              (await resolveScopeTicketForRealtime(rec.ticketId, rec.woNumber));
+            if (relatedTicket) {
+              if (!checkTicketAccess(relatedTicket, user)) {
+                return;
+              }
+            } else if (user.role === 'installer' || user.role === 'leader') {
+              return;
+            }
           }
+
+          if (event.table === 'presence' && event.record) {
+            if (!canUserObservePresence(user, event.record)) {
+              return;
+            }
+          }
+
+          if (event.table === 'installer_tracking' && event.record) {
+            if (!checkInstallerTrackingReadAccess(event.record, user)) {
+              return;
+            }
+          }
+
+          writeSseEvent(evtId, {
+            table: event.table,
+            eventType: event.eventType,
+            record: event.record,
+            timestamp: event.timestamp
+          });
+        } catch (err) {
+          console.error('[SSE Stream Error] Failed to process/write event:', err);
         }
-        const safePayload = {
-          table: event.table,
-          eventType: event.eventType,
-          record: event.record,
-          timestamp: event.timestamp
-        };
-        res.write(`data: ${JSON.stringify(safePayload)}\n\n`);
-      } catch (err) {
-        console.error('[SSE Stream Error] Failed to write event:', err);
-      }
+      };
+
+      void processAsync();
     };
 
     backendRealtimeBus.on('change', handleEvent);
 
     // Heartbeat every 20 seconds to prevent network proxy timeout
     const keepaliveTimer = setInterval(() => {
+      if (isClosed) return;
       try {
-        res.write(': keepalive\n\n');
+        res.write(`: keepalive ${new Date().toISOString()}\n\n`);
       } catch {}
     }, 20000);
 
     req.on('close', () => {
+      isClosed = true;
       clearInterval(keepaliveTimer);
       backendRealtimeBus.off('change', handleEvent);
+      ACTIVE_SSE_CONNECTION_IDS.delete(connectionId);
+
+      const current = PRESENCE_REGISTRY.get(user.id);
+      if (current) {
+        const remaining = Math.max(0, (current.connectionCount || 1) - 1);
+        const nowOff = new Date().toISOString();
+        current.connectionCount = remaining;
+        current.lastSeen = nowOff;
+        if (remaining === 0) {
+          current.status = 'offline';
+          // Clear any lingering typing indicators authored by this disconnected user
+          for (const ticketIdKey of Array.from(TYPING_REGISTRY.keys())) {
+            clearTypingEntryForUser(ticketIdKey, user.id, true);
+          }
+          broadcastSupabaseChange('presence', 'PRESENCE_UPDATE', {
+            userId: current.userId,
+            userName: current.userName,
+            role: current.role,
+            contractor: current.contractor,
+            contractorId: current.contractorId,
+            area: current.area,
+            status: 'offline',
+            lastSeen: nowOff
+          });
+        }
+      }
     });
+  });
+
+  // 23b. GET /api/realtime/status (Authenticated Diagnostics for Connection Monitor UI)
+  app.get('/api/realtime/status', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    const visibleOnlineCount = Array.from(PRESENCE_REGISTRY.values()).filter(
+      p => p.status === 'online' && canUserObservePresence(user, p)
+    ).length;
+    return res.json({
+      success: true,
+      sseActiveConnections: ACTIVE_SSE_CONNECTION_IDS.size,
+      visibleOnlineUsers: visibleOnlineCount,
+      lastEventSequence: sseSequenceCounter,
+      supabaseDbBridge: {
+        status: supabaseRealtimeBridgeState.status,
+        lastEventAt: supabaseRealtimeBridgeState.lastEventAt,
+        eventsRelayed: supabaseRealtimeBridgeState.eventsRelayed
+      },
+      serverTime: new Date().toISOString()
+    });
+  });
+
+  // 23c. GET /api/livechat/presence (Scoped Live Presence & Last Seen Registry)
+  app.get('/api/livechat/presence', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    const users = Array.from(PRESENCE_REGISTRY.values())
+      .filter(entry => canUserObservePresence(user, entry))
+      .map(entry => ({
+        userId: entry.userId,
+        userName: entry.userName,
+        role: entry.role,
+        contractor: entry.contractor,
+        area: entry.area,
+        status: entry.status,
+        lastSeen: entry.lastSeen
+      }));
+    return res.json({
+      success: true,
+      users,
+      serverTime: new Date().toISOString()
+    });
+  });
+
+  // 23d. POST /api/livechat/typing (Ephemeral, non-persisted Typing Indicator Broadcast)
+  app.post('/api/livechat/typing', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
+    if (user.role === 'leader') {
+      return res.status(403).json({
+        success: false,
+        error: 'Akses Ditolak: Role Leader bersifat Read-Only pada LiveChat.',
+        code: 'LEADER_READ_ONLY_CHAT'
+      });
+    }
+
+    const { ticketId, woNumber, isTyping } = req.body || {};
+    const targetKey = String(ticketId || woNumber || '').trim();
+    if (!targetKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parameter ticketId atau woNumber wajib disertakan.',
+        code: 'INVALID_INPUT'
+      });
+    }
+
+    const scopeTicket = await resolveScopeTicketForRealtime(ticketId, woNumber);
+    if (scopeTicket && !checkTicketAccess(scopeTicket, user)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Akses Ditolak: Anda tidak memiliki akses ke percakapan Work Order ini.',
+        code: 'FORBIDDEN_SCOPE'
+      });
+    }
+    if (!scopeTicket && user.role === 'installer') {
+      return res.status(403).json({
+        success: false,
+        error: 'Akses Ditolak: Work Order tidak ditemukan dalam cakupan penugasan Anda.',
+        code: 'FORBIDDEN_SCOPE'
+      });
+    }
+
+    const canonicalTicketId = String(scopeTicket?.id || ticketId || targetKey);
+    const canonicalWoNumber = String(scopeTicket?.woNumber || woNumber || targetKey);
+    const activeTyping = Boolean(isTyping);
+
+    if (!activeTyping) {
+      clearTypingEntryForUser(canonicalTicketId, user.id, true);
+      return res.json({ success: true, isTyping: false });
+    }
+
+    let room = TYPING_REGISTRY.get(canonicalTicketId);
+    if (!room) {
+      room = new Map<string, TypingStateEntry>();
+      TYPING_REGISTRY.set(canonicalTicketId, room);
+    }
+
+    const existing = room.get(user.id);
+    if (existing?.timer) clearTimeout(existing.timer);
+
+    const nowMs = Date.now();
+    const expiresAtIso = new Date(nowMs + 5000).toISOString();
+    const timer = setTimeout(() => {
+      clearTypingEntryForUser(canonicalTicketId, user.id, true);
+    }, 5000);
+
+    const entry: TypingStateEntry = {
+      ticketId: canonicalTicketId,
+      woNumber: canonicalWoNumber,
+      userId: user.id,
+      userName: user.name,
+      role: user.role,
+      isTyping: true,
+      updatedAt: new Date(nowMs).toISOString(),
+      expiresAt: expiresAtIso,
+      timer
+    };
+    room.set(user.id, entry);
+
+    broadcastSupabaseChange(
+      'livechat_ephemeral',
+      'TYPING',
+      {
+        ticketId: canonicalTicketId,
+        woNumber: canonicalWoNumber,
+        userId: user.id,
+        userName: user.name,
+        role: user.role,
+        isTyping: true,
+        expiresAt: expiresAtIso
+      },
+      { scopeTicket: scopeTicket || undefined }
+    );
+
+    return res.json({ success: true, isTyping: true, expiresAt: expiresAtIso });
   });
 
   // ==============================================================================
@@ -12557,6 +13131,9 @@ export async function createExpressApp(options?: {
     const now = new Date().toISOString();
 
     if (isSupabaseMode()) {
+      const preFetch = await getWorkOrderByIdOrWoNumberFromSupabase(id).catch(() => null);
+      const prevWoSnapshot = preFetch?.success && preFetch.data ? preFetch.data : undefined;
+
       const assignRes = await assignTicketInSupabase({
         workOrderIdOrWoNumber: id,
         installerName: installerName.trim(),
@@ -12586,13 +13163,17 @@ export async function createExpressApp(options?: {
           });
         }
       } else {
-        const woNumber = assignRes.data?.workOrder?.woNumber || id;
+        const assignedWo = assignRes.data?.workOrder;
+        const woNumber = assignedWo?.woNumber || id;
+        if (assignedWo) {
+          broadcastSupabaseChange('work_orders', 'UPDATE', assignedWo, prevWoSnapshot ? { previousRecord: prevWoSnapshot } : undefined);
+        }
         await logServerAuditAsync('Work Order Assigned', 'work_order', woNumber, `WO ${woNumber} ditugaskan ke teknisi ${installerName.trim()}`, req.user);
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
             message: `Work Order berhasil ditugaskan ke teknisi ${installerName.trim()}`,
-            workOrder: assignRes.data?.workOrder,
+            workOrder: assignedWo,
             history: assignRes.data?.history
           });
         }
@@ -12612,6 +13193,7 @@ export async function createExpressApp(options?: {
         return res.status(403).json({ error: `Akses Ditolak: Teknisi "${installerName.trim()}" tidak aktif atau berada di luar cakupan Anda.`, code: 'SCOPE_MISMATCH' });
       }
 
+      const prevSnapshot = { ...target };
       const updates: Partial<Ticket> = {
         installerName: targetInstaller.name,
         installerId: targetInstaller.id,
@@ -12639,6 +13221,7 @@ export async function createExpressApp(options?: {
         notes: remarks || ''
       });
       saveDatabaseToDisk();
+      broadcastSupabaseChange('work_orders', 'UPDATE', target, { previousRecord: prevSnapshot });
       await logServerAuditAsync('Work Order Assigned', 'work_order', target.woNumber, `WO ${target.woNumber} ditugaskan ke teknisi ${targetInstaller.name}`, req.user);
       return res.json({ success: true, message: `Work Order berhasil ditugaskan ke teknisi ${targetInstaller.name}`, workOrder: target });
     }
@@ -12663,6 +13246,9 @@ export async function createExpressApp(options?: {
     const now = new Date().toISOString();
 
     if (isSupabaseMode()) {
+      const preFetch = await getWorkOrderByIdOrWoNumberFromSupabase(id).catch(() => null);
+      const prevWoSnapshot = preFetch?.success && preFetch.data ? preFetch.data : undefined;
+
       const reassignRes = await reassignTicketInSupabase({
         workOrderIdOrWoNumber: id,
         newInstallerName: newInstallerName.trim(),
@@ -12690,13 +13276,17 @@ export async function createExpressApp(options?: {
           });
         }
       } else {
-        const woNumber = reassignRes.data?.workOrder?.woNumber || id;
+        const reassignedWo = reassignRes.data?.workOrder;
+        const woNumber = reassignedWo?.woNumber || id;
+        if (reassignedWo) {
+          broadcastSupabaseChange('work_orders', 'UPDATE', reassignedWo, prevWoSnapshot ? { previousRecord: prevWoSnapshot } : undefined);
+        }
         await logServerAuditAsync('Work Order Reassigned', 'work_order', woNumber, `WO ${woNumber} dialihkan ke ${newInstallerName.trim()}. Alasan: ${reason.trim()}`, req.user);
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
             message: `Work Order berhasil dialihkan ke ${newInstallerName.trim()}`,
-            workOrder: reassignRes.data?.workOrder,
+            workOrder: reassignedWo,
             history: reassignRes.data?.history
           });
         }
@@ -12716,6 +13306,7 @@ export async function createExpressApp(options?: {
         return res.status(403).json({ error: `Akses Ditolak: Teknisi "${newInstallerName.trim()}" tidak aktif atau berada di luar cakupan Anda.`, code: 'SCOPE_MISMATCH' });
       }
 
+      const prevSnapshot = { ...target };
       const prevName = target.installerName || 'Sebelumnya';
       const updates: Partial<Ticket> = {
         installerName: targetInstaller.name,
@@ -12742,6 +13333,7 @@ export async function createExpressApp(options?: {
         notes: reason.trim()
       });
       saveDatabaseToDisk();
+      broadcastSupabaseChange('work_orders', 'UPDATE', target, { previousRecord: prevSnapshot });
       await logServerAuditAsync('Work Order Reassigned', 'work_order', target.woNumber, `WO ${target.woNumber} dialihkan dari ${prevName} ke ${targetInstaller.name}. Alasan: ${reason}`, req.user);
       return res.json({ success: true, message: `Work Order berhasil dialihkan dari ${prevName} ke ${targetInstaller.name}`, workOrder: target });
     }
@@ -13656,11 +14248,16 @@ export async function createExpressApp(options?: {
     const now = new Date().toISOString();
     const reassigned: any[] = [];
     const failed: Array<{ id: string; error: string; code?: string }> = [];
+    const prevSnapshotMap = new Map<string, any>();
 
     if (isSupabaseMode()) {
       for (const rawId of ticketIds) {
         const key = String(rawId || '').trim();
         if (!key) continue;
+        const preFetch = await getWorkOrderByIdOrWoNumberFromSupabase(key).catch(() => null);
+        if (preFetch?.success && preFetch.data) {
+          prevSnapshotMap.set(String(preFetch.data.id), preFetch.data);
+        }
         const r = await reassignTicketInSupabase({
           workOrderIdOrWoNumber: key,
           newInstallerName: cleanTargetName,
@@ -13709,6 +14306,7 @@ export async function createExpressApp(options?: {
           failed.push({ id: key, error: 'Di luar cakupan Contractor/Area Leader.', code: 'SCOPE_MISMATCH' });
           continue;
         }
+        prevSnapshotMap.set(String(ticket.id), { ...ticket });
         const prevInstallerSnapshot = ticket.installerName || 'Unassigned';
         const prevStatusSnapshot = ticket.statusWOInstaller || 'Assigned';
         const preservedStatus = ticket.checkInAt ? ticket.statusWOInstaller : 'Assigned';
@@ -13753,11 +14351,12 @@ export async function createExpressApp(options?: {
         `Leader ${user.name} melakukan Bulk Reassign ${reassigned.length} WO ke teknisi ${cleanTargetName}. Alasan: ${cleanReason}`,
         user
       );
-      broadcastSupabaseChange('work_orders', 'UPDATE', {
-        action: 'BULK_REASSIGN',
-        count: reassigned.length,
-        installerName: cleanTargetName
-      });
+      for (const item of reassigned) {
+        if (item.workOrder) {
+          const prevSnap = prevSnapshotMap.get(String(item.workOrder.id));
+          broadcastSupabaseChange('work_orders', 'UPDATE', item.workOrder, prevSnap ? { previousRecord: prevSnap } : undefined);
+        }
+      }
     }
 
     if (reassigned.length === 0 && failed.length > 0) {
@@ -13976,9 +14575,12 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // --- Live Chat Messages with RBAC & Auto Check-in Engine ---
+  // --- Live Chat Messages with RBAC, Cursor Pagination, Idempotency & Auto Check-in Engine ---
   app.get('/api/tickets/:id/messages', requireAuth, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
+    const rawLimit = req.query.limit ? Number(req.query.limit) : undefined;
+    const rawBefore = req.query.before ? String(req.query.before).trim() : undefined;
+    const usePagination = (typeof rawLimit === 'number' && !Number.isNaN(rawLimit) && rawLimit > 0) || Boolean(rawBefore);
 
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({
@@ -14005,13 +14607,34 @@ export async function createExpressApp(options?: {
           }
         }
 
-        const msgRes = await getTicketMessagesFromSupabase(ticketObj ? ticketObj.id : id);
-        if (msgRes.success && msgRes.data) {
-          const hasProgressTrigger =
-            req.user!.role === 'installer' &&
-            hasUserSentProgressMessage(msgRes.data, ticketObj || id, req.user!.id);
-          return res.json({ success: true, messages: msgRes.data, hasProgressTrigger });
-        } else if (!isLocalJsonModeAllowed()) {
+        const lookupKey = ticketObj ? ticketObj.id : id;
+        if (usePagination) {
+          const pageRes = await getTicketMessagesPaginatedFromSupabase(lookupKey, {
+            limit: rawLimit || 50,
+            before: rawBefore
+          });
+          if (pageRes.success && pageRes.data) {
+            const hasProgressTrigger =
+              req.user!.role === 'installer' &&
+              hasUserSentProgressMessage(pageRes.data.messages, ticketObj || id, req.user!.id);
+            return res.json({
+              success: true,
+              messages: pageRes.data.messages,
+              hasMore: pageRes.data.hasMore,
+              nextCursor: pageRes.data.nextCursor,
+              hasProgressTrigger
+            });
+          }
+        } else {
+          const msgRes = await getTicketMessagesFromSupabase(lookupKey);
+          if (msgRes.success && msgRes.data) {
+            const hasProgressTrigger =
+              req.user!.role === 'installer' &&
+              hasUserSentProgressMessage(msgRes.data, ticketObj || id, req.user!.id);
+            return res.json({ success: true, messages: msgRes.data, hasMore: false, nextCursor: null, hasProgressTrigger });
+          }
+        }
+        if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({
             success: false,
             error: 'Database authoritative Supabase tidak tersedia.',
@@ -14041,16 +14664,34 @@ export async function createExpressApp(options?: {
       }
     }
 
-    const msgs = db.ticketMessages.filter(m => m.ticketId === (ticket ? ticket.id : id) || m.woNumber === (ticket ? ticket.woNumber : id));
+    let msgs = db.ticketMessages
+      .filter(m => m.ticketId === (ticket ? ticket.id : id) || m.woNumber === (ticket ? ticket.woNumber : id))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    let hasMore = false;
+    let nextCursor: string | null = null;
+    if (usePagination) {
+      const limit = Math.min(Math.max(rawLimit || 50, 1), 200);
+      if (rawBefore) {
+        const beforeMs = new Date(rawBefore).getTime();
+        msgs = msgs.filter(m => new Date(m.timestamp).getTime() < beforeMs);
+      }
+      if (msgs.length > limit) {
+        hasMore = true;
+        msgs = msgs.slice(msgs.length - limit);
+        nextCursor = msgs[0]?.timestamp || null;
+      }
+    }
+
     const hasProgressTrigger =
       req.user!.role === 'installer' &&
       hasUserSentProgressMessage(msgs, ticket || id, req.user!.id);
-    res.json({ success: true, messages: msgs, hasProgressTrigger });
+    res.json({ success: true, messages: msgs, hasMore, nextCursor, hasProgressTrigger });
   });
 
   app.post('/api/tickets/:id/messages', requireAuth, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
-    const { text, attachments, category } = req.body || {};
+    const { text, attachments, category, clientMessageId } = req.body || {};
     const user = req.user!;
 
     // Leader role is strictly read-only monitoring; cannot send messages
@@ -14070,7 +14711,32 @@ export async function createExpressApp(options?: {
     }
 
     const cleanText = String(text || '').trim();
-    const safeAttachments = Array.isArray(attachments) ? attachments : [];
+    const safeAttachments = Array.isArray(attachments)
+      ? attachments
+          .filter((a: any) => a && typeof a === 'object')
+          .map((a: any) => {
+            const rawUrl = String(a.downloadUrl || a.url || '').trim();
+            const safeUrl =
+              rawUrl.startsWith('/api/storage/') ||
+              rawUrl.startsWith('https://') ||
+              rawUrl.startsWith('http://') ||
+              rawUrl.startsWith('data:image/')
+                ? rawUrl
+                : '';
+            return {
+              id: String(a.id || `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+              type: a.type === 'image' ? 'image' : 'file',
+              url: safeUrl,
+              ...(a.storagePath ? { storagePath: String(a.storagePath) } : {}),
+              ...(a.downloadUrl ? { downloadUrl: safeUrl } : {}),
+              fileName: String(a.fileName || 'Lampiran'),
+              ...(typeof a.fileSize === 'number' ? { fileSize: a.fileSize } : {}),
+              ...(a.mimeType ? { mimeType: String(a.mimeType) } : {})
+            };
+          })
+          .filter((a: any) => Boolean(a.url || a.storagePath))
+      : [];
+
     if (!cleanText && safeAttachments.length === 0) {
       return res.status(400).json({
         success: false,
@@ -14079,6 +14745,7 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const cleanClientMessageId = clientMessageId ? String(clientMessageId).trim().slice(0, 120) : undefined;
     const rawCategory = String(category || '').trim();
     const isInstallerRole = user.role === 'installer';
     let selectedCategory: string | undefined = rawCategory ? rawCategory.toUpperCase() : undefined;
@@ -14130,6 +14797,7 @@ export async function createExpressApp(options?: {
         const newMsgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         const insertRes = await insertTicketMessageToSupabase({
           id: newMsgId,
+          clientMessageId: cleanClientMessageId,
           ticketId: ticketData ? ticketData.id : id,
           woNumber: ticketData ? ticketData.woNumber : id,
           senderId: user.id,
@@ -14149,8 +14817,13 @@ export async function createExpressApp(options?: {
           });
         }
 
+        const isDeduplicated = Boolean(insertRes.deduplicated);
+
+        // Clear sender typing state immediately on message submission
+        clearTypingEntryForUser(String(ticketData ? ticketData.id : id), user.id, true);
+
         const ticketUpdates: Record<string, any> = {};
-        if (ticketData) {
+        if (ticketData && !isDeduplicated) {
           if (selectedCategory) {
             ticketUpdates.chatCategory = selectedCategory;
           }
@@ -14161,7 +14834,7 @@ export async function createExpressApp(options?: {
           ticketUpdates.updatedBy = user.name;
         }
 
-        if (ticketData && triggeredCheckIn) {
+        if (ticketData && !isDeduplicated && triggeredCheckIn) {
           const existingSessions = Array.isArray(ticketData.workSessions) ? [...ticketData.workSessions] : [];
           if (!existingSessions.some((s: any) => s.status === 'Sedang Dikerjakan')) {
             existingSessions.push({
@@ -14186,6 +14859,7 @@ export async function createExpressApp(options?: {
 
         const newMsg = insertRes.data || {
           id: newMsgId,
+          ...(cleanClientMessageId ? { clientMessageId: cleanClientMessageId } : {}),
           ticketId: ticketData ? ticketData.id : id,
           woNumber: ticketData ? ticketData.woNumber : id,
           senderId: user.id,
@@ -14202,7 +14876,7 @@ export async function createExpressApp(options?: {
           isCheckIn: triggeredCheckIn
         };
 
-        if (insertRes.success) {
+        if (insertRes.success && !isDeduplicated) {
           broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticketData });
         }
 
@@ -14217,10 +14891,11 @@ export async function createExpressApp(options?: {
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
+            deduplicated: isDeduplicated,
             message: newMsg,
             ticket: ticketData,
-            checkInTriggered: triggeredCheckIn,
-            checkedIn: triggeredCheckIn,
+            checkInTriggered: !isDeduplicated && triggeredCheckIn,
+            checkedIn: !isDeduplicated && triggeredCheckIn,
             hasProgressTrigger
           });
         }
@@ -14243,6 +14918,28 @@ export async function createExpressApp(options?: {
         code: 'FORBIDDEN_SCOPE'
       });
     }
+
+    if (cleanClientMessageId) {
+      const existingLocal = (db.ticketMessages || []).find(
+        (m: any) =>
+          (m.ticketId === (ticket ? ticket.id : id) || m.woNumber === (ticket ? ticket.woNumber : id)) &&
+          m.senderId === user.id &&
+          m.clientMessageId === cleanClientMessageId
+      );
+      if (existingLocal) {
+        return res.json({
+          success: true,
+          deduplicated: true,
+          message: existingLocal,
+          ticket,
+          checkInTriggered: false,
+          checkedIn: false,
+          hasProgressTrigger: false
+        });
+      }
+    }
+
+    clearTypingEntryForUser(String(ticket ? ticket.id : id), user.id, true);
 
     const prevLocalTicket = ticket ? { ...ticket } : undefined;
     let triggeredCheckIn = false;
@@ -14280,6 +14977,7 @@ export async function createExpressApp(options?: {
 
     const newMsg: any = {
       id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      ...(cleanClientMessageId ? { clientMessageId: cleanClientMessageId } : {}),
       ticketId: ticket ? ticket.id : id,
       woNumber: ticket ? ticket.woNumber : id,
       senderId: user.id,
@@ -14309,6 +15007,7 @@ export async function createExpressApp(options?: {
 
     res.json({
       success: true,
+      deduplicated: false,
       message: newMsg,
       ticket,
       checkInTriggered: triggeredCheckIn,
@@ -14614,10 +15313,34 @@ export async function createExpressApp(options?: {
         .filter((t: any) => t && t.isDeleted === true)
         .map((t: any) => String(t.id));
 
+      const scopedAll = scopeTicketsForUser(
+        allRawForDeleted.filter((t: any) => t && !t.isDeleted),
+        user
+      );
+
       const scopedUpdated = scopeTicketsForUser(
         changedRaw.filter((t: any) => t && !t.isDeleted),
         user
       ).map((t: any) => attachClassificationMetadata(t, todayWIB));
+
+      // Catch up missed LiveChat messages & receipt changes for user's scoped active tickets
+      let deltaMessages: any[] = [];
+      const activeScopedIds = scopedAll.filter((t: any) => !t.isArchived).map((t: any) => String(t.id));
+      if (activeScopedIds.length > 0) {
+        if (isSupabaseMode()) {
+          const mDeltaRes = await getTicketMessagesDeltaForTicketsFromSupabase(activeScopedIds, sinceIso);
+          if (mDeltaRes.success && Array.isArray(mDeltaRes.data)) {
+            deltaMessages = mDeltaRes.data;
+          }
+        } else {
+          const activeIdSet = new Set(activeScopedIds);
+          deltaMessages = (db.ticketMessages || []).filter((m: any) => {
+            if (!m || !activeIdSet.has(String(m.ticketId || ''))) return false;
+            const ts = new Date(m.updatedAt || m.timestamp || 0).getTime();
+            return !Number.isNaN(ts) && ts >= sinceMs;
+          });
+        }
+      }
 
       const rolePermBundle = await getEffectiveRolePermissions();
       const latestGlobalConfigVer = Array.isArray(db.globalConfigVersions) && db.globalConfigVersions.length > 0
@@ -14628,6 +15351,7 @@ export async function createExpressApp(options?: {
         success: true,
         since: sinceIso,
         tickets: scopedUpdated,
+        ticketMessages: deltaMessages,
         deletedIds,
         rolePermissionsVersion: rolePermBundle?.version || 1,
         rolePermissions: rolePermBundle?.permissions,
@@ -15117,12 +15841,13 @@ export async function startServer() {
   httpServer.listen(PORT, HOST, () => {
     console.log(`MoraJaws Dispatch Management Server running on http://${HOST}:${PORT}`);
 
-    // Non-blocking background health check log & idempotent RBAC consolidation on startup
+    // Non-blocking background health check log, idempotent RBAC consolidation & Supabase Realtime DB Bridge on startup
     checkSupabaseConnection()
       .then(async res => {
         console.log(`[Startup Check] Supabase: ${res.status.toUpperCase()} - ${res.message}`);
         if (res.status === 'connected') {
           await consolidateLegacyRolesOnStartup();
+          startSupabasePostgresRealtimeBridge();
         }
       })
       .catch(() => {});
